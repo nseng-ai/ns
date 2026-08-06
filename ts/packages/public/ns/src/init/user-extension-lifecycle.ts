@@ -1,21 +1,13 @@
 import { failure, type CommandOutcome } from "@nseng-ai/clinkr/app";
+import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
+import type { UserExtensionLayerDecision } from "@nseng-ai/sdk/extensions/user-extension-layer";
 import {
 	classifyExtensionSourceLifecycle,
 	managedNpmPackagePaths,
 	type ExtensionSourceSpec,
 	type ManagedNpmStorage,
 } from "@nseng-ai/sdk/project-config";
-import { decideUserExtensionLayer } from "@nseng-ai/sdk/extensions/user-extension-layer";
-import {
-	ALL_HARNESS_IDS,
-	validateSupportedHarnesses,
-	type HarnessId,
-} from "@nseng-ai/sdk/project-config/harness-identity";
-import {
-	getProjectConfigSetting,
-	parseProjectConfigToml,
-	type SettingsSchema,
-} from "@nseng-ai/sdk/project-config/points";
+import { ALL_HARNESS_IDS, type HarnessId } from "@nseng-ai/sdk/project-config/harness-identity";
 import { z } from "zod";
 
 import type {
@@ -53,60 +45,32 @@ export interface UserExtensionLifecycleContext {
 	readonly userArtifacts: UserArtifactActivationGateway;
 }
 
-export type UserSupportedHarnessesFacts =
-	| { readonly type: "configured"; readonly harnesses: readonly HarnessId[] }
-	| { readonly type: "missing"; readonly harnesses: readonly [] }
-	| {
-			readonly type: "invalid";
-			readonly harnesses: readonly [];
-			readonly error: { readonly code: string; readonly message: string; readonly path: string };
-	  };
+export const userExtensionLayerStatusSchema = z.discriminatedUnion("enabled", [
+	z.object({
+		enabled: z.literal(true),
+		activeHarness: z.enum(ALL_HARNESS_IDS),
+	}),
+	z.object({
+		enabled: z.literal(false),
+		reason: z.enum([
+			"active-harness-unset",
+			"active-harness-unknown",
+			"user-config-unavailable",
+			"supported-harnesses-missing",
+			"supported-harnesses-invalid",
+			"active-harness-unsupported",
+		]),
+	}),
+]);
+export type UserExtensionLayerStatus = z.infer<typeof userExtensionLayerStatusSchema>;
 
-const userSupportedHarnessesSettingsSchema = {
-	path: ["supported_harnesses"] as const,
-	schema: z.array(z.string()),
-	invalidMessage: ({ pathLabel }) =>
-		`${pathLabel} top-level supported_harnesses must be a string array of canonical harness ids (${ALL_HARNESS_IDS.join(", ")}).`,
-} satisfies SettingsSchema<readonly string[]>;
-
-/** Parse lifecycle gate facts without changing the byte-oriented config editing path. */
-export function parseUserSupportedHarnessesFacts(
-	content: string,
-	configPath: string,
-): UserSupportedHarnessesFacts {
-	const parsed = parseProjectConfigToml(content, {
-		pathLabel: configPath,
-		pointsTable: { mode: "skip" },
-		settingsSchemas: [userSupportedHarnessesSettingsSchema],
-	});
-	const diagnostic = parsed.diagnostics.find((item) => item.severity === "error");
-	if (parsed.config === undefined || diagnostic !== undefined) {
-		return invalidUserSupportedHarnesses(
-			configPath,
-			diagnostic?.message ?? `${configPath}: invalid user extension configuration.`,
-		);
-	}
-	const values = getProjectConfigSetting(parsed.config, userSupportedHarnessesSettingsSchema);
-	if (values === undefined) return { type: "missing", harnesses: [] };
-	const validated = validateSupportedHarnesses(values);
-	if (validated.type === "invalid") {
-		return invalidUserSupportedHarnesses(configPath, `${configPath}: ${validated.message}`);
-	}
-	return { type: "configured", harnesses: validated.harnesses };
-}
-
-/** Shared catalog/lifecycle gate reporting over already parsed lifecycle facts. */
-export function decideUserExtensionLifecycleGate(options: {
-	readonly env: Record<string, string | undefined> | undefined;
-	readonly supportedHarnesses: UserSupportedHarnessesFacts;
-}) {
-	return decideUserExtensionLayer({
-		env: options.env,
-		supportedHarnesses:
-			options.supportedHarnesses.type === "configured"
-				? { type: "configured", harnesses: options.supportedHarnesses.harnesses }
-				: { type: options.supportedHarnesses.type },
-	});
+/** Convert the SDK gate decision to the lifecycle commands' public status. */
+export function userExtensionLayerStatus(
+	decision: UserExtensionLayerDecision,
+): UserExtensionLayerStatus {
+	return decision.enabled
+		? { enabled: true, activeHarness: decision.activeHarness }
+		: { enabled: false, reason: decision.reason.type };
 }
 
 export interface UserArtifactPreflightBlocker {
@@ -212,9 +176,15 @@ export function summarizeUserArtifactActions(
 		.join(", ");
 }
 
+export const dormantUserContributionsSchema = z.object({
+	instructionModuleCount: z.number().int().nonnegative(),
+	consumerDirCount: z.number().int().nonnegative(),
+});
+export type DormantUserContributions = z.infer<typeof dormantUserContributionsSchema>;
+
 export function summarizeDormantUserContributions(
-	descriptors: Awaited<ReturnType<DeclaredExtensionsGateway["load"]>>["descriptors"],
-): { readonly instructionModuleCount: number; readonly consumerDirCount: number } {
+	descriptors: readonly DeclaredExtensionDescriptor[],
+): DormantUserContributions {
 	return {
 		instructionModuleCount: descriptors.filter(
 			(descriptor) => descriptor.descriptor.activation?.instructions !== undefined,
@@ -223,17 +193,6 @@ export function summarizeDormantUserContributions(
 			(count, descriptor) => count + (descriptor.descriptor.activation?.consumerDirs?.length ?? 0),
 			0,
 		),
-	};
-}
-
-function invalidUserSupportedHarnesses(
-	configPath: string,
-	message: string,
-): Extract<UserSupportedHarnessesFacts, { readonly type: "invalid" }> {
-	return {
-		type: "invalid",
-		harnesses: [],
-		error: { code: "user-supported-harnesses-invalid", message, path: configPath },
 	};
 }
 
@@ -333,9 +292,7 @@ export async function loadOneUserDescriptor<TResult>(options: {
 }): Promise<
 	| {
 			readonly ok: true;
-			readonly descriptor: Awaited<
-				ReturnType<DeclaredExtensionsGateway["load"]>
-			>["descriptors"][number];
+			readonly descriptor: DeclaredExtensionDescriptor;
 	  }
 	| { readonly ok: false; readonly exit: CommandOutcome<TResult> }
 > {

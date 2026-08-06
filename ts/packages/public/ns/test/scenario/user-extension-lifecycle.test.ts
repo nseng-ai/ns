@@ -6,7 +6,7 @@ import type { UserExtensionPackageAvailabilityFact } from "@nseng-ai/sdk/extensi
 import { userManagedNpmStorage } from "@nseng-ai/sdk/project-config";
 import { createEmptyPreparedHarnessArtifactTransitions } from "../../src/harness-artifacts/api.ts";
 
-import type { InMemoryUserNpmUpdateAcquisitionState } from "../../src/init/extension-acquisition.ts";
+import type { InMemoryUserNpmUpdateAcquisitionState } from "../../src/init/user-npm-update-acquisition.ts";
 import type { ExtensionInstallContext } from "../../src/init/install-extension.ts";
 import {
 	installExtension,
@@ -14,7 +14,11 @@ import {
 	renderInstallExtensionMarkdown,
 } from "../../src/init/install-extension.ts";
 import type { ExtensionListContext } from "../../src/init/list-extensions.ts";
-import { listExtensions } from "../../src/init/list-extensions.ts";
+import {
+	listExtensions,
+	renderListExtensionsHuman,
+	renderListExtensionsMarkdown,
+} from "../../src/init/list-extensions.ts";
 import type { ExtensionUninstallContext } from "../../src/init/uninstall-extension.ts";
 import { uninstallExtension } from "../../src/init/uninstall-extension.ts";
 import type { ExtensionUpdateContext } from "../../src/init/update-extension.ts";
@@ -566,7 +570,7 @@ describe("user extension lifecycle", () => {
 			acquisitionOutcome: "installed" as const,
 			commandAvailability: "available" as const,
 			configuredHarnesses: ["pi" as const],
-			userExtensionLayer: { enabled: true, activeHarness: "pi" as const },
+			userExtensionLayer: { enabled: true as const, activeHarness: "pi" as const },
 			artifacts: [],
 			dormantContributions: { instructionModuleCount: 0, consumerDirCount: 0 },
 			activation: "not-performed" as const,
@@ -1269,9 +1273,12 @@ describe("user extension lifecycle", () => {
 			data: {
 				extensions: [],
 				orphanedArtifactCount: 1,
-				harnessSetDriftNote: expect.stringContaining("does not reconcile"),
 			},
 		});
+		if (result.status !== "success") throw new Error("Expected successful User inventory.");
+		expect(result.data).not.toHaveProperty("harnessSetDriftNote");
+		expect(renderListExtensionsHuman(result.data)).toContain("does not reconcile");
+		expect(renderListExtensionsMarkdown(result.data)).toContain("does not reconcile");
 		expect(userArtifacts.prepareCalls()).toEqual([
 			{
 				cwd: "/outside",

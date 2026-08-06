@@ -4,20 +4,25 @@ import type { CommandOutcome } from "@nseng-ai/clinkr/app";
 import { failure, ok } from "@nseng-ai/clinkr/app";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
+import {
+	decideUserExtensionLayer,
+	parseUserSupportedHarnessesFacts,
+} from "@nseng-ai/sdk/extensions/user-extension-layer";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 import {
 	completedUserArtifactEvidence,
-	decideUserExtensionLifecycleGate,
+	dormantUserContributionsSchema,
 	extensionLifecycleScopeSchemaValues,
 	loadOneUserDescriptor,
-	parseUserSupportedHarnessesFacts,
 	prepareUserConfig,
 	prepareUserExtensionSource,
 	summarizeDormantUserContributions,
 	summarizeUserArtifactActions,
 	userArtifactPreflightBlockers,
+	userExtensionLayerStatus,
+	userExtensionLayerStatusSchema,
 	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
@@ -87,16 +92,9 @@ export const installExtensionResultSchema = z.discriminatedUnion("scope", [
 		acquisitionOutcome: z.enum(["installed", "unchanged", "local-in-place"]),
 		commandAvailability: z.enum(["available", "unavailable"]),
 		configuredHarnesses: z.array(z.enum(ALL_HARNESS_IDS)).readonly(),
-		userExtensionLayer: z.object({
-			enabled: z.boolean(),
-			activeHarness: z.enum(ALL_HARNESS_IDS).optional(),
-			reason: z.string().optional(),
-		}),
+		userExtensionLayer: userExtensionLayerStatusSchema,
 		artifacts: z.array(declaredArtifactActivationOutcomeSchema).readonly(),
-		dormantContributions: z.object({
-			instructionModuleCount: z.number().int().nonnegative(),
-			consumerDirCount: z.number().int().nonnegative(),
-		}),
+		dormantContributions: dormantUserContributionsSchema,
 		activation: z.literal("not-performed"),
 	}),
 ]);
@@ -435,7 +433,7 @@ async function installUserExtension(
 			diagnostics: [normalizeExtensionDiagnostic(applied.error)],
 			retryGuidance: `Re-run ns extension update --scope user ${source.sourceSpec} to retry the remaining artifact transitions.`,
 		});
-	const gate = decideUserExtensionLifecycleGate({ env: context.env, supportedHarnesses });
+	const gate = decideUserExtensionLayer({ env: context.env, supportedHarnesses });
 	return ok({
 		scope: "user",
 		sourceSpec: source.sourceSpec,
@@ -448,9 +446,7 @@ async function installUserExtension(
 		acquisitionOutcome,
 		commandAvailability: gate.enabled ? "available" : "unavailable",
 		configuredHarnesses: [...supportedHarnesses.harnesses],
-		userExtensionLayer: gate.enabled
-			? { enabled: true, activeHarness: gate.activeHarness }
-			: { enabled: false, reason: gate.reason.type },
+		userExtensionLayer: userExtensionLayerStatus(gate),
 		artifacts: completedUserArtifactEvidence(applied.completed),
 		dormantContributions: summarizeDormantUserContributions([loaded.descriptor]),
 		activation: "not-performed",

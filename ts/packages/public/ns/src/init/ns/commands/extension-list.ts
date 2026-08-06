@@ -3,6 +3,7 @@ import {
 	listExtensionsRequestSchema,
 	listExtensionsResultSchema,
 	renderListExtensionsHuman,
+	renderListExtensionsMarkdown,
 } from "../../list-extensions.ts";
 import { nsInitCommand } from "../command.ts";
 
@@ -16,6 +17,7 @@ export const nsExtensionListCommand = nsInitCommand({
 	resultSchema: listExtensionsResultSchema,
 	handler: (context, request) => listExtensions(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderListExtensionsHuman,
+	renderMarkdown: renderListExtensionsMarkdown,
 });
 
 export default nsExtensionListCommand;

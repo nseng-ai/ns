@@ -16,17 +16,23 @@ import type {
 	DeclaredExtensionDescriptorDiagnostic,
 } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import {
+	decideUserExtensionLayer,
+	parseUserSupportedHarnessesFacts,
+} from "@nseng-ai/sdk/extensions/user-extension-layer";
+import {
 	classifyExtensionSourceLifecycle,
 	managedNpmPackagePaths,
 } from "@nseng-ai/sdk/project-config";
+import type { HarnessId } from "@nseng-ai/sdk/project-config/harness-identity";
 import { z } from "zod";
 
 import {
-	decideUserExtensionLifecycleGate,
+	dormantUserContributionsSchema,
 	extensionLifecycleScopeSchemaValues,
-	parseUserSupportedHarnessesFacts,
 	prepareUserConfig,
 	summarizeDormantUserContributions,
+	userExtensionLayerStatus,
+	userExtensionLayerStatusSchema,
 	type UserExtensionAvailabilityContext,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
@@ -94,21 +100,12 @@ export const userExtensionListRowSchema = z.object({
 	artifactStatus: extensionArtifactStatusSchema,
 	artifactCount: z.number().int().nonnegative(),
 	affectedArtifactCount: z.number().int().nonnegative(),
-	dormantContributions: z.object({
-		instructionModuleCount: z.number().int().nonnegative(),
-		consumerDirCount: z.number().int().nonnegative(),
-	}),
+	dormantContributions: dormantUserContributionsSchema,
 	diagnostics: z.array(extensionListDiagnosticSchema),
 });
 
 export const listExtensionsRequestSchema = z.object({
 	scope: z.enum(extensionLifecycleScopeSchemaValues).default("project"),
-});
-
-export const userExtensionLayerStatusSchema = z.object({
-	enabled: z.boolean(),
-	activeHarness: z.enum(ALL_HARNESS_IDS).optional(),
-	reason: z.string().optional(),
 });
 
 export const listExtensionsResultSchema = z.discriminatedUnion("scope", [
@@ -129,7 +126,6 @@ export const listExtensionsResultSchema = z.discriminatedUnion("scope", [
 			.int()
 			.nonnegative()
 			.describe("User-manifest artifacts owned by packages no longer declared."),
-		harnessSetDriftNote: z.string(),
 		extensions: z.array(userExtensionListRowSchema),
 	}),
 ]);
@@ -540,9 +536,7 @@ async function inspectUserArtifacts(options: {
 	readonly context: ExtensionListContext;
 	readonly cwd: string;
 	readonly installedDescriptors: readonly DeclaredExtensionDescriptor[];
-	readonly configuredHarnesses: Parameters<
-		ExtensionListContext["userArtifacts"]["prepare"]
-	>[0]["configuredHarnesses"];
+	readonly configuredHarnesses: readonly HarnessId[];
 }): Promise<UserArtifactInspection> {
 	const prepared = await options.context.userArtifacts.prepare({
 		cwd: options.cwd,
@@ -651,7 +645,7 @@ async function listUserExtensions(
 			{ ...supportedHarnesses.error, path: prepared.configPath },
 			"user",
 		);
-	const layerDecision = decideUserExtensionLifecycleGate({
+	const layerDecision = decideUserExtensionLayer({
 		env: context.env,
 		supportedHarnesses: supportedHarnesses,
 	});
@@ -778,16 +772,14 @@ async function listUserExtensions(
 		configPath: prepared.configPath,
 		supportedHarnessesState: supportedHarnesses.type,
 		configuredHarnesses: [...supportedHarnesses.harnesses],
-		userExtensionLayer: layerDecision.enabled
-			? { enabled: true, activeHarness: layerDecision.activeHarness }
-			: {
-					enabled: false,
-					reason: layerDecision.reason.type,
-				},
+		userExtensionLayer: userExtensionLayerStatus(layerDecision),
 		orphanedArtifactCount: artifactInspection.orphanedArtifactCount,
-		harnessSetDriftNote: HARNESS_SET_DRIFT_NOTE,
 		extensions: rows,
 	});
+}
+
+export function renderListExtensionsMarkdown(result: ListExtensionsResult): string {
+	return renderListExtensionsHuman(result);
 }
 
 export function renderListExtensionsHuman(result: ListExtensionsResult): string {
@@ -816,8 +808,8 @@ export function renderListExtensionsHuman(result: ListExtensionsResult): string 
 						]),
 					});
 		const layer = result.userExtensionLayer.enabled
-			? `User extension layer: enabled for ${result.userExtensionLayer.activeHarness ?? "unknown"}.`
-			: `User extension layer: disabled. ${result.userExtensionLayer.reason ?? ""}`.trimEnd();
+			? `User extension layer: enabled for ${result.userExtensionLayer.activeHarness}.`
+			: `User extension layer: disabled. ${result.userExtensionLayer.reason}`;
 		const harnesses =
 			result.supportedHarnessesState === "configured"
 				? `Configured harnesses: ${result.configuredHarnesses.join(", ")}.`
@@ -847,7 +839,7 @@ export function renderListExtensionsHuman(result: ListExtensionsResult): string 
 			layer,
 			harnesses,
 			...orphaned,
-			result.harnessSetDriftNote,
+			HARNESS_SET_DRIFT_NOTE,
 			...(dormant.length === 0 ? [] : ["", "Dormant contributions:", ...dormant]),
 			...(diagnostics.length === 0 ? [] : ["", "Diagnostics:", ...diagnostics]),
 		].join("\n");

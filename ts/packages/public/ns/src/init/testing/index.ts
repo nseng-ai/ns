@@ -22,14 +22,14 @@ export type {
 	InMemoryExtensionInstallAcquisitionState,
 	InMemoryExtensionUninstallAcquisitionState,
 	InMemoryExtensionUpdateAcquisitionState,
-	InMemoryUserNpmUpdateAcquisitionState,
 } from "../extension-acquisition.ts";
 export {
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
-	InMemoryUserNpmUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";
+export type { InMemoryUserNpmUpdateAcquisitionState } from "../user-npm-update-acquisition.ts";
+export { InMemoryUserNpmUpdateAcquisitionGateway } from "../user-npm-update-acquisition.ts";
 export type { LifecycleTraceSink } from "../lifecycle-observability.ts";
 
 export class CollectingLifecycleTraceSink implements LifecycleTraceSink {

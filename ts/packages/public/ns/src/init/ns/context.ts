@@ -14,8 +14,8 @@ import {
 	RealExtensionInstallAcquisitionGateway,
 	RealExtensionUninstallAcquisitionGateway,
 	RealExtensionUpdateAcquisitionGateway,
-	RealUserNpmUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";
+import { RealUserNpmUpdateAcquisitionGateway } from "../user-npm-update-acquisition.ts";
 import type { ExtensionInstallContext } from "../install-extension.ts";
 import type { ExtensionListContext } from "../list-extensions.ts";
 import type { ExtensionUninstallContext } from "../uninstall-extension.ts";

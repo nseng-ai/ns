@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	decideUserExtensionLifecycleGate,
+	decideUserExtensionLayer,
 	parseUserSupportedHarnessesFacts,
-} from "../src/init/user-extension-lifecycle.ts";
+} from "@nseng-ai/sdk/extensions/user-extension-layer";
 
 const configPath = "/home/test/.config/ns/ns.toml";
 
@@ -27,13 +27,15 @@ describe("user lifecycle supported harness facts", () => {
 			configPath,
 		);
 
-		expect(decideUserExtensionLifecycleGate({ env: {}, supportedHarnesses })).toEqual({
+		expect(decideUserExtensionLayer({ env: {}, supportedHarnesses })).toEqual({
 			enabled: false,
 			reason: { type: "active-harness-unset" },
 		});
-		expect(
-			decideUserExtensionLifecycleGate({ env: { NS_HARNESS: "pi" }, supportedHarnesses }),
-		).toEqual({ enabled: true, activeHarness: "pi", supportedHarnesses: ["pi"] });
+		expect(decideUserExtensionLayer({ env: { NS_HARNESS: "pi" }, supportedHarnesses })).toEqual({
+			enabled: true,
+			activeHarness: "pi",
+			supportedHarnesses: ["pi"],
+		});
 	});
 
 	test.each([

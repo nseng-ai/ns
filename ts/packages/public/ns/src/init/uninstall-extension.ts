@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { CommandOutcome } from "@nseng-ai/clinkr/app";
 import { failure, ok } from "@nseng-ai/clinkr/app";
 import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
+import { parseUserSupportedHarnessesFacts } from "@nseng-ai/sdk/extensions/user-extension-layer";
 import {
 	managedNpmPackagePaths,
 	planDeclaredExtensionUninstallToml,
@@ -14,13 +15,13 @@ import {
 	completedUserArtifactEvidence,
 	extensionLifecycleScopeSchemaValues,
 	loadOneUserDescriptor,
-	parseUserSupportedHarnessesFacts,
 	prepareUserConfig,
 	prepareUserExtensionSource,
 	summarizeUserArtifactActions,
 	userArtifactPreflightBlockers,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
+import type { PrepareUserArtifactActivationResult } from "./user-artifact-activation.ts";
 
 import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
 import {
@@ -324,9 +325,7 @@ async function uninstallUserExtension(
 		: targetPackageName === undefined
 			? ("artifacts-retained-package-identity-unavailable" as const)
 			: ("performed" as const);
-	let preparedArtifactRemoval:
-		| Awaited<ReturnType<ExtensionUninstallContext["userArtifacts"]["prepare"]>>
-		| undefined;
+	let preparedArtifactRemoval: PrepareUserArtifactActivationResult | undefined;
 	if (declaration.isRemoved && targetPackageName !== undefined) {
 		preparedArtifactRemoval = await context.userArtifacts.prepare({
 			cwd: request.cwd,

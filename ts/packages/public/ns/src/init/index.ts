@@ -56,14 +56,18 @@ export type {
 	UserArtifactActivationGateway,
 } from "./user-artifact-activation.ts";
 export { RealUserArtifactActivationGateway } from "./real-user-artifact-activation.ts";
+export type { UserSupportedHarnessesFacts } from "@nseng-ai/sdk/extensions/user-extension-layer";
+export { parseUserSupportedHarnessesFacts } from "@nseng-ai/sdk/extensions/user-extension-layer";
 export type {
+	DormantUserContributions,
 	ExtensionLifecycleScope,
-	UserSupportedHarnessesFacts,
+	UserExtensionLayerStatus,
 } from "./user-extension-lifecycle.ts";
 export {
-	decideUserExtensionLifecycleGate,
+	dormantUserContributionsSchema,
 	extensionLifecycleScopeSchemaValues,
-	parseUserSupportedHarnessesFacts,
+	userExtensionLayerStatus,
+	userExtensionLayerStatusSchema,
 } from "./user-extension-lifecycle.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";
 export type {
@@ -111,6 +115,7 @@ export {
 	listExtensionsRequestSchema,
 	listExtensionsResultSchema,
 	renderListExtensionsHuman,
+	renderListExtensionsMarkdown,
 } from "./list-extensions.ts";
 export type {
 	ExtensionUninstallContext,

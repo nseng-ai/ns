@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { decideUserExtensionLayer } from "../../src/extensions/user-extension-layer.ts";
+import {
+	decideUserExtensionLayer,
+	parseUserSupportedHarnessesFacts,
+	userSupportedHarnessesFactsFromSetting,
+} from "../../src/extensions/user-extension-layer.ts";
 
 describe("user extension layer decision", () => {
 	test.each([
@@ -10,8 +14,16 @@ describe("user extension layer decision", () => {
 			{ type: "configured", harnesses: ["pi"] },
 			"active-harness-unknown",
 		],
-		[{ NS_HARNESS: "pi" }, { type: "missing" }, "supported-harnesses-missing"],
-		[{ NS_HARNESS: "pi" }, { type: "invalid" }, "supported-harnesses-invalid"],
+		[{ NS_HARNESS: "pi" }, { type: "missing", harnesses: [] }, "supported-harnesses-missing"],
+		[
+			{ NS_HARNESS: "pi" },
+			{
+				type: "invalid",
+				harnesses: [],
+				error: { code: "user-supported-harnesses-invalid", message: "invalid", path: "ns.toml" },
+			},
+			"supported-harnesses-invalid",
+		],
 		[
 			{ NS_HARNESS: "codex" },
 			{ type: "configured", harnesses: ["pi"] },
@@ -32,6 +44,38 @@ describe("user extension layer decision", () => {
 			enabled: true,
 			activeHarness: "claude-code",
 			supportedHarnesses: ["claude-code", "pi"],
+		});
+	});
+
+	test("converts decoded settings into explicit canonical facts", () => {
+		expect(userSupportedHarnessesFactsFromSetting(undefined, "/user/ns.toml")).toEqual({
+			type: "missing",
+			harnesses: [],
+		});
+		expect(
+			userSupportedHarnessesFactsFromSetting(["pi", "claude-code", "pi"], "/user/ns.toml"),
+		).toEqual({ type: "configured", harnesses: ["pi", "claude-code"] });
+		expect(userSupportedHarnessesFactsFromSetting([], "/user/ns.toml")).toEqual({
+			type: "invalid",
+			harnesses: [],
+			error: {
+				code: "user-supported-harnesses-invalid",
+				message: "/user/ns.toml: supported_harnesses must select at least one harness.",
+				path: "/user/ns.toml",
+			},
+		});
+	});
+
+	test("parses TOML through the same canonical conversion", () => {
+		expect(
+			parseUserSupportedHarnessesFacts(
+				'supported_harnesses = ["pi", "pi", "codex"]\n',
+				"/user/ns.toml",
+			),
+		).toEqual({ type: "configured", harnesses: ["pi", "codex"] });
+		expect(parseUserSupportedHarnessesFacts("extensions = []\n", "/user/ns.toml")).toEqual({
+			type: "missing",
+			harnesses: [],
 		});
 	});
 });

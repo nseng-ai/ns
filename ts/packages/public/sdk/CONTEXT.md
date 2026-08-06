@@ -18,6 +18,10 @@ An **Extension Descriptor** describes an extension package without executing its
 
 The ns host prepares source inventory and invocation context, constructs exactly one contextful `ClinkrApp`, mounts each source under its own label, and calls only `app.run()`. Clinkr owns recursive navigation, selected loading, help, schema handling, and completion. The standalone SDK host owns the extension-point subtree; a distribution host that owns extension lifecycle composes those SDK commands into its single host-internal `extension` subtree and disables the standalone SDK subtree. Host-owned shell commands remain a separate programmatic built-in subtree; all sources own disjoint top-level routes.
 
+## User extension layer
+
+`@nseng-ai/sdk/extensions/user-extension-layer` owns the User-layer Active-harness gate and Supported harness facts. Configured facts contain canonical, validated, declaration-order-deduplicated harness IDs; missing facts contain an explicit empty selection; invalid facts contain an explicit empty selection and a structured diagnostic. The loader resolves an unset or unknown Active harness before filesystem access, then decides contribution visibility once from the actual facts loaded from User `ns.toml`.
+
 ## User-scope bundled artifacts
 
 At user scope, lifecycle commands reconcile descriptor `bundledArtifacts` (currently bundled skills) into configured harness user roots. This reconciliation is independent of the Active harness gate for commands and points and does not run project activation or write repository contributions.
