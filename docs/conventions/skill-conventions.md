@@ -14,10 +14,6 @@ Externally sourced skills overlay onto this management rather than escaping it: 
 
 Procedures for channel 2 are documented in `skills/internal/skill-system/skill-management/SKILL.md`; load that known first-party path directly. The canonical install flag is `--agent codex claude-code -y`. Do not maintain a duplicate skill index in `AGENTS.md`.
 
-### Auditing and Tightening Skills
-
-To audit or tighten a `SKILL.md` — for predictability, token cost, trigger quality, progressive disclosure, install layout, or CLI push-down — summon the **`skill-audit`** skill (`skills/internal/skill-system/skill-audit/`). It carries ns's operational audit checklists and loads its conceptual frame at run time from the vendored `writing-for-agents` skill (`.agents/skills/writing-for-agents/`), which is the single source of the audit vocabulary — upstream refreshes flow in with no re-sync of the audit skill. Use the vocabulary's failure-mode names as the labels for audit findings; the names and deep definitions live in the vendored skill's `SKILL.md` (skill-only mechanics in its sibling `SKILL-MECHANICS.md`).
-
 ### Skill Exposure Policy and Harness Overlays
 
 Every managed skill has an explicit **Skill Exposure Policy**. The retained policies are exactly `normal`, `invoke-only`, and `skill-backed-command`. Manage them only through explicit skill-directory or direct `SKILL.md` paths:

@@ -23,7 +23,7 @@ per-diff rules is judgment — deciding what is mechanically reviewable in a dif
 needs higher context, and how to phrase a rule so a cheap model applies it without
 inventing findings — and no toolchain captures that. The drift failure modes that
 codegen would target are addressed instead by this document's checklist plus occasional
-audits.
+manual audits.
 
 ## Lineage kinds
 
@@ -135,6 +135,6 @@ split honest, and run the block's validation commands. Standalone reviews refres
 the doctrine they encode changes.
 
 There is no reconcile machinery watching for drift between sources, reviews, and stubs.
-The chosen alternative is occasional audits: walk the checklist above, confirm each
+The chosen alternative is occasional manual audits: walk the checklist above, confirm each
 stub still matches the template, and confirm each provenance block still names real
-sources. The `skill-audit` skill's fleet audits are the natural occasion.
+sources.

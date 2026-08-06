@@ -120,7 +120,6 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 		surface: "ns:typescript:style-tripwire",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "skill-audit", surface: "skill:audit", kind: "generic-backing-skill" },
 	{ skillName: "skill-management", surface: "skill:management", kind: "generic-backing-skill" },
 	{
 		skillName: "thermo-nuclear-code-quality-review",

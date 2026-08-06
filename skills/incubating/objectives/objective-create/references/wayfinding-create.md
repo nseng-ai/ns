@@ -9,8 +9,9 @@ The Objective record is the map: `objective.md` holds the Destination and Fog; `
 ## Procedure
 
 1. **Settle the Destination first** — thesis and completion criteria in `objective.md`, pinned through the interview before any question is charted; it shapes what every question asks.
-2. **Chart the Frontier breadth-first.** Fan out across the whole space rather than deep on one thread. Every roadmap row is a **Question Row** — an open decision or investigation typed `grilling`, `research`, `prototype`, or `task` — carrying explicit blocked-by references to other rows and sized to one agent session. The Frontier is the open, unblocked rows. **If charting surfaces no Fog** — the way to the Destination is already clear and small enough to execute directly — do not create an ideation Objective; say so and ask the user how to proceed (an ordinary plain Objective may fit).
+2. **Chart the Frontier breadth-first.** Fan out across the whole space rather than deep on one thread. Every roadmap row is a **Question Row** — a question whose resolution is a decision, not a build slice — typed `grilling`, `research`, `prototype`, or `task`, carrying explicit blocked-by references to other rows, and sized to one agent session. The Frontier is the open, unblocked rows. **If charting surfaces no Fog** — the way to the Destination is already clear and small enough to execute directly — do not create an ideation Objective; say so and ask the user how to proceed (an ordinary plain Objective may fit).
 3. **Hold Fog back.** Questions you cannot yet state precisely stay as a marked cluster under `## Open Questions` in `objective.md`, never pre-sliced into rows. The test: can the question be stated precisely now — not answered. Scope discipline (Fog gathers only toward the Destination) is the catalog Ideation entry's.
+4. **Dispatch research rows.** After writing the record, invoke the `research` skill's background-agent workflow for each unblocked `research` Question Row that can run independently. Record each finding through `objective-update`; do not apply the one-row-per-session limit to these parallel research resolutions. Do not hand-resolve any other row while charting.
 
 ## Layering
 
@@ -24,4 +25,4 @@ In addition to objective-create's own Verify:
 - every roadmap row is a typed Question Row with its blockers named;
 - Fog is captured or explicitly empty.
 
-Charting is one session's work; resolving Question Rows belongs to later sessions (`objective-next`, `objective-update`).
+Charting is one session's work. Apart from the parallel research exception above, resolving Question Rows belongs to later sessions (`objective-next`, `objective-update`).
