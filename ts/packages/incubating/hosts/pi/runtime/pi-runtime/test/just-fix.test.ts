@@ -4,9 +4,6 @@ import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-ki
 
 import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
 import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
-import type { SetWidgetFunction } from "../src/runtime/tool-types.ts";
-import { ComponentWidgetFake } from "./support/widget-fakes.ts";
-
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
 const JUST_CI_TIMEOUT_MS = 30 * 60 * 1000;
@@ -24,7 +21,6 @@ interface CommandContext {
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
-		setWidget?: SetWidgetFunction;
 	};
 	waitForIdle(): Promise<void>;
 }
@@ -52,25 +48,11 @@ interface StatusUpdate {
 	value: string | undefined;
 }
 
-interface WidgetUpdate {
-	key: string;
-	value: string[] | undefined;
-	options: { placement?: "aboveEditor" | "belowEditor" } | undefined;
-}
-
-interface CustomMessage {
-	customType: string;
-	content: string;
-	display: boolean;
-}
-
 type JustFixExtension = (pi: FakePi, exec?: FakePi["exec"]) => void;
 
 class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
-	readonly messages: CustomMessage[] = [];
-	readonly renderers = new Map<string, unknown>();
 	readonly sentUserMessages: string[] = [];
 	private readonly commandInfos: SkillCommandInfo[];
 	private readonly execResult: RawPiExecResult;
@@ -82,14 +64,6 @@ class FakePi {
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
-	}
-
-	registerMessageRenderer(customType: string, renderer: unknown): void {
-		this.renderers.set(customType, renderer);
-	}
-
-	sendMessage(message: CustomMessage): void {
-		this.messages.push(message);
 	}
 
 	async exec(
@@ -124,21 +98,10 @@ function createContext(cwd = ROOT): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	statuses: StatusUpdate[];
-	widgets: WidgetUpdate[];
 	waitForIdleCalls: () => number;
 } {
 	const notifications: Notification[] = [];
 	const statuses: StatusUpdate[] = [];
-	const widgets: WidgetUpdate[] = [];
-	const widgetFake = new ComponentWidgetFake({
-		onSnapshot: (snapshot) => {
-			widgets.push({
-				key: snapshot.key,
-				value: snapshot.lines,
-				options: snapshot.placement === undefined ? undefined : { placement: snapshot.placement },
-			});
-		},
-	});
 	let waits = 0;
 	const ctx: CommandContext = {
 		cwd,
@@ -150,14 +113,13 @@ function createContext(cwd = ROOT): {
 			setStatus(key: string, value: string | undefined): void {
 				statuses.push({ key, value });
 			},
-			setWidget: widgetFake.setWidget,
 		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
 	};
 
-	return { ctx, notifications, statuses, widgets, waitForIdleCalls: () => waits };
+	return { ctx, notifications, statuses, waitForIdleCalls: () => waits };
 }
 
 function skillCommandInfo(skillPath: string, baseDir: string): SkillCommandInfo {
@@ -224,16 +186,6 @@ Repair the failed just run.
 					{ key: "ns-cli-command", value: "⠋ /just · running" },
 					{ key: "ns-cli-command", value: undefined },
 				]);
-				expect(context.widgets).toEqual([]);
-				expect(pi.messages).toEqual([
-					{
-						customType: "ns-command-progress",
-						content: "→ Running `just`…",
-						display: true,
-					},
-				]);
-				expect(pi.renderers.has("ns-command-ack")).toBe(false);
-				expect(pi.renderers.has("ns-command-progress")).toBe(true);
 				expect(context.notifications).toEqual([
 					{ message: "`just` failed; invoking code-just-fix.", level: "warning" },
 				]);
@@ -313,14 +265,6 @@ Repair the failed just run.
 				expect(context.statuses).toEqual([
 					{ key: "ns-cli-command", value: "⠋ /just-ci · running" },
 					{ key: "ns-cli-command", value: undefined },
-				]);
-				expect(context.widgets).toEqual([]);
-				expect(pi.messages).toEqual([
-					{
-						customType: "ns-command-progress",
-						content: "→ Running `just ci`…",
-						display: true,
-					},
 				]);
 				expect(context.notifications).toEqual([{ message: "`just ci` passed.", level: "info" }]);
 				expect(pi.sentUserMessages).toEqual([]);

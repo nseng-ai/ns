@@ -60,7 +60,7 @@ describe("CliCommandStatusActivity", () => {
 		const { activity, updates } = createActivity();
 
 		expect(lastValue(updates)).toBe("⠋ /ns:flow:submit · running");
-		activity.setPhase("waiting for Pi to finish responding");
+		activity.setPhase("waiting for Pi");
 		expect(lastValue(updates)).toBe("⠋ /ns:flow:submit · waiting for Pi");
 		activity.setPhase("running CLI command");
 		expect(lastValue(updates)).toBe("⠋ /ns:flow:submit · running");
@@ -229,7 +229,7 @@ describe("CliCommandStatusActivity", () => {
 	test("detaches and cancels its timer when the status context becomes stale", () => {
 		const { activity, timers, updates } = createActivity({ staleAfterWrites: 1 });
 
-		activity.setPhase("waiting for Pi to finish responding");
+		activity.setPhase("waiting for Pi");
 		expect(updates).toHaveLength(1);
 		expect(timers.pendingTimerCount()).toBe(0);
 		expect(() => activity.close()).not.toThrow();
@@ -250,7 +250,7 @@ describe("CliCommandStatusActivity", () => {
 	test("is a no-op shell without UI", () => {
 		const { activity, timers, updates } = createActivity({ hasUI: false });
 
-		activity.setPhase("waiting for Pi to finish responding");
+		activity.setPhase("waiting for Pi");
 		activity.close();
 		expect(updates).toEqual([]);
 		expect(timers.pendingTimerCount()).toBe(0);
@@ -268,7 +268,7 @@ describe("CliCommandStatusActivity", () => {
 			},
 		);
 
-		activity.setPhase("waiting for Pi to finish responding");
+		activity.setPhase("waiting for Pi");
 		activity.close();
 		expect(timers.pendingTimerCount()).toBe(0);
 	});

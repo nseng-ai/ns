@@ -23,7 +23,6 @@ export const CLI_COMMAND_OUTPUT_MESSAGE_TYPE = "ns-cli-command-output";
 
 const PI_ACTIVE_HARNESS: HarnessId = "pi";
 
-type OutputStreamName = "stdout" | "stderr";
 interface CustomMessage {
 	customType: string;
 	content: CustomMessageContent;
@@ -82,12 +81,6 @@ export interface CliCommandRunDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
-	/**
-	 * Compatibility surface retained pending the clinkr-output-and-interaction-model
-	 * ruling. Pi no longer supplies this callback or renders transient CLI output;
-	 * use stdout/stderr for output that should remain visible after the command ends.
-	 */
-	onOutput?: (stream: OutputStreamName, text: string) => void;
 	/**
 	 * Emits structured live-progress phase events for the Pi footer status path only.
 	 * Events sent here are not included in the final rendered command result; use
@@ -413,7 +406,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		...(spec.timers === undefined ? {} : { timers: spec.timers }),
 	});
 	try {
-		activity.setPhase("waiting for Pi to finish responding");
+		activity.setPhase("waiting for Pi");
 		const waitStartedAt = Date.now();
 		traceCliCommand("wait_for_idle_start", { commandName: command.name, piCommandName });
 		await ctx.waitForIdle();

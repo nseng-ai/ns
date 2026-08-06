@@ -3,7 +3,7 @@ import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 const { runCommand } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/foundation/exec")
 >("@nseng-ai/foundation/exec");
-const { sendCommandProgressOrNotify, registerCommandWithImmediateAck } =
+const { registerCommandWithImmediateAck } =
 	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/pi-runtime/commands/ack")>(
 		"@nseng-ai/pi-runtime/commands/ack",
 	);
@@ -157,8 +157,6 @@ async function runJustThenInvokeSkill(
 		return;
 	}
 
-	sendCommandProgressOrNotify({ host: pi, ctx, message: `Running \`${command.displayCommand}\`…` });
-
 	const activity = new CliCommandStatusActivity(ctx, {
 		cliName: "just",
 		commandName: command.displayCommand,
@@ -207,6 +205,7 @@ export default function justFixExtension(pi: ExtensionAPI, exec: ExecCommand = r
 				description: command.description,
 				handler: async (_args, ctx) => runJustThenInvokeSkill(pi, ctx, command, exec),
 			},
+			options: { delivery: "none" },
 		});
 	}
 }

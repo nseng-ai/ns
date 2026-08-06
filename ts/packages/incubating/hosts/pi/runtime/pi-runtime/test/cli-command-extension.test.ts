@@ -5,7 +5,6 @@ import process from "node:process";
 
 import { describe, expect, test, vi } from "vitest";
 
-import { createManualTimerScheduler } from "@nseng-ai/foundation/time/testing";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import {
@@ -1247,81 +1246,6 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "stdout:\nstarted\n\nstderr:\nfinished\n");
 	});
 
-	test("uses footer status when widget capability is unavailable", async () => {
-		let markRunStarted: (() => void) | undefined;
-		const runStarted = new Promise<void>((resolve) => {
-			markRunStarted = resolve;
-		});
-		let finishRun: (() => void) | undefined;
-		const runFinished = new Promise<void>((resolve) => {
-			finishRun = resolve;
-		});
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: async (_args, deps) => {
-				deps.stdout("started\n");
-				markRunStarted?.();
-				await runFinished;
-				return 0;
-			},
-		});
-		const { ctx, statuses, widgets } = createContext([], { setWidget: false });
-
-		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
-		await runStarted;
-
-		expect(widgets).toEqual([]);
-		expect(statuses.at(-1)?.value).toBe("⠋ /dev:preview-status · running");
-
-		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
-		finishRun();
-		await commandPromise;
-
-		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
-	});
-
-	test("advances the footer heartbeat once per second", async () => {
-		const timers = createManualTimerScheduler();
-		let markRunStarted: (() => void) | undefined;
-		const runStarted = new Promise<void>((resolve) => {
-			markRunStarted = resolve;
-		});
-		let finishRun: (() => void) | undefined;
-		const runFinished = new Promise<void>((resolve) => {
-			finishRun = resolve;
-		});
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: async (_args, deps) => {
-				deps.stderr("running elsewhere\n");
-				markRunStarted?.();
-				await runFinished;
-				return 0;
-			},
-			timers: timers.timers,
-		});
-		const { ctx, statuses, widgets } = createContext();
-
-		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
-		await runStarted;
-
-		const statusCountBeforeTicks = statuses.length;
-		timers.advanceMs(3_000);
-
-		expect(statuses.slice(statusCountBeforeTicks).map((status) => status.value)).toEqual([
-			"⠙ /dev:preview-status · running",
-			"⠹ /dev:preview-status · running",
-			"⠸ /dev:preview-status · running",
-		]);
-		expect(widgets).toEqual([]);
-
-		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
-		finishRun();
-		await commandPromise;
-		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
-		expect(timers.pendingTimerCount()).toBe(0);
-	});
-
 	test("suppresses stale command-context errors after session replacement", async () => {
 		let hasRunBeenCalled = false;
 		const pi = new FakePi();
@@ -1390,24 +1314,6 @@ describe("cli command extension helper", () => {
 
 		expect(pi.sentMessages).toEqual([]);
 		expect(notifications).toEqual([]);
-	});
-
-	test("does not supply the deferred transient-output callback", async () => {
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: (_args, deps) => {
-				expect(deps.onOutput).toBeUndefined();
-				deps.stdout("final stdout\n");
-				return 0;
-			},
-		});
-		const { ctx, notifications, widgets } = createContext();
-
-		await commandFor(pi, "dev:preview-status").handler("", ctx);
-
-		expect(widgets).toEqual([]);
-		expect(notifications).toEqual([]);
-		expectSingleCliOutputMessage(pi, "final stdout\n");
 	});
 
 	test("reduces structured CLI phase progress to footer status", async () => {

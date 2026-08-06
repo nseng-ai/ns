@@ -46,12 +46,10 @@ class MatrixCounts {
 	private columnKeys: readonly string[] = [];
 	private rowKeys: readonly string[] = [];
 	private cells = new Map<string, NsProgressMatrixCellState>();
-	private isDeclared = false;
 
 	apply(event: NsProgressMatrixEvent): void {
 		switch (event.type) {
 			case "matrix-declared":
-				this.isDeclared = true;
 				this.columnKeys = event.columns.map((column) => column.key);
 				this.rowKeys = [];
 				this.cells.clear();
@@ -70,7 +68,7 @@ class MatrixCounts {
 
 	summary(): { done: number; total: number } | undefined {
 		const total = this.rowKeys.length * this.columnKeys.length;
-		if (!this.isDeclared || total === 0) return undefined;
+		if (total === 0) return undefined;
 		let done = 0;
 		for (const rowKey of this.rowKeys) {
 			for (const columnKey of this.columnKeys) {
@@ -103,11 +101,9 @@ export class CliCommandStatusActivity {
 	private failedPhaseName: string | undefined;
 	private activeOperations: readonly ActiveOperation[] = [];
 	private heartbeatTick = 0;
-	private elapsedText: string | undefined;
 	private lastValue: string | undefined;
 	private timer: ScheduledTimer | undefined;
 	private isClosed = false;
-	private hasTracedStaleContext = false;
 	private readonly hasStatusTarget: boolean;
 
 	constructor(ctx: CliCommandStatusContext, options: CliCommandStatusActivityOptions) {
@@ -143,7 +139,7 @@ export class CliCommandStatusActivity {
 		if (isMatrixProgressEvent(event)) {
 			this.matrixCounts.apply(event);
 			if (event.type === "matrix-active-operations") {
-				this.activeOperations = event.operations.map((operation) => ({ ...operation }));
+				this.activeOperations = event.operations;
 			}
 		} else {
 			const changedPhase = this.phaseStore.apply(event);
@@ -191,9 +187,6 @@ export class CliCommandStatusActivity {
 		}
 		this.timer = this.timers.setInterval(() => {
 			this.heartbeatTick += 1;
-			const elapsedMs = this.clock.nowMs() - this.startedAt;
-			this.elapsedText =
-				elapsedMs >= ELAPSED_DISPLAY_THRESHOLD_MS ? formatElapsedMs(elapsedMs) : undefined;
 			this.writeChanged();
 		}, HEARTBEAT_INTERVAL_MS);
 	}
@@ -219,7 +212,8 @@ export class CliCommandStatusActivity {
 		const operation = this.activeOperations[0];
 		if (operation !== undefined)
 			segments.push(sanitizeStatusText(formatActiveOperation(operation)));
-		if (this.elapsedText !== undefined) segments.push(this.elapsedText);
+		const elapsedMs = this.clock.nowMs() - this.startedAt;
+		if (elapsedMs >= ELAPSED_DISPLAY_THRESHOLD_MS) segments.push(formatElapsedMs(elapsedMs));
 		return truncateDisplayLine(segments.join(" · "), STATUS_MAX_WIDTH);
 	}
 
@@ -231,7 +225,7 @@ export class CliCommandStatusActivity {
 
 	private textSegments(): string[] {
 		if (this.isPromptOpen()) return [this.bridgePhase];
-		if (this.bridgePhase === "waiting for Pi to finish responding") return ["waiting for Pi"];
+		if (this.bridgePhase === "waiting for Pi") return [this.bridgePhase];
 		if (this.failedPhaseName !== undefined) {
 			return [`${sanitizeStatusText(this.failedPhaseName)} failed`];
 		}
@@ -253,8 +247,6 @@ export class CliCommandStatusActivity {
 	}
 
 	private traceStaleContext(): void {
-		if (this.hasTracedStaleContext) return;
-		this.hasTracedStaleContext = true;
 		traceCliCommand("status_stale_context", {
 			commandName: this.options.commandName,
 			piCommandName: this.options.piCommandName,
