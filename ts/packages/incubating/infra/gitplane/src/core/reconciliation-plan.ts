@@ -624,9 +624,6 @@ export function deriveReconciliationPlan(facts: ReconciliationPlanFacts): Reconc
 		facts.materialization.currentArtifacts.map((item) => [item.artifactId, item]),
 	);
 	const lineageById = new Map(facts.materialization.lineage.map((item) => [item.artifactId, item]));
-	const storedByPath = new Map(
-		facts.materialization.currentArtifacts.map((item) => [item.path, item]),
-	);
 	const prepared = checked.corpus.artifacts.map((corpus) => ({
 		corpus,
 		revisionId: deriveRevisionId({
@@ -638,12 +635,6 @@ export function deriveReconciliationPlan(facts: ReconciliationPlanFacts): Reconc
 		registration: findRegistration(corpus.snapshot.classification, facts.kinds),
 	}));
 	for (const artifact of prepared) {
-		const occupant = storedByPath.get(artifact.corpus.snapshot.path);
-		if (occupant !== undefined && occupant.artifactId !== artifact.corpus.snapshot.artifactId)
-			return invalid(
-				"artifact-id-replaced-at-path",
-				`Path ${artifact.corpus.snapshot.path} replaces artifact ${occupant.artifactId} with ${artifact.corpus.snapshot.artifactId}.`,
-			);
 		const legality = validateLineage(
 			artifact,
 			currentById.get(artifact.corpus.snapshot.artifactId),
@@ -679,17 +670,16 @@ export function deriveReconciliationPlan(facts: ReconciliationPlanFacts): Reconc
 				: prior.tombstoned
 					? "artifact.restored"
 					: "artifact.revised";
-		const projection =
-			artifact.registration === null
-				? null
-				: buildProjectionPlan(
-						snapshot.envelope,
-						artifact.registration.schemaVersions[
-							snapshot.classification.state === "classified"
-								? snapshot.classification.schemaVersion
-								: 0
-						]!,
-					);
+		let projection = null;
+		if (artifact.registration !== null) {
+			if (snapshot.classification.state !== "classified")
+				throw new Error("A generic artifact unexpectedly has a kind registration.");
+			const schemaRegistration =
+				artifact.registration.schemaVersions[snapshot.classification.schemaVersion];
+			if (schemaRegistration === undefined)
+				throw new Error("A validated artifact schema registration disappeared.");
+			projection = buildProjectionPlan(snapshot.envelope, schemaRegistration);
+		}
 		const target =
 			artifact.registration === null || projection === null
 				? null

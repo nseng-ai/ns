@@ -460,7 +460,29 @@ test("builds classified projections and validates lineage transitions", () => {
 	expect(removed).toMatchObject({ type: "invalid", code: "classification-removed" });
 });
 
-test("rejects malformed or incomplete snapshots, replacements, and Pending Plans", () => {
+test("plans replacement at one path as deletion and creation", () => {
+	const replacement = snapshotCandidate({ id: SNAPSHOT_ID_B, path: "a" });
+	const result = snapshotPlan({
+		candidates: [replacement],
+		materialization: materialization({
+			generation: 1,
+			current: [snapshotCurrent({ id: SNAPSHOT_ID_A, path: "a", revisionId: "gpr_old" })],
+			lineage: [snapshotLineage(SNAPSHOT_ID_A)],
+		}),
+	});
+	expect(result).toMatchObject({
+		type: "planned",
+		plan: {
+			artifactMaterialization: [
+				{ artifactId: SNAPSHOT_ID_A, outcome: "artifact.deleted", prior: { path: "a" } },
+				{ artifactId: SNAPSHOT_ID_B, outcome: "artifact.created", path: "a", prior: null },
+			],
+			completion: { created: 1, deleted: 1 },
+		},
+	});
+});
+
+test("rejects malformed or incomplete snapshots and Pending Plans", () => {
 	const item = snapshotCandidate({ id: SNAPSHOT_ID_A, path: "a" });
 	const complete = targetSnapshot("target", [item]);
 	expect(
@@ -472,16 +494,6 @@ test("rejects malformed or incomplete snapshots, replacements, and Pending Plans
 			kinds: [],
 		}),
 	).toMatchObject({ type: "invalid", code: "incomplete-target-snapshot" });
-	expect(
-		snapshotPlan({
-			candidates: [item],
-			materialization: materialization({
-				generation: 1,
-				current: [snapshotCurrent({ id: SNAPSHOT_ID_B, path: "a", revisionId: "gpr_old" })],
-				lineage: [snapshotLineage(SNAPSHOT_ID_B)],
-			}),
-		}),
-	).toMatchObject({ type: "invalid", code: "artifact-id-replaced-at-path" });
 	const pending = materialization();
 	expect(
 		snapshotPlan({
