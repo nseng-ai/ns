@@ -19,7 +19,7 @@ import {
 } from "./command-definition.ts";
 import { CLINKR_APP_OUTPUT_FORMATS } from "./framework-arguments.ts";
 import type { ClinkrNavigator } from "./navigator.ts";
-import { formatTopologyIssue, type OpenedScope, type TopologyIssue } from "./topology.ts";
+import type { OpenedScope, TopologyIssue } from "./topology.ts";
 export interface CompletionRuntimeOptions<TContext, TInvocationOptions> {
 	readonly navigator: ClinkrNavigator<TContext>;
 	readonly commandName: string;
@@ -30,6 +30,10 @@ export interface CompletionRuntimeOptions<TContext, TInvocationOptions> {
 		request: ClinkrCompletionProviderRequest,
 		options: TInvocationOptions,
 	) => Promise<readonly ClinkrCompletionCandidate[]>;
+	readonly emitTopologyIssues: (
+		issues: readonly TopologyIssue[],
+		options: TInvocationOptions,
+	) => void;
 }
 
 export class ClinkrCompletionRuntime<TContext, TInvocationOptions> {
@@ -47,7 +51,7 @@ export class ClinkrCompletionRuntime<TContext, TInvocationOptions> {
 		const previous = request.words.length === 0 ? [] : request.words.slice(0, -1);
 		const resolution = await this.options.navigator.navigateCompletion(previous);
 		if (resolution.type === "topology-failure") {
-			emitTopologyIssues(resolution.issues);
+			this.options.emitTopologyIssues(resolution.issues, invocationOptions);
 			return { candidates: [] };
 		}
 		if (resolution.type === "built-in-completion") {
@@ -61,7 +65,7 @@ export class ClinkrCompletionRuntime<TContext, TInvocationOptions> {
 			return { candidates: [] };
 		}
 		if (resolution.type === "scope") {
-			emitTopologyIssues(resolution.issues);
+			this.options.emitTopologyIssues(resolution.issues, invocationOptions);
 			return {
 				candidates: dedupeCompletionCandidates(
 					completeScope(resolution.scope, current, resolution.path.length === 0, this.options),
@@ -72,7 +76,7 @@ export class ClinkrCompletionRuntime<TContext, TInvocationOptions> {
 			resolution.scope === undefined
 				? []
 				: completeScope(resolution.scope, current, resolution.path.length === 0, this.options);
-		emitTopologyIssues(resolution.issues);
+		this.options.emitTopologyIssues(resolution.issues, invocationOptions);
 		if (resolution.loaded.selected.kind === "raw") {
 			return { candidates: dedupeCompletionCandidates(scopeCandidates) };
 		}
@@ -113,10 +117,6 @@ export class ClinkrCompletionRuntime<TContext, TInvocationOptions> {
 			]),
 		};
 	}
-}
-
-function emitTopologyIssues(issues: readonly TopologyIssue[]): void {
-	for (const issue of issues) process.stderr.write(`${formatTopologyIssue(issue)}\n`);
 }
 
 function completeScope<TContext, TInvocationOptions>(

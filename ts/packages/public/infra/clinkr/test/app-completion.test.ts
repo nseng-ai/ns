@@ -104,10 +104,11 @@ test.each([
 	const enabled = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
 		composition.source({ label: "test" }, declare);
 	});
-	const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-	expect(await enabled.complete({ words: [""] })).toEqual({ candidates: [] });
-	expect(stderr).toHaveBeenCalledWith(expect.stringContaining("reserved name"));
-	stderr.mockClear();
+	const diagnostics: string[] = [];
+	const output = { stdout: () => {}, stderr: (text: string) => diagnostics.push(text) };
+	expect(await enabled.complete({ words: [""] }, { output })).toEqual({ candidates: [] });
+	expect(diagnostics.join("")).toContain("reserved name");
+	diagnostics.length = 0;
 
 	const enabledAlias = createClinkrApp({ name: "probe", completion: {} }, (composition) => {
 		composition.source({ label: "test" }, (scope) => {
@@ -116,9 +117,8 @@ test.each([
 			);
 		});
 	});
-	expect(await enabledAlias.complete({ words: [""] })).toEqual({ candidates: [] });
-	expect(stderr).toHaveBeenCalledWith(expect.stringContaining("reserved name"));
-	stderr.mockRestore();
+	expect(await enabledAlias.complete({ words: [""] }, { output })).toEqual({ candidates: [] });
+	expect(diagnostics.join("")).toContain("reserved name");
 });
 
 test("completion routes past leading framework arguments through canonical and aliased nested routes", async () => {
@@ -410,14 +410,20 @@ test("contextful completion validates context before providers and reports truth
 	).rejects.toThrow("requires run options with context");
 	expect(provider).not.toHaveBeenCalled();
 	expect(observer).not.toHaveBeenCalled();
-	const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-	const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-	const result = await app.complete({ words: ["choose", ""] }, { context });
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const result = await app.complete(
+		{ words: ["choose", ""] },
+		{
+			context,
+			output: { stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) },
+		},
+	);
 	expect(result.candidates.map(({ value }) => value)).toEqual(["one", "two"]);
 	expect(provider).toHaveBeenCalledOnce();
 	expect(observer).toHaveBeenCalledOnce();
-	expect(stdout).not.toHaveBeenCalled();
-	expect(stderr).not.toHaveBeenCalled();
+	expect(stdout).toEqual([]);
+	expect(stderr).toEqual([]);
 });
 
 test("completion rejects command and app context mode mismatches", async () => {
@@ -493,17 +499,20 @@ test("provider failures preserve static candidates, notify once, and swallow obs
 });
 
 test("provider failures without an observer silently preserve static candidates", async () => {
-	const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-	const stderr = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+	const stdout: string[] = [];
+	const stderr: string[] = [];
 	const app = completionApp({
 		provider: () => {
 			throw new Error("provider boom");
 		},
 	});
-	const result = await app.complete({ words: ["choose", ""] });
+	const result = await app.complete(
+		{ words: ["choose", ""] },
+		{ output: { stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) } },
+	);
 	expect(result.candidates.map((entry) => entry.value)).toEqual(["one", "two"]);
-	expect(stdout).not.toHaveBeenCalled();
-	expect(stderr).not.toHaveBeenCalled();
+	expect(stdout).toEqual([]);
+	expect(stderr).toEqual([]);
 
 	const resolved = await runForCliTest(app, ["completion", "exec", "resolve", "--", "choose", ""]);
 	expect(resolved).toEqual({ exitCode: 0, stdout: "one\ntwo\n", stderr: "" });

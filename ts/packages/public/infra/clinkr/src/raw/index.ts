@@ -13,6 +13,7 @@ export type { OptionSpec, PositionalSpec } from "../surface.ts";
 export { defineRawCommand } from "./definition.ts";
 export type {
 	ClinkrRawCommandDefinition,
+	ClinkrRawOutput,
 	ContextFreeRawCommandDefinition,
 	ContextFreeRawCommandOptions,
 	ContextfulRawCommandDefinition,

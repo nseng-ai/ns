@@ -72,8 +72,10 @@ function recursiveApp() {
 							admin.command("raw", { description: "Raw command." }, () =>
 								defineRawCommand<Context>({
 									requiresContext: true,
-									run: ({ context, argv }) => {
-										process.stdout.write(`${context.prefix}:${argv.join("|")}`);
+									run: ({ context, argv, output }) => {
+										output.writeStdout(
+											new TextEncoder().encode(`${context.prefix}:${argv.join("|")}`),
+										);
 										return argv.length;
 									},
 								}),
@@ -207,8 +209,8 @@ test("named and default raw commands receive untouched tails", async () => {
 		composition.source({ label: "raw-default" }, (root) => {
 			root.defaultCommand({ description: "Raw default." }, () =>
 				defineRawCommand({
-					run: ({ argv: tail }) => {
-						process.stdout.write(tail.join("|"));
+					run: ({ argv: tail, output }) => {
+						output.writeStdout(new TextEncoder().encode(tail.join("|")));
 						return tail.length;
 					},
 				}),

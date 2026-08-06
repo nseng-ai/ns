@@ -90,6 +90,7 @@ defineCommand({
 const contextFreeApp = createClinkrApp({ name: "free", commandDirectory: import.meta.dirname });
 void contextFreeApp.run([]);
 void contextFreeApp.complete({ words: [""] });
+void contextFreeApp.complete({ words: [""] }, { output: { stdout: () => {}, stderr: () => {} } });
 // @ts-expect-error context-free completion does not accept invocation context.
 void contextFreeApp.complete({ words: [""] }, { context: { prefix: "x" } });
 // @ts-expect-error context-free invocation does not accept context.
@@ -102,6 +103,13 @@ const contextfulApp = createClinkrApp<Context>({
 });
 void contextfulApp.run([], { context: { prefix: "x" } });
 void contextfulApp.complete({ words: [""] }, { context: { prefix: "x" } });
+void contextfulApp.complete(
+	{ words: [""] },
+	{
+		context: { prefix: "x" },
+		output: { stdout: () => {}, stderr: () => {} },
+	},
+);
 // @ts-expect-error contextful completion requires context.
 void contextfulApp.complete({ words: [""] });
 // @ts-expect-error contextful invocation requires context.
@@ -166,11 +174,11 @@ callbackOnlyApp.invalidate();
 // Raw definitions: invocation objects, numeric exit status, and the shared
 // requiresContext discriminant.
 const rawContextFree = defineRawCommand({
-	run: ({ argv }) => {
+	run: ({ argv, output }) => {
 		type ArgvIsReadonly = Assert<IsEqual<typeof argv, readonly string[]>>;
 		const argvIsReadonly: ArgvIsReadonly = true;
 		void argvIsReadonly;
-		process.stdout.write(argv.join(" "));
+		output.writeStdout(new TextEncoder().encode(argv.join(" ")));
 		return argv.length;
 	},
 });
@@ -181,11 +189,11 @@ defineRawCommand({ run: async () => 0 });
 
 const rawContextful = defineRawCommand<Context>({
 	requiresContext: true,
-	run: ({ context, argv }) => {
+	run: ({ context, argv, output }) => {
 		type ContextIsNotAny = Assert<Not<IsAny<typeof context>>>;
 		const contextIsNotAny: ContextIsNotAny = true;
 		void contextIsNotAny;
-		process.stdout.write(context.prefix + argv.length);
+		output.writeStdout(new TextEncoder().encode(context.prefix + argv.length));
 		return 0;
 	},
 });

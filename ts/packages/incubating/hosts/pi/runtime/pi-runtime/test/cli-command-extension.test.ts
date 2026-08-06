@@ -681,6 +681,54 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "selected=two\n");
 	});
 
+	test("does not intercept ambient process output while selection and live progress are pending", async () => {
+		let finishSelect: (() => void) | undefined;
+		const selectFinished = new Promise<void>((resolve) => {
+			finishSelect = resolve;
+		});
+		let markSelectStarted: (() => void) | undefined;
+		const selectStarted = new Promise<void>((resolve) => {
+			markSelectStarted = resolve;
+		});
+		const pi = new FakePi();
+		let afterDetails: CliCommandOutputDetails | undefined;
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				deps.onOutput?.("stdout", "command progress\n");
+				const selected = await deps.select?.("Choose a target", ["one", "two"]);
+				deps.stdout(`selected=${String(selected)}\n`);
+				deps.stderr("command warning\n");
+				return 0;
+			},
+			afterCommandComplete: (details) => {
+				afterDetails = details;
+			},
+		});
+		const { ctx, widgets } = createContext([], {
+			select: async () => {
+				markSelectStarted?.();
+				await selectFinished;
+				return "one";
+			},
+		});
+
+		const originalStdoutWrite = process.stdout.write;
+		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
+		await selectStarted;
+		expect(process.stdout.write).toBe(originalStdoutWrite);
+		const pendingWidget = widgets.at(-1)?.lines?.join("\n") ?? "";
+		expect(pendingWidget).toContain("waiting for selection");
+		expect(pendingWidget).toContain("command progress");
+
+		if (finishSelect === undefined) throw new Error("Expected select resolver to be initialized.");
+		finishSelect();
+		await commandPromise;
+
+		expectSingleCliOutputMessage(pi, "stdout:\nselected=one\n\nstderr:\ncommand warning\n");
+		expect(afterDetails).toMatchObject({ stdout: "selected=one\n", stderr: "command warning\n" });
+		expect(widgets.length).toBeLessThan(20);
+	});
+
 	test("shows waiting-for-selection live progress while the CLI runner awaits UI selection", async () => {
 		let finishSelect: (() => void) | undefined;
 		const selectFinished = new Promise<void>((resolve) => {

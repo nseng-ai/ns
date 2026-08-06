@@ -24,11 +24,14 @@ const commandlessExtension = defineExtension({ description: "Commandless descrip
 const rawCommand = defineRawCommand({
 	run(invocation) {
 		type InvocationArgv = typeof invocation.argv;
+		type InvocationOutput = typeof invocation.output;
 		const checks: [
 			Assert<IsAny<InvocationArgv> extends false ? true : false>,
 			Assert<IsEqual<InvocationArgv, readonly string[]>>,
-		] = [true, true];
+			Assert<IsAny<InvocationOutput> extends false ? true : false>,
+		] = [true, true, true];
 		void checks;
+		invocation.output.writeStdout(new TextEncoder().encode("raw output"));
 		return invocation.argv.length === 0 ? 0 : 1;
 	},
 });

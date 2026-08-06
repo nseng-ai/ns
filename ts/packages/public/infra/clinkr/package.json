@@ -9,7 +9,6 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./app": "./src/app/index.ts",
-		"./app/process-writer-interception": "./src/app/process-writer-interception.ts",
 		"./app/testing": "./src/app/testing.ts",
 		"./completion": "./src/completion.ts",
 		"./legacy": "./src/legacy/index.ts",

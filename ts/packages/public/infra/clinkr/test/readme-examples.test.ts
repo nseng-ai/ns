@@ -70,6 +70,7 @@ const FENCE_REGIONS = new Map<number, readonly RegionReference[]>([
 		],
 	],
 	[14, [{ path: "14-confirmation.ts", region: "14" }]],
+	[15, [{ path: "15-raw.ts", region: "15" }]],
 ]);
 
 function typescriptFences(markdown: string): Fence[] {
@@ -125,7 +126,7 @@ async function synchronizedText(references: readonly RegionReference[]): Promise
 
 test("all README TypeScript fences are exactly synchronized with compiled live regions", async () => {
 	const fences = typescriptFences(await readFile(README_PATH, "utf8"));
-	expect(fences).toHaveLength(14);
+	expect(fences).toHaveLength(15);
 	expect([...FENCE_REGIONS.keys()]).toEqual(fences.map((fence) => fence.ordinal));
 	for (const fence of fences) {
 		const references = FENCE_REGIONS.get(fence.ordinal);

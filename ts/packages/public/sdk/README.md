@@ -34,7 +34,7 @@ export function command() {
 }
 ```
 
-`defineRawCommand()` is the contextful Clinkr raw definition constructor. Raw commands own their argv tail, process output, and numeric exit status.
+`defineRawCommand()` is the contextful Clinkr raw definition constructor. Raw commands own their argv tail, invocation-scoped output, and numeric exit status. Write raw bytes through `invocation.output.writeStdout()` and `invocation.output.writeStderr()` rather than ambient process writers.
 
 Route identity, aliases, descriptions, visibility, and help grouping belong to route-local metadata, not command definitions.
 

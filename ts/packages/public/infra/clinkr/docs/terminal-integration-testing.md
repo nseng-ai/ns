@@ -27,20 +27,18 @@ contract. Use a terminal emulator when the question is instead:
 Physical wrapping, cursor-accounting errors, stale rows, and output moved into scrollback are examples
 that require this boundary.
 
-## Capture process output without application-level DI
+## Capture output through invocation-scoped adapters
 
-Clinkr terminal adapters ultimately write to `process.stdout` and `process.stderr`. Do not thread writer
-dependencies through application contracts solely to capture those low-level process primitives in
-tests. Use `runForCliTest` from `@nseng-ai/clinkr/app/testing` for ordinary in-process CLI assertions.
-Hosts that need to wrap their own run lifecycle can use `withInterceptedProcessWriters` from
-`@nseng-ai/clinkr/app/process-writer-interception` directly.
+Use `runForCliTest` from `@nseng-ai/clinkr/app/testing` for ordinary in-process CLI assertions. The
+helper supplies invocation-scoped structured-text and raw-byte adapters without replacing process
+writers, so independent runs may execute concurrently.
 
-Process-writer interception is process-global. Every intercepted run must be awaited sequentially;
-overlapping or nested interception rejects before changing either writer. The helper restores every
-replaced writer after success or failure, but it cannot isolate concurrent activity elsewhere in the
-same process. Tests whose subject is the interception mechanism belong in the isolated lane. Prefer
-fake-driven scenarios that avoid process mutation when testing application behavior rather than the
-terminal adapter boundary.
+Production `run()` calls preserve terminal behavior through process-backed defaults. Embedding hosts
+may pass `output` for Clinkr-owned framework and structured text and `rawOutput` for exact raw bytes.
+A custom text sink defaults ANSI off unless `canEmitAnsi` is supplied explicitly. Raw adapters preserve
+chunk order and add no newline; text-only hosts must decode split UTF-8 with a streaming decoder and
+flush it after the invocation. Invocation-local adapters prevent unrelated process or TUI output from
+entering command capture.
 
 ## Standard harness shape
 

@@ -1,5 +1,5 @@
-import type { ClinkrContextFreeApp, ClinkrContextfulApp } from "./app.ts";
-import { withInterceptedProcessWriters } from "./process-writer-interception.ts";
+import type { ClinkrRawOutput } from "../raw/definition.ts";
+import type { ClinkrContextFreeApp, ClinkrContextfulApp, ClinkrOutput } from "./app.ts";
 
 /** Observable CLI result of an in-process terminal-adapter run. */
 export interface CapturedCliRun {
@@ -12,32 +12,18 @@ export interface RunForCliTestOptions<TContext> {
 	readonly context: TContext;
 	/** stdin bytes for `--input-json`; defaults to empty stdin. */
 	readonly stdin?: string;
-	/**
-	 * ANSI capability of the captured sink. Defaults to `false`: a captured
-	 * run is a redirected sink, so renderer output is stripped at the output
-	 * boundary exactly as it would be for a pipe.
-	 */
+	/** ANSI capability of the captured sink. Defaults to `false`. */
 	readonly canEmitAnsi?: boolean;
 }
 
 export interface ContextFreeRunForCliTestOptions {
 	/** stdin bytes for `--input-json`; defaults to empty stdin. */
 	readonly stdin?: string;
-	/**
-	 * ANSI capability of the captured sink. Defaults to `false`: a captured
-	 * run is a redirected sink, so renderer output is stripped at the output
-	 * boundary exactly as it would be for a pipe.
-	 */
+	/** ANSI capability of the captured sink. Defaults to `false`. */
 	readonly canEmitAnsi?: boolean;
 }
 
-/**
- * In-process terminal-adapter invocation with byte-level capture of the
- * observable CLI result. The terminal adapter writes directly to the process
- * streams, so this helper uses guarded process-global interception. Runs must
- * be awaited sequentially; overlapping or nested capture fails before changing
- * a writer, and the owning run restores both writers before returning.
- */
+/** In-process invocation with concurrency-safe, invocation-scoped capture. */
 export async function runForCliTest(
 	app: ClinkrContextFreeApp,
 	argv: readonly string[],
@@ -53,27 +39,46 @@ export async function runForCliTest<TContext>(
 	argv: readonly string[],
 	options: ContextFreeRunForCliTestOptions | RunForCliTestOptions<TContext> = {},
 ): Promise<CapturedCliRun> {
-	const stdin = options.stdin ?? "";
-	const runOptions = {
-		readStdin: async () => stdin,
-		canEmitAnsi: options.canEmitAnsi ?? false,
+	const stdoutText: string[] = [];
+	const stderrText: string[] = [];
+	const stdoutBytes: Uint8Array[] = [];
+	const stderrBytes: Uint8Array[] = [];
+	const output: ClinkrOutput = {
+		stdout: (text) => stdoutText.push(text),
+		stderr: (text) => stderrText.push(text),
 	};
-	const stdoutChunks: string[] = [];
-	const stderrChunks: string[] = [];
-	const exitCode = await withInterceptedProcessWriters(
-		{
-			stdout: (text) => stdoutChunks.push(text),
-			stderr: (text) => stderrChunks.push(text),
-		},
-		async () => {
-			if (app.requiresContext) {
-				if (!("context" in options)) {
-					throw new Error("Contextful app test runs require context");
-				}
-				return await app.run(argv, { context: options.context, ...runOptions });
-			}
-			return await app.run(argv, runOptions);
-		},
-	);
-	return { exitCode, stdout: stdoutChunks.join(""), stderr: stderrChunks.join("") };
+	const rawOutput: ClinkrRawOutput = {
+		writeStdout: (bytes) => stdoutBytes.push(Uint8Array.from(bytes)),
+		writeStderr: (bytes) => stderrBytes.push(Uint8Array.from(bytes)),
+	};
+	const runOptions = {
+		readStdin: async () => options.stdin ?? "",
+		canEmitAnsi: options.canEmitAnsi ?? false,
+		output,
+		rawOutput,
+	};
+	let exitCode: number;
+	if (app.requiresContext) {
+		if (!("context" in options)) throw new Error("Contextful app test runs require context");
+		exitCode = await app.run(argv, { context: options.context, ...runOptions });
+	} else {
+		exitCode = await app.run(argv, runOptions);
+	}
+	return {
+		exitCode,
+		stdout: stdoutText.join("") + decodeChunks(stdoutBytes),
+		stderr: stderrText.join("") + decodeChunks(stderrBytes),
+	};
+}
+
+function decodeChunks(chunks: readonly Uint8Array[]): string {
+	let length = 0;
+	for (const chunk of chunks) length += chunk.byteLength;
+	const combined = new Uint8Array(length);
+	let offset = 0;
+	for (const chunk of chunks) {
+		combined.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	return new TextDecoder().decode(combined);
 }
