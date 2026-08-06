@@ -669,9 +669,24 @@ async function runFlowCommand(input: {
 	stderr: (text: string) => void;
 }): Promise<{ exitCode: number; result: CommandExit<unknown> }> {
 	const request = input.command.schema.parse(input.request);
-	const result = await input.command.handler(input.context, request);
+	const handlerResult = await input.command.handler(input.context, request);
+	const result = decodeFlowCommandExit(handlerResult, input.command);
 	writeCommandExitOutput(result, input.command, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
+}
+
+// Mirrors the real Clinkr runtime, which validates successful handler data through the
+// command result schema before rendering. Every Flow command declares both a result
+// schema and a human renderer, so an absent field is a harness failure, not a fallback.
+function decodeFlowCommandExit(
+	result: CommandExit<unknown>,
+	command: NsCommand,
+): CommandExit<unknown> {
+	if (result.status !== "success") return result;
+	if (command.resultSchema === undefined) {
+		throw new Error("Flow command is missing the required result schema.");
+	}
+	return { ...result, data: command.resultSchema.parse(result.data) };
 }
 
 function commandMachineEnvelope(result: CommandExit<unknown>): Record<string, unknown> {
@@ -693,10 +708,10 @@ function writeCommandExitOutput(
 	deps: { stdout: (text: string) => void; stderr: (text: string) => void },
 ): void {
 	if (result.status === "success") {
-		const text =
-			command.renderHuman === undefined
-				? JSON.stringify(result.data, null, 2)
-				: command.renderHuman(result.data, { canEmitAnsi: false });
+		if (command.renderHuman === undefined) {
+			throw new Error("Flow command is missing the required human renderer.");
+		}
+		const text = command.renderHuman(result.data, { canEmitAnsi: false });
 		if (text !== "") deps.stdout(`${text}\n`);
 		return;
 	}

@@ -5,14 +5,7 @@ import {
 	outputListenerToExecCallbacks,
 } from "@nseng-ai/foundation/command";
 import { NsCommandExecApi } from "@nseng-ai/extension-kit/command-runner";
-import {
-	failure,
-	negative,
-	ok,
-	type CommandExit,
-	type ExecResult,
-	type NsExtensionApi,
-} from "@nseng-ai/sdk";
+import type { ExecResult, NsExtensionApi } from "@nseng-ai/sdk";
 
 export const FLOW_COMMAND_FAILED = "flow-command-failed";
 
@@ -25,47 +18,11 @@ export interface FlowCliOperationInput {
 	exec(command: string, args: string[], options?: FlowCliExecOptions): Promise<ExecResult>;
 }
 
-export interface FlowCliRunnerInput extends FlowCliOperationInput {
-	stdout(text: string): void;
-	stderr(text: string): void;
-}
-
 export interface RunFlowCliOperationOptions<T> {
 	ctx: NsExtensionApi;
 	shouldForwardLiveOutput?: boolean;
 	trustedExec?: CommandExecApi;
 	run(input: FlowCliOperationInput): Promise<T>;
-}
-
-export interface RunFlowCliOptions {
-	ctx: NsExtensionApi;
-	successMessage: string;
-	failureMessage: string;
-	shouldForwardLiveOutput?: boolean;
-	trustedExec?: CommandExecApi;
-	outputMode?: "forward-live" | "buffer-until-complete";
-	afterExitCode?: (exitCode: number) => Promise<void> | void;
-	run(input: FlowCliRunnerInput): Promise<number>;
-}
-
-export interface FlowCliTextResult {
-	text: string;
-}
-
-export interface FlowCliOutputCapture {
-	readonly input: Pick<FlowCliRunnerInput, "stdout" | "stderr">;
-	readonly stdout: string;
-	readonly stderr: string;
-	flush(): void;
-	toResult(
-		exitCode: number,
-		messages: { successMessage: string; failureMessage: string },
-	): CommandExit<FlowCliTextResult>;
-}
-
-export interface CreateFlowCliOutputCaptureOptions {
-	ctx: NsExtensionApi;
-	mode?: "forward-live" | "buffer-until-complete";
 }
 
 export async function runFlowCliOperation<T>(options: RunFlowCliOperationOptions<T>): Promise<T> {
@@ -80,69 +37,6 @@ export async function runFlowCliOperation<T>(options: RunFlowCliOperationOptions
 				options: execOptions,
 				liveOutput: { shouldForwardLiveOutput: options.shouldForwardLiveOutput === true },
 			}),
-	});
-}
-
-export function createFlowCliOutputCapture(
-	options: CreateFlowCliOutputCaptureOptions,
-): FlowCliOutputCapture {
-	let stdout = "";
-	let stderr = "";
-	const shouldForwardLive = options.mode !== "buffer-until-complete";
-	return {
-		input: {
-			stdout: (text) => {
-				stdout += text;
-				if (shouldForwardLive) options.ctx.stdout?.(text);
-			},
-			stderr: (text) => {
-				stderr += text;
-				if (shouldForwardLive) options.ctx.stderr?.(text);
-			},
-		},
-		get stdout() {
-			return stdout;
-		},
-		get stderr() {
-			return stderr;
-		},
-		flush: () => {
-			if (stdout !== "") options.ctx.stdout?.(stdout);
-			if (stderr !== "") options.ctx.stderr?.(stderr);
-		},
-		toResult: (exitCode, messages) => {
-			if (exitCode === 0) return ok({ text: stdout === "" ? messages.successMessage : "" });
-			const message = stderr === "" ? messages.failureMessage : "";
-			return exitCodeToFlowCommandExit<FlowCliTextResult>(exitCode, message);
-		},
-	};
-}
-
-export function exitCodeToFlowCommandExit<T>(exitCode: number, message: string): CommandExit<T> {
-	if (exitCode === 1) return negative(message, { data: { exitCode } });
-	return failure(FLOW_COMMAND_FAILED, message, { exitCode });
-}
-
-export async function runFlowCli(
-	options: RunFlowCliOptions,
-): Promise<CommandExit<FlowCliTextResult>> {
-	const output = createFlowCliOutputCapture({
-		ctx: options.ctx,
-		...(options.outputMode === undefined ? {} : { mode: options.outputMode }),
-	});
-	const exitCode = await runFlowCliOperation({
-		ctx: options.ctx,
-		...(options.trustedExec === undefined ? {} : { trustedExec: options.trustedExec }),
-		...(options.shouldForwardLiveOutput === undefined
-			? {}
-			: { shouldForwardLiveOutput: options.shouldForwardLiveOutput }),
-		run: async (io) => await options.run({ exec: io.exec, ...output.input }),
-	});
-	await options.afterExitCode?.(exitCode);
-	if (options.outputMode === "buffer-until-complete") output.flush();
-	return output.toResult(exitCode, {
-		successMessage: options.successMessage,
-		failureMessage: options.failureMessage,
 	});
 }
 

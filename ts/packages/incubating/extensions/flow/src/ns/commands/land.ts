@@ -146,13 +146,14 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 });
 
 function landCommandExit(caps: Caps, result: FlowLandWorkflowResult) {
-	const human = renderLandWorkflowResult(caps, result);
 	if (result.type === "failed") {
+		const human = renderLandWorkflowResult(caps, result);
 		return isRefusal(result.failure)
 			? negative(human, { data: result })
 			: failure(FLOW_COMMAND_FAILED, human, result);
 	}
 	if (result.type === "stack" && result.execution.type === "failed") {
+		const human = renderLandWorkflowResult(caps, result);
 		return isRefusal(result.execution.failure)
 			? negative(human, { data: result.execution })
 			: failure(FLOW_COMMAND_FAILED, human, result.execution);
@@ -162,10 +163,11 @@ function landCommandExit(caps: Caps, result: FlowLandWorkflowResult) {
 		result.execution.type === "completed" &&
 		result.execution.report.completionDisposition.type === "nothing-to-land"
 	) {
-		return negative(human, { data: result.execution.report });
+		return negative(renderLandWorkflowResult(caps, result), { data: result.execution.report });
 	}
 	const data = landCommandSuccess(result);
-	if (data === undefined) return failure(FLOW_COMMAND_FAILED, human);
+	if (data === undefined)
+		return failure(FLOW_COMMAND_FAILED, renderLandWorkflowResult(caps, result));
 	return ok(landSuccessSchema.parse(data));
 }
 
