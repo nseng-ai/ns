@@ -16,6 +16,14 @@ import {
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import { NS_HARNESS_ENV_VAR, type HarnessId } from "@nseng-ai/sdk/project-config/harness-identity";
 import type { NsConfirmOptions, NsProgressPhaseEvent } from "@nseng-ai/sdk";
+import {
+	summarizeCliCommandResult,
+	type CliCommandResultSummaryResult,
+} from "./cli-command-result-summary.ts";
+import type {
+	CliCommandResultSummaryContext,
+	PiCommandModelRegistry,
+} from "./cli-command-result-summary-context.ts";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 
@@ -93,6 +101,7 @@ export interface CliCommandRunDeps {
 
 export interface CliCommandExtensionSpec {
 	cliName: string;
+	resultSummary?: CliCommandResultSummaryContext;
 	piNamespace: string;
 	commands: readonly CliCommandInfo[];
 	runCli(args: readonly string[], deps: CliCommandRunDeps): Promise<number> | number;
@@ -112,6 +121,7 @@ export interface CliCommandExtensionSpec {
 
 export interface CommandContext {
 	cwd: string;
+	modelRegistry?: PiCommandModelRegistry;
 	hasUI?: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
@@ -405,6 +415,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		piCommandName,
 		...(spec.timers === undefined ? {} : { timers: spec.timers }),
 	});
+	let details: CliCommandOutputDetails | undefined;
 	try {
 		activity.setPhase("waiting for Pi");
 		const waitStartedAt = Date.now();
@@ -478,24 +489,47 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			piCommandName,
 			totalElapsedMs: Date.now() - commandStartedAt,
 		});
+
+		details = buildOutputDetails({
+			spec,
+			command,
+			piCommandName,
+			rawArgs,
+			args: commandArgs,
+			cwd: ctx.cwd,
+			result: {
+				exitCode,
+				stdout,
+				stderr,
+			},
+		});
+		if (
+			spec.resultSummary === undefined ||
+			ctx.modelRegistry === undefined ||
+			ctx.modelRegistry.getApiKeyAndHeaders === undefined
+		) {
+			emitCliCommandOutput(pi, ctx, details);
+		} else {
+			const resultSummary = spec.resultSummary;
+			const modelRegistry = ctx.modelRegistry;
+			activity.setPhase("summarizing command result");
+			const presentation = await summarizeCliCommandResult({
+				details,
+				rawFallbackMarkdown: formatCliCommandOutput(details),
+				writeLogs: resultSummary.writeLogs,
+				selectModel: async () => await resultSummary.selectModel(ctx.cwd),
+				generateSummary: async (request) =>
+					await resultSummary.generateSummary(modelRegistry, request),
+			});
+			emitCliCommandOutput(pi, ctx, details, presentation.markdown);
+			traceSummaryResult(details, presentation);
+		}
 	} finally {
 		activity.close();
 	}
-
-	const details = buildOutputDetails({
-		spec,
-		command,
-		piCommandName,
-		rawArgs,
-		args: commandArgs,
-		cwd: ctx.cwd,
-		result: {
-			exitCode,
-			stdout,
-			stderr,
-		},
-	});
-	emitCliCommandOutput(pi, ctx, details);
+	if (details === undefined) {
+		throw new Error(`CLI command ${spec.cliName} ${command.name} produced no result details.`);
+	}
 	// Registered slash-command handlers do not produce a Pi lifecycle completion event;
 	// publish a custom extension-bus notification for observers such as worktree status.
 	emitPiExtensionCommandFinished(pi.events, {
@@ -615,8 +649,8 @@ function emitCliCommandOutput(
 	pi: CliCommandExtensionAPI,
 	ctx: CommandContext,
 	details: CliCommandOutputDetails,
+	displayText = formatCliCommandOutput(details),
 ): void {
-	const displayText = formatCliCommandOutput(details);
 	const sendMessage = pi.sendMessage;
 	const canSendRenderedMessage =
 		ctx.hasUI && sendMessage !== undefined && pi.registerMessageRenderer !== undefined;
@@ -702,6 +736,19 @@ function formatFailedOutput(options: FailedOutputOptions): string {
 		sections.push(`stderr:\n${stderr}`);
 	}
 	return sections.join("\n\n");
+}
+
+function traceSummaryResult(
+	details: CliCommandOutputDetails,
+	result: CliCommandResultSummaryResult,
+): void {
+	traceCliCommand("result_summary", {
+		commandName: details.commandName,
+		piCommandName: details.piCommandName,
+		resultType: result.type,
+		...(result.type === "summarized" ? {} : { message: result.message }),
+		...(result.type === "fallback" ? { reason: result.reason } : {}),
+	});
 }
 
 function hasSendMessage(pi: CliCommandExtensionAPI): boolean {

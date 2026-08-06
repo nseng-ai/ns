@@ -18,6 +18,8 @@ runs, co-equal prompt sets, and `Declined` packets remain ordinary decision text
 interactive UI or the selected editor capability is unavailable, the adapter takes no
 action and leaves the packet usable as recommendation output.
 
+The executed `/ns:objective:list` bridge uses Pi Runtime's shared CLI result presentation: Pi sends bounded captured output to the repository's configured command-summary model operation, displays the validated summary, and keeps exact stdout/stderr in private OS-temporary log files whose paths are shown in the result. Summarization failures fall back to complete inline raw output. This can send command output to the repository-configured model provider, and temporary-file retention follows operating-system cleanup policy.
+
 This chooser is presentation over the portable proposed-prompt contract, not a new
 Objective lifecycle or execution permission. The adapter does not redefine Objective
 records, lifecycle, storage, selection policy, or runner semantics; those remain owned by

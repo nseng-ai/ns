@@ -5,6 +5,7 @@ import process from "node:process";
 
 import { describe, expect, test, vi } from "vitest";
 
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 
 import {
@@ -19,6 +20,7 @@ import {
 	type CommandContext,
 	type CliCommandExtensionAPI,
 } from "../src/commands/cli-extension.ts";
+import type { CliCommandResultSummaryContext } from "../src/commands/cli-command-result-summary-context.ts";
 import {
 	PI_EXTENSION_COMMAND_FINISHED_EVENT,
 	type PiExtensionCommandFinishedEvent,
@@ -74,6 +76,12 @@ interface RunCall {
 	cwd: string;
 	env: Record<string, string | undefined>;
 }
+
+const SUMMARY_MODEL: ModelSelection = {
+	provider: "acme",
+	modelId: "cheap",
+	thinking: "minimal",
+};
 
 class FakePi implements CliCommandExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
@@ -201,6 +209,10 @@ function createContext(
 		selections,
 		ctx: {
 			cwd: "/repo",
+			modelRegistry: {
+				find: () => undefined,
+				getApiKeyAndHeaders: async () => ({ ok: false, error: "unused fake auth" }),
+			},
 			hasUI: options.hasUI ?? true,
 			ui,
 			async waitForIdle(): Promise<void> {
@@ -229,10 +241,12 @@ function registerFakeCli(
 		env?: Record<string, string | undefined>;
 		commands?: CliCommandInfo[];
 		timers?: TimerScheduler;
+		resultSummary?: CliCommandResultSummaryContext;
 	} = {},
 ): void {
 	registerCliCommandExtension(pi, {
 		cliName: "fake-cli",
+		...(options.resultSummary === undefined ? {} : { resultSummary: options.resultSummary }),
 		piNamespace: "dev",
 		commands: options.commands ?? [
 			{ name: "preview-status", description: "Print a preview status." },
@@ -244,6 +258,28 @@ function registerFakeCli(
 		...(options.env === undefined ? {} : { env: options.env }),
 		...(options.timers === undefined ? {} : { timers: options.timers }),
 	});
+}
+
+function createResultSummaryContext(
+	options: {
+		summary?: string;
+		writeLogs?: CliCommandResultSummaryContext["writeLogs"];
+		selectModel?: CliCommandResultSummaryContext["selectModel"];
+		generateSummary?: CliCommandResultSummaryContext["generateSummary"];
+	} = {},
+): CliCommandResultSummaryContext {
+	return {
+		writeLogs:
+			options.writeLogs ??
+			(async () => ({
+				ok: true,
+				paths: { stdoutPath: "/tmp/result/stdout.log", stderrPath: "/tmp/result/stderr.log" },
+			})),
+		selectModel: options.selectModel ?? (async () => ({ ok: true, modelSelection: SUMMARY_MODEL })),
+		generateSummary:
+			options.generateSummary ??
+			(async () => ({ ok: true, text: options.summary ?? "## Summary\n- Command completed" })),
+	};
 }
 
 function readTraceEvents(path: string): Array<Record<string, unknown>> {
@@ -499,6 +535,111 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(
 			pi,
 			"stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n",
+		);
+	});
+
+	test("summarizes executed output after persisting logs and before completion", async () => {
+		const pi = new FakePi();
+		const order: string[] = [];
+		const written: Array<{ stdout: string; stderr: string }> = [];
+		let prompt = "";
+		registerFakeCli(pi, {
+			resultSummary: createResultSummaryContext({
+				writeLogs: async (output) => {
+					order.push("logs");
+					written.push(output);
+					return {
+						ok: true,
+						paths: { stdoutPath: "/tmp/result/stdout.log", stderrPath: "/tmp/result/stderr.log" },
+					};
+				},
+				selectModel: async () => {
+					order.push("model");
+					return { ok: true, modelSelection: SUMMARY_MODEL };
+				},
+				generateSummary: async (_registry, request) => {
+					order.push("generate");
+					prompt = request.prompt;
+					return { ok: true, text: "## Summary\n- Listed two objectives" };
+				},
+			}),
+			afterCommandComplete: () => {
+				order.push("hook");
+			},
+			runCli: (_args, deps) => {
+				order.push("run");
+				deps.stdout("one\ntwo\n");
+				deps.stderr("warning\n");
+				return 0;
+			},
+		});
+		const { ctx, statuses } = createContext(order);
+
+		await commandFor(pi, "dev:preview-status").handler("--json", ctx);
+
+		expect(order).toEqual(["wait", "run", "logs", "model", "generate", "hook"]);
+		expect(written).toEqual([{ stdout: "one\ntwo\n", stderr: "warning\n" }]);
+		expect(prompt).toContain('Arguments: ["preview-status","--json"]');
+		expectSingleCliOutputMessage(
+			pi,
+			"## Summary\n- Listed two objectives\n\n## Raw logs\n- stdout: /tmp/result/stdout.log\n- stderr: /tmp/result/stderr.log",
+		);
+		expect(statuses.some((update) => update.value?.includes("summarizing command result"))).toBe(
+			true,
+		);
+		expect(statuses.at(-1)?.value).toBeUndefined();
+	});
+
+	test("uses complete raw output with paths when summary generation fails", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			resultSummary: createResultSummaryContext({
+				generateSummary: async () => ({ ok: false, message: "model offline" }),
+			}),
+			runCli: (_args, deps) => {
+				deps.stdout("raw out\n");
+				deps.stderr("raw err\n");
+				return 1;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 1.\n\nstdout:\nraw out\n\n\nstderr:\nraw err\n\n\nRaw logs:\nstdout: /tmp/result/stdout.log\nstderr: /tmp/result/stderr.log",
+			"error",
+		);
+	});
+
+	test("does not summarize bridge-authored argument failures", async () => {
+		const pi = new FakePi();
+		let logCalls = 0;
+		registerFakeCli(pi, {
+			resultSummary: createResultSummaryContext({
+				writeLogs: async () => {
+					logCalls += 1;
+					return { ok: false, message: "unused" };
+				},
+			}),
+			commands: [
+				{
+					name: "preview-status",
+					description: "Print a preview status.",
+					mapParsedArgs: () => ({ ok: false, error: "bad argument" }),
+				},
+			],
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("--bad", ctx);
+
+		expect(logCalls).toBe(0);
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 2.\n\nstderr:\nError: bad argument\n",
+			"error",
 		);
 	});
 
@@ -797,8 +938,8 @@ describe("cli command extension helper", () => {
 				"wait_for_idle_done",
 				"runner_start",
 				"runner_done",
-				"status_stop",
 				"emit_output",
+				"status_stop",
 			]);
 			expect(events.find((event) => event.event === "register")).toMatchObject({
 				bridgeMode: "custom-rendered-message-with-footer-status",

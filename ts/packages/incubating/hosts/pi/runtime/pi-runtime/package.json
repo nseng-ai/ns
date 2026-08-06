@@ -6,6 +6,7 @@
 	"exports": {
 		"./commands/ack": "./src/commands/ack.ts",
 		"./commands/cli-command-status": "./src/commands/cli-command-status.ts",
+		"./commands/cli-command-result-summary-context": "./src/commands/cli-command-result-summary-context.ts",
 		"./commands/args": "./src/commands/args.ts",
 		"./commands/events": "./src/commands/events.ts",
 		"./commands/helpers": "./src/commands/helpers.ts",
