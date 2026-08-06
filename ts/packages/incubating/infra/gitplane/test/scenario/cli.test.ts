@@ -13,10 +13,7 @@ const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
 const app = createGitplaneCliApp();
-type CliArtifactGateway = Pick<
-	ArtifactGateway,
-	"createArtifact" | "inventoryWorkingTree" | "readWorkingTreeCandidate"
->;
+type CliArtifactGateway = ArtifactGateway;
 interface ContextOptions {
 	readonly artifactGateway?: CliArtifactGateway;
 	readonly configGateway?: GitplaneConfigGateway;
@@ -232,11 +229,306 @@ test("publishes command schemas", async () => {
 		["artifact", "create", "--json-schema"],
 		["check", "--json-schema"],
 		["doctor", "--json-schema"],
+		["reconcile", "--json-schema"],
 	]) {
 		const run = await runForCliTest(app, command, { context: context() });
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
 	}
+});
+
+test("reconcile returns bounded completion data and requests read-write access", async () => {
+	const store = new InMemoryMaterializationStoreGateway();
+	const gateway = new InMemoryArtifactGateway({
+		commits: { target: { type: "found", value: "resolved-target" } },
+		commitInventories: [
+			{
+				commit: "resolved-target",
+				artifactRoot: "artifacts",
+				observation: { type: "found", value: [] },
+			},
+		],
+	});
+	const accesses: unknown[] = [];
+	const run = await runForCliTest(app, ["reconcile", "target", "--format=json"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: "/repo/config",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: (gitplaneContext, options) => {
+							accesses.push({ gitplaneContext, options });
+							return store;
+						},
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(0);
+	expect(JSON.parse(run.stdout)).toEqual({
+		status: "success",
+		exitCode: 0,
+		data: {
+			sourceId: "source",
+			targetCommit: "resolved-target",
+			priorCursor: null,
+			resultingCursor: { commit: "resolved-target", generation: 1 },
+			cursorAdvanced: true,
+			counts: { created: 0, restored: 0, revised: 0, unchanged: 0, deleted: 0 },
+			cleanupOnly: false,
+			replayedPlan: false,
+			completion: "completed",
+		},
+	});
+	expect(accesses).toEqual([
+		{
+			gitplaneContext: { clock: expect.any(Object), configDirectory: "/repo/config" },
+			options: { access: "read-write" },
+		},
+	]);
+});
+
+test("reconcile reports repeated equal targets as a bounded no-op", async () => {
+	const store = new InMemoryMaterializationStoreGateway();
+	const gateway = new InMemoryArtifactGateway({
+		commits: { target: { type: "found", value: "resolved-target" } },
+		commitInventories: [
+			{
+				commit: "resolved-target",
+				artifactRoot: "artifacts",
+				observation: { type: "found", value: [] },
+			},
+		],
+	});
+	const reconcileContext = context({
+		artifactGateway: gateway,
+		configGateway: {
+			load: async () => ({
+				ok: true,
+				artifactRoot: "artifacts",
+				configDirectory: ".",
+				config: {
+					source: { id: "source", artifactRoot: "artifacts" },
+					store: () => store,
+				},
+			}),
+		},
+	});
+	await runForCliTest(app, ["reconcile", "target"], { context: reconcileContext });
+	store.close = async () => ({
+		ok: false,
+		error: { code: "close-broken", message: "private close detail" },
+	});
+	const repeated = await runForCliTest(app, ["reconcile", "target", "--format=json"], {
+		context: reconcileContext,
+	});
+	expect(repeated.exitCode).toBe(0);
+	expect(JSON.parse(repeated.stdout)).toMatchObject({
+		status: "success",
+		data: {
+			priorCursor: { commit: "resolved-target", generation: 1 },
+			resultingCursor: { commit: "resolved-target", generation: 1 },
+			cursorAdvanced: false,
+			cleanupOnly: false,
+			replayedPlan: false,
+			completion: "no-op",
+			storeClose: { status: "failed", causeCode: "close-broken" },
+		},
+	});
+	expect(repeated.stdout).not.toContain("private");
+});
+
+test.each([
+	{
+		name: "success",
+		store: new InMemoryMaterializationStoreGateway(),
+		expectedExit: 0,
+		expected: { status: "success" },
+	},
+	{
+		name: "structural failure",
+		store: new InMemoryMaterializationStoreGateway(),
+		expectedExit: 1,
+		expected: {
+			status: "negative",
+			data: { category: "structural-failure", code: "target-unavailable" },
+		},
+		unavailable: true,
+	},
+	{
+		name: "operational failure",
+		store: new InMemoryMaterializationStoreGateway({
+			failures: { readMaterializationSnapshot: { code: "database-busy", message: "private" } },
+		}),
+		expectedExit: 2,
+		expected: {
+			status: "failure",
+			errorType: "reconcile-failed",
+			data: { category: "operational-failure", causeCode: "database-busy" },
+		},
+	},
+	{
+		name: "close failure after completion",
+		store: new InMemoryMaterializationStoreGateway({
+			failures: { close: { code: "close-broken", message: "private" } },
+		}),
+		expectedExit: 0,
+		expected: {
+			status: "success",
+			data: {
+				completion: "completed",
+				storeClose: { status: "failed", causeCode: "close-broken" },
+			},
+		},
+	},
+	{
+		name: "close failure after operational failure",
+		store: new InMemoryMaterializationStoreGateway({
+			failures: {
+				readMaterializationSnapshot: { code: "database-busy", message: "private read" },
+				close: { code: "close-broken", message: "private close" },
+			},
+		}),
+		expectedExit: 2,
+		expected: {
+			status: "failure",
+			errorType: "reconcile-failed",
+			data: {
+				category: "operational-failure",
+				causeCode: "database-busy",
+				storeClose: { status: "failed", causeCode: "close-broken" },
+			},
+		},
+	},
+	{
+		name: "unexpected runtime failure",
+		store: new InMemoryMaterializationStoreGateway(),
+		expectedExit: 2,
+		expected: {
+			status: "failure",
+			errorType: "reconcile-failed",
+			data: { category: "reconciliation-failed" },
+		},
+		throwRuntime: true,
+	},
+	{
+		name: "unexpected close failure after completion",
+		store: new InMemoryMaterializationStoreGateway(),
+		expectedExit: 0,
+		expected: {
+			status: "success",
+			data: {
+				completion: "completed",
+				storeClose: { status: "failed", causeCode: "unexpected-close-failure" },
+			},
+		},
+		throwClose: true,
+	},
+	{
+		name: "unexpected close failure after unexpected runtime failure",
+		store: new InMemoryMaterializationStoreGateway(),
+		expectedExit: 2,
+		expected: {
+			status: "failure",
+			errorType: "reconcile-failed",
+			data: {
+				category: "store-close-failed",
+				causeCode: "unexpected-close-failure",
+				storeClose: { status: "failed", causeCode: "unexpected-close-failure" },
+			},
+		},
+		throwRuntime: true,
+		throwClose: true,
+	},
+] as const)("reconcile closes exactly once on $name", async (scenario) => {
+	let closeCount = 0;
+	const originalClose = scenario.store.close.bind(scenario.store);
+	scenario.store.close = async () => {
+		closeCount += 1;
+		if (scenario.throwClose) throw new Error("private close detail");
+		return originalClose();
+	};
+	const gateway = new InMemoryArtifactGateway({
+		commits: {
+			target: scenario.unavailable
+				? { type: "unavailable", reason: "missing-object" }
+				: { type: "found", value: "resolved-target" },
+		},
+		commitInventories: [
+			{
+				commit: "resolved-target",
+				artifactRoot: "artifacts",
+				observation: { type: "found", value: [] },
+			},
+		],
+	});
+	if (scenario.throwRuntime)
+		gateway.resolveCommit = async () => {
+			throw new Error("private runtime detail");
+		};
+	const run = await runForCliTest(app, ["reconcile", "target", "--format=json"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: ".",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => scenario.store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(scenario.expectedExit);
+	expect(JSON.parse(run.stdout)).toMatchObject(scenario.expected);
+	expect(run.stdout).not.toContain("private");
+	expect(closeCount).toBe(1);
+});
+
+test("reconcile human output warns when store close fails after completion", async () => {
+	const store = new InMemoryMaterializationStoreGateway({
+		failures: { close: { code: "close-broken", message: "private close detail" } },
+	});
+	const gateway = new InMemoryArtifactGateway({
+		commits: { target: { type: "found", value: "resolved-target" } },
+		commitInventories: [
+			{
+				commit: "resolved-target",
+				artifactRoot: "artifacts",
+				observation: { type: "found", value: [] },
+			},
+		],
+	});
+	const run = await runForCliTest(app, ["reconcile", "target"], {
+		context: context({
+			artifactGateway: gateway,
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: ".",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("source: completed resolved-target");
+	expect(run.stdout).toContain(
+		"Warning: the materialization store could not be closed (close-broken).",
+	);
+	expect(run.stdout).not.toContain("private");
 });
 
 test("doctor requests read-only access and returns typed checks", async () => {
@@ -611,6 +903,15 @@ test("check maps unexpected config throws to a sanitized config load failure", a
 test("check maps unexpected source throws to a sanitized source read failure", async () => {
 	const throwing: CliArtifactGateway = {
 		createArtifact: async () => {
+			throw new Error("not used");
+		},
+		resolveCommit: async () => {
+			throw new Error("not used");
+		},
+		inventoryCommitTree: async () => {
+			throw new Error("not used");
+		},
+		readCommitTreeCandidate: async () => {
 			throw new Error("not used");
 		},
 		inventoryWorkingTree: async () => {
