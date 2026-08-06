@@ -21,6 +21,7 @@ describe("ns-dev CLI shape", () => {
 		const stdout = help.stdout.join("");
 		expect(stdout).toContain("create-local-ns-project");
 		expect(stdout).toContain("install-local-ns-extension");
+		expect(stdout).not.toContain("caveman");
 		for (const command of [
 			"bump-public-package-version",
 			"prepare-source-publish-package",
@@ -37,6 +38,12 @@ describe("ns-dev CLI shape", () => {
 		const shortHelp = runScenario(["-h"]);
 		expect(await shortHelp.exit).toBe(0);
 		expect(shortHelp.stdout.join("")).toContain("Project-local development workflows");
+	});
+
+	it("rejects the retired caveman command as unknown", async () => {
+		const run = runScenario(["caveman"]);
+		expect(await run.exit).toBe(2);
+		expect(run.stderr.join("")).toContain("unknown command 'caveman'");
 	});
 
 	it("shows command help", async () => {

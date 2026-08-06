@@ -3,8 +3,9 @@
      rules for a one-time text transformation: the upstream session-mode machinery
      (frontmatter, persistence, mode switching, auto-clarity, boundaries) and the
      wenyan variants are removed; compression rules and examples are upstream's,
-     dprint-formatted. Consumed by ../SKILL.md Phase 3 as drafting-style reference,
-     not installed as a standalone skill. -->
+     dprint-formatted. No longer consumed by ../SKILL.md, which now uses a Simplified
+     Technical English editing pass; retained unreferenced as a fallback in case that
+     pass is reverted. Not installed as a standalone skill. -->
 
 # Caveman compression rules
 

@@ -594,9 +594,6 @@ importers:
       '@nseng-ai/clinkr':
         specifier: workspace:*
         version: link:../../../public/infra/clinkr
-      '@nseng-ai/extension-kit':
-        specifier: workspace:*
-        version: link:../../../public/extension-kit
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:../../../public/infra/foundation
