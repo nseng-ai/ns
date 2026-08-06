@@ -353,6 +353,11 @@
       "sourceType": "local",
       "computedHash": "dbf528d203e7455bf366392f593fd8f8864b595081395ec79806a80d0f6c8426"
     },
+    "ste-rewrite": {
+      "source": "skills/incubating/writing/ste-rewrite",
+      "sourceType": "local",
+      "computedHash": "f3248093095dfebce8b7561e8172aba382c7f290b2d7100bc0f46fc95323d0c9"
+    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
