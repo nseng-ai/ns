@@ -1,13 +1,12 @@
+// README-FENCE-15-START
 import { defineRawCommand } from "@nseng-ai/clinkr/raw";
 
-import { loads } from "./loads.ts";
-
 export async function command() {
-	loads.commandCalls += 1;
 	return defineRawCommand({
 		run: ({ argv, output }) => {
-			output.writeStdout(new TextEncoder().encode(JSON.stringify([...argv])));
-			return argv.length;
+			output.writeStdout(new TextEncoder().encode(argv.join("\0")));
+			return 17;
 		},
 	});
 }
+// README-FENCE-15-END

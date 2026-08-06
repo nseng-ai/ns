@@ -42,7 +42,12 @@ test("defineRawCommand owns the raw discriminant across an untyped boundary", ()
 	const conflictingDefinition = { type: "structured", run: () => 0 };
 	const definition = defineRawCommand(conflictingDefinition);
 	expect(definition.type).toBe("raw");
-	expect(definition.run({ argv: [] })).toBe(0);
+	expect(
+		definition.run({
+			argv: [],
+			output: { writeStdout: () => {}, writeStderr: () => {} },
+		}),
+	).toBe(0);
 });
 
 test("raw execution receives the argv tail verbatim and owns bytes and exit status", async () => {
@@ -51,6 +56,48 @@ test("raw execution receives the argv tail verbatim and owns bytes and exit stat
 	const argv = ["a", "--format", "json", "--input-json", "--json-schema", "--help", "--", "-x"];
 	const run = await runForCliTest(rawTailApp, argv);
 	expect(run).toEqual({ exitCode: argv.length, stdout: JSON.stringify(argv), stderr: "" });
+});
+
+test("raw output preserves exact chunks, stream routing, and split UTF-8 without newlines", async () => {
+	const bytes = new TextEncoder().encode("A🙂B");
+	const app = createClinkrApp({ name: "raw-bytes" }, (composition) => {
+		composition.source({ label: "raw-bytes" }, (scope) => {
+			scope.defaultCommand({ description: "Write exact bytes." }, () =>
+				defineRawCommand({
+					run: ({ output }) => {
+						output.writeStdout(bytes.subarray(0, 3));
+						output.writeStdout(bytes.subarray(3));
+						output.writeStderr(Uint8Array.from([0x65, 0x72, 0x72]));
+						return 29;
+					},
+				}),
+			);
+		});
+	});
+
+	expect(await runForCliTest(app, [])).toEqual({ exitCode: 29, stdout: "A🙂B", stderr: "err" });
+});
+
+test("raw output preserves split UTF-8 bytes without assigning semantic meaning", async () => {
+	const app = createClinkrApp({ name: "bytes" }, (composition) => {
+		composition.source({ label: "bytes" }, (scope) => {
+			scope.defaultCommand({ description: "Bytes." }, async () =>
+				defineRawCommand({
+					run: ({ output }) => {
+						output.writeStdout(Uint8Array.of(0xe2));
+						output.writeStdout(Uint8Array.of(0x82, 0xac));
+						output.writeStderr(new TextEncoder().encode("raw error"));
+						return 7;
+					},
+				}),
+			);
+		});
+	});
+	expect(await runForCliTest(app, [])).toEqual({
+		exitCode: 7,
+		stdout: "€",
+		stderr: "raw error",
+	});
 });
 
 test("raw commands share the transactional loader cache with structured commands", async () => {

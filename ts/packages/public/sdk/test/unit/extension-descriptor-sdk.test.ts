@@ -77,12 +77,21 @@ describe("modern ns extension author API", () => {
 	});
 
 	test("defineRawCommand keeps truthful raw options and definition names", () => {
+		const outputBytes: Uint8Array[] = [];
+		const output = {
+			writeStdout: (bytes: Uint8Array) => outputBytes.push(bytes),
+			writeStderr: () => {},
+		};
 		const options: Omit<NsRawCommandOptions, "requiresContext"> = {
-			run: ({ context, argv }) => (context.cwd === "/repo" && argv[0] === "tail" ? 0 : 1),
+			run: ({ context, argv, output: invocationOutput }) => {
+				invocationOutput.writeStdout(new TextEncoder().encode("raw"));
+				return context.cwd === "/repo" && argv[0] === "tail" ? 0 : 1;
+			},
 		};
 		const command: NsRawCommandDefinition = defineRawCommand(options);
 		expect(command).toMatchObject({ type: "raw", requiresContext: true });
-		expect(command.run({ context: { cwd: "/repo" } as never, argv: ["tail"] })).toBe(0);
+		expect(command.run({ context: { cwd: "/repo" } as never, argv: ["tail"], output })).toBe(0);
+		expect(new TextDecoder().decode(outputBytes[0])).toBe("raw");
 	});
 
 	test("exports modern outcomes", () => {

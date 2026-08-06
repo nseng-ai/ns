@@ -61,7 +61,20 @@ Use the `options` and `positionals` maps on `defineCommand()` when fields need C
 
 ## Raw commands
 
-`defineRawCommand({ run })` creates a contextful raw definition. The runner receives `{ context, argv }`, owns process I/O, and returns the exit status. Raw commands do not participate in structured schema, rendering, or dynamic completion.
+`defineRawCommand({ run })` creates a contextful raw definition. The runner receives `{ context, argv, output }`, writes raw bytes through the invocation-scoped `output.writeStdout()` and `output.writeStderr()` adapter, and returns the exit status. Do not use ambient process writers. Raw commands do not participate in structured schema, rendering, or dynamic completion.
+
+```ts
+import { defineRawCommand } from "@nseng-ai/sdk";
+
+export function command() {
+  return defineRawCommand({
+    run: ({ argv, output }) => {
+      output.writeStdout(new TextEncoder().encode(`${argv.join(" ")}\n`));
+      return 0;
+    },
+  });
+}
+```
 
 ## Ownership
 

@@ -1,6 +1,7 @@
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import {
 	matrixProgressDisplayWidthChars,
 	type ActiveOperation,
@@ -268,7 +269,13 @@ export class LiveCommandProgress {
 
 	private recordOutput(stream: OutputStreamName, text: string): void {
 		const pending = stream === "stdout" ? this.stdoutPending : this.stderrPending;
-		const parts = `${pending}${text.replace(/\r/g, "\n")}`.split("\n");
+		// Pi's renderer writes component text verbatim while treating terminal escapes as zero-width.
+		// An embedded clear-screen sequence therefore wiped the TUI and desynchronized its differential
+		// render state until a full redraw. Keep untrusted CLI controls out of the live widget entirely.
+		const normalizedText = stripTerminalEscapes(text)
+			.replace(/\r/g, "\n")
+			.replace(/[\x00-\x09\x0B-\x1F\x7F]/g, "");
+		const parts = `${pending}${normalizedText}`.split("\n");
 		const nextPending = parts.pop() ?? "";
 		for (const line of parts) {
 			this.outputLines.push({ stream, text: line });

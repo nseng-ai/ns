@@ -72,6 +72,21 @@ test("bodyless success omits data from JSON", async () => {
 	expect(JSON.parse(run.stdout)).toEqual({ status: "success", exitCode: 0 });
 });
 
+test("explicit app output captures framework text without process writer replacement", async () => {
+	const stdout: string[] = [];
+	const stderr: string[] = [];
+	const originalStdoutWrite = process.stdout.write;
+	const originalStderrWrite = process.stderr.write;
+	const exitCode = await countingApp.run(["--help"], {
+		output: { stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) },
+	});
+	expect(exitCode).toBe(0);
+	expect(stdout.join("")).toContain("Usage:");
+	expect(stderr).toEqual([]);
+	expect(process.stdout.write).toBe(originalStdoutWrite);
+	expect(process.stderr.write).toBe(originalStderrWrite);
+});
+
 test("runForCliTest captures stdout and stderr separately with exit codes", async () => {
 	const run = await runForCliTest(echoOutcomeApp, ["--input-json"], {
 		stdin: '{"outcome":{"status":"failure","errorType":"failed","message":"boom"}}',

@@ -360,6 +360,22 @@ describe("LiveCommandProgress matrix rendering", () => {
 		}
 	});
 
+	test("strips terminal escapes and C0 controls before rendering live output", () => {
+		const { progress, render } = createWidgetHarness();
+		try {
+			progress.appendOutput("stdout", "\u001b[2Jambient\u001b[H TUI\u001b[1A frame\u0000\u0007\n");
+
+			expect(progress.displaySnapshot().recentOutputLines.at(-1)).toEqual({
+				stream: "stdout",
+				text: "ambient TUI frame",
+			});
+			expect(render().at(-1)).toBe("stdout: ambient TUI frame");
+			expect(render().join("\n")).not.toContain("\u001b");
+		} finally {
+			progress.close();
+		}
+	});
+
 	test("renders header plus matrix when only matrix events arrive", () => {
 		const { progress, render } = createWidgetHarness();
 		try {

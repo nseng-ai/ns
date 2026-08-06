@@ -20,7 +20,7 @@ Command identity and route metadata are intentionally absent from the executable
 
 ## `defineRawCommand(definition)`
 
-Creates a contextful Clinkr raw definition over `NsExtensionApi`. Its runner receives `{ context, argv }`, owns raw process I/O, and returns a numeric exit status.
+Creates a contextful Clinkr raw definition over `NsExtensionApi`. Its runner receives `{ context, argv, output }`, writes raw bytes through `output.writeStdout()` and `output.writeStderr()`, and returns a numeric exit status. The invocation-scoped output adapter replaces ambient process output.
 
 ## Outcomes
 

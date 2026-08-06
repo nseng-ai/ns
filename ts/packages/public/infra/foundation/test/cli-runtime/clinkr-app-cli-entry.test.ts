@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createClinkrApp, defineCommand, ok } from "@nseng-ai/clinkr/app";
+import { defineRawCommand } from "@nseng-ai/clinkr/raw";
 import {
 	defineClinkrAppCli,
 	type ClinkrAppCliEntrypointDeps,
@@ -124,6 +125,61 @@ describe("defineClinkrAppCli", () => {
 		expect(output.join("")).toContain("\u001b[31mprepared:stdin\u001b[0m");
 	});
 
+	test("does not intercept process writers while an app run is pending", async () => {
+		const root = makePackage({ name: "example", version: "1.0.0" });
+		const originalStdoutWrite = process.stdout.write;
+		const originalStderrWrite = process.stderr.write;
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		let releaseRun: (() => void) | undefined;
+		const runReleased = new Promise<void>((resolve) => {
+			releaseRun = resolve;
+		});
+		let markRunPending: (() => void) | undefined;
+		const runPending = new Promise<void>((resolve) => {
+			markRunPending = resolve;
+		});
+		const cli = defineClinkrAppCli<TestContext>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: () => ({ type: "run", context: { prefix: "prepared" }, buildState: undefined }),
+			buildApp: ({ name }) =>
+				createClinkrApp<TestContext>({ name, requiresContext: true }, (composition) => {
+					composition.source({ label: "pending" }, (scope) => {
+						scope.defaultCommand({ description: "Pending command." }, () =>
+							defineCommand<TestContext, z.ZodObject, z.ZodString>({
+								requiresContext: true,
+								schema: z.object({}),
+								resultSchema: z.string(),
+								handler: async () => {
+									markRunPending?.();
+									await runReleased;
+									return ok("command output");
+								},
+							}),
+						);
+					});
+				}),
+		});
+
+		const running = cli.run([], {
+			stdout: (text) => stdout.push(text),
+			stderr: (text) => stderr.push(text),
+		});
+		await runPending;
+		expect(process.stdout.write).toBe(originalStdoutWrite);
+		expect(process.stderr.write).toBe(originalStderrWrite);
+		if (releaseRun === undefined) throw new Error("Expected pending run resolver");
+		releaseRun();
+		await expect(running).resolves.toBe(0);
+
+		expect(stdout.join("")).toBe('"command output"\n');
+		expect(stderr).toEqual([]);
+		expect(process.stdout.write).toBe(originalStdoutWrite);
+		expect(process.stderr.write).toBe(originalStderrWrite);
+	});
+
 	test("captures app output and restores both process writers after success and throw", async () => {
 		const root = makePackage({ name: "example", version: "1.0.0" });
 		const originalStdoutWrite = process.stdout.write;
@@ -151,6 +207,44 @@ describe("defineClinkrAppCli", () => {
 		);
 		expect(process.stdout.write).toBe(originalStdoutWrite);
 		expect(process.stderr.write).toBe(originalStderrWrite);
+	});
+
+	test("streams split raw UTF-8 through independent configured output channels", async () => {
+		const root = makePackage({ name: "example", version: "1.0.0" });
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const bytes = new TextEncoder().encode("A🙂B");
+		const cli = defineClinkrAppCli<TestContext>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Raw CLI.",
+			prepareRun: () => ({ type: "run", context: { prefix: "unused" }, buildState: undefined }),
+			buildApp: ({ name }) =>
+				createClinkrApp<TestContext>({ name, requiresContext: true }, (composition) => {
+					composition.source({ label: "raw" }, (scope) => {
+						scope.defaultCommand({ description: "Raw output." }, () =>
+							defineRawCommand<TestContext>({
+								requiresContext: true,
+								run: ({ output }) => {
+									output.writeStdout(bytes.subarray(0, 3));
+									output.writeStdout(bytes.subarray(3));
+									output.writeStderr(new TextEncoder().encode("error"));
+									return 17;
+								},
+							}),
+						);
+					});
+				}),
+		});
+
+		await expect(
+			cli.run([], {
+				stdout: (text) => stdout.push(text),
+				stderr: (text) => stderr.push(text),
+			}),
+		).resolves.toBe(17);
+		expect(stdout.join("")).toBe("A🙂B");
+		expect(stderr.join("")).toBe("error");
 	});
 
 	test("handles accepted errors and propagates declined errors", async () => {

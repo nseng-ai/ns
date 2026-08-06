@@ -6,6 +6,7 @@ import { stripAnsi } from "../ansi.ts";
 import { resolveProcessCaps } from "../caps.ts";
 import { buildCommanderArgument, buildCommanderOption } from "../commander-surface.ts";
 import { renderCompletionCandidatesNewline } from "../completion.ts";
+import type { ClinkrRawOutput } from "../raw/definition.ts";
 import type { SurfacePlan } from "../surface.ts";
 import {
 	buildCommandJsonSchemaDocument,
@@ -43,22 +44,33 @@ import {
 	type TopologyIssue,
 } from "./topology.ts";
 
-export interface ClinkrRunOptions<TContext> {
+export interface ClinkrOutput {
+	readonly stdout: (text: string) => void;
+	readonly stderr: (text: string) => void;
+}
+
+interface ClinkrRunAdapterOptions {
+	/** Stdin source for `--input-json`; defaults to draining `process.stdin`. */
+	readonly readStdin?: () => Promise<string>;
+	/** ANSI capability override; defaults to process stdout for terminal output and false for custom output. */
+	readonly canEmitAnsi?: boolean;
+	/** Invocation-scoped framework and structured text output. */
+	readonly output?: ClinkrOutput;
+	/** Invocation-scoped exact-byte output used only by raw commands. */
+	readonly rawOutput?: ClinkrRawOutput;
+}
+
+export interface ClinkrRunOptions<TContext> extends ClinkrRunAdapterOptions {
 	readonly context: TContext;
-	/** Stdin source for `--input-json`; defaults to draining `process.stdin`. */
-	readonly readStdin?: () => Promise<string>;
-	/** ANSI capability override; defaults to the resolved process stdout caps. */
-	readonly canEmitAnsi?: boolean;
 }
 
-export interface ClinkrContextFreeRunOptions {
-	/** Stdin source for `--input-json`; defaults to draining `process.stdin`. */
-	readonly readStdin?: () => Promise<string>;
-	/** ANSI capability override; defaults to the resolved process stdout caps. */
-	readonly canEmitAnsi?: boolean;
+export type ClinkrContextFreeRunOptions = ClinkrRunAdapterOptions;
+
+export interface ClinkrContextFreeCompleteOptions {
+	readonly output?: ClinkrOutput;
 }
 
-export interface ClinkrCompleteOptions<TContext> {
+export interface ClinkrCompleteOptions<TContext> extends ClinkrContextFreeCompleteOptions {
 	readonly context: TContext;
 }
 
@@ -84,7 +96,10 @@ export interface ContextfulClinkrCompletionConfig<TContext> {
 export interface ClinkrContextFreeApp {
 	readonly requiresContext: false;
 	run(argv: readonly string[], options?: ClinkrContextFreeRunOptions): Promise<number>;
-	complete(request: ClinkrCompletionRequest): Promise<ClinkrCompletionResult>;
+	complete(
+		request: ClinkrCompletionRequest,
+		options?: ClinkrContextFreeCompleteOptions,
+	): Promise<ClinkrCompletionResult>;
 }
 
 export interface ClinkrContextfulApp<TContext> {
@@ -282,6 +297,8 @@ class TopologyClinkrApp<TContext> {
 						hasVersion: options.version !== undefined,
 						hasRuntime: options.runtimeInfo !== undefined,
 						invokeProvider: createCompletionProviderInvoker(options),
+						emitTopologyIssues: (issues, invocationOptions) =>
+							emitTopologyIssues(issues, resolveOutput(invocationOptions.output)),
 					});
 	}
 
@@ -289,45 +306,47 @@ class TopologyClinkrApp<TContext> {
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
+		const output = resolveOutput(options.output);
+		const rawOutput = options.rawOutput ?? processRawOutput;
 		const navigation = await this.navigator.navigate(argv);
 		if (navigation.type === "version") {
-			process.stdout.write(`${this.version}\n`);
+			output.stdout(`${this.version}\n`);
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "runtime") {
-			process.stdout.write(this.runtimeInfo?.() ?? "");
+			output.stdout(this.runtimeInfo?.() ?? "");
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-script") {
-			process.stdout.write(this.navigator.renderCompletionScript(navigation.shell));
+			output.stdout(this.navigator.renderCompletionScript(navigation.shell));
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-resolve") {
 			const result = await this.requireCompletion().complete({ words: navigation.words }, options);
-			process.stdout.write(renderCompletionCandidatesNewline(result));
+			output.stdout(renderCompletionCandidatesNewline(result));
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-help") {
-			process.stdout.write(this.buildCompletionHelp(navigation.path));
+			output.stdout(this.buildCompletionHelp(navigation.path));
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-invalid") {
-			process.stderr.write(`clinkr: ${navigation.message}\n`);
+			output.stderr(`clinkr: ${navigation.message}\n`);
 			return USAGE_ERROR_EXIT_CODE;
 		}
 		if (navigation.type === "topology-failure") {
-			this.emitTopologyIssues(navigation.issues);
+			emitTopologyIssues(navigation.issues, output);
 			return USAGE_ERROR_EXIT_CODE;
 		}
-		if ("issues" in navigation) this.emitTopologyIssues(navigation.issues);
+		if ("issues" in navigation) emitTopologyIssues(navigation.issues, output);
 		if (navigation.type === "unknown-route") {
-			process.stderr.write(
+			output.stderr(
 				`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
 			);
 			return USAGE_ERROR_EXIT_CODE;
 		}
 		if (navigation.type === "scope-help") {
-			process.stdout.write(
+			output.stdout(
 				await this.buildScopeHelp(navigation.path, navigation.scope, navigation.definition),
 			);
 			return SUCCESS_EXIT_CODE;
@@ -340,15 +359,21 @@ class TopologyClinkrApp<TContext> {
 			// its selected argv tail, bytes, stdin, and numeric exit status.
 			const definition = selected.definition;
 			if (definition.requiresContext === true) {
-				return await definition.run({ context: requireRunContext(options), argv: selectedArgv });
+				return await definition.run({
+					context: requireRunContext(options),
+					argv: selectedArgv,
+					output: rawOutput,
+				});
 			}
-			return await definition.run({ argv: selectedArgv });
+			return await definition.run({ argv: selectedArgv, output: rawOutput });
 		}
 		const definition = selected.definition;
-		const canEmitAnsi = options.canEmitAnsi ?? resolveProcessCaps().colorDepth !== "none";
+		const canEmitAnsi =
+			options.canEmitAnsi ??
+			(options.output === undefined ? resolveProcessCaps().colorDepth !== "none" : false);
 		const parsed = parseGlobalFlags(selectedArgv);
 		if (parsed.ok ? parsed.flags.help : parsed.help) {
-			process.stdout.write(
+			output.stdout(
 				buildCommandSurface(selectedName, definition, metadata).command.helpInformation(),
 			);
 			return SUCCESS_EXIT_CODE;
@@ -359,6 +384,7 @@ class TopologyClinkrApp<TContext> {
 				definition,
 				parsed.format,
 				canEmitAnsi,
+				output,
 			);
 		}
 		const { format, jsonSchema, inputJson, rest } = parsed.flags;
@@ -372,6 +398,7 @@ class TopologyClinkrApp<TContext> {
 				definition,
 				format,
 				canEmitAnsi,
+				output,
 			);
 		if (jsonSchema && inputJson) {
 			return emitUsageError(
@@ -380,7 +407,7 @@ class TopologyClinkrApp<TContext> {
 			);
 		}
 		if (jsonSchema) {
-			process.stdout.write(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
+			output.stdout(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
 			return SUCCESS_EXIT_CODE;
 		}
 		let request: Record<string, unknown>;
@@ -405,20 +432,16 @@ class TopologyClinkrApp<TContext> {
 			request = parsedArgv.data as Record<string, unknown>;
 		}
 		const outcome = await this.invokeHandler(definition, request, options);
-		return emitTerminalOutcome(outcome, definition, format, canEmitAnsi);
+		return emitTerminalOutcome(outcome, definition, format, canEmitAnsi, output);
 	}
 
 	async complete(
 		request: ClinkrCompletionRequest,
-		options?: ClinkrCompleteOptions<TContext>,
+		options?: ClinkrCompleteOptions<TContext> | ClinkrContextFreeCompleteOptions,
 	): Promise<ClinkrCompletionResult> {
 		const invocationOptions = options ?? {};
 		if (this.requiresContext) requireRunContext(invocationOptions);
 		return this.requireCompletion().complete(request, invocationOptions);
-	}
-
-	private emitTopologyIssues(issues: readonly TopologyIssue[]): void {
-		for (const issue of issues) process.stderr.write(`${formatTopologyIssue(issue)}\n`);
 	}
 
 	private buildCompletionHelp(path: "completion" | "resolve"): string {
@@ -804,16 +827,35 @@ function emitTerminalOutcome(
 	definition: ClinkrCommandDefinition,
 	format: OutputFormat,
 	canEmitAnsi: boolean,
+	output: ClinkrOutput,
 ): number {
 	if (format === "json") {
-		process.stdout.write(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+		output.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
 		return exitCodeFor(outcome.status);
 	}
 	const view = renderOutcomeView(definition, outcome, format, { canEmitAnsi });
 	if (view !== undefined) {
-		process.stdout.write(`${view}\n`);
+		output.stdout(`${view}\n`);
 	} else if (outcome.status === "failure" || outcome.status === "usage-error") {
-		process.stderr.write(`${boundaryText(canEmitAnsi, outcome.message)}\n`);
+		output.stderr(`${boundaryText(canEmitAnsi, outcome.message)}\n`);
 	}
 	return exitCodeFor(outcome.status);
 }
+
+function resolveOutput(output: ClinkrOutput | undefined): ClinkrOutput {
+	return output ?? processOutput;
+}
+
+function emitTopologyIssues(issues: readonly TopologyIssue[], output: ClinkrOutput): void {
+	for (const issue of issues) output.stderr(`${formatTopologyIssue(issue)}\n`);
+}
+
+const processOutput: ClinkrOutput = {
+	stdout: (text) => process.stdout.write(text),
+	stderr: (text) => process.stderr.write(text),
+};
+
+const processRawOutput: ClinkrRawOutput = {
+	writeStdout: (bytes) => process.stdout.write(bytes),
+	writeStderr: (bytes) => process.stderr.write(bytes),
+};

@@ -22,7 +22,8 @@ This file preserves implementation-relevant details intentionally removed from t
 - Context belongs to an invocation, not app construction or global state. Context-free trees expose `handler(request)` and `clinkr.run(args)`; contextful trees expose `handler(context, request)` and require context for each run. Runtime dispatch follows `requiresContext` rather than inspecting function arity or always calling an underlying two-argument handler.
 - The boolean discriminant preserves request and outcome inference from command schemas while the handler's annotated first parameter supplies its context type. A direct leading context generic cannot preserve inference of omitted trailing schema generics in TypeScript, and a uniform invocation object would require a synthetic null context for context-free commands. Repeating `requiresContext: true` on contextful definitions is the accepted tradeoff for truthful call shapes and runtime validation.
 - `ClinkrApp.run()` resolves to an exit code and never calls `process.exit()`.
-- `ClinkrApp` exposes no speculative structured in-process execution seam. The SDK/Objectives host migration must prove whether a host needs route-addressed invocation, direct command definitions, or another contract before Clinkr adds one.
+- Structured commands and framework responses write rendered text through an invocation-scoped `ClinkrOutput` adapter with separate stdout/stderr callbacks. Omitted output preserves process-backed terminal defaults; custom output defaults ANSI off unless the invocation explicitly enables it.
+- `ClinkrApp` exposes no speculative structured in-process execution seam or semantic presentation contract. Output adaptation belongs to the existing run traversal, and no modern embedded path may replace process writers.
 - The supported Node.js floor is `>=24.12.0`; the package `engines` metadata and qualification matrix must match.
 
 ## Programmatic topology and source composition
@@ -86,7 +87,7 @@ This file preserves implementation-relevant details intentionally removed from t
 
 ## Completion and progressive output
 
-- Completion is app opt-in and derives static candidates from the same topology and schemas used for parsing and help. Dynamic providers mirror handler signatures: context-free definitions use `completionProvider(request)`, while definitions with `requiresContext: true` use `completionProvider(context, request)`.
+- Completion is app opt-in and derives static candidates from the same topology and schemas used for parsing and help. Direct and run-mediated completion route topology diagnostics through the invocation text output adapter while preserving the existing completion result shape. Dynamic providers mirror handler signatures: context-free definitions use `completionProvider(request)`, while definitions with `requiresContext: true` use `completionProvider(context, request)`.
 - Dynamic providers augment static candidates; Clinkr merges and deduplicates them. If a provider throws, call optional app policy `completion.onProviderError` with the error and command/completion context, then retain static candidates. Observer failure must not break fallback, and Clinkr must not print the provider error itself.
 - Normal progress and logs use stderr, preserving stdout for the answer or JSON envelope. More specialized progress/reporting belongs behind invocation context so hosts and tests can supply their own I/O policy.
 - Animation is TTY-gated. Durable mid-command stdout is exceptional and must be disabled in JSON mode; derive that policy before `run()` and carry it through context when needed.

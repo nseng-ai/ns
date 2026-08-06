@@ -1,20 +1,26 @@
 // Legacy-independent raw command definition for the quarantined `src/app/`
 // runtime. This module must not import legacy runtime modules (`group.ts`,
-// `exit.ts`, `emit.ts`, `completion.ts`) and has no I/O seam at all; the app
-// runtime imports it directly so raw definitions share the structured loader
+// `exit.ts`, `emit.ts`, `completion.ts`). The app runtime imports it directly
+// so raw definitions share the structured loader
 // without touching the legacy surface that `src/raw/index.ts` still
 // re-exports.
+
+/** Invocation-scoped, byte-oriented output owned by a raw command. */
+export interface ClinkrRawOutput {
+	writeStdout(bytes: Uint8Array): void;
+	writeStderr(bytes: Uint8Array): void;
+}
 
 /**
  * Invocation payload for a context-free raw command. `argv` is the selected
  * command's argv tail, passed through verbatim (including framework-looking
  * flags such as `--format` and `--`); the raw command owns all tail
- * interpretation and its exit status. Raw commands are terminal-only by
- * construction: they write their output bytes directly to `process.stdout`
- * and `process.stderr` and read `process.stdin` themselves when needed.
+ * interpretation, output bytes, and its exit status. Raw bytes deliberately
+ * bypass Clinkr's structured final-presentation contract.
  */
 export interface RawCommandInvocation {
 	readonly argv: readonly string[];
+	readonly output: ClinkrRawOutput;
 }
 
 /** Invocation payload for a contextful raw command. */

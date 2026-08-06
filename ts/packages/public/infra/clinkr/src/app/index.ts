@@ -4,10 +4,12 @@ export type { OutputFormat } from "./framework-arguments.ts";
 export type {
 	ClinkrApp,
 	ClinkrContextFreeApp,
+	ClinkrContextFreeCompleteOptions,
 	ClinkrContextFreeRunOptions,
 	ClinkrContextfulApp,
 	ClinkrCompleteOptions,
 	ClinkrCompletionFailure,
+	ClinkrOutput,
 	ContextFreeClinkrCompletionConfig,
 	ContextfulClinkrCompletionConfig,
 	ClinkrRunOptions,

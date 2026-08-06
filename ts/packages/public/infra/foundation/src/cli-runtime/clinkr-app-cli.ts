@@ -1,7 +1,8 @@
 import process from "node:process";
+import { TextDecoder } from "node:util";
 
 import type { ClinkrContextfulApp } from "@nseng-ai/clinkr/app";
-import { withInterceptedProcessWriters } from "@nseng-ai/clinkr/app/process-writer-interception";
+import type { ClinkrRawOutput } from "@nseng-ai/clinkr/raw";
 
 import {
 	optionalEntries,
@@ -104,13 +105,7 @@ export interface DefinedClinkrAppCli<
 	readonly runIfMain: (input: ClinkrAppCliRunIfMainInput) => Promise<void>;
 }
 
-/**
- * Define a package-backed modern Clinkr application lifecycle.
- *
- * When output overrides are supplied, `run` uses guarded process-global
- * writer interception. Override-backed runs must be awaited sequentially;
- * overlap fails before changing a process writer.
- */
+/** Define a package-backed modern Clinkr application lifecycle. */
 export function defineClinkrAppCli<
 	TContext,
 	TDeps extends ClinkrAppCliEntrypointDeps = ClinkrAppCliEntrypointDeps,
@@ -147,13 +142,23 @@ export function defineClinkrAppCli<
 				metadata,
 			});
 			if (prepareResult.type === "handled") return prepareResult.exitCode;
-			const app = buildApp(prepareResult.buildState);
-			return await runWithOutputOverrides(
-				app,
-				prepareResult.args ?? args,
-				prepareResult.context,
-				deps,
-			);
+			const rawBridge = createRawOutputBridge(deps);
+			try {
+				return await buildApp(prepareResult.buildState).run(prepareResult.args ?? args, {
+					context: prepareResult.context,
+					readStdin: deps.readStdin ?? readStdin,
+					rawOutput: rawBridge.output,
+					...optionalEntries({
+						output:
+							deps.stdout === undefined && deps.stderr === undefined
+								? undefined
+								: { stdout, stderr },
+					}),
+					...optionalEntry("canEmitAnsi", deps.canEmitAnsi),
+				});
+			} finally {
+				rawBridge.flush();
+			}
 		} catch (error) {
 			if (options.handleRunError === undefined) throw error;
 			const exitCode = await options.handleRunError({
@@ -176,23 +181,46 @@ export function defineClinkrAppCli<
 	return { metadata, version: metadata.version, runtimeInfo, buildApp, run, runIfMain };
 }
 
-async function runWithOutputOverrides<TContext, TDeps extends ClinkrAppCliEntrypointDeps>(
-	app: ClinkrContextfulApp<TContext>,
-	args: readonly string[],
-	context: TContext,
-	deps: ClinkrAppCliRunDeps<TDeps>,
-): Promise<number> {
-	const runApp = async () =>
-		await app.run(args, {
-			context,
-			readStdin: deps.readStdin ?? readStdin,
-			...optionalEntry("canEmitAnsi", deps.canEmitAnsi),
-		});
-	if (deps.stdout === undefined && deps.stderr === undefined) return await runApp();
-	return await withInterceptedProcessWriters(
-		optionalEntries({ stdout: deps.stdout, stderr: deps.stderr }),
-		runApp,
-	);
+interface RawOutputBridge {
+	readonly output: ClinkrRawOutput;
+	readonly flush: () => void;
+}
+
+function createRawOutputBridge(deps: ClinkrAppCliEntrypointDeps): RawOutputBridge {
+	const stdoutDecoder = deps.stdout === undefined ? undefined : new TextDecoder();
+	const stderrDecoder = deps.stderr === undefined ? undefined : new TextDecoder();
+	const output: ClinkrRawOutput = {
+		writeStdout:
+			stdoutDecoder === undefined
+				? (bytes) => process.stdout.write(bytes)
+				: (bytes) => emitDecodedText(stdoutDecoder, bytes, deps.stdout),
+		writeStderr:
+			stderrDecoder === undefined
+				? (bytes) => process.stderr.write(bytes)
+				: (bytes) => emitDecodedText(stderrDecoder, bytes, deps.stderr),
+	};
+	return {
+		output,
+		flush: () => {
+			if (stdoutDecoder !== undefined) {
+				const text = stdoutDecoder.decode();
+				if (text !== "") deps.stdout?.(text);
+			}
+			if (stderrDecoder !== undefined) {
+				const text = stderrDecoder.decode();
+				if (text !== "") deps.stderr?.(text);
+			}
+		},
+	};
+}
+
+function emitDecodedText(
+	decoder: TextDecoder,
+	bytes: Uint8Array,
+	write: ((text: string) => void) | undefined,
+): void {
+	const text = decoder.decode(bytes, { stream: true });
+	if (text !== "") write?.(text);
 }
 
 function writeProcessStdout(text: string): void {

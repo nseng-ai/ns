@@ -427,7 +427,7 @@ expect(run).toMatchObject({
 });
 ```
 
-`@nseng-ai/clinkr/testing` provides captured I/O, test invocation helpers, fake confirmation, machine-envelope parsing, ANSI stripping, and import-boundary scanners. Tests exercise parsing, handlers, rendering, and exit codes together without touching process-global state or real external dependencies.
+`runForCliTest` captures Clinkr's invocation-scoped structured text and raw-command byte output; it never replaces process writers. `@nseng-ai/clinkr/testing` provides additional captured I/O, test invocation helpers, fake confirmation, machine-envelope parsing, ANSI stripping, and import-boundary scanners. Tests exercise parsing, handlers, rendering, and exit codes together without touching process-global state or real external dependencies.
 
 ## Advanced: explicit outcomes
 
@@ -519,6 +519,23 @@ A command that requires a prompt must return a usage error when interaction is u
 ### Raw execution
 
 `@nseng-ai/clinkr/raw` provides `defineRawCommand(...)`, a narrow, framework-neutral escape hatch for a selected command that must receive its raw argv tail and own its output bytes and exit status. A raw filesystem module keeps the standard `command()` export and returns this raw definition. Clinkr still owns application routing and command metadata; it does not parse the selected command's argv tail or wrap its output in the rendered-command contract.
+
+A raw invocation receives an explicit invocation-scoped `output` adapter. Write stdout and stderr chunks through that adapter rather than through ambient process streams:
+
+```ts
+import { defineRawCommand } from "@nseng-ai/clinkr/raw";
+
+export async function command() {
+	return defineRawCommand({
+		run: ({ argv, output }) => {
+			output.writeStdout(new TextEncoder().encode(argv.join("\0")));
+			return 17;
+		},
+	});
+}
+```
+
+The adapter adds no newline, rendering, envelope, or exit-code policy. Terminal runs route its bytes to the process streams; embedded hosts and tests provide their own byte sinks without replacing process writers.
 
 Use this only for genuine passthrough or byte-owning commands, such as adapting an embedded parser or a process-like runner. Prefer an ordinary `ClinkrCommand` whenever Clinkr can model the command's schema, outcomes, and rendering. Mounting an opaque Commander subtree is not part of this contract; add a framework-specific adapter only when a concrete application requires one.
 
