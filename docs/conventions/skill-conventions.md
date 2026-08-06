@@ -16,7 +16,7 @@ Procedures for channel 2 are documented in `skills/internal/skill-system/skill-m
 
 ### Auditing and Tightening Skills
 
-To audit or tighten a `SKILL.md` — for predictability, token cost, trigger quality, progressive disclosure, install layout, or CLI push-down — summon the **`skill-audit`** skill (`skills/internal/skill-system/skill-audit/`). It carries ns's operational audit checklists and loads its conceptual frame at run time from the vendored `writing-great-skills` skill (`.agents/skills/writing-great-skills/`), which is the single source of the audit vocabulary — upstream refreshes flow in with no re-sync of the audit skill. Use the vocabulary's failure-mode names as the labels for audit findings; the names and deep definitions live in the vendored skill and its `GLOSSARY.md`.
+To audit or tighten a `SKILL.md` — for predictability, token cost, trigger quality, progressive disclosure, install layout, or CLI push-down — summon the **`skill-audit`** skill (`skills/internal/skill-system/skill-audit/`). It carries ns's operational audit checklists and loads its conceptual frame at run time from the vendored `writing-for-agents` skill (`.agents/skills/writing-for-agents/`), which is the single source of the audit vocabulary — upstream refreshes flow in with no re-sync of the audit skill. Use the vocabulary's failure-mode names as the labels for audit findings; the names and deep definitions live in the vendored skill's `SKILL.md` (skill-only mechanics in its sibling `SKILL-MECHANICS.md`).
 
 ### Skill Exposure Policy and Harness Overlays
 
@@ -28,7 +28,7 @@ ns skill-exposure show <path...>
 ns skill-exposure check <path...>
 ```
 
-`<path...>` must identify a skill directory or its `SKILL.md` directly, such as `skills/internal/code/code-gh` or `.agents/skills/writing-great-skills/SKILL.md`. There is no discovery, list, find, doctor, or whole-repository scan surface. `check` verifies only the declared paths' exposure overlays and skill-backed command invariant; it does not validate `skills-lock.json` hashes, mirrors, acquisition, or install health.
+`<path...>` must identify a skill directory or its `SKILL.md` directly, such as `skills/internal/code/code-gh` or `.agents/skills/writing-for-agents/SKILL.md`. There is no discovery, list, find, doctor, or whole-repository scan surface. `check` verifies only the declared paths' exposure overlays and skill-backed command invariant; it does not validate `skills-lock.json` hashes, mirrors, acquisition, or install health.
 
 | Policy                 | Model auto-routes (ambient)?                  | Human invocation                       | Harness overlays                                                                                         |
 | ---------------------- | --------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |

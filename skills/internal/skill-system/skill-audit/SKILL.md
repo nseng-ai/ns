@@ -8,7 +8,7 @@ description: "Audit and tighten agent skills. Summon by name to review a SKILL.m
 
 <!--
   The audit vocabulary is deliberately NOT embedded here: it is read at run time
-  from the vendored writing-great-skills skill (.agents/skills/writing-great-skills/,
+  from the vendored writing-for-agents skill (.agents/skills/writing-for-agents/,
   upstream mattpocock/skills; pin and de-meld history: docs/agents/matt-pocock-skills.md),
   so upstream refreshes need no re-sync of this file.
   Declared skill-backed-command through Skill Exposure Policy. Keep Harness Overlay
@@ -21,7 +21,7 @@ Run the **Audit Order** top to bottom, applying the checklists as you go.
 
 ## Vocabulary — the audit lens
 
-Read `.agents/skills/writing-great-skills/SKILL.md` before auditing. It defines the lens this audit thinks with — **predictability**, invocation and the two loads, the description as **context pointer**, the **information hierarchy**, **progressive disclosure**, granularity, **leading words**, pruning — and the **failure modes**: **duplication**, **sediment**, **sprawl**, **no-op**, **negation**, **premature completion**. Deep definitions (with *Avoid* lists) are in its sibling `GLOSSARY.md`; consult on demand.
+Read `.agents/skills/writing-for-agents/SKILL.md` before auditing. It defines the lens this audit thinks with — the description as **context pointer**, the **two loads**, the **information hierarchy**, **progressive disclosure**, **co-location**, **leading words**, pruning — and the **failure modes**: **duplication**, **cache**, **sediment**, **sprawl**, **no-op**, **negation**, **premature completion**. Skill-only mechanics — frontmatter, model- vs user-invoked routing, router skills, the invocation cut of splitting — live in its sibling `SKILL-MECHANICS.md`; consult on demand. (**Predictability** — high signal, low token cost, clear routing — is retained ns-side audit vocabulary; upstream no longer defines it standalone.)
 
 ## Load With
 

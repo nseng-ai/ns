@@ -5,16 +5,28 @@ This is the instance doc for `mattpocock/skills` under the generic
 single commit-level pin, the import/rename/rejection tables, recorded forks, the
 melded-surfaces registry, deferred follow-ups, and Pocock-specific update steps.
 
-**Pin**: `mattpocock/skills` at commit `d574778f94cf620fcc8ce741584093bc650a61d3`
-(package version 1.1.0). This is the only commit-level provenance record; melded
+**Pin**: `mattpocock/skills` at commit `8b36d4fb2635b3c21998dcd8144439c9e5ba7302`
+(package version 1.2.2). This is the only commit-level provenance record; melded
 surfaces and lockfile entries never duplicate it.
+
+**Partial-refresh exception**: `wayfinder` was deliberately not refreshed at the v1.2
+refresh; its vendored copy still carries the 1.1.0 content pending the LM-driven sync
+(see Deferred follow-ups). Every other vendored Matt skill is at the pin above.
 
 ## Layout
 
 Matt-sourced GitHub skills live as real vendored directories under
 `.agents/skills/<name>/`. Claude Code entries under `.claude/skills/<name>` are symlinks
 to `../../.agents/skills/<name>`. `skills-lock.json` records the upstream source,
-upstream skill path, and computed hash — but no commit. ns first-party adaptations live under their explicit nested canonical paths in
+upstream skill path, and computed hash — but no commit.
+
+Since upstream v1.2, every upstream skill ships its own `agents/openai.yaml` (Codex
+`interface.*` metadata, plus `policy.allow_implicit_invocation: false` for user-invoked
+skills). For skills whose ns Skill Exposure Policy is `normal`, that upstream sidecar is
+kept as-shipped. For explicit-policy skills (`invoke-only`, `skill-backed-command`), the
+sidecar seam is repo-owned: `ns skill-exposure apply` refuses the upstream file, so it is
+removed and re-derived on refresh, dropping upstream's `interface.*` metadata — this is
+part of the recorded Harness Overlay exception to byte-identity. ns first-party adaptations live under their explicit nested canonical paths in
 `skills/<disposition>/<family>/<name>/` (with approved top-level product exceptions).
 
 ## Imported upstream skills
@@ -26,13 +38,14 @@ upstream skill path, and computed hash — but no commit. ns first-party adaptat
 - `codebase-design`: deep-module vocabulary and design guidance.
 - `improve-codebase-architecture`: architecture survey using `codebase-design`, `domain-modeling`, and `grilling`.
 - `pocock-review`: two-axis diff review against a fixed point, using upstream Standards and Spec sub-agent prompts (renamed on import; see below).
-- `writing-great-skills`: upstream skill-authoring reference and the single source of the audit vocabulary; first-party `skill-audit` reads it at run time by context pointer (not a meld — no sync action on refresh).
+- `writing-for-agents` (upstream rename of `writing-great-skills` at v1.2; ns follows the upstream name, no local rename): reference for any document an agent consumes and the single source of the audit vocabulary; first-party `skill-audit` reads it at run time by context pointer (not a meld — no sync action on refresh). Upstream merged `GLOSSARY.md` into `SKILL.md` and split skill-only mechanics into `SKILL-MECHANICS.md`; it also dropped the standalone **predictability** definition and the **negative space** failure mode, which `skill-audit` retains ns-side.
 - `tdd`: red → green loop reference (SKILL.md, `tests.md`, `mocking.md`); vendored as-shipped, no ns meld yet.
 - `wayfinder`: tracker-backed shared map of investigation tickets for work larger than one agent session (upstream `skills/engineering/wayfinder/`). Kept `invoke-only` per ADR 0016 so it does not ambiently absorb planning language owned by ns Objectives. Carries the recorded tracker-line fork (see below). Bound to a **single-document tracker** via `docs/agents/issue-tracker.md` ("Wayfinding operations"): each wayfinder effort is one committed map file under `docs/wayfinding/` holding its tickets as sections — deliberately *not* Objectives-backed, so `/wayfinder` yields a lightweight doc while `objective-create` (wayfinding pattern, `references/wayfinding-create.md`) remains the Objectives-backed route. The Objective system's ideation pattern is an ns-native adaptation of this skill's model; the concept mapping, deliberate drops, and LM-driven sync process live in [wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md).
 - `research`: background-agent research into a repo Markdown summary (model-invoked, per upstream).
 - `prototype`: throwaway prototypes to answer design questions (model-invoked, per upstream).
 - `diagnosing-bugs`: diagnosis loop for hard bugs and regressions (model-invoked, per upstream).
 - `pocock-resolving-merge-conflicts`: upstream `resolving-merge-conflicts` (renamed on import; see below).
+- `wait-what`: one-word corrective for model verbosity — re-pitch the last message with context, Simplified Technical English, and `CONTEXT.md` vocabulary. Kept `invoke-only`, matching upstream's user-invoked intent.
 
 ## Renames on import
 
@@ -50,6 +63,8 @@ Vendored dirs are byte-identical to upstream except repo-owned Harness Overlays 
 - `grilling/SKILL.md`: one sentence — the uniform-polarity rule (a plain "yes" must
   endorse the recommended answer; never a "no"-recommendation followed by "Do you
   agree?"). Prevents mixed-polarity compound questions in the portable prose loop.
+  Since the v1.2 round-by-round rework, the sentence lives inside the "Work the tree in
+  **rounds**" paragraph, after "number each question and give your recommended answer".
   Re-apply after every refresh.
 - `wayfinder/SKILL.md`: one line — the tracker-doc sentence points at
   `docs/agents/issue-tracker.md` ("Wayfinding operations" section, local-markdown
@@ -96,6 +111,15 @@ single source of commit-level provenance.
 Standing policy inherited by every row: wherever Pocock skills use tickets or an issue
 tracker for durable state, ns uses Objectives.
 
+**v1.2 refresh status (partial).** Sync actions walked at the v1.2 refresh:
+`domain-modeling` rows — upstream content unchanged since v1.1, no-op;
+`code-review` → `.ns/reviews/code-smell-review/review.md` — upstream changed only
+issue/PRD→issue/spec wording, Fowler smell baseline byte-unchanged, no-op. Deferred
+(see Deferred follow-ups): all `grilling` semantic-merge rows (the v1.2 round-by-round
+frontier rework is being trialed via the refreshed vendored skill before melding),
+the `grilling` → `readme-driven-development` review row, the `wayfinder` LM-sync row
+(vendored `wayfinder` not refreshed), and the post-refresh semantic sweep.
+
 De-melded (2026-07-12): the former `writing-great-skills` melds — the `skill-audit`
 adaptation reference and the bundled `skill-audit-improved` vocabulary — were
 consolidated into one first-party `skills/internal/skill-system/skill-audit/` that reaches the vendored
@@ -137,11 +161,13 @@ skill-audit family.
   drift from already-existing ground truth. Preserve this behavior when refreshing the
   vendored `domain-modeling` and `improve-codebase-architecture` skills and when
   semantically merging the docs-aware Pi backend.
-- **Writing-great-skills and skill-audit.** The vendored `writing-great-skills` is the
-  single source of the skill-authoring vocabulary; ns's operational audit checklists
-  live in `skills/internal/skill-system/skill-audit/`, which loads that vocabulary at run time by context
-  pointer. Upstream vocabulary changes flow in automatically on refresh — do not copy
-  vocabulary back into the audit skill.
+- **Writing-for-agents and skill-audit.** The vendored `writing-for-agents` (formerly
+  `writing-great-skills`) is the single source of the skill-authoring vocabulary; ns's
+  operational audit checklists live in `skills/internal/skill-system/skill-audit/`, which loads that
+  vocabulary at run time by context pointer. Upstream vocabulary changes flow in
+  automatically on refresh — do not copy vocabulary back into the audit skill. The
+  audit skill's `predictability` framing and the `negative space` failure mode are
+  ns-retained vocabulary that upstream dropped at v1.2.
 - **Invocation semantics.** Matt Skills uses `disable-model-invocation: true` for
   user-invoked wrappers and rich descriptions for reusable model-invoked skills. ns maps
   this through `ns skill-exposure apply <policy> <explicit-path>`;
@@ -179,3 +205,24 @@ additions:
   `thermo-nuclear-code-quality-review` (vs first-party
   `review-thermonuclear-review`), `fdt-refactor-mock-to-fake` (cross-repo coherence
   with the fake-driven-testing family).
+- **v1.2 refresh remainder** (refresh was deliberately partial):
+  - Refresh `wayfinder` and run its LM-driven sync
+    ([wayfinder-objective-adaptation.md](wayfinder-objective-adaptation.md)); v1.2
+    upstream changes to classify: the **decision ticket** term, `/research`-subagent
+    burn-down of research tickets (the one exception to one-ticket-per-session), and
+    the tracker-doc sentence rewrite (re-derive the recorded tracker-line fork against
+    it).
+  - Semantically merge the v1.2 `grilling` round-by-round **frontier** rework into the
+    melded surfaces (`pi-grill-ui`, `pi-grill-with-docs-ui`, `GRILL_UI_CONTRACT` +
+    grill tests, `readme-driven-development` Grill step) after trialing the refreshed
+    vendored skill. Open design question: `grill_ask` is one-question-per-tool-call —
+    adopt rounds as batched sequential calls or record a deliberate divergence.
+  - Run the post-refresh **semantic sweep** for skills with real content changes
+    (`grilling`, `prototype`, `tdd`, `code-review`, `improve-codebase-architecture`,
+    `writing-for-agents`).
+  - Decide import/reject for new upstream v1.2 skills not yet taken: `wizard`
+    (interactive bash wizard for human-only steps) and `to-questionnaire` (grill the
+    send, not the subject). `wait-what` was imported at this refresh.
+  - Re-audit `skill-audit` against the restructured `writing-for-agents` vocabulary
+    (upstream dropped standalone **predictability** and **negative space**; ns retains
+    them — decide whether to keep, re-home, or drop).

@@ -128,8 +128,8 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 		kind: "generic-backing-skill",
 	},
 	{
-		skillName: "writing-great-skills",
-		surface: "writing:great-skills",
+		skillName: "writing-for-agents",
+		surface: "writing:for-agents",
 		kind: "generic-backing-skill",
 	},
 ] as const satisfies readonly SkillBackedCommandRegistration[];
