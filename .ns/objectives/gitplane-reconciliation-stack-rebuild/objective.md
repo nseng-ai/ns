@@ -1,42 +1,52 @@
 ---
 edges:
   - objective: gitplane
-    annotation: Rebuilds gitplane's cursor-diff reconciliation slice as a verified PR stack; supersedes the prototype branch's completion evidence.
+    annotation: Rebuilds gitplane's level-triggered snapshot reconciliation slice as a verified PR stack; supersedes the prototype branch's completion evidence.
 ---
 
 # Gitplane reconciliation stack rebuild
 
 ## Thesis
 
-Rebuild cursor-diff reconciliation from `master` as a stack of additively verifiable PRs — each slice carrying its own proof obligation and review question — instead of landing the ~3,000-line single-commit prototype. Branch `gitplane-cursor-reconciliation-baseline-repair` @ `09d75c3ae` (PR #4076) is retained unmerged as a prototype-quality reference to mine for code, tests, and behavior; it is never landed as-is and closes once the stack fully lands.
+Rebuild reconciliation from `master` as a stack of additively verifiable PRs — each slice carrying its own proof obligation and review question — instead of landing the ~3,000-line single-commit prototype. Branch `gitplane-cursor-reconciliation-baseline-repair` @ `09d75c3ae` (PR #4076) remains an unmerged prototype-quality reference to mine for code, tests, and rationale; it is never landed as-is and closes once the stack fully lands.
 
-The rebuild also reshapes reconciliation internally into Gather → Decide → Apply: an I/O-only fact-gathering step, a pure deterministic planner (`deriveReconciliationPlan(facts)` with no gateways), and an ordered retry-safe effect application. The package's public core interface stays `reconcile(context, options)`; the planner is an internal seam, not a new public surface.
+The original rebuild contract used cursor diffs, ancestry/descent classification, initial `--full`, and linear-history guards. The generation-aware snapshot amendment deliberately supersedes those requirements: reconciliation is level-triggered from the last completed Gitplane control snapshot to the complete immutable target-commit corpus, and history is not an input. Preserve the old rationale in Objective and PR history, including PR #4128's conservative shallow-history classification, while removing it from normative and runtime requirements.
+
+The rebuild retains Gather → Decide → Apply: I/O-only immutable fact gathering, a pure deterministic planner (`deriveReconciliationPlan(facts)` with no gateways), and ordered retry-safe effect application. The package's public core interface stays `reconcile(context, options)`; the planner is internal.
 
 ## Scope
 
-- A six-slice PR stack, in order: reconciliation contract and proof matrix; source facts (`ArtifactGateway` history operations plus `RealArtifactGateway`); the pure reconciliation planner; the durable store protocol (baseline/CAS/idempotence operations, SQLite, shared conformance); the retry-safe reconciliation engine with a systematic fault-injection matrix; CLI exposure of `gitplane reconcile <commit>` / `--full`.
-- Test restructuring by proof level: pure policy tests, store conformance against fake and SQLite, fault-injected engine scenarios over shared state, and minimal real-Git + real-SQLite end-to-end composition tests.
-- Behavioral accounting against reference commit `09d75c3ae` at stack tip.
-- Explicit source-fact follow-through: normal Gather uses cursor-to-target diffs and old/new boundary resolution rather than full-corpus reads; full Gather discovers the complete target corpus without requiring a complete cursor corpus; raw topology retains nested and non-regular reserved-marker entries for canonical planner validation; and fake observations are keyed by the complete gateway request even when unavailable.
-- Prototype PR closure and reconciliation of the `gitplane` objective's roadmap evidence.
+- A reshaped five-boundary stack: contract amendment; complete target/completed-store snapshot facts plus pure planner; generation-aware durable attempt/cursor/event protocol; retry-safe engine and CLI with `--repair`; closure and accounting.
+- Complete target-corpus discovery for normal and repair modes. Gather resolves the requested commit and retains raw topology for canonical planner validation; it does not read cursor trees, ancestry, diffs, operator target rows, or shallow-history state.
+- One coherent materialization-store snapshot containing generation cursor, all current records including tombstones, lineage, and pending attempt. New planning requires a completed snapshot with no unresolved attempt; matching attempts replay, conflicts refuse replacement, and post-CAS residue is cleanup-only.
+- Generation-aware identities and completion: absent cursor is conceptual generation 0; completed transitions and repairs advance generation; equal no-op/cleanup does not. Attempt and event identities are stable on retry and distinct on later visits to the same commit. Generation CAS proves commit-string ABA safety.
+- Pure lifecycle planning for create/restore/revise/move/unchanged/delete; `--repair` reapplies all live target artifacts and required removals with lineage-free `artifact.repaired`, while already-absent tombstones remain quiet.
+- Proof restructuring by level: pure snapshot policy, shared fake/SQLite generation and attempt conformance, fault-injected engine convergence, and minimal real-Git/SQLite E2E including initial, older, divergent, merge, repair, repeated-target, unavailable-target, and depth-1 behavior.
+- Behavioral accounting against reference commit `09d75c3ae`, prototype PR closure, and reconciliation of the parent `gitplane` Objective's evidence.
 
 ## Non-Goals
 
-- No redesign beyond clarifications required by the slice-1 proof matrix. The deterministic `gpa_` attempt ID and frozen semantic plan, path-inclusive revision identity, initial-full materialization lifecycle events, lineage-free repair events, three event-reconstruction statuses, cursor-CAS completion boundary, structural/operational failure split, and deterministic per-artifact apply order are intentional rebuild amendments rather than silent prototype drift. Later amendments require explicit contract and Objective updates.
-- No new reconciliation capabilities beyond the prototype: no event dispatch, concurrent writers, migrations, or other items on gitplane's Parked list.
-- No byte-for-byte reproduction of the prototype; the internal structure is expected to differ, with behavior accounted for explicitly.
-- No public export of the planner or other internal seams merely for testability.
+- No ancestry observation as a warning, gate, metric, fetch trigger, or optimization; no commit-diff or tree-OID fast path in v1.
+- No working-tree reconciliation: dirty and untracked contents are outside the immutable target commit snapshot.
+- No operator target-row drift detection. Repair deliberately reapplies without reading target rows.
+- No source leases or broader distributed scheduling beyond atomic one-attempt persistence and generation CAS.
+- No migration of prototype or incompatible pre-release reconciliation state. The supported v1 schema is generation-aware directly; incompatible stores fail closed with recreate guidance.
+- No event dispatch, production persistence, or workflow behavior beyond the parent Objective.
+- No public export of planner or apply internals merely for testing.
 
 ## Completion Criteria
 
-- All six stack slices landed on `master` via reviewed PRs.
-- At stack tip, a behavioral accounting against reference commit `09d75c3ae`: every semantic difference from the prototype is intentional and covered by a new or changed test (not byte-equivalence).
-- The deterministic `gpa_` reconciliation attempt ID and persisted complete frozen semantic plan prevent retries from rereading source artifacts or reinterpreting changed registration. The exact derivation has a literal identity test in the durable-store slice.
-- Every immutable revision derives its `gpr_` identity from source ID, artifact ID, repository-relative artifact path, and content digest. Source-fact and identity coverage proves that a move changes revision identity through the path without reconstructing marker history and produces an `artifact.revised` event with both paths.
-- Initial full reconciliation rebuilds the materialization lifecycle from scratch and emits one deterministic `artifact.created` event per target artifact without claiming repository-introduction history. Every full reconciliation after initial materialization reapplies every planned artifact and emits a deterministic `artifact.repaired` event for each one regardless of ancestry or cursor-history availability, without asserting Git lineage; target-drift reads that suppress already-matching repairs are deferred as an optimization.
-- The systematic fault-injection matrix exists and passes: for a reference plan, a failure injected before and after every store write boundary, with retry over shared state converging to the uninterrupted outcome with stable revision IDs, event IDs, event sequences, and target values — the central proof the prototype lacks.
-- Source-fact and planner completion evidence proves the intended mode split and fact fidelity: incremental reconciliation consumes `diffCommits` and resolves the union of nearest old/new boundaries, full reconciliation does not read a complete cursor corpus, nested and non-regular reserved-marker topology survives Gather until canonical validation, and unavailable candidate/diff fake observations remain selectable by their request keys.
-- Prototype PR #4076 closed unmerged with a pointer to the landed stack, and the `gitplane` objective's reconciliation roadmap row carries the stack PRs as evidence instead.
+- The reshaped stack lands through additive reviewed boundaries: contract amendment; snapshot facts/planner; durable generation protocol; retry-safe engine/CLI; closure/accounting.
+- Complete target snapshot and coherent completed-store snapshot are the only planning facts. Initial, forward, older, divergent, and merge targets use identical planning rules, with no ancestry/diff/shallow probe in source logs; a depth-1 real clone reconciles without fetching.
+- The pure planner validates complete raw topology/corpus before writes and proves lifecycle, lineage legality, deterministic order/plan equality, complete deletion detection, merge neutrality, and normal-versus-repair behavior.
+- Atomic one-pending-attempt persistence and a complete frozen semantic plan prevent source/config reinterpretation. Matching retry replays, conflicting work is refused before artifact writes, and post-CAS residue is cleanup-only.
+- Cursor records carry monotonic generation and CAS returns actual cursor facts on mismatch. Literal/conformance coverage proves stale expected generation is rejected after `A → B → A → B` even when the commit string matches.
+- Deterministic `gpa_` and generation/attempt-aware `gpe_` identities have literal vectors: one attempt is stable across retry, while later visits to the same target/type produce distinct events.
+- Repair reapplies every live target artifact plus required removal of stored-live artifacts absent from target and emits lineage-free `artifact.repaired`; already-absent tombstones produce no synthetic work.
+- Failure injection before and after every write boundary converges to uninterrupted cursor generation, control rows, revisions, target values, event IDs/sequences, and attempt cleanup.
+- Fake and SQLite share snapshot/attempt/generation/event conformance; incompatible old pre-release schema is refused without mutation.
+- CLI exposes `gitplane reconcile <commit> [--repair|-r]` with no `--full` alias, bounded mode/count/cursor/replay/cleanup output, no ancestry or event-reconstruction fields, and guaranteed single-store close.
+- Stack-tip accounting names cursor-diff, descent, merge rejection, initial-full, target-commit event collapse, and old repair naming as intentionally superseded differences from `09d75c3ae`; PR #4076 closes unmerged and PR #4128's rationale remains historical evidence.
 
 ## Metaprompt
 
@@ -46,19 +56,20 @@ Every prompt produced for this Objective must start with the `/ns:plan:grill-and
 
 Assumptions:
 
-- Gitplane is unreleased and its requirements remain provisional. The documented invariants coordinate the rebuild, but implementation-owning slices must re-examine decisions not required by earlier PRs and explicitly amend the contract and Objective when evidence changes them.
-- Prototype behavior at `09d75c3ae` is a correct-enough baseline to rebuild against: its scenario suite passed full repo validation after restack (6,433 tests across 592 files). The contract slice intentionally replaces or clarifies prototype choices where named above, while complete semantic accounting against the prototype remains a stack-tip closure criterion.
-- The pure planner seam (complete fact snapshot in, deterministic plan out, no gateways) can express all current planning behavior, including a complete frozen semantic apply plan. If mid-planning gateway interleaving turns out to be genuinely required, the seam must be redrawn deliberately — that is a design finding to record, not a workaround to bury.
-- Six PRs is justified above the ordinary batch target because contract, source facts, pure policy, durable persistence, effect ordering, and user exposure have distinct review and revert boundaries; combining adjacent slices would force reviewers to reason about multiple independent correctness dimensions at once.
+- Gitplane is unreleased, so the generation-aware records are the supported v1 schema and incompatible prototype stores can be rejected rather than migrated.
+- Complete scans are an accepted v1 simplicity/correctness trade. Performance must be measured before adding snapshot-local optimizations, and history dependence must never return as a correctness input.
+- Gitplane-owned control state is trustworthy only at a completed cursor generation with no unresolved attempt; operator-owned target rows never define desired or prior state.
+- Gather → Decide → Apply can express the complete behavior while keeping the frozen plan adapter-neutral and replayable without source or registration rereads.
+- Additive review boundaries remain justified because contract, pure policy, durable concurrency/idempotence, effect ordering/user exposure, and closure accounting have distinct correctness questions.
 
 Risks:
 
-- Behavioral drift during the rebuild. Mitigated by the retained reference branch, per-slice comparison against it, and the tip-level behavioral accounting criterion.
-- Scope gravity toward redesign: restructuring invites speculative contract decisions. Slice 1 settles only the invariants required to align early rebuild slices; implementation-owned details remain visibly provisional, and later evidence-driven changes require explicit contract and Objective updates.
-- The prototype added reconciliation tables while retaining `SQLITE_SCHEMA_VERSION = 1`. The durable-protocol slice must make expand-in-place versus version bump a conspicuous reviewed decision (see Open Questions); inheriting it silently would bury a compatibility assumption.
-- Deliberate shortcut and its upgrade: keeping PR #4076 open as a reference risks it being mistaken for a landable PR. Upgrade path: mark it as draft/reference in its PR description when the stack starts, and close it unmerged at completion (tracked as the closure roadmap row).
+- Partial non-transactional materialization remains visible before cursor CAS. Systematic fault injection and cleanup-only residue handling are the primary safety proof.
+- Attempt or generation mistakes can permit lost updates or ABA. Atomic insertion, one pending attempt per source, generation CAS, and shared adapter conformance are mandatory.
+- Repair can be noisy because target rows are not read. This is deliberate; drift detection is a later capability, not hidden v1 planning input.
+- Scope may drift back toward history optimization because source adapters already contain ancestry/diff machinery. Stale-contract searches and depth-1 tests must prove its removal from reconciliation.
+- Retaining PR #4076 and PR #4128 as references can make superseded behavior look current. Tip accounting must distinguish historical rationale from normative requirements.
 
 ## Open Questions
 
-- Schema-version handling: expand SQLite v1 in place (defensible for unreleased software) or bump `SQLITE_SCHEMA_VERSION` for the reconciliation tables? Decided in the durable-protocol slice as an explicit reviewed decision.
-- Exact frozen-plan type/schema, attempt lookup precedence, mode-mismatch and stale-attempt recovery, and operator controls remain provisional to the planner, durable-store, and engine slices. They must be re-examined when implementation evidence exists rather than inferred from the prototype.
+No material product requirement remains open. Private module names, frozen-plan JSON fields, SQL statement layout, and whether internal schema machinery requires a version bump may vary, but there is no migration and incompatible pre-release stores must be rejected with recreate guidance.

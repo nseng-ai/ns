@@ -10,16 +10,17 @@
   - Evidence: the local implementation adds the real artifact gateway, config loader, core corpus-check rules, functional Clinkr command, and fake-driven unit, scenario, integration, and isolated coverage. Package typecheck and all 88 focused Gitplane tests pass; repository integration, isolated, TypeScript style-guard, and full `just` validation also pass.
 - [x] SQLite control store, optional target projection, and `gitplane doctor`: implemented explicit idempotent native `node:sqlite` control-schema initialization, all operation-level control records, projection-aware target upsert/tombstone behavior against operator-owned DDL, RFC 6901/JSON/clear-field semantics, exact composite uniqueness inspection, normalized backend-neutral doctor facts/policy, access-aware config-relative store lifecycle, and fake-driven plus SQLite integration coverage without requiring generic artifacts to have mappings.
   - Evidence: focused Gitplane and Gitplane SQLite typechecks/tests, the repository integration lane, TypeScript style guard, Objective validation, and full `just` validation pass.
-- [ ] Cursor-diff reconciliation and `gitplane reconcile <commit>`: build cursor-tree→target-tree plans, recognize move/revise/delete/restore and one-way classification transitions, track/revision/event generic and classified artifacts while projecting only classified artifacts, apply deterministic idempotent writes, persist events/errors, advance the cursor last with compare-and-set, and implement `--full` initial sync/repair.
-  - Evidence: scenario convergence suite over fakes covers recursive artifacts, renames/moves, deletes, duplicate IDs, restoration, partial-write retries, cursor CAS failure, repeated attempts, divergence rejection, and full repair.
+- [ ] Level-triggered complete-snapshot reconciliation and `gitplane reconcile <commit>`: converge from the last completed Gitplane control snapshot to the complete resolved target-commit corpus without ancestry/diff inputs; recognize create/restore/revise/move/unchanged/delete and one-way classification transitions; persist one generation-aware frozen attempt before deterministic idempotent writes; advance the generation cursor last; and implement `--repair` reapplication/removal with lineage-free events. This deliberately supersedes the earlier cursor-diff, initial-`--full`, linear-history contract while preserving its rationale in Objective/PR history. The contract, source/store seams, generation protocol, and identity vectors are established; planner, engine, and CLI activation remain.
+  - Evidence required: pure planner lifecycle/lineage and ordering proofs; shared fake/SQLite attempt, event, and generation-CAS conformance including explicit ABA; fault injection around every write boundary; and real composition scenarios for initial, forward, older, divergent, merge, equal/no-op, repair, repeated-target, unavailable-target, and post-CAS cleanup behavior.
 - [ ] Reference consumer: permanent documentation-grade fixture/package demonstrating operator-owned Greeting DDL, artifact+revision pinning, mapped JSON blobs, idempotent event reading by ID/sequence, runtime-state separation, and injected artifact/store paths.
 - [ ] Check-only GitHub Action: ship the composite required-check action that runs `gitplane check` against the PR head for one explicit config; document one step per domain and conceptual reconcile-in-CI wiring.
 - [ ] Promote the settled README from `references/README-draft.md` to the shipped package README and the settled spec from `references/SPEC-draft.md` to the shipped package reference documentation, then repoint this Objective's canonical references at the promoted documents.
 
 ## Parked
 
-- Merge commits and nonlinear Git history.
-- Concurrent reconciliation and source-scoped leases.
+- Incremental snapshot optimizations such as tree-OID caching or commit-diff fast paths.
+- Source-scoped leases and broader distributed scheduling beyond atomic pending-attempt persistence plus generation CAS.
+- Operator target-row drift detection; `--repair` remains deliberate blind reapplication.
 - GitHub API source fetching behind a future `ArtifactGateway` adapter.
 - Durable outbox/dispatcher, webhooks, and event delivery state.
 - Production persistence backend (for example Postgres).

@@ -37,10 +37,13 @@ export type {
 export {
 	ARTIFACT_EVENT_TYPES,
 	createArtifactIdGenerator,
+	deriveAttemptId,
 	deriveEventId,
 	deriveRevisionId,
 	digestArtifactContent,
 } from "./identity.ts";
+export { frozenReconciliationPlanSchema } from "./frozen-plan.ts";
+export type { FrozenArtifactWork, FrozenReconciliationPlan } from "./frozen-plan.ts";
 export type {
 	ArtifactEventType,
 	ArtifactIdGenerator,
@@ -52,8 +55,6 @@ export type {
 	ArtifactCurrentRecord,
 	ArtifactGateway,
 	ArtifactLineageRecord,
-	CommitDiff,
-	CommitFacts,
 	CreateArtifactRequest,
 	CreateArtifactResult,
 	CursorCompareAndSetResult,
@@ -66,11 +67,12 @@ export type {
 	GatewayError,
 	GatewayResult,
 	GitObservation,
-	GitUnavailableReason,
 	InsertResult,
 	LookupResult,
+	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
+	ReconciliationAttemptRecord,
 	ReconciliationErrorRecord,
 	RevisionRecord,
 	StoredEvent,
@@ -80,13 +82,11 @@ export type {
 } from "./gateways.ts";
 export { gatherSourceFacts } from "./gather-source-facts.ts";
 export type {
-	CommitCorpusFacts,
-	GatheredCursorFacts,
 	GatheredSourceFacts,
 	GatherSourceFactsOptions,
 	GatherSourceFactsResult,
-	HistoryRelationship,
 	ReconciliationMode,
+	TargetSnapshotFacts,
 } from "./gather-source-facts.ts";
 export { checkArtifactCorpus } from "./check/check-artifact-corpus.ts";
 export type {

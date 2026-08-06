@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
 	createArtifactIdGenerator,
+	deriveAttemptId,
 	deriveEventId,
 	deriveRevisionId,
 	digestArtifactContent,
@@ -87,18 +88,37 @@ test("rejects duplicate paths", () => {
 		]),
 	).toMatchObject({ ok: false, code: "invalid-path" });
 });
-test.each([
-	["artifact.created", "gpe_3dd2fx5q2jdy81t6y165vyg20a4bzz2dbzzkevg2vh4hxe38sq6g"],
-	["artifact.restored", "gpe_7mjg29cnrms1fnda1vx66k80ybx9pfatd2ypkn238ps9m0zmyz60"],
-	["artifact.revised", "gpe_xbgdmg5q5bhpvycbg3cqgs2m29dbd7fx5vvj741r8fp738jw0sr0"],
-	["artifact.deleted", "gpe_qsnz3x45z0ndy3b52pt9k786sxnxdbk71cy0efqg7jed2kycztwg"],
-] as const)("matches %s event vector", (eventType, expected) =>
+test("matches generation-aware attempt literal vector", () => {
 	expect(
-		deriveEventId({
+		deriveAttemptId({
 			sourceId: "acme/greetings",
-			artifactId,
-			reconciledCommit: "abc123",
-			eventType,
+			expectedGeneration: 7,
+			targetCommit: "abc123",
+			mode: "repair",
 		}),
-	).toBe(expected),
-);
+	).toBe("gpa_a2a3rwqxv4dhj78ty8fd2mx6sbp2psy6swyamnftgb7t8js1600g");
+});
+
+test.each([
+	"artifact.created",
+	"artifact.restored",
+	"artifact.revised",
+	"artifact.deleted",
+	"artifact.repaired",
+] as const)("derives retry-stable, generation-aware %s event identity", (eventType) => {
+	const options = {
+		sourceId: "acme/greetings",
+		artifactId,
+		reconciliationGeneration: 8,
+		attemptId: "gpa_attempt",
+		reconciledCommit: "abc123",
+		eventType,
+	};
+	const identity = deriveEventId(options);
+	expect(identity).toBe(deriveEventId(options));
+	if (eventType === "artifact.repaired")
+		expect(identity).toBe("gpe_bcjk3wkm6mx91abk375kgx008wggwx7r3603st9nxm2g453c8mvg");
+	expect(identity).not.toBe(
+		deriveEventId({ ...options, reconciliationGeneration: 9, attemptId: "gpa_later" }),
+	);
+});

@@ -13,6 +13,16 @@ export function databaseError(error: unknown): { readonly code: string; readonly
 		message: error instanceof Error ? error.message : "SQLite operation failed.",
 	};
 }
+export function readTransaction(database: DatabaseSync, operation: () => void): void {
+	database.exec("BEGIN");
+	try {
+		operation();
+		database.exec("COMMIT");
+	} catch (error) {
+		database.exec("ROLLBACK");
+		throw error;
+	}
+}
 export function transaction(database: DatabaseSync, operation: () => void): void {
 	database.exec("BEGIN IMMEDIATE");
 	try {
