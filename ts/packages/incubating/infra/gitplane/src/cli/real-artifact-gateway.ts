@@ -14,6 +14,7 @@ import type {
 	GatewayError,
 	GatewayResult,
 	GitObservation,
+	GitUnavailableReason,
 	TreeInventoryEntry,
 } from "../core/index.ts";
 
@@ -66,7 +67,7 @@ function isExitCode(error: unknown, code: number): boolean {
 	return error.code === code || error.code === String(code);
 }
 type GitFailureClassification =
-	| { readonly type: "unavailable" }
+	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason }
 	| { readonly type: "operational"; readonly error: GatewayError };
 export class RealArtifactGateway implements ArtifactGateway {
 	private readonly cwd: string;
@@ -216,14 +217,22 @@ export class RealArtifactGateway implements ArtifactGateway {
 			await this.git.execute(["merge-base", "--is-ancestor", request.ancestor, request.descendant]);
 			return { ok: true, value: { type: "found", value: true } };
 		} catch (error) {
-			if (typeof error === "object" && error !== null && "code" in error && error.code === 1)
-				return { ok: true, value: { type: "found", value: false } };
+			if (typeof error === "object" && error !== null && "code" in error && error.code === 1) {
+				// Git's negative answer only proves non-ancestry over retained history. In a
+				// shallow repository the truncated history could hide the real relationship,
+				// so the negative is conservatively unavailable rather than a definitive false.
+				const completeness = await this.readRepositoryHistoryCompleteness();
+				if (!completeness.ok) return { ok: false, error: completeness.error };
+				return completeness.value === "shallow"
+					? { ok: true, value: { type: "unavailable", reason: "incomplete-history" } }
+					: { ok: true, value: { type: "found", value: false } };
+			}
 			const classification = await this.classifyGitFailure(error, [
 				request.ancestor,
 				request.descendant,
 			]);
 			return classification.type === "unavailable"
-				? { ok: true, value: { type: "unavailable", reason: "missing-object" } }
+				? { ok: true, value: { type: "unavailable", reason: classification.reason } }
 				: { ok: false, error: classification.error };
 		}
 	}
@@ -354,7 +363,7 @@ export class RealArtifactGateway implements ArtifactGateway {
 		} catch (error) {
 			const classification = await this.classifyGitFailure(error, commits);
 			return classification.type === "unavailable"
-				? { ok: true, value: { type: "unavailable", reason: "missing-object" } }
+				? { ok: true, value: { type: "unavailable", reason: classification.reason } }
 				: { ok: false, error: classification.error };
 		}
 		try {
@@ -372,10 +381,38 @@ export class RealArtifactGateway implements ArtifactGateway {
 			try {
 				await this.git.execute(["rev-parse", "--verify", "--quiet", `${commit}^{commit}`]);
 			} catch (probeError) {
-				if (isExitCode(probeError, 1)) return { type: "unavailable" };
-				return { type: "operational", error: failure(error) };
+				if (!isExitCode(probeError, 1)) return { type: "operational", error: failure(error) };
+				// A required commit is unresolvable. Shallow history means the object may
+				// have been truncated rather than never existing; an unreadable shallow
+				// state keeps the primary failure operational instead of guessing a reason.
+				const completeness = await this.readRepositoryHistoryCompleteness();
+				if (!completeness.ok) return { type: "operational", error: failure(error) };
+				return {
+					type: "unavailable",
+					reason: completeness.value === "shallow" ? "incomplete-history" : "missing-object",
+				};
 			}
 		}
 		return { type: "operational", error: failure(error) };
+	}
+	// Failure-path-only probe: successful reads and proven-positive ancestry never pay
+	// for it, and re-reading each time stays correct after an in-process fetch/unshallow.
+	private async readRepositoryHistoryCompleteness(): Promise<
+		GatewayResult<"complete" | "shallow">
+	> {
+		let output: string;
+		try {
+			output = (await this.git.execute(["rev-parse", "--is-shallow-repository"])).stdout
+				.toString()
+				.trim();
+		} catch (error) {
+			return { ok: false, error: failure(error) };
+		}
+		if (output === "true") return { ok: true, value: "shallow" };
+		if (output === "false") return { ok: true, value: "complete" };
+		return {
+			ok: false,
+			error: failure(new Error("Unexpected git rev-parse --is-shallow-repository output.")),
+		};
 	}
 }

@@ -227,6 +227,7 @@ describe("Git-backed behavior", () => {
 		const { gateway } = gatewayFor([
 			{ args: ["rev-parse", "--verify", "--quiet", "bad^{commit}"], error: "not a commit" },
 			{ args: ["merge-base", "--is-ancestor", "new", "old"], error: { code: 1 } },
+			{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("false\n") },
 			{ args: ["merge-base", "--is-ancestor", "a", "b"], error: { code: "1" } },
 			{ args: ["diff", "--name-only", "-z", "a", "b"], error: new Error("diff failed") },
 		]);
@@ -254,6 +255,10 @@ describe("Git-backed behavior", () => {
 		const primaryFailure = () =>
 			Object.assign(new Error("fatal message may be localized or unrelated"), { code: 128 });
 		const missingProbe = () => Object.assign(new Error("quiet probe"), { code: 1 });
+		const completeRepository = () => ({
+			args: ["rev-parse", "--is-shallow-repository"],
+			stdout: Buffer.from("false\n"),
+		});
 		const { gateway, git } = gatewayFor([
 			{
 				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
@@ -267,6 +272,7 @@ describe("Git-backed behavior", () => {
 				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
 				error: missingProbe(),
 			},
+			completeRepository(),
 			{
 				args: ["merge-base", "--is-ancestor", missing, existing],
 				error: primaryFailure(),
@@ -275,6 +281,7 @@ describe("Git-backed behavior", () => {
 				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
 				error: missingProbe(),
 			},
+			completeRepository(),
 			{
 				args: ["ls-tree", "-rz", "-r", "-t", missing, "--", "root"],
 				error: primaryFailure(),
@@ -283,6 +290,7 @@ describe("Git-backed behavior", () => {
 				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
 				error: missingProbe(),
 			},
+			completeRepository(),
 			{
 				args: ["diff", "--name-only", "-z", existing, missing],
 				error: primaryFailure(),
@@ -295,6 +303,7 @@ describe("Git-backed behavior", () => {
 				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
 				error: missingProbe(),
 			},
+			completeRepository(),
 		]);
 		for (const observation of [
 			await gateway.resolveCommit({ commitish: missing }),
@@ -308,6 +317,121 @@ describe("Git-backed behavior", () => {
 				value: { type: "unavailable", reason: "missing-object" },
 			});
 		}
+		git.assertComplete();
+	});
+
+	test("classifies negative ancestry conservatively in shallow repositories", async () => {
+		const { gateway, git } = gatewayFor([
+			{ args: ["merge-base", "--is-ancestor", "new", "old"], error: { code: 1 } },
+			{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("true\n") },
+		]);
+		expect(await gateway.isAncestor({ ancestor: "new", descendant: "old" })).toEqual({
+			ok: true,
+			value: { type: "unavailable", reason: "incomplete-history" },
+		});
+		git.assertComplete();
+	});
+
+	test("classifies missing required commits as incomplete history in shallow repositories", async () => {
+		const missing = "0".repeat(40);
+		const existing = "a".repeat(40);
+		const primaryFailure = () =>
+			Object.assign(new Error("fatal message may be localized or unrelated"), { code: 128 });
+		const missingProbe = () => Object.assign(new Error("quiet probe"), { code: 1 });
+		const shallowRepository = () => ({
+			args: ["rev-parse", "--is-shallow-repository"],
+			stdout: Buffer.from("true\n"),
+		});
+		const { gateway, git } = gatewayFor([
+			{
+				args: ["show", "-s", "--format=%H%x00%P", missing],
+				error: primaryFailure(),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: missingProbe(),
+			},
+			shallowRepository(),
+			{
+				args: ["merge-base", "--is-ancestor", missing, existing],
+				error: primaryFailure(),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: missingProbe(),
+			},
+			shallowRepository(),
+		]);
+		for (const observation of [
+			await gateway.readCommitFacts({ commit: missing }),
+			await gateway.isAncestor({ ancestor: missing, descendant: existing }),
+		]) {
+			expect(observation).toEqual({
+				ok: true,
+				value: { type: "unavailable", reason: "incomplete-history" },
+			});
+		}
+		git.assertComplete();
+	});
+
+	test("keeps unresolved commitish input missing-object even in shallow repositories", async () => {
+		const { gateway, git } = gatewayFor([
+			{
+				args: ["rev-parse", "--verify", "--quiet", "unknown^{commit}"],
+				error: Object.assign(new Error("quiet probe"), { code: 1 }),
+			},
+		]);
+		expect(await gateway.resolveCommit({ commitish: "unknown" })).toEqual({
+			ok: true,
+			value: { type: "unavailable", reason: "missing-object" },
+		});
+		git.assertComplete();
+	});
+
+	test("turns shallow-state probe failures into operational errors, never false ancestry", async () => {
+		const { gateway, git } = gatewayFor([
+			{ args: ["merge-base", "--is-ancestor", "new", "old"], error: { code: 1 } },
+			{
+				args: ["rev-parse", "--is-shallow-repository"],
+				error: Object.assign(new Error("probe blew up"), { code: 128 }),
+			},
+			{ args: ["merge-base", "--is-ancestor", "new", "old"], error: { code: 1 } },
+			{ args: ["rev-parse", "--is-shallow-repository"], stdout: Buffer.from("maybe\n") },
+		]);
+		expect(await gateway.isAncestor({ ancestor: "new", descendant: "old" })).toEqual({
+			ok: false,
+			error: { code: "source-error", message: "probe blew up" },
+		});
+		expect(await gateway.isAncestor({ ancestor: "new", descendant: "old" })).toEqual({
+			ok: false,
+			error: {
+				code: "source-error",
+				message: "Unexpected git rev-parse --is-shallow-repository output.",
+			},
+		});
+		git.assertComplete();
+	});
+
+	test("preserves the primary failure when the shallow-state probe fails during classification", async () => {
+		const missing = "0".repeat(40);
+		const { gateway, git } = gatewayFor([
+			{
+				args: ["show", "-s", "--format=%H%x00%P", missing],
+				error: Object.assign(new Error("primary fatal failure"), { code: 128 }),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: Object.assign(new Error("quiet probe"), { code: 1 }),
+			},
+			{
+				args: ["rev-parse", "--is-shallow-repository"],
+				error: Object.assign(new Error("probe blew up"), { code: 128 }),
+			},
+		]);
+		expect(await gateway.readCommitFacts({ commit: missing })).toEqual({
+			ok: false,
+			error: { code: "source-error", message: "primary fatal failure" },
+		});
 		git.assertComplete();
 	});
 
