@@ -13,10 +13,7 @@ const parsed = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsed.ok) throw new Error();
 const artifactId = parsed.artifactId;
 const app = createGitplaneCliApp();
-type CliArtifactGateway = Pick<
-	ArtifactGateway,
-	"createArtifact" | "inventoryWorkingTree" | "readWorkingTreeCandidate"
->;
+type CliArtifactGateway = ArtifactGateway;
 interface ContextOptions {
 	readonly artifactGateway?: CliArtifactGateway;
 	readonly configGateway?: GitplaneConfigGateway;
@@ -232,10 +229,199 @@ test("publishes command schemas", async () => {
 		["artifact", "create", "--json-schema"],
 		["check", "--json-schema"],
 		["doctor", "--json-schema"],
+		["reconcile", "--json-schema"],
 	]) {
 		const run = await runForCliTest(app, command, { context: context() });
 		expect(run.exitCode).toBe(0);
 		expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
+	}
+});
+
+test("reconcile help exposes repair and removes full", async () => {
+	const run = await runForCliTest(app, ["reconcile", "--help"], { context: context() });
+	expect(run.exitCode).toBe(0);
+	expect(run.stdout).toContain("--repair");
+	expect(run.stdout).toContain("-r");
+	expect(run.stdout).not.toContain("--full");
+});
+
+test.each(["--repair", "-r"])(
+	"reconcile accepts %s, returns bounded data, and closes once",
+	async (repair) => {
+		let closeCount = 0;
+		const store = new InMemoryMaterializationStoreGateway();
+		const originalClose = store.close.bind(store);
+		store.close = async () => {
+			closeCount += 1;
+			return originalClose();
+		};
+		const gateway = new InMemoryArtifactGateway({
+			commits: { target: { type: "found", value: "resolved-target" } },
+			commitInventories: [
+				{
+					commit: "resolved-target",
+					artifactRoot: "artifacts",
+					observation: { type: "found", value: [] },
+				},
+			],
+		});
+		const run = await runForCliTest(app, ["reconcile", "target", repair, "--format=json"], {
+			context: context({
+				artifactGateway: gateway,
+				configGateway: {
+					load: async () => ({
+						ok: true,
+						artifactRoot: "artifacts",
+						configDirectory: ".",
+						config: {
+							source: { id: "source", artifactRoot: "artifacts" },
+							store: () => store,
+						},
+					}),
+				},
+			}),
+		});
+		expect(run.exitCode).toBe(0);
+		expect(JSON.parse(run.stdout)).toMatchObject({
+			status: "success",
+			data: {
+				sourceId: "source",
+				targetCommit: "resolved-target",
+				mode: "repair",
+				priorCursor: null,
+				resultingCursor: { commit: "resolved-target", generation: 1 },
+				advanced: true,
+				counts: { created: 0, restored: 0, revised: 0, deleted: 0, repaired: 0 },
+				cleanupOnly: false,
+				replayedAttempt: false,
+				completion: "completed",
+			},
+		});
+		expect(JSON.parse(run.stdout).data).not.toHaveProperty("ancestry");
+		expect(closeCount).toBe(1);
+	},
+);
+
+test("reconcile reports repeated equal targets as a bounded no-op", async () => {
+	const store = new InMemoryMaterializationStoreGateway();
+	const gateway = new InMemoryArtifactGateway({
+		commits: { target: { type: "found", value: "resolved-target" } },
+		commitInventories: [
+			{
+				commit: "resolved-target",
+				artifactRoot: "artifacts",
+				observation: { type: "found", value: [] },
+			},
+		],
+	});
+	const reconcileContext = context({
+		artifactGateway: gateway,
+		configGateway: {
+			load: async () => ({
+				ok: true,
+				artifactRoot: "artifacts",
+				configDirectory: ".",
+				config: {
+					source: { id: "source", artifactRoot: "artifacts" },
+					store: () => store,
+				},
+			}),
+		},
+	});
+	await runForCliTest(app, ["reconcile", "target"], { context: reconcileContext });
+	const repeated = await runForCliTest(app, ["reconcile", "target", "--format=json"], {
+		context: reconcileContext,
+	});
+	expect(repeated.exitCode).toBe(0);
+	expect(JSON.parse(repeated.stdout)).toMatchObject({
+		status: "success",
+		data: {
+			priorCursor: { commit: "resolved-target", generation: 1 },
+			resultingCursor: { commit: "resolved-target", generation: 1 },
+			advanced: false,
+			cleanupOnly: false,
+			replayedAttempt: false,
+			completion: "no-op",
+		},
+	});
+});
+
+test("reconcile returns a structured unavailable target and closes once", async () => {
+	let closeCount = 0;
+	const store = new InMemoryMaterializationStoreGateway();
+	const originalClose = store.close.bind(store);
+	store.close = async () => {
+		closeCount += 1;
+		return originalClose();
+	};
+	const run = await runForCliTest(app, ["reconcile", "missing", "--format=json"], {
+		context: context({
+			artifactGateway: new InMemoryArtifactGateway({
+				commits: { missing: { type: "unavailable", reason: "missing-object" } },
+			}),
+			configGateway: {
+				load: async () => ({
+					ok: true,
+					artifactRoot: "artifacts",
+					configDirectory: ".",
+					config: {
+						source: { id: "source", artifactRoot: "artifacts" },
+						store: () => store,
+					},
+				}),
+			},
+		}),
+	});
+	expect(run.exitCode).toBe(1);
+	expect(JSON.parse(run.stdout)).toMatchObject({
+		status: "negative",
+		data: { category: "structural-failure", code: "target-unavailable" },
+	});
+	expect(closeCount).toBe(1);
+});
+
+test("reconcile normalizes runtime and close failures without leaking backend details", async () => {
+	const runtimeStore = new InMemoryMaterializationStoreGateway({
+		failures: { readMaterializationSnapshot: { code: "database-busy", message: "private" } },
+	});
+	const closeStore = new InMemoryMaterializationStoreGateway({
+		failures: { close: { code: "close-broken", message: "private" } },
+	});
+	for (const [store, category] of [
+		[runtimeStore, "operational-failure"],
+		[closeStore, "store-close-failed"],
+	] as const) {
+		const run = await runForCliTest(app, ["reconcile", "target", "--format=json"], {
+			context: context({
+				configGateway: {
+					load: async () => ({
+						ok: true,
+						artifactRoot: "artifacts",
+						configDirectory: ".",
+						config: {
+							source: { id: "source", artifactRoot: "artifacts" },
+							store: () => store,
+						},
+					}),
+				},
+			}),
+		});
+		expect(run.exitCode).toBe(2);
+		expect(JSON.parse(run.stdout)).toMatchObject({
+			status: "failure",
+			errorType: "reconcile-failed",
+			data: { category },
+		});
+		expect(run.stdout).not.toContain("private");
+	}
+});
+
+test("reconcile rejects removed full aliases", async () => {
+	for (const option of ["--full", "-f"]) {
+		const run = await runForCliTest(app, ["reconcile", "target", option], {
+			context: context(),
+		});
+		expect(run.exitCode).toBe(2);
 	}
 });
 
@@ -611,6 +797,15 @@ test("check maps unexpected config throws to a sanitized config load failure", a
 test("check maps unexpected source throws to a sanitized source read failure", async () => {
 	const throwing: CliArtifactGateway = {
 		createArtifact: async () => {
+			throw new Error("not used");
+		},
+		resolveCommit: async () => {
+			throw new Error("not used");
+		},
+		inventoryCommitTree: async () => {
+			throw new Error("not used");
+		},
+		readCommitTreeCandidate: async () => {
 			throw new Error("not used");
 		},
 		inventoryWorkingTree: async () => {

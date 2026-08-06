@@ -5,6 +5,7 @@ import type {
 	TargetMapping,
 	TargetProjectionField,
 } from "./domain.ts";
+import type { FrozenReconciliationPlan } from "./frozen-plan.ts";
 import type { ArtifactEventType, ContentDigest } from "./identity.ts";
 
 export interface GatewayError {
@@ -31,11 +32,6 @@ export type CreateArtifactResult =
 	| { readonly type: "target-exists" }
 	| { readonly type: "parent-missing" }
 	| { readonly type: "error"; readonly error: GatewayError };
-export interface CommitFacts {
-	readonly commit: string;
-	readonly parents: readonly string[];
-	readonly isMerge: boolean;
-}
 export interface ArtifactBoundary {
 	readonly path: string;
 }
@@ -43,15 +39,9 @@ export interface TreeInventoryEntry {
 	readonly path: string;
 	readonly kind: ArtifactEntry["kind"];
 }
-export interface CommitDiff {
-	readonly fromCommit: string;
-	readonly toCommit: string;
-	readonly changedPaths: readonly string[];
-}
-export type GitUnavailableReason = "missing-object" | "incomplete-history";
 export type GitObservation<T> =
 	| { readonly type: "found"; readonly value: T }
-	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
+	| { readonly type: "unavailable"; readonly reason: "missing-object" };
 /**
  * Read results are immutable once produced: neither gateways nor consumers may
  * mutate returned facts, entries, or byte buffers after a read completes.
@@ -62,13 +52,6 @@ export interface ArtifactGateway {
 	resolveCommit(request: {
 		readonly commitish: string;
 	}): Promise<GatewayResult<GitObservation<string>>>;
-	readCommitFacts(request: {
-		readonly commit: string;
-	}): Promise<GatewayResult<GitObservation<CommitFacts>>>;
-	isAncestor(request: {
-		readonly ancestor: string;
-		readonly descendant: string;
-	}): Promise<GatewayResult<GitObservation<boolean>>>;
 	inventoryCommitTree(request: {
 		readonly commit: string;
 		readonly artifactRoot: string;
@@ -77,10 +60,6 @@ export interface ArtifactGateway {
 		readonly commit: string;
 		readonly path: string;
 	}): Promise<GatewayResult<GitObservation<ArtifactCandidate>>>;
-	diffCommits(request: {
-		readonly fromCommit: string;
-		readonly toCommit: string;
-	}): Promise<GatewayResult<GitObservation<CommitDiff>>>;
 	inventoryWorkingTree(request: {
 		readonly artifactRoot: string;
 	}): Promise<GatewayResult<readonly TreeInventoryEntry[]>>;
@@ -91,6 +70,7 @@ export interface ArtifactGateway {
 export interface CursorRecord {
 	readonly sourceId: string;
 	readonly commit: string;
+	readonly generation: number;
 }
 export interface ArtifactCurrentRecord {
 	readonly sourceId: string;
@@ -132,6 +112,8 @@ export interface EventRecord {
 	readonly eventId: string;
 	readonly sourceId: string;
 	readonly artifactId: ArtifactId;
+	readonly reconciliationGeneration: number;
+	readonly attemptId: string;
 	readonly reconciledCommit: string;
 	readonly eventType: ArtifactEventType;
 	readonly priorRevisionId: string | null;
@@ -180,9 +162,20 @@ export interface DoctorIntrospection {
 	}[];
 	readonly jsonProjection: DoctorCapability;
 }
+export interface ReconciliationAttemptRecord {
+	readonly sourceId: string;
+	readonly attemptId: string;
+	readonly plan: FrozenReconciliationPlan;
+}
+export interface MaterializationSnapshot {
+	readonly cursor: CursorRecord | null;
+	readonly currentArtifacts: readonly ArtifactCurrentRecord[];
+	readonly lineage: readonly ArtifactLineageRecord[];
+	readonly pendingAttempt: ReconciliationAttemptRecord | null;
+}
 export type CursorCompareAndSetResult =
 	| { readonly type: "updated" }
-	| { readonly type: "mismatch"; readonly actual: string | null }
+	| { readonly type: "mismatch"; readonly actual: CursorRecord | null }
 	| { readonly type: "error"; readonly error: GatewayError };
 export type InsertResult =
 	| { readonly type: "inserted" }
@@ -194,11 +187,19 @@ export type EventInsertResult =
 	| { readonly type: "conflict"; readonly message: string }
 	| { readonly type: "error"; readonly error: GatewayError };
 export interface MaterializationStoreGateway {
+	readMaterializationSnapshot(request: {
+		readonly sourceId: string;
+	}): Promise<GatewayResult<MaterializationSnapshot>>;
+	insertReconciliationAttempt(record: ReconciliationAttemptRecord): Promise<InsertResult>;
+	deleteReconciliationAttempt(request: {
+		readonly sourceId: string;
+		readonly attemptId: string;
+	}): Promise<OperationResult>;
 	readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>>;
 	compareAndSetCursor(request: {
 		readonly sourceId: string;
-		readonly expectedCommit: string | null;
-		readonly nextCommit: string;
+		readonly expectedGeneration: number;
+		readonly next: CursorRecord;
 	}): Promise<CursorCompareAndSetResult>;
 	readLineage(request: {
 		readonly sourceId: string;

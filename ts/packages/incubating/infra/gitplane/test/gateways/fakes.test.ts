@@ -12,6 +12,8 @@ const event = {
 	eventId: "gpe_x",
 	sourceId: "s",
 	artifactId,
+	reconciliationGeneration: 1,
+	attemptId: "gpa_x",
 	reconciledCommit: "c",
 	eventType: "artifact.created" as const,
 	priorRevisionId: null,
@@ -61,11 +63,19 @@ test("conformance failures name the clause and preserve strict Date assertion de
 test("cursor CAS and event insertion are idempotent", async () => {
 	const store = new InMemoryMaterializationStoreGateway();
 	expect(
-		await store.compareAndSetCursor({ sourceId: "s", expectedCommit: null, nextCommit: "a" }),
+		await store.compareAndSetCursor({
+			sourceId: "s",
+			expectedGeneration: 0,
+			next: { sourceId: "s", commit: "a", generation: 1 },
+		}),
 	).toEqual({ type: "updated" });
 	expect(
-		await store.compareAndSetCursor({ sourceId: "s", expectedCommit: null, nextCommit: "b" }),
-	).toEqual({ type: "mismatch", actual: "a" });
+		await store.compareAndSetCursor({
+			sourceId: "s",
+			expectedGeneration: 0,
+			next: { sourceId: "s", commit: "b", generation: 1 },
+		}),
+	).toEqual({ type: "mismatch", actual: { sourceId: "s", commit: "a", generation: 1 } });
 	expect(await store.insertEvent(event)).toEqual({ type: "inserted", sequence: 1 });
 	expect(
 		await store.insertEvent({
@@ -74,6 +84,8 @@ test("cursor CAS and event insertion are idempotent", async () => {
 			currentRevisionId: "r",
 			priorRevisionId: null,
 			eventType: "artifact.created",
+			reconciliationGeneration: 1,
+			attemptId: "gpa_x",
 			reconciledCommit: "c",
 			artifactId,
 			sourceId: "s",
@@ -153,63 +165,20 @@ test("target tombstones preserve projected values and apply custom lineage colum
 	]);
 });
 
-test.each([
-	{
-		operation: "readCommitFacts",
-		invoke: (gateway: InMemoryArtifactGateway) => gateway.readCommitFacts({ commit: "missing" }),
-	},
-	{
-		operation: "readCommitTreeCandidate",
-		invoke: (gateway: InMemoryArtifactGateway) =>
-			gateway.readCommitTreeCandidate({ commit: "c", path: "missing" }),
-	},
-	{
-		operation: "diffCommits",
-		invoke: (gateway: InMemoryArtifactGateway) =>
-			gateway.diffCommits({ fromCommit: "a", toCommit: "b" }),
-	},
-] as const)(
-	"$operation injected failure takes precedence over missing seeds",
-	async ({ operation, invoke }) => {
-		const failure = { code: "injected", message: operation };
-		const gateway = new InMemoryArtifactGateway({ failures: { [operation]: failure } });
-		expect(await invoke(gateway)).toEqual({ ok: false, error: failure });
-	},
-);
-
-test("commit facts fixtures distinguish commit keys and preserve both unavailability reasons", async () => {
+test("candidate failure takes precedence over a missing fixture", async () => {
+	const failure = { code: "injected", message: "readCommitTreeCandidate" };
 	const gateway = new InMemoryArtifactGateway({
-		commitFacts: [
-			{ commit: "missing", observation: { type: "unavailable", reason: "missing-object" } },
-			{
-				commit: "shallow",
-				observation: { type: "unavailable", reason: "incomplete-history" },
-			},
-		],
+		failures: { readCommitTreeCandidate: failure },
 	});
-	expect(await gateway.readCommitFacts({ commit: "missing" })).toEqual({
-		ok: true,
-		value: { type: "unavailable", reason: "missing-object" },
-	});
-	expect(await gateway.readCommitFacts({ commit: "shallow" })).toEqual({
-		ok: true,
-		value: { type: "unavailable", reason: "incomplete-history" },
+	expect(await gateway.readCommitTreeCandidate({ commit: "c", path: "missing" })).toEqual({
+		ok: false,
+		error: failure,
 	});
 });
 
 test("artifact gateway constructor state and returned snapshots are insulated", async () => {
-	const parents = ["parent"];
 	const bytes = new Uint8Array([1]);
 	const state = {
-		commitFacts: [
-			{
-				commit: "target",
-				observation: {
-					type: "found" as const,
-					value: { commit: "target", parents, isMerge: false },
-				},
-			},
-		],
 		commitCandidates: [
 			{
 				commit: "target",
@@ -224,24 +193,16 @@ test("artifact gateway constructor state and returned snapshots are insulated", 
 		],
 	};
 	const gateway = new InMemoryArtifactGateway(state);
-	parents.push("mutated");
 	bytes[0] = 9;
 
-	const facts = await gateway.readCommitFacts({ commit: "target" });
 	const candidate = await gateway.readCommitTreeCandidate({ commit: "target", path: "a" });
-	expect(facts).toMatchObject({ value: { value: { parents: ["parent"] } } });
 	expect(candidate).toMatchObject({
 		value: { value: { entries: [{ bytes: new Uint8Array([1]) }] } },
 	});
-	if (facts.ok && facts.value.type === "found")
-		(facts.value.value.parents as string[]).push("later");
 	if (candidate.ok && candidate.value.type === "found") {
 		const entry = candidate.value.value.entries[0];
 		if (entry?.kind === "regular-file") entry.bytes[0] = 7;
 	}
-	expect(await gateway.readCommitFacts({ commit: "target" })).toMatchObject({
-		value: { value: { parents: ["parent"] } },
-	});
 	expect(await gateway.readCommitTreeCandidate({ commit: "target", path: "a" })).toMatchObject({
 		value: { value: { entries: [{ bytes: new Uint8Array([1]) }] } },
 	});
@@ -258,7 +219,7 @@ test("commit inventories distinguish commit-root pairs and preserve unavailabili
 			{
 				commit: "c2",
 				artifactRoot: "one",
-				observation: { type: "unavailable", reason: "incomplete-history" },
+				observation: { type: "unavailable", reason: "missing-object" },
 			},
 		],
 	});
@@ -268,7 +229,7 @@ test("commit inventories distinguish commit-root pairs and preserve unavailabili
 	});
 	expect(await gateway.inventoryCommitTree({ commit: "c2", artifactRoot: "one" })).toEqual({
 		ok: true,
-		value: { type: "unavailable", reason: "incomplete-history" },
+		value: { type: "unavailable", reason: "missing-object" },
 	});
 });
 

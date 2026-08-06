@@ -7,14 +7,11 @@ import type {
 	ArtifactCandidate,
 	ArtifactEntry,
 	ArtifactGateway,
-	CommitDiff,
-	CommitFacts,
 	CreateArtifactRequest,
 	CreateArtifactResult,
 	GatewayError,
 	GatewayResult,
 	GitObservation,
-	GitUnavailableReason,
 	TreeInventoryEntry,
 } from "../core/index.ts";
 
@@ -67,7 +64,7 @@ function isExitCode(error: unknown, code: number): boolean {
 	return error.code === code || error.code === String(code);
 }
 type GitFailureClassification =
-	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason }
+	| { readonly type: "unavailable"; readonly reason: "missing-object" }
 	| { readonly type: "operational"; readonly error: GatewayError };
 export class RealArtifactGateway implements ArtifactGateway {
 	private readonly cwd: string;
@@ -195,47 +192,6 @@ export class RealArtifactGateway implements ArtifactGateway {
 				: { ok: false, error: failure(error) };
 		}
 	}
-	async readCommitFacts(request: {
-		readonly commit: string;
-	}): Promise<GatewayResult<GitObservation<CommitFacts>>> {
-		return this.gitObservation(
-			["show", "-s", "--format=%H%x00%P", request.commit],
-			[request.commit],
-			(output) => {
-				const [commit = "", parentsText = ""] = output.toString().trim().split("\0");
-				const parents = parentsText === "" ? [] : parentsText.split(" ");
-				if (commit === "") throw new Error("Unexpected git show output.");
-				return { commit, parents, isMerge: parents.length > 1 };
-			},
-		);
-	}
-	async isAncestor(request: {
-		readonly ancestor: string;
-		readonly descendant: string;
-	}): Promise<GatewayResult<GitObservation<boolean>>> {
-		try {
-			await this.git.execute(["merge-base", "--is-ancestor", request.ancestor, request.descendant]);
-			return { ok: true, value: { type: "found", value: true } };
-		} catch (error) {
-			if (typeof error === "object" && error !== null && "code" in error && error.code === 1) {
-				// Git's negative answer only proves non-ancestry over retained history. In a
-				// shallow repository the truncated history could hide the real relationship,
-				// so the negative is conservatively unavailable rather than a definitive false.
-				const completeness = await this.readRepositoryHistoryCompleteness();
-				if (!completeness.ok) return { ok: false, error: completeness.error };
-				return completeness.value === "shallow"
-					? { ok: true, value: { type: "unavailable", reason: "incomplete-history" } }
-					: { ok: true, value: { type: "found", value: false } };
-			}
-			const classification = await this.classifyGitFailure(error, [
-				request.ancestor,
-				request.descendant,
-			]);
-			return classification.type === "unavailable"
-				? { ok: true, value: { type: "unavailable", reason: classification.reason } }
-				: { ok: false, error: classification.error };
-		}
-	}
 	async inventoryCommitTree(request: {
 		readonly commit: string;
 		readonly artifactRoot: string;
@@ -338,20 +294,6 @@ export class RealArtifactGateway implements ArtifactGateway {
 		}
 		return bytes;
 	}
-	async diffCommits(request: {
-		readonly fromCommit: string;
-		readonly toCommit: string;
-	}): Promise<GatewayResult<GitObservation<CommitDiff>>> {
-		return this.gitObservation(
-			["diff", "--name-only", "-z", request.fromCommit, request.toCommit],
-			[request.fromCommit, request.toCommit],
-			(output) => ({
-				fromCommit: request.fromCommit,
-				toCommit: request.toCommit,
-				changedPaths: output.toString().split("\0").filter(Boolean).map(logical),
-			}),
-		);
-	}
 	private async gitObservation<T>(
 		args: readonly string[],
 		commits: readonly string[],
@@ -382,37 +324,9 @@ export class RealArtifactGateway implements ArtifactGateway {
 				await this.git.execute(["rev-parse", "--verify", "--quiet", `${commit}^{commit}`]);
 			} catch (probeError) {
 				if (!isExitCode(probeError, 1)) return { type: "operational", error: failure(error) };
-				// A required commit is unresolvable. Shallow history means the object may
-				// have been truncated rather than never existing; an unreadable shallow
-				// state keeps the primary failure operational instead of guessing a reason.
-				const completeness = await this.readRepositoryHistoryCompleteness();
-				if (!completeness.ok) return { type: "operational", error: failure(error) };
-				return {
-					type: "unavailable",
-					reason: completeness.value === "shallow" ? "incomplete-history" : "missing-object",
-				};
+				return { type: "unavailable", reason: "missing-object" };
 			}
 		}
 		return { type: "operational", error: failure(error) };
-	}
-	// Failure-path-only probe: successful reads and proven-positive ancestry never pay
-	// for it, and re-reading each time stays correct after an in-process fetch/unshallow.
-	private async readRepositoryHistoryCompleteness(): Promise<
-		GatewayResult<"complete" | "shallow">
-	> {
-		let output: string;
-		try {
-			output = (await this.git.execute(["rev-parse", "--is-shallow-repository"])).stdout
-				.toString()
-				.trim();
-		} catch (error) {
-			return { ok: false, error: failure(error) };
-		}
-		if (output === "true") return { ok: true, value: "shallow" };
-		if (output === "false") return { ok: true, value: "complete" };
-		return {
-			ok: false,
-			error: failure(new Error("Unexpected git rev-parse --is-shallow-repository output.")),
-		};
 	}
 }

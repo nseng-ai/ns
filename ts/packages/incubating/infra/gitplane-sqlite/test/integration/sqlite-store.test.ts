@@ -1,10 +1,12 @@
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
-import { evaluateDoctor, parseArtifactId } from "@nseng-ai/gitplane";
+import { evaluateDoctor, parseArtifactId, reconcile } from "@nseng-ai/gitplane";
 import type { MaterializationStoreGateway, StoreAccess } from "@nseng-ai/gitplane";
+import { RealArtifactGateway } from "@nseng-ai/gitplane/cli";
 import { createSqliteStoreFactory, initializeSqliteStore } from "@nseng-ai/gitplane-sqlite";
 import { exerciseMaterializationStoreConformance } from "@nseng-ai/gitplane/testing";
 
@@ -22,6 +24,10 @@ function openStore(
 		{ configDirectory: directory, clock: testClock },
 		{ access },
 	);
+}
+
+function git(cwd: string, args: readonly string[]): string {
+	return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
 async function withDatabase(
@@ -81,6 +87,24 @@ test("returns gateway errors for corrupt persisted classification JSON", () =>
 			error: { code: "sqlite-operation-failed" },
 		});
 		expect(await store.listCurrentArtifacts({ sourceId: "source" })).toMatchObject({
+			ok: false,
+			error: { code: "sqlite-operation-failed" },
+		});
+		expect(await store.close()).toEqual({ ok: true });
+	}));
+
+test("rejects an invalid persisted frozen plan at the snapshot boundary", () =>
+	withDatabase(async (directory, file) => {
+		expect(await initializeSqliteStore({ path: file, baseDirectory: directory })).toEqual({
+			ok: true,
+		});
+		const database = new DatabaseSync(path.join(directory, file));
+		database
+			.prepare("INSERT INTO gitplane_reconciliation_attempts VALUES (?, ?, ?)")
+			.run("source", "gpa_invalid", JSON.stringify({ schemaVersion: 1, sourceId: "source" }));
+		database.close();
+		const store = openStore(directory, file, "read-only");
+		expect(await store.readMaterializationSnapshot({ sourceId: "source" })).toMatchObject({
 			ok: false,
 			error: { code: "sqlite-operation-failed" },
 		});
@@ -333,6 +357,138 @@ test("refuses unexpected Gitplane-owned objects without mutation", () =>
 		expect(await readFile(path.join(directory, file))).toEqual(before);
 	}));
 
+test("combines real Git snapshots with real SQLite across target shapes and repair", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-reconcile-e2e-"));
+	try {
+		git(directory, ["init", "-b", "main"]);
+		git(directory, ["config", "user.name", "Gitplane Test"]);
+		git(directory, ["config", "user.email", "gitplane@example.test"]);
+		await mkdir(path.join(directory, "artifacts", "a"), { recursive: true });
+		await writeFile(
+			path.join(directory, "artifacts", "a", "gitplane-artifact.json"),
+			JSON.stringify({ gpId: artifactId }),
+		);
+		await writeFile(path.join(directory, "artifacts", "a", "body.txt"), "initial");
+		git(directory, ["add", "."]);
+		git(directory, ["commit", "-m", "initial"]);
+		const initial = git(directory, ["rev-parse", "HEAD"]);
+		git(directory, ["branch", "divergent"]);
+		await writeFile(path.join(directory, "artifacts", "a", "body.txt"), "update");
+		git(directory, ["commit", "-am", "update"]);
+		const update = git(directory, ["rev-parse", "HEAD"]);
+		git(directory, ["switch", "divergent"]);
+		await writeFile(path.join(directory, "artifacts", "a", "branch.txt"), "divergent");
+		git(directory, ["add", "."]);
+		git(directory, ["commit", "-m", "divergent"]);
+		const divergent = git(directory, ["rev-parse", "HEAD"]);
+		git(directory, ["switch", "main"]);
+		git(directory, ["merge", "--no-ff", "divergent", "-m", "merge"]);
+		const merge = git(directory, ["rev-parse", "HEAD"]);
+
+		expect(await initializeSqliteStore({ path: "store.db", baseDirectory: directory })).toEqual({
+			ok: true,
+		});
+		const store = openStore(directory, "store.db", "read-write");
+		const context = {
+			clock: testClock,
+			artifacts: new RealArtifactGateway({ cwd: directory }),
+			store,
+		};
+		const run = (targetCommitish: string, mode: "normal" | "repair" = "normal") =>
+			reconcile(context, {
+				sourceId: "source",
+				artifactRoot: "artifacts",
+				targetCommitish,
+				mode,
+			});
+		expect(await run(initial)).toMatchObject({
+			type: "completed",
+			resultingCursor: { commit: initial, generation: 1 },
+			counts: { "artifact.created": 1 },
+		});
+		expect(await run(update)).toMatchObject({
+			type: "completed",
+			counts: { "artifact.revised": 1 },
+		});
+		expect(await run(initial)).toMatchObject({
+			type: "completed",
+			counts: { "artifact.revised": 1 },
+		});
+		expect(await run(divergent)).toMatchObject({
+			type: "completed",
+			counts: { "artifact.revised": 1 },
+		});
+		expect(await run(merge)).toMatchObject({
+			type: "completed",
+			resultingCursor: { commit: merge, generation: 5 },
+			counts: { "artifact.revised": 1 },
+		});
+		expect(await run(merge, "repair")).toMatchObject({
+			type: "completed",
+			resultingCursor: { commit: merge, generation: 6 },
+			counts: { "artifact.repaired": 1 },
+		});
+		expect(await run(merge)).toMatchObject({ type: "no-op", cursor: { generation: 6 } });
+		expect(await run("missing-target")).toMatchObject({
+			type: "structural-failure",
+			code: "target-unavailable",
+		});
+		expect(await store.readCursor({ sourceId: "source" })).toMatchObject({
+			type: "found",
+			value: { commit: merge, generation: 6 },
+		});
+		expect(await store.close()).toEqual({ ok: true });
+		const verify = new DatabaseSync(path.join(directory, "store.db"), { readOnly: true });
+		expect(verify.prepare("SELECT COUNT(*) AS count FROM gitplane_events").get()).toEqual({
+			count: 6,
+		});
+		verify.close();
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("reconciles a depth-1 real clone into real SQLite without fetching", async () => {
+	const source = await mkdtemp(path.join(os.tmpdir(), "gitplane-depth-source-"));
+	const clone = await mkdtemp(path.join(os.tmpdir(), "gitplane-depth-clone-"));
+	try {
+		git(source, ["init", "-b", "main"]);
+		git(source, ["config", "user.name", "Gitplane Test"]);
+		git(source, ["config", "user.email", "gitplane@example.test"]);
+		await mkdir(path.join(source, "artifacts", "a"), { recursive: true });
+		await writeFile(
+			path.join(source, "artifacts", "a", "gitplane-artifact.json"),
+			JSON.stringify({ gpId: artifactId }),
+		);
+		git(source, ["add", "."]);
+		git(source, ["commit", "-m", "initial"]);
+		await writeFile(path.join(source, "artifacts", "a", "body.txt"), "tip");
+		git(source, ["add", "."]);
+		git(source, ["commit", "-m", "tip"]);
+		git(clone, ["clone", "--depth=1", `file://${source}`, "."]);
+		expect(git(clone, ["rev-list", "--count", "HEAD"])).toBe("1");
+		expect(await initializeSqliteStore({ path: "store.db", baseDirectory: clone })).toEqual({
+			ok: true,
+		});
+		const store = openStore(clone, "store.db", "read-write");
+		expect(
+			await reconcile(
+				{ clock: testClock, artifacts: new RealArtifactGateway({ cwd: clone }), store },
+				{
+					sourceId: "source",
+					artifactRoot: "artifacts",
+					targetCommitish: "HEAD",
+				},
+			),
+		).toMatchObject({ type: "completed", resultingCursor: { generation: 1 } });
+		expect(git(clone, ["rev-list", "--count", "HEAD"])).toBe("1");
+		expect(await store.close()).toEqual({ ok: true });
+	} finally {
+		await rm(source, { recursive: true, force: true });
+		await rm(clone, { recursive: true, force: true });
+	}
+});
+
 test("read-only open of a missing database creates no file or parent", async () => {
 	const directory = await mkdtemp(path.join(os.tmpdir(), "gitplane-sqlite-missing-"));
 	const parent = path.join(directory, "missing-parent");
@@ -343,6 +499,21 @@ test("read-only open of a missing database creates no file or parent", async () 
 		await rm(directory, { recursive: true, force: true });
 	}
 });
+
+test("refuses the old commit-only cursor schema without mutation", () =>
+	withDatabase(async (directory, file) => {
+		const database = new DatabaseSync(path.join(directory, file));
+		database.exec(
+			"CREATE TABLE gitplane_schema (schema_version INTEGER NOT NULL) STRICT; INSERT INTO gitplane_schema VALUES (1); CREATE TABLE gitplane_cursors (source_id TEXT PRIMARY KEY, commit_id TEXT NOT NULL) STRICT; INSERT INTO gitplane_cursors VALUES ('source', 'old')",
+		);
+		database.close();
+		const before = await readFile(path.join(directory, file));
+		expect(await initializeSqliteStore({ path: file, baseDirectory: directory })).toMatchObject({
+			ok: false,
+			error: { code: "incompatible-control-schema" },
+		});
+		expect(await readFile(path.join(directory, file))).toEqual(before);
+	}));
 
 test("refuses a malformed v1 table before creating another missing table", () =>
 	withDatabase(async (directory, file) => {

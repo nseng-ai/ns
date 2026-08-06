@@ -1,8 +1,6 @@
 import type {
 	ArtifactCandidate,
 	ArtifactGateway,
-	CommitDiff,
-	CommitFacts,
 	CreateArtifactRequest,
 	CreateArtifactResult,
 	GatewayError,
@@ -15,15 +13,6 @@ type FailureKey = keyof ArtifactGateway;
 export interface InMemoryArtifactGatewayState {
 	readonly created?: readonly CreateArtifactRequest[];
 	readonly commits?: Readonly<Record<string, GitObservation<string>>>;
-	readonly commitFacts?: readonly {
-		readonly commit: string;
-		readonly observation: GitObservation<CommitFacts>;
-	}[];
-	readonly ancestry?: readonly {
-		readonly ancestor: string;
-		readonly descendant: string;
-		readonly observation: GitObservation<boolean>;
-	}[];
 	readonly commitInventories?: readonly {
 		readonly commit: string;
 		readonly artifactRoot: string;
@@ -38,7 +27,6 @@ export interface InMemoryArtifactGatewayState {
 		readonly entries: readonly TreeInventoryEntry[];
 	}[];
 	readonly workingCandidates?: readonly ArtifactCandidate[];
-	readonly diffs?: readonly GitObservation<CommitDiff>[];
 	readonly failures?: Partial<Record<FailureKey, GatewayError>>;
 }
 function copyCandidate(candidate: ArtifactCandidate): ArtifactCandidate {
@@ -87,6 +75,7 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 	async resolveCommit(request: {
 		readonly commitish: string;
 	}): Promise<GatewayResult<GitObservation<string>>> {
+		this.operations.push(`resolveCommit:${request.commitish}`);
 		return result(
 			this.state.failures?.resolveCommit,
 			structuredClone(
@@ -95,31 +84,6 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 					value: request.commitish,
 				},
 			),
-		);
-	}
-	async readCommitFacts(request: {
-		readonly commit: string;
-	}): Promise<GatewayResult<GitObservation<CommitFacts>>> {
-		const found = this.state.commitFacts?.find((item) => item.commit === request.commit);
-		return result(
-			this.state.failures?.readCommitFacts,
-			copyObservation(
-				found?.observation ?? { type: "unavailable", reason: "missing-object" },
-				(facts) => ({ ...facts, parents: [...facts.parents] }),
-			),
-		);
-	}
-	async isAncestor(request: {
-		readonly ancestor: string;
-		readonly descendant: string;
-	}): Promise<GatewayResult<GitObservation<boolean>>> {
-		this.operations.push(`isAncestor:${request.ancestor}:${request.descendant}`);
-		const found = this.state.ancestry?.find(
-			(item) => item.ancestor === request.ancestor && item.descendant === request.descendant,
-		);
-		return result(
-			this.state.failures?.isAncestor,
-			found?.observation ?? { type: "found", value: false },
 		);
 	}
 	async inventoryCommitTree(request: {
@@ -179,23 +143,5 @@ export class InMemoryArtifactGateway implements ArtifactGateway {
 		return found === undefined
 			? { ok: false, error: { code: "artifact-missing", message: request.path } }
 			: { ok: true, value: copyCandidate(found) };
-	}
-	async diffCommits(request: {
-		readonly fromCommit: string;
-		readonly toCommit: string;
-	}): Promise<GatewayResult<GitObservation<CommitDiff>>> {
-		const found = this.state.diffs?.find(
-			(item) =>
-				item.type === "found" &&
-				item.value.fromCommit === request.fromCommit &&
-				item.value.toCommit === request.toCommit,
-		);
-		return result(
-			this.state.failures?.diffCommits,
-			copyObservation(found ?? { type: "unavailable", reason: "missing-object" }, (diff) => ({
-				...diff,
-				changedPaths: [...diff.changedPaths],
-			})),
-		);
 	}
 }
