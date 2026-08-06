@@ -178,9 +178,28 @@ In `## Changes`:
   only when it embodies a deliberate design decision, and then in one short
   clause.
 
-Read [`caveman.md`](caveman.md) and apply its **lite** rules once to the draft.
-Retain professional full sentences, articles, exact technical terms, paths, and
-code.
+<!-- Drafting-pass inspiration: mattpocock/skills, skills/productivity/wait-what/SKILL.md. -->
+
+Apply one ASD-STE100-inspired Simplified Technical English editing pass to the
+complete draft:
+
+- Use short, direct sentences with one main point or action per sentence.
+- Prefer active voice when naming the actor improves accountability.
+- Use one consistent term for each concept and avoid unnecessary synonyms.
+- Remove filler, pleasantries, and unsupported hedging only when doing so does
+  not remove meaningful information or context.
+- Preserve full grammatical sentences and articles. Do not compress the prose
+  into fragments.
+- Preserve all meaningful information and context, including substantive
+  rationale, constraints, qualifications, causal relationships, tradeoffs,
+  limitations, and distinctions between ideas. Concision must not change or
+  weaken the intended meaning.
+- Preserve exact technical terms, code, paths, CLI commands, quoted errors,
+  links, and technical spellings.
+- Keep the existing sections, Markdown structure, bullets, footer, and
+  proportionality rules intact.
+- After the pass, compare the edited draft with the source draft. Restore any
+  meaningful information or context that the editing pass removed or obscured.
 
 Omit `## Reviewer focus` when empty; the written heading never carries an
 `(optional)` marker. End every draft with this
