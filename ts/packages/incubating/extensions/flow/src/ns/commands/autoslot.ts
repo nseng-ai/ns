@@ -86,17 +86,15 @@ function autoslotCommandExit(
 	caps: Parameters<typeof renderAutoslotResult>[0],
 	result: AutoslotWorkflowResult,
 ) {
-	const human = renderAutoslotResult(caps, result);
 	switch (result.type) {
-		case "refused":
-			return negative(human, { data: result });
-		case "failed":
-			return failure(FLOW_COMMAND_FAILED, human, result);
 		case "branch-created-slot-skipped":
 		case "moved":
 			return ok(result);
+		case "refused":
+			return negative(renderAutoslotResult(caps, result), { data: result });
+		case "failed":
 		case "branch-created-slot-failed":
-			return failure(FLOW_COMMAND_FAILED, human, result);
+			return failure(FLOW_COMMAND_FAILED, renderAutoslotResult(caps, result), result);
 	}
 }
 
