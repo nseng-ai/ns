@@ -385,11 +385,11 @@ export type ReconciliationPlanResult =
 			readonly findings?: readonly Finding[];
 	  };
 
-type PreparedArtifact = {
+interface PreparedArtifact {
 	readonly corpus: ArtifactCorpusEntry;
 	readonly revisionId: string;
 	readonly registration: ArtifactKindRegistration | null;
-};
+}
 
 function compareCodeUnits(left: string, right: string): number {
 	return left < right ? -1 : left > right ? 1 : 0;
