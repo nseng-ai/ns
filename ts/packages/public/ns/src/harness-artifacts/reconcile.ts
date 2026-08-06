@@ -48,12 +48,12 @@ import {
 import type { InstallManifestData, InstallManifestEntryData } from "./provision-manifest.ts";
 import {
 	appliedHarnessArtifactTransitionFileEffects,
-	applyProjectHarnessArtifactTransitions,
-	HARNESS_ARTIFACT_RECONCILE_ACTIONS,
-	prepareProjectHarnessArtifactTransitions,
-	readProjectHarnessManifestSnapshots,
+	applyHarnessArtifactTransitions,
+	prepareHarnessArtifactTransitions,
+	readHarnessManifestSnapshots,
 	type AppliedHarnessArtifactTransition,
-} from "./project-harness-artifact-transitions.ts";
+} from "./harness-artifact-transitions.ts";
+import { HARNESS_ARTIFACT_RECONCILE_ACTIONS } from "./reconcile-actions.ts";
 import { provisionIdentityKey } from "./provision-plan.ts";
 import {
 	HARNESS_ARTIFACT_REMOVAL_REASONS,
@@ -112,6 +112,7 @@ export const skippedArtifactCollisionSchema = z.object({
 export type SkippedArtifactCollision = z.output<typeof skippedArtifactCollisionSchema>;
 
 export function planHarnessArtifactReconcile(input: {
+	scope: HarnessScope;
 	desired: readonly DesiredHarnessArtifact[];
 	harnessSelection: readonly HarnessId[] | undefined;
 	manifests: readonly HarnessManifestSnapshot[];
@@ -139,14 +140,14 @@ export function planHarnessArtifactReconcile(input: {
 			for (const harness of input.harnessSelection) {
 				const key = reconcilePairKey({
 					harness,
-					scope: "project",
+					scope: input.scope,
 					artifactId: desired.artifact.id,
 				});
 				pairsByKey.set(key, {
 					key,
 					desired,
 					harness,
-					scope: "project",
+					scope: input.scope,
 					origin: "declared",
 					hasManifestEntry: manifestHasEntry(input.manifests, key),
 				});
@@ -158,6 +159,7 @@ export function planHarnessArtifactReconcile(input: {
 	const removals: PlannedHarnessArtifactRemoval[] = [];
 	for (const snapshot of input.manifests) {
 		for (const [manifestKey, entry] of Object.entries(snapshot.manifest.artifacts)) {
+			if (entry.scope !== input.scope) continue;
 			const desired = desiredByManifestIdentity.get(manifestEntryDesiredIdentityKey(entry));
 			const selectedHarness = input.harnessSelection?.includes(entry.harness) ?? false;
 			const replacement = collisionPlan.provisionableDesired.find(
@@ -165,27 +167,25 @@ export function planHarnessArtifactReconcile(input: {
 					item.artifact.skillName === entry.provisionName &&
 					manifestEntryDesiredIdentityKey(entry) !== desiredManifestIdentityKey(item),
 			);
-			const removalReason =
+			const candidateRemovalReason =
 				replacement !== undefined && selectedHarness
 					? "same-target-replacement"
 					: desired !== undefined && !selectedHarness && input.harnessSelection !== undefined
 						? "deselected-harness"
-						: desired === undefined && hasRemovalAuthority(input.deletionAuthority, entry)
+						: desired === undefined
 							? "removed-source"
 							: undefined;
+			const removalReason =
+				candidateRemovalReason !== undefined &&
+				hasRemovalAuthority(input.deletionAuthority, entry, candidateRemovalReason)
+					? candidateRemovalReason
+					: undefined;
 			if (removalReason !== undefined) {
 				removals.push({ key: manifestKey, snapshot, entry, reason: removalReason });
 				continue;
 			}
-			if (desired === undefined) {
-				orphans.push({
-					artifactId: entry.artifactId,
-					harness: entry.harness,
-					scope: entry.scope,
-					targetRoot: entry.targetRoot,
-					packageName: entry.source.packageName,
-					sourceType: entry.source.type,
-				});
+			if (candidateRemovalReason !== undefined || desired === undefined) {
+				orphans.push(orphanedManifestEntry(entry));
 				continue;
 			}
 			if (skippedDesiredIdentities.has(manifestEntryDesiredIdentityKey(entry))) continue;
@@ -351,15 +351,19 @@ export async function runHarnessArtifactReconcile(
 		...optionalEntry("homeDir", request.homeDir),
 		env: request.env,
 	});
-	const manifests = await readProjectHarnessManifestSnapshots({ pathContext: context, fs });
+	const manifests = await readHarnessManifestSnapshots({
+		scope: "project",
+		pathContext: context,
+		fs,
+	});
 	if (!manifests.ok) return manifests;
 
-	const projectTransitions = await prepareProjectHarnessArtifactTransitions({
+	const projectTransitions = await prepareHarnessArtifactTransitions({
+		scope: "project",
 		desired: desired.artifacts,
 		selectedHarnesses: selection.value.harnessSelection,
 		manifests: manifests.value,
 		pathContext: context,
-		trustedRepoRoot: request.projectRoot,
 		...(selection.value.harnessSelection === undefined
 			? {}
 			: {
@@ -425,7 +429,7 @@ export async function runHarnessArtifactReconcile(
 			(artifact) => artifact.action === "conflicted" && artifact.removalReason !== undefined,
 		)
 	) {
-		const applied = await applyProjectHarnessArtifactTransitions(projectTransitions.value);
+		const applied = await applyHarnessArtifactTransitions(projectTransitions.value);
 		if (!applied.ok) return applied;
 		artifacts = completedReconcileOutcomes(preparedItems, applied.value.outcomes);
 	}
@@ -538,6 +542,17 @@ function manifestEntryDesiredIdentityKey(entry: InstallManifestEntryData): strin
 	return [entry.artifactId, entry.source.type, entry.source.packageName].join("\0");
 }
 
+function orphanedManifestEntry(entry: InstallManifestEntryData): OrphanedManifestEntry {
+	return {
+		artifactId: entry.artifactId,
+		harness: entry.harness,
+		scope: entry.scope,
+		targetRoot: entry.targetRoot,
+		packageName: entry.source.packageName,
+		sourceType: entry.source.type,
+	};
+}
+
 function reconcilePairKey(input: {
 	harness: HarnessId;
 	scope: HarnessScope;
@@ -549,10 +564,13 @@ function reconcilePairKey(input: {
 function hasRemovalAuthority(
 	authority: ReconcileDeletionAuthority | undefined,
 	entry: InstallManifestEntryData,
+	reason: PlannedHarnessArtifactRemovalReason,
 ): boolean {
-	if (authority === undefined) return false;
-	if (authority.type === "full") return !authority.preserveRemovedSources;
-	return authority.packageNames.includes(entry.source.packageName);
+	if (authority?.type === "targeted") {
+		return authority.packageNames.includes(entry.source.packageName);
+	}
+	if (reason !== "removed-source") return true;
+	return authority?.type === "full" && !authority.preserveRemovedSources;
 }
 
 function manifestHasEntry(manifests: readonly HarnessManifestSnapshot[], key: string): boolean {

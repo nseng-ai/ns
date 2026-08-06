@@ -19,6 +19,7 @@ import {
 	type InstallManifestEntryData,
 } from "./provision-manifest.ts";
 import type { TargetFileHashFact } from "./provision-plan.ts";
+import type { HarnessScope } from "./harness-paths.ts";
 import type { PlannedHarnessArtifactRemoval } from "./reconcile.ts";
 import { collectTargetHashFactsForPaths, targetFactsEqual } from "./provision-state.ts";
 
@@ -55,6 +56,7 @@ export interface PreparedHarnessArtifactRemoval {
 
 export async function preparePlannedHarnessArtifactRemoval(input: {
 	planned: PlannedHarnessArtifactRemoval;
+	expectedScope: HarnessScope;
 	trustedBoundaryRoot: string;
 	fs: HarnessArtifactFileSystemGateway;
 }): Promise<Result<PreparedHarnessArtifactRemoval, HarnessArtifactProvisionErrorInfo>> {
@@ -72,7 +74,7 @@ export async function preparePlannedHarnessArtifactRemoval(input: {
 		resolve(removal.manifestPath) !==
 		resolve(join(removal.expectedTargetRoot, INSTALL_MANIFEST_FILE_NAME))
 			? removal.manifestPath
-			: validateManifestEntryCoherence({ ...removal, expectedScope: "project" });
+			: validateManifestEntryCoherence({ ...removal, expectedScope: input.expectedScope });
 	if (unsafePath !== undefined) {
 		return unsafeManifestEntry(removal.manifestPath, removal.key, unsafePath);
 	}

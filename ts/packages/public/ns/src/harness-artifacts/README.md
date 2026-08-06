@@ -57,8 +57,13 @@ ns skills install <skill> --harness <claude-code|codex|pi> [--scope project|user
 
 `list` shows first-party ns skills from the static catalog. `path` prints the resolved target root and artifact path. `install --dry-run` returns the same deterministic plan and decisions as apply, but performs no writes; plain `install` provisions and writes the manifest.
 
-## Consumer seam
+## Project and User consumer seam
 
-The `init` feature consumes this feature through `RealArtifactActivationGateway` and `RealArtifactProvisioningStatusGateway`, which call `prepareDeclaredArtifactActivation()` and `applyPreparedDeclaredArtifactActivation()`. Activation prepares the provision once and applies it into project-scope `claude-code`, `codex`, and `pi` harness roots using the shared apply path.
+Project and User lifecycle orchestration share the catalog, path table, manifest format, preparation, conflict checks, and apply machinery. They differ in roots and deletion authority:
 
-Declared extension activation and `ns update` share the SDK's canonical declared-descriptor loader and feed validated records to artifact discovery. Full activation reads project manifests for every supported harness, including deselected harnesses, and can report `removed` with `removed-source`, `deselected-harness`, `same-target-replacement`, or obsolete-file detail. Targeted reconcile preserves non-target and first-party entries; incomplete acquisition or descriptor discovery does not authorize cleanup of the failed source.
+- **Project activation** uses `RealArtifactActivationGateway` and `RealArtifactProvisioningStatusGateway`. It reconciles the complete project desired state into the Supported harnesses' repository roots. Full activation reads project manifests for every supported harness, including deselected harnesses, so it may remove entries for removed sources or deselected harnesses.
+- **User lifecycle** uses `RealUserArtifactActivationGateway`. Install, update, and uninstall reconcile bundled skills into the user roots of the `supported_harnesses` configured in the user `ns.toml`. This reconciliation is targeted to the package being administered, preserving other packages and first-party entries; changing `supported_harnesses` alone does not reconcile existing declarations.
+
+Both seams use the SDK's canonical declared-descriptor loader and feed validated records to artifact discovery. They prepare once before applying, can report `removed` with `removed-source`, `deselected-harness`, `same-target-replacement`, or obsolete-file detail, and grant no cleanup authority when acquisition or descriptor discovery is incomplete.
+
+User artifact provisioning is independent of the per-invocation Active harness gate. The gate controls whether User commands and point definitions participate in that invocation; lifecycle commands still reconcile bundled skills for every configured user harness root. User scope does **not** run Project activation: repository-specific instructions, consumer directories, point installations, hooks, prompts, models, extension settings, and repository files remain dormant.

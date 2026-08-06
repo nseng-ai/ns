@@ -1,3 +1,4 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resultOk, type Result } from "@nseng-ai/foundation/result";
 
 import type { SkillHarnessArtifactEntry } from "./artifact-catalog.ts";
@@ -5,7 +6,13 @@ import type {
 	HarnessArtifactFileSystemGateway,
 	HarnessArtifactModuleDiscoveryGateway,
 } from "./filesystem.ts";
-import type { HarnessId, HarnessPathContext, HarnessPathErrorInfo } from "./harness-paths.ts";
+import { firstPartySkillProvisionPathContext } from "./first-party-skill-provisioning.ts";
+import type {
+	HarnessId,
+	HarnessPathContext,
+	HarnessPathErrorInfo,
+	HarnessScope,
+} from "./harness-paths.ts";
 import {
 	discoverDeclaredExtensionModuleHarnessArtifacts,
 	type DeclaredExtensionModuleArtifactFacts,
@@ -22,16 +29,20 @@ import type {
 } from "./provision-removal.ts";
 import {
 	appliedHarnessArtifactTransitionFileEffects,
-	applyProjectHarnessArtifactTransitions,
+	applyHarnessArtifactTransitions,
 	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
-	prepareProjectHarnessArtifactTransitions,
-	readProjectHarnessManifestSnapshots,
+	prepareHarnessArtifactTransitions,
+	readHarnessManifestSnapshots,
 	type AppliedHarnessArtifactTransition,
 	type DeclaredArtifactActivationAction,
 	type HarnessArtifactProvisionReconciliationErrorInfo,
-	type PreparedProjectHarnessArtifactTransitions,
-} from "./project-harness-artifact-transitions.ts";
-import type { DesiredHarnessArtifact, SkippedArtifactCollision } from "./reconcile.ts";
+	type PreparedHarnessArtifactTransitions,
+} from "./harness-artifact-transitions.ts";
+import type {
+	DesiredHarnessArtifact,
+	ReconcileDeletionAuthority,
+	SkippedArtifactCollision,
+} from "./reconcile.ts";
 
 export { DECLARED_ARTIFACT_ACTIVATION_ACTIONS };
 export type { DeclaredArtifactActivationAction };
@@ -59,7 +70,7 @@ export interface PreparedDeclaredArtifactActivation {
 	readonly diagnostics: readonly ModuleArtifactDiscoveryDiagnostic[];
 	readonly skippedCollisions: readonly SkippedArtifactCollision[];
 	readonly artifacts: readonly PreparedDeclaredArtifactActivationItem[];
-	readonly reconciliation: PreparedProjectHarnessArtifactTransitions;
+	readonly reconciliation: PreparedHarnessArtifactTransitions;
 }
 
 export function preparedDeclaredArtifactActivationItemArtifactId(
@@ -107,6 +118,73 @@ export async function prepareDeclaredArtifactActivation(
 		HarnessArtifactProvisionErrorInfo | HarnessPathErrorInfo
 	>
 > {
+	return prepareScopedDeclaredArtifactActivation({
+		scope: "project",
+		pathContext: { projectRoot: request.projectRoot },
+		modules: request.modules,
+		selectedHarnesses: request.selectedHarnesses,
+		deletionAuthority: (diagnosticCount) => ({
+			type: "full",
+			preserveRemovedSources: diagnosticCount > 0,
+		}),
+		...optionalEntry("fs", request.fs),
+		...optionalEntry("discoveryGateway", request.discoveryGateway),
+	});
+}
+
+export interface PrepareUserDeclaredArtifactActivationRequest {
+	readonly cwd: string;
+	readonly homeDir?: string;
+	readonly env: Record<string, string | undefined>;
+	readonly modules: readonly DeclaredExtensionModuleArtifactFacts[];
+	readonly configuredHarnesses: readonly HarnessId[];
+	readonly targetPackageNames: readonly string[];
+	readonly fs?: HarnessArtifactFileSystemGateway;
+	readonly discoveryGateway?: HarnessArtifactModuleDiscoveryGateway;
+}
+
+/** Prepare targeted user-scope artifacts for exactly the configured harness set. */
+export async function prepareUserDeclaredArtifactActivation(
+	request: PrepareUserDeclaredArtifactActivationRequest,
+): Promise<
+	Result<
+		PreparedDeclaredArtifactActivation,
+		HarnessArtifactProvisionErrorInfo | HarnessPathErrorInfo
+	>
+> {
+	return prepareScopedDeclaredArtifactActivation({
+		scope: "user",
+		pathContext: firstPartySkillProvisionPathContext({
+			projectRoot: request.cwd,
+			...optionalEntry("homeDir", request.homeDir),
+			env: request.env,
+		}),
+		modules: request.modules,
+		selectedHarnesses: request.configuredHarnesses,
+		deletionAuthority: () => ({ type: "targeted", packageNames: request.targetPackageNames }),
+		...optionalEntry("fs", request.fs),
+		...optionalEntry("discoveryGateway", request.discoveryGateway),
+	});
+}
+
+interface PrepareScopedDeclaredArtifactActivationRequest {
+	readonly scope: HarnessScope;
+	readonly pathContext: HarnessPathContext;
+	readonly modules: readonly DeclaredExtensionModuleArtifactFacts[];
+	readonly selectedHarnesses: readonly HarnessId[];
+	readonly deletionAuthority: (diagnosticCount: number) => ReconcileDeletionAuthority;
+	readonly fs?: HarnessArtifactFileSystemGateway;
+	readonly discoveryGateway?: HarnessArtifactModuleDiscoveryGateway;
+}
+
+async function prepareScopedDeclaredArtifactActivation(
+	request: PrepareScopedDeclaredArtifactActivationRequest,
+): Promise<
+	Result<
+		PreparedDeclaredArtifactActivation,
+		HarnessArtifactProvisionErrorInfo | HarnessPathErrorInfo
+	>
+> {
 	const fs = request.fs ?? nodeHarnessArtifactFileSystemGateway;
 	const discovery = await discoverDeclaredExtensionModuleHarnessArtifacts({
 		modules: request.modules,
@@ -124,19 +202,19 @@ export async function prepareDeclaredArtifactActivation(
 	const selectedHarnesses = [...new Set(request.selectedHarnesses)].sort((left, right) =>
 		left.localeCompare(right),
 	);
-	const context: HarnessPathContext = { projectRoot: request.projectRoot };
-	const manifests = await readProjectHarnessManifestSnapshots({ pathContext: context, fs });
+	const manifests = await readHarnessManifestSnapshots({
+		scope: request.scope,
+		pathContext: request.pathContext,
+		fs,
+	});
 	if (!manifests.ok) return manifests;
-	const projectTransitions = await prepareProjectHarnessArtifactTransitions({
+	const projectTransitions = await prepareHarnessArtifactTransitions({
+		scope: request.scope,
 		desired,
 		selectedHarnesses,
 		manifests: manifests.value,
-		pathContext: context,
-		trustedRepoRoot: request.projectRoot,
-		deletionAuthority: {
-			type: "full",
-			preserveRemovedSources: discovery.diagnostics.length > 0,
-		},
+		pathContext: request.pathContext,
+		deletionAuthority: request.deletionAuthority(discovery.diagnostics.length),
 		conflictPolicy: { type: "strict", shouldForce: false },
 		fs,
 	});
@@ -185,7 +263,7 @@ export async function applyPreparedDeclaredArtifactActivation(
 			),
 		};
 	}
-	const applied = await applyProjectHarnessArtifactTransitions(prepared.reconciliation);
+	const applied = await applyHarnessArtifactTransitions(prepared.reconciliation);
 	if (!applied.ok) {
 		return {
 			ok: false,

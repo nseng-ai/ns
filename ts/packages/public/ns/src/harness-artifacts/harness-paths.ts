@@ -60,6 +60,12 @@ export interface ResolvedHarnessArtifactPath {
 	artifactPath: string;
 }
 
+export interface ResolvedHarnessTrustedBoundaryRoot {
+	harness: HarnessId;
+	scope: HarnessScope;
+	rootPath: string;
+}
+
 export type HarnessPathErrorInfo =
 	| { code: "unknown_harness"; message: string; details: { input: string } }
 	| {
@@ -134,6 +140,43 @@ export function resolveHarnessSkillRoot(input: {
 		harness: spec.value.id,
 		rootPath: resolveBasePath(basePathSpec, input.context),
 	});
+}
+
+export function resolveHarnessTrustedBoundaryRoot(input: {
+	harness: string;
+	scope: HarnessScope;
+	context: HarnessPathContext;
+}): Result<ResolvedHarnessTrustedBoundaryRoot, HarnessPathErrorInfo> {
+	const spec = resolveHarnessSpec(input.harness);
+	if (!spec.ok) return spec;
+	if (input.scope === "project") {
+		return resultOk({
+			harness: spec.value.id,
+			scope: input.scope,
+			rootPath: input.context.projectRoot,
+		});
+	}
+	const basePathSpec = spec.value.skillRoots.user;
+	if (needsHomeDirectory(basePathSpec, input.context)) {
+		return resultErr({
+			code: "missing_home_directory",
+			message: `${spec.value.id} user-scope provisioning requires a user home in the harness path context. Set HOME for host CLI contexts or pass a domain context homeDir.`,
+			details: { harness: spec.value.id, scope: "user" },
+		});
+	}
+	if (spec.value.id === "claude-code") {
+		const configured = input.context.env?.CLAUDE_CONFIG_DIR;
+		if (isPresent(configured)) {
+			return resultOk({ harness: spec.value.id, scope: input.scope, rootPath: configured });
+		}
+	}
+	const homeDir = input.context.homeDir;
+	if (!isPresent(homeDir)) {
+		throw new Error(
+			"Harness trusted-boundary resolution reached user scope without a home directory.",
+		);
+	}
+	return resultOk({ harness: spec.value.id, scope: input.scope, rootPath: homeDir });
 }
 
 export function resolveHarnessArtifactPath(input: {

@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { createEmptyPreparedProjectHarnessArtifactTransitions } from "../../src/harness-artifacts/api.ts";
+import { createEmptyPreparedHarnessArtifactTransitions } from "../../src/harness-artifacts/api.ts";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import { npmPackageRoot } from "@nseng-ai/sdk/extensions/acquisition";
 
@@ -502,7 +502,7 @@ describe("installExtension", () => {
 						{ kind: "target-name", value: "tools", packages: ["@acme/a", "@acme/b"] },
 					],
 					artifacts: [],
-					reconciliation: createEmptyPreparedProjectHarnessArtifactTransitions({
+					reconciliation: createEmptyPreparedHarnessArtifactTransitions({
 						type: "strict",
 						shouldForce: false,
 					}),
