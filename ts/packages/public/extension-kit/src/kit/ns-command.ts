@@ -6,27 +6,37 @@ import {
 	type NsCommand,
 	type NsCommandSchema,
 	type NsExtensionApi,
+	type ResultOf,
 } from "@nseng-ai/sdk";
 import type { z } from "zod";
 
-export interface NsDomainCommandOptions<S extends NsCommandSchema, T, TContext> {
+export interface NsDomainCommandOptions<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+	TContext,
+> {
 	name: string;
 	summary: string;
 	description: string;
 	schema: S;
-	resultSchema: z.ZodType<T>;
-	positionals?: DefineCommandSpec<S, T>["positionals"];
-	options?: DefineCommandSpec<S, T>["options"];
-	completionProvider?: DefineCommandSpec<S, T>["completionProvider"];
-	renderHuman?: (data: T, caps: RenderCapabilities) => string;
-	renderMarkdown?: (data: T, caps: RenderCapabilities) => string;
+	resultSchema: TResultSchema;
+	positionals?: DefineCommandSpec<S, TResultSchema>["positionals"];
+	options?: DefineCommandSpec<S, TResultSchema>["options"];
+	completionProvider?: DefineCommandSpec<S, TResultSchema>["completionProvider"];
+	renderHuman: (data: ResultOf<TResultSchema>, caps: RenderCapabilities) => string;
+	renderMarkdown?: (data: ResultOf<TResultSchema>, caps: RenderCapabilities) => string;
 	createContext(ctx: NsExtensionApi): Promise<TContext> | TContext;
-	handler(ctx: TContext, request: z.output<S>): Promise<CommandExit<T>> | CommandExit<T>;
+	handler(
+		ctx: TContext,
+		request: z.output<S>,
+	): Promise<CommandExit<ResultOf<TResultSchema>>> | CommandExit<ResultOf<TResultSchema>>;
 }
 
-export function createNsDomainCommand<S extends NsCommandSchema, T, TContext>(
-	options: NsDomainCommandOptions<S, T, TContext>,
-): NsCommand<S, T> {
+export function createNsDomainCommand<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+	TContext,
+>(options: NsDomainCommandOptions<S, TResultSchema, TContext>): NsCommand<S, TResultSchema> {
 	return defineCommand({
 		name: options.name,
 		summary: options.summary,
@@ -38,7 +48,7 @@ export function createNsDomainCommand<S extends NsCommandSchema, T, TContext>(
 		...(options.completionProvider === undefined
 			? {}
 			: { completionProvider: options.completionProvider }),
-		...(options.renderHuman === undefined ? {} : { renderHuman: options.renderHuman }),
+		renderHuman: options.renderHuman,
 		...(options.renderMarkdown === undefined ? {} : { renderMarkdown: options.renderMarkdown }),
 		handler: async (ctx: NsExtensionApi, request: z.output<S>) => {
 			const domainContext = await options.createContext(ctx);

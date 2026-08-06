@@ -36,6 +36,7 @@ export const branchPrChecksOperation = defineExecOperation({
 		name: "branch-pr-checks",
 		description: "Return open PRs and normalized checks for branches in one batched GitHub query.",
 		schema: branchPrChecksParseSchema,
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: runBranchPrChecksOperation,
 	},
 });

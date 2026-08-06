@@ -34,6 +34,8 @@ export async function command() {
 	return defineCommand({
 		requiresContext: true,
 		schema: z.object({ loud: z.boolean().default(false).describe("Use loud output.") }),
+		resultSchema: z.string(),
+		renderHuman: (result) => result,
 		handler: async () => ok("hello"),
 	});
 }
@@ -57,6 +59,8 @@ export async function command() {
 	return defineCommand({
 		requiresContext: true,
 		schema: z.object({ loud: z.boolean().default(false) }),
+		resultSchema: z.string(),
+		renderHuman: (result) => result,
 		handler: async () => ok("hello"),
 	});
 }
@@ -86,6 +90,8 @@ export async function command() {
 		completionProvider(_ctx, request) {
 			return ["alpha", "beta"].filter((value) => value.startsWith(request.current)).map((value) => ({ value, type: "positional-value" }));
 		},
+		resultSchema: z.string(),
+		renderHuman: (result) => result,
 		handler: async () => ok("hello"),
 	});
 }

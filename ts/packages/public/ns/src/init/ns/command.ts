@@ -17,31 +17,31 @@ type NsInitCommandContext = ExtensionInstallContext &
 	ExtensionUninstallContext &
 	ExtensionUpdateContext & { cwd: string };
 
-interface NsInitCommandOptions<S extends NsCommandSchema, T> extends Omit<
-	DefineCommandSpec<S, T>,
-	"handler"
-> {
+interface NsInitCommandOptions<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+> extends Omit<DefineCommandSpec<S, TResultSchema>, "handler"> {
 	readonly name: string;
 	readonly summary: string;
 	readonly description: string;
 	readonly handler: (
 		context: NsInitCommandContext,
 		request: z.output<S>,
-	) => ReturnType<DefineCommandSpec<S, T>["handler"]>;
+	) => ReturnType<DefineCommandSpec<S, TResultSchema>["handler"]>;
 }
 
-export function nsInitCommand<S extends NsCommandSchema, T>(
-	options: NsInitCommandOptions<S, T>,
-): NsCommand<S, T> {
+export function nsInitCommand<S extends NsCommandSchema, TResultSchema extends z.ZodType>(
+	options: NsInitCommandOptions<S, TResultSchema>,
+): NsCommand<S, TResultSchema> {
 	return defineCommand({
 		schema: options.schema,
-		...(options.resultSchema === undefined ? {} : { resultSchema: options.resultSchema }),
+		resultSchema: options.resultSchema,
+		renderHuman: options.renderHuman,
 		...(options.positionals === undefined ? {} : { positionals: options.positionals }),
 		...(options.options === undefined ? {} : { options: options.options }),
 		...(options.completionProvider === undefined
 			? {}
 			: { completionProvider: options.completionProvider }),
-		...(options.renderHuman === undefined ? {} : { renderHuman: options.renderHuman }),
 		...(options.renderMarkdown === undefined ? {} : { renderMarkdown: options.renderMarkdown }),
 		handler: async (context, request) =>
 			options.handler(await createNsInitContext(context), request),

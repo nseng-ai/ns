@@ -8,6 +8,7 @@ export const branchContextDeleteNsCommand = branchContextCommand({
 	schema: keyRequestSchema,
 	resultSchema: deleteResultSchema,
 	positionals: { key: { position: 0 } },
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: handleDelete,
 });
 

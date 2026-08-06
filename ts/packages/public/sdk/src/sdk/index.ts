@@ -16,6 +16,7 @@ export type {
 	OptionSpec,
 	PositionalSpec,
 	RenderCapabilities,
+	ResultOf,
 } from "./command.ts";
 export type {
 	ExecResult,

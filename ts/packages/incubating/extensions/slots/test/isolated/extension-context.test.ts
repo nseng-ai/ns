@@ -2,7 +2,7 @@ import { type Caps } from "@nseng-ai/clinkr";
 import { type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk";
+import type { NsCommand, NsExtensionApi } from "@nseng-ai/sdk";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 
 const createRealSlotContext = vi.fn(async (options: unknown) => ({
@@ -34,7 +34,7 @@ describe("slot ns extension context", () => {
 
 	it("passes host render capabilities explicitly so interactive previews can reuse terminal colors", async () => {
 		const renderCapabilities: RenderCapabilities = { canEmitAnsi: true, caps: colorCaps };
-		const command = loadSlotNsCommand("list") as NsCommand<NsCommandSchema, unknown>;
+		const command = loadSlotNsCommand("list") as NsCommand;
 		await command.handler(extensionApi({ renderCapabilities }), {});
 
 		expect(createRealSlotContext).toHaveBeenCalledWith(

@@ -66,6 +66,7 @@ describe("modern ns extension author API", () => {
 		const command = defineCommand({
 			schema: z.object({ name: z.string() }),
 			resultSchema: z.object({ greeting: z.string() }),
+			renderHuman: (result) => result.greeting,
 			handler: async (_context, request) => ok({ greeting: `hello ${request.name}` }),
 		});
 

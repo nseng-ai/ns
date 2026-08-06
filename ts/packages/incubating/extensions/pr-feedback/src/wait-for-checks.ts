@@ -37,6 +37,7 @@ export const waitForChecksOperation = defineExecOperation({
 		description:
 			"Wait until the branches' open-PR checks settle (failures reported as soon as observed) and return the outcome once.",
 		schema: waitForChecksParseSchema,
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: runWaitForChecksOperation,
 	},
 });

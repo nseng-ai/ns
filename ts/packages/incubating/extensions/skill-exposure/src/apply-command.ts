@@ -97,17 +97,25 @@ export function createSkillExposureApplyCommand(
 	});
 }
 
+type ApplyResult = z.output<typeof applyResultSchema>;
+type SkillOperationResult = ApplyResult["skills"][number]["operations"][number];
+type SharedOperationResult = ApplyResult["sharedOperations"][number];
+
 function resultFor(
 	batch: SkillExposureBatch,
 	dryRun: boolean,
 	applied: readonly OperationResult[],
-) {
-	const perSkillResults = applied.filter((result) => result.type !== "write-settings");
+): ApplyResult {
+	const perSkillResults = applied.filter(
+		(result): result is OperationResult & SkillOperationResult => result.type !== "write-settings",
+	);
 	let resultIndex = 0;
 	const settingsChanged =
 		batch.initialSettings.exists !== batch.finalSettings.exists ||
 		JSON.stringify(batch.initialSettings.data) !== JSON.stringify(batch.finalSettings.data);
-	const settingsResult = applied.find((result) => result.type === "write-settings");
+	const settingsResult = applied.find(
+		(result): result is OperationResult & SharedOperationResult => result.type === "write-settings",
+	);
 	return {
 		policy: batch.plans[0]?.policy ?? ("normal" as const),
 		dryRun,

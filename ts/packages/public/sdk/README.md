@@ -30,9 +30,12 @@ export function command() {
     schema: z.object({ name: z.string() }),
     resultSchema: z.object({ greeting: z.string() }),
     handler: (_context, request) => ok({ greeting: `Hello, ${request.name}` }),
+    renderHuman: (result) => result.greeting,
   });
 }
 ```
+
+Structured commands follow one flow: the request schema validates input, the handler returns semantic data, the required `resultSchema` validates that data, and the required `renderHuman` renders the schema-typed result for humans. JSON output serializes the same typed result; never return pre-rendered terminal text as result data. `renderMarkdown` stays optional and falls back to `renderHuman`. Machine-oriented commands whose intended human representation is JSON supply an explicit deterministic JSON renderer.
 
 `defineRawCommand()` is the contextful Clinkr raw definition constructor. Raw commands own their argv tail, invocation-scoped output, and numeric exit status. Write raw bytes through `invocation.output.writeStdout()` and `invocation.output.writeStderr()` rather than ambient process writers.
 

@@ -61,6 +61,29 @@ const greetCommand = defineCommand({
 		void request.missing;
 		return ok(`${request.name}:${request.retries}`);
 	},
+	renderHuman(result) {
+		type Result = typeof result;
+		const checks: [
+			Assert<IsAny<Result> extends false ? true : false>,
+			Assert<IsEqual<Result, string>>,
+		] = [true, true];
+		void checks;
+		return result;
+	},
+});
+
+// @ts-expect-error the published SDK surface requires a result schema
+const foldedMissingResultSchemaCommand = defineCommand({
+	schema: commandSchema,
+	renderHuman: () => "",
+	handler: () => ok("done"),
+});
+
+// @ts-expect-error the published SDK surface requires a human renderer
+const foldedMissingRendererCommand = defineCommand({
+	schema: commandSchema,
+	resultSchema: z.string(),
+	handler: () => ok("done"),
 });
 
 const extension = defineExtension({
@@ -129,6 +152,8 @@ function acceptsExtensionApi(api: NsExtensionApi): string {
 
 void commandRequestChecks;
 void missingNameRequest;
+void foldedMissingResultSchemaCommand;
+void foldedMissingRendererCommand;
 void extension;
 void commandlessExtension;
 void textGenerator;

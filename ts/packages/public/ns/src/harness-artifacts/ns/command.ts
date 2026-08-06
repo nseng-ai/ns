@@ -10,28 +10,29 @@ import type { z } from "zod";
 
 import type { SkillsCommandContext } from "./skills-shared.ts";
 
-interface HarnessArtifactsNsCommandOptions<S extends NsCommandSchema, T> extends Omit<
-	DefineCommandSpec<S, T>,
-	"handler"
-> {
+interface HarnessArtifactsNsCommandOptions<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+> extends Omit<DefineCommandSpec<S, TResultSchema>, "handler"> {
 	readonly name: string;
 	readonly summary: string;
 	readonly description: string;
 	readonly handler: (
 		context: SkillsCommandContext,
 		request: z.output<S>,
-	) => ReturnType<DefineCommandSpec<S, T>["handler"]>;
+	) => ReturnType<DefineCommandSpec<S, TResultSchema>["handler"]>;
 }
 
-export function harnessArtifactsNsCommand<S extends NsCommandSchema, T>(
-	options: HarnessArtifactsNsCommandOptions<S, T>,
-): NsCommand<S, T> {
+export function harnessArtifactsNsCommand<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+>(options: HarnessArtifactsNsCommandOptions<S, TResultSchema>): NsCommand<S, TResultSchema> {
 	return defineCommand({
 		schema: options.schema,
-		...(options.resultSchema === undefined ? {} : { resultSchema: options.resultSchema }),
+		resultSchema: options.resultSchema,
+		renderHuman: options.renderHuman,
 		...(options.positionals === undefined ? {} : { positionals: options.positionals }),
 		...(options.options === undefined ? {} : { options: options.options }),
-		...(options.renderHuman === undefined ? {} : { renderHuman: options.renderHuman }),
 		...(options.renderMarkdown === undefined ? {} : { renderMarkdown: options.renderMarkdown }),
 		handler: async (context, request) => {
 			const repoRootResult = await createNsGitGateway(context).optionalRepoRoot({

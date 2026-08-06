@@ -8,6 +8,10 @@ a design bug, not a style nit.
 
 - [ ] Success returns `ok(data)` with a typed result schema; that schema is the
       documented machine interface (`--json-schema` reflects it).
+- [ ] The command declares `renderHuman` over the schema-typed result (required
+      by the SDK). Handlers return semantic data, never pre-rendered terminal
+      text; an intentionally machine-oriented command uses an explicit
+      deterministic JSON renderer instead of relying on fallback rendering.
 - [ ] Process exit stays coarse: `ok=0`, `negative=1`, `failure`/`usageError=2`.
       No `process.exit`, no richer numeric taxonomy (ADR 0010).
 - [ ] Machine output is a camelCase discriminated envelope on `status`; no

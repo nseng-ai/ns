@@ -5,26 +5,29 @@ import {
 	type DefineCommandSpec,
 	type NsCommand,
 	type NsCommandSchema,
+	type ResultOf,
 } from "@nseng-ai/sdk";
 import type { z } from "zod";
 
 import type { HandoffCliContext } from "../core/context.ts";
 import { createNsHandoffContext } from "./context.ts";
 
-type HandoffNsCommandOptions<S extends NsCommandSchema, T> = Omit<
-	DefineCommandSpec<S, T>,
+type HandoffNsCommandOptions<S extends NsCommandSchema, TResultSchema extends z.ZodType> = Omit<
+	DefineCommandSpec<S, TResultSchema>,
 	"handler"
 > & {
 	readonly handler: (ctx: HandoffCliContext, request: z.output<S>) => Promise<unknown> | unknown;
 };
 
-export function handoffNsCommand<S extends NsCommandSchema, T>(
-	options: HandoffNsCommandOptions<S, T>,
-): NsCommand<S, T> {
+export function handoffNsCommand<S extends NsCommandSchema, TResultSchema extends z.ZodType>(
+	options: HandoffNsCommandOptions<S, TResultSchema>,
+): NsCommand<S, TResultSchema> {
 	return defineCommand({
 		...options,
 		handler: async (ctx, request) =>
-			toModernOutcome<T>(await options.handler(await createNsHandoffContext(ctx), request)),
+			toModernOutcome<ResultOf<TResultSchema>>(
+				await options.handler(await createNsHandoffContext(ctx), request),
+			),
 	});
 }
 

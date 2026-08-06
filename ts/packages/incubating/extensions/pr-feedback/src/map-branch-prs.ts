@@ -37,6 +37,7 @@ export const mapBranchPrsOperation = defineExecOperation({
 		name: "map-branch-prs",
 		description: "Map local branches to open PRs.",
 		schema: mapBranchPrsParseSchema,
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: runMapBranchPrsOperation,
 	},
 });
