@@ -108,7 +108,15 @@ export async function exerciseMaterializationStoreConformance(
 			);
 			const first = await store.readMaterializationSnapshot({ sourceId });
 			if (!first.ok) throw new Error(first.error.message);
-			(first.value.currentArtifacts as ArtifactCurrentRecord[]).push({} as ArtifactCurrentRecord);
+			(first.value.currentArtifacts as ArtifactCurrentRecord[]).push({
+				sourceId,
+				artifactId,
+				revisionId: "mutated-revision",
+				path: "mutated-artifact",
+				classification: { state: "generic" },
+				observedCommit: "mutated-commit",
+				tombstoned: false,
+			} satisfies ArtifactCurrentRecord);
 			const second = await store.readMaterializationSnapshot({ sourceId });
 			if (!second.ok) throw new Error(second.error.message);
 			deepStrictEqual(second.value.currentArtifacts, []);

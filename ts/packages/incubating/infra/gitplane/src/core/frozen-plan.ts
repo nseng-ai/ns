@@ -162,7 +162,10 @@ export const frozenReconciliationPlanSchema = z
 				message: "expected cursor source must match the plan source",
 			});
 		for (let index = 1; index < plan.artifactWork.length; index++) {
-			if (plan.artifactWork[index - 1]!.artifactId >= plan.artifactWork[index]!.artifactId)
+			const previousWork = plan.artifactWork[index - 1];
+			const currentWork = plan.artifactWork[index];
+			if (previousWork === undefined || currentWork === undefined) continue;
+			if (previousWork.artifactId >= currentWork.artifactId)
 				context.addIssue({
 					code: "custom",
 					path: ["artifactWork", index, "artifactId"],
