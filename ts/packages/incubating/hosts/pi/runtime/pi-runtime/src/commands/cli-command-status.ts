@@ -25,7 +25,7 @@ import { traceCliCommand } from "./cli-command-trace.ts";
 const CLI_COMMAND_STATUS_ID = "ns-cli-command";
 const HEARTBEAT_INTERVAL_MS = 1_000;
 const ELAPSED_DISPLAY_THRESHOLD_MS = 5_000;
-const STATUS_MAX_WIDTH = 100;
+const STATUS_MAX_WIDTH_CHARS = 100;
 
 const PROMPT_PHASES = new Set(["waiting for confirmation", "waiting for selection"]);
 
@@ -214,7 +214,7 @@ export class CliCommandStatusActivity {
 			segments.push(sanitizeStatusText(formatActiveOperation(operation)));
 		const elapsedMs = this.clock.nowMs() - this.startedAt;
 		if (elapsedMs >= ELAPSED_DISPLAY_THRESHOLD_MS) segments.push(formatElapsedMs(elapsedMs));
-		return truncateDisplayLine(segments.join(" · "), STATUS_MAX_WIDTH);
+		return truncateDisplayLine(segments.join(" · "), STATUS_MAX_WIDTH_CHARS);
 	}
 
 	private glyph(): string {
