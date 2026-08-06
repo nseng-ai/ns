@@ -56,8 +56,15 @@ export type {
 	UserArtifactActivationGateway,
 } from "./user-artifact-activation.ts";
 export { RealUserArtifactActivationGateway } from "./real-user-artifact-activation.ts";
-export type { ExtensionLifecycleScope } from "./user-extension-lifecycle.ts";
-export { extensionLifecycleScopeSchemaValues } from "./user-extension-lifecycle.ts";
+export type {
+	ExtensionLifecycleScope,
+	UserSupportedHarnessesFacts,
+} from "./user-extension-lifecycle.ts";
+export {
+	decideUserExtensionLifecycleGate,
+	extensionLifecycleScopeSchemaValues,
+	parseUserSupportedHarnessesFacts,
+} from "./user-extension-lifecycle.ts";
 export type { NsInitErrorInfo } from "./error-info.ts";
 export type {
 	EnsureExtensionSourceParams,

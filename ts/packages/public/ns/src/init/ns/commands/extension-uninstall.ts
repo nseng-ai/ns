@@ -11,7 +11,7 @@ export const nsExtensionUninstallCommand = nsInitCommand({
 	name: "uninstall",
 	summary: "Uninstall an ns extension at project or user scope.",
 	description:
-		"Uninstall at project scope by default, or use --scope user to remove command availability and clean only lifecycle-owned npm bytes while preserving local source bytes.",
+		"Uninstall at project scope by default, or use --scope user to remove the declaration, reconcile its bundled skills from configured user harness roots, and clean only lifecycle-owned npm bytes without project activation.",
 	schema: uninstallExtensionRequestSchema,
 	options: { scope: { short: "-s" } },
 	positionals: { source: { position: 0 } },

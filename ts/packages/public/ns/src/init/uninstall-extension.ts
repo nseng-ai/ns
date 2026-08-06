@@ -11,14 +11,22 @@ import {
 import { z } from "zod";
 
 import {
+	completedUserArtifactEvidence,
 	extensionLifecycleScopeSchemaValues,
+	loadOneUserDescriptor,
+	parseUserSupportedHarnessesFacts,
 	prepareUserConfig,
 	prepareUserExtensionSource,
+	summarizeUserArtifactActions,
+	userArtifactPreflightBlockers,
 	type UserExtensionLifecycleContext,
 } from "./user-extension-lifecycle.ts";
 
 import { applyNsActivation, prepareNsActivation } from "./activate-ns.ts";
-import { activationCompletedSchema } from "./activation-outcomes.ts";
+import {
+	activationCompletedSchema,
+	declaredArtifactActivationOutcomeSchema,
+} from "./activation-outcomes.ts";
 import type { NsActivationContext } from "./activation-context.ts";
 import type { ExtensionUninstallAcquisitionGateway } from "./extension-acquisition.ts";
 import {
@@ -75,6 +83,12 @@ export const uninstallExtensionResultSchema = z.discriminatedUnion("scope", [
 		declarationAction: z.enum(["removed", "already-absent"]),
 		activation: z.literal("not-performed"),
 		cleanup: uninstallCleanupSchema,
+		artifactReconciliation: z.enum([
+			"performed",
+			"not-authorized-declaration-absent",
+			"artifacts-retained-package-identity-unavailable",
+		]),
+		artifacts: z.array(declaredArtifactActivationOutcomeSchema).readonly(),
 	}),
 ]);
 export type UninstallExtensionRequest = z.input<typeof uninstallExtensionRequestSchema> & {
@@ -272,6 +286,15 @@ async function uninstallUserExtension(
 	if (!source.ok) return source.exit;
 	const prepared = await prepareUserConfig<UninstallExtensionResult>(context, "uninstall");
 	if ("status" in prepared) return prepared;
+	const supportedHarnesses = parseUserSupportedHarnessesFacts(
+		prepared.content,
+		prepared.configPath,
+	);
+	if (supportedHarnesses.type === "invalid")
+		return failure("ns-extension-uninstall-user-config-invalid", supportedHarnesses.error.message, {
+			scope: "user",
+			diagnostics: [supportedHarnesses.error],
+		});
 	const declaration = planDeclaredExtensionUninstallToml({
 		projectRoot: prepared.configDir,
 		nsTomlContent: prepared.content,
@@ -282,6 +305,60 @@ async function uninstallUserExtension(
 			scope: "user",
 			...declaration,
 		});
+	// The package name is the artifact deletion authority. npm sources carry it in
+	// the spec; local sources need the descriptor, which may already be gone.
+	let targetPackageName: string | undefined;
+	if (source.source.kind === "npm") {
+		targetPackageName = source.source.packageName;
+	} else {
+		const loaded = await loadOneUserDescriptor<UninstallExtensionResult>({
+			context,
+			configDir: prepared.configDir,
+			sourceSpec: source.sourceSpec,
+			operation: "uninstall",
+		});
+		targetPackageName = loaded.ok ? loaded.descriptor.packageName : undefined;
+	}
+	const artifactReconciliation = !declaration.isRemoved
+		? ("not-authorized-declaration-absent" as const)
+		: targetPackageName === undefined
+			? ("artifacts-retained-package-identity-unavailable" as const)
+			: ("performed" as const);
+	let preparedArtifactRemoval:
+		| Awaited<ReturnType<ExtensionUninstallContext["userArtifacts"]["prepare"]>>
+		| undefined;
+	if (declaration.isRemoved && targetPackageName !== undefined) {
+		preparedArtifactRemoval = await context.userArtifacts.prepare({
+			cwd: request.cwd,
+			descriptors: [],
+			configuredHarnesses: supportedHarnesses.harnesses,
+			targetPackageNames: [targetPackageName],
+		});
+		if (!preparedArtifactRemoval.ok)
+			return failure(
+				"ns-extension-uninstall-user-artifact-preflight-failed",
+				preparedArtifactRemoval.error.message,
+				{
+					scope: "user",
+					declarationCompleted: false,
+					diagnostics: [normalizeExtensionDiagnostic(preparedArtifactRemoval.error)],
+				},
+			);
+		const blockers = userArtifactPreflightBlockers(preparedArtifactRemoval.prepared);
+		if (blockers.length > 0)
+			return failure(
+				"ns-extension-uninstall-user-artifact-preflight-failed",
+				blockers[0]?.message ?? "User artifact removal preflight failed.",
+				{
+					scope: "user",
+					declarationCompleted: false,
+					diagnostics: blockers,
+					retainedPaths: blockers.flatMap((blocker) =>
+						blocker.path === undefined ? [] : [blocker.path],
+					),
+				},
+			);
+	}
 	if (declaration.isRemoved) {
 		const written = await context.userExtensionConfig.compareAndWrite({
 			expected: prepared.expected,
@@ -292,6 +369,20 @@ async function uninstallUserExtension(
 				scope: "user",
 				error: written.error,
 			});
+	}
+	let artifacts: readonly z.infer<typeof declaredArtifactActivationOutcomeSchema>[] = [];
+	if (preparedArtifactRemoval?.ok === true) {
+		const applied = await context.userArtifacts.apply(preparedArtifactRemoval.prepared);
+		if (!applied.ok)
+			return failure("ns-extension-uninstall-user-artifact-removal-failed", applied.error.message, {
+				scope: "user",
+				declarationAction: "removed",
+				declarationCompleted: true,
+				completedArtifacts: completedUserArtifactEvidence(applied.completed),
+				diagnostics: [normalizeExtensionDiagnostic(applied.error)],
+				retryGuidance: `Re-run ns extension uninstall --scope user ${source.sourceSpec} to retry the remaining artifact transitions.`,
+			});
+		artifacts = completedUserArtifactEvidence(applied.completed);
 	}
 	let cleanup: { status: "removed" | "already-absent" | "not-applicable"; path?: string } = {
 		status: "not-applicable",
@@ -310,7 +401,7 @@ async function uninstallUserExtension(
 		if (!removed.ok)
 			return failure(
 				"ns-extension-uninstall-user-managed-package-cleanup-failed",
-				`User command availability was removed, but managed package cleanup failed: ${removed.error.message}`,
+				`The user declaration was removed, but managed package cleanup failed: ${removed.error.message}`,
 				{
 					scope: "user",
 					declarationAction: declaration.isRemoved ? "removed" : "already-absent",
@@ -334,12 +425,14 @@ async function uninstallUserExtension(
 		declarationAction: declaration.isRemoved ? "removed" : "already-absent",
 		activation: "not-performed",
 		cleanup,
+		artifactReconciliation,
+		artifacts,
 	});
 }
 
 export function renderUninstallExtensionMarkdown(result: UninstallExtensionResult): string {
 	if (result.scope === "user")
-		return `User declaration ${result.declarationAction} in ${result.configPath}; managed cleanup ${result.cleanup.status}; no project deactivation ran.`;
+		return `User declaration ${result.declarationAction} in ${result.configPath}; bundled artifacts: ${summarizeUserArtifactActions(result.artifacts)}${describeSkippedUserArtifactRemoval(result.artifactReconciliation)}; managed cleanup ${result.cleanup.status}; no project deactivation ran.`;
 	const declaration = result.hasRemovedDeclaration ? "removed" : "already absent";
 	const preservation =
 		result.sourceKind === "local"
@@ -353,7 +446,7 @@ export function renderUninstallExtensionMarkdown(result: UninstallExtensionResul
 }
 export function renderUninstallExtensionHuman(result: UninstallExtensionResult): string {
 	if (result.scope === "user")
-		return `User declaration ${result.declarationAction} in ${result.configPath}. Cleanup: ${result.cleanup.status}${result.cleanup.path === undefined ? "" : ` at ${result.cleanup.path}`}; no project deactivation was performed.`;
+		return `User declaration ${result.declarationAction} in ${result.configPath}. Bundled artifacts: ${summarizeUserArtifactActions(result.artifacts)}${describeSkippedUserArtifactRemoval(result.artifactReconciliation)}. Cleanup: ${result.cleanup.status}${result.cleanup.path === undefined ? "" : ` at ${result.cleanup.path}`}; no project deactivation was performed.`;
 	const declaration = result.hasRemovedDeclaration
 		? `removed ${result.matchedDeclarationSpec ?? result.sourceSpec} from ${result.nsTomlPath}`
 		: `no matching declaration was present in ${result.nsTomlPath}`;
@@ -370,4 +463,17 @@ export function renderUninstallExtensionHuman(result: UninstallExtensionResult):
 		cleanup,
 		"Extension consumer data was preserved.",
 	].join("\n");
+}
+
+function describeSkippedUserArtifactRemoval(
+	outcome: Extract<UninstallExtensionResult, { readonly scope: "user" }>["artifactReconciliation"],
+): string {
+	switch (outcome) {
+		case "performed":
+			return "";
+		case "not-authorized-declaration-absent":
+			return " (retained: declaration already absent, so the argument grants no deletion authority)";
+		case "artifacts-retained-package-identity-unavailable":
+			return " (artifacts-retained-package-identity-unavailable; inspect user manifests and recover manually after identifying the package owner)";
+	}
 }

@@ -16,6 +16,8 @@ export default defineExtension({
 
 `commandDirectory` must be absolute. The descriptor may also declare points, project activation, and bundled artifacts. It does not list command routes or loader callbacks.
 
+At user scope, lifecycle commands reconcile descriptor `bundledArtifacts` (currently bundled skills) into each configured harness's user root. This is independent of the Active harness gate for commands and points, and it does not run project activation. For install, update, and uninstall administration, see the [`@nseng-ai/ns` README](../../ns/README.md#choose-extension-scope).
+
 ## Route tree
 
 For `ns report show`, use:

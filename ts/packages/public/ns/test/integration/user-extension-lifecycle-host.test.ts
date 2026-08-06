@@ -103,7 +103,7 @@ export async function command() {
 		expect(parseJsonOutput(discovered)).toMatchObject({ status: "success" });
 
 		const npmSpec = "npm:@test/unavailable";
-		const handAuthoredBytes = `# preserve\r\nextensions = [${JSON.stringify(packageRoot)}, ${JSON.stringify(npmSpec)}]\r\n[unrelated]\r\nvalue = 1\r\n`;
+		const handAuthoredBytes = `# preserve\r\nsupported_harnesses = ["pi"]\r\nextensions = [${JSON.stringify(packageRoot)}, ${JSON.stringify(npmSpec)}]\r\n[unrelated]\r\nvalue = 1\r\n`;
 		await writeFile(configPath, handAuthoredBytes);
 		const listed = await run(["extension", "list", "--scope", "user"], {
 			cwd: invocation,
@@ -115,7 +115,7 @@ export async function command() {
 			data: {
 				scope: "user",
 				extensions: [
-					{ sourceSpec: packageRoot, commandAvailability: "available" },
+					{ sourceSpec: packageRoot, commandAvailability: "unavailable" },
 					{
 						sourceSpec: npmSpec,
 						commandAvailability: "unavailable",
@@ -141,9 +141,62 @@ export async function command() {
 		});
 		expect(uninstalled.exit).toBe(0);
 		expect(await readFile(configPath, "utf8")).toBe(
-			`# preserve\r\nextensions = [ ${JSON.stringify(npmSpec)}]\r\n[unrelated]\r\nvalue = 1\r\n`,
+			`# preserve\r\nsupported_harnesses = ["pi"]\r\nextensions = [ ${JSON.stringify(npmSpec)}]\r\n[unrelated]\r\nvalue = 1\r\n`,
 		);
 		expect(await readdir(invocation)).toEqual(beforeInvocation);
+	});
+
+	test("blocks identifiable uninstall before declaration mutation when a tracked user artifact was edited", async () => {
+		const root = await createEmptyProject();
+		const invocation = join(root, "unrelated");
+		const packageRoot = join(root, "extension");
+		const xdgConfigHome = join(root, "xdg-config");
+		await mkdir(join(packageRoot, "skills", "demo"), { recursive: true });
+		await mkdir(invocation, { recursive: true });
+		await writeFile(
+			join(packageRoot, "package.json"),
+			JSON.stringify({
+				name: "@test/user-artifacts",
+				version: "1.0.0",
+				type: "module",
+				exports: { "./ns-extension": "./extension.ts" },
+			}),
+		);
+		await writeFile(
+			join(packageRoot, "extension.ts"),
+			`export default {
+ description: "User artifact proof.",
+ bundledArtifacts: [{ kind: "skill", name: "demo", path: "skills/demo" }],
+};
+`,
+		);
+		await writeFile(join(packageRoot, "skills", "demo", "SKILL.md"), "# Demo\n");
+		const configPath = join(xdgConfigHome, "ns", "ns.toml");
+		await mkdir(join(xdgConfigHome, "ns"), { recursive: true });
+		await writeFile(configPath, 'supported_harnesses = ["pi"]\n');
+
+		const installed = await run(["extension", "install", packageRoot, "--scope", "user"], {
+			cwd: invocation,
+			xdgConfigHome,
+		});
+		expect(installed.exit, `${installed.stdout}\n${installed.stderr}`).toBe(0);
+		const declaredConfig = await readFile(configPath, "utf8");
+		const tracked = join(invocation, ".pi", "agent", "skills", "demo", "SKILL.md");
+		await writeFile(tracked, "# Local edit\n");
+
+		const uninstalled = await run(["extension", "uninstall", packageRoot, "--scope", "user"], {
+			cwd: invocation,
+			xdgConfigHome,
+		});
+
+		expect(uninstalled.exit).not.toBe(0);
+		expect(parseJsonOutput(uninstalled)).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-uninstall-user-artifact-preflight-failed",
+			data: { declarationCompleted: false },
+		});
+		expect(await readFile(configPath, "utf8")).toBe(declaredConfig);
+		expect(await readFile(tracked, "utf8")).toBe("# Local edit\n");
 	});
 
 	test("runs the offline npm lifecycle from an unrelated non-Git directory with exact XDG storage isolation", async () => {

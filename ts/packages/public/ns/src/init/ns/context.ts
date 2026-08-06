@@ -28,6 +28,7 @@ import {
 } from "../declared-extensions.ts";
 import { loadPreinstalledNsCommandSources } from "../../cli/preinstalled-command-catalog.ts";
 import { RealUserExtensionConfigGateway } from "../real-user-extension-config.ts";
+import { RealUserArtifactActivationGateway } from "../real-user-artifact-activation.ts";
 
 export function createNsInitContext(
 	ctx: NsExtensionApi,
@@ -58,6 +59,7 @@ export function createNsInitContext(
 			};
 	return {
 		cwd: ctx.cwd,
+		env: { ...ctx.env },
 		git: createNsGitGateway(ctx),
 		installAcquisition: new RealExtensionInstallAcquisitionGateway(acquisition),
 		uninstallAcquisition: new RealExtensionUninstallAcquisitionGateway(acquisition),
@@ -73,6 +75,10 @@ export function createNsInitContext(
 		),
 		userManagedNpmStorage: userStorage,
 		userExtensionConfig: new RealUserExtensionConfigGateway({
+			env: ctx.env,
+			...(ctx.homeDir === undefined ? {} : { homeDir: ctx.homeDir }),
+		}),
+		userArtifacts: new RealUserArtifactActivationGateway({
 			env: ctx.env,
 			...(ctx.homeDir === undefined ? {} : { homeDir: ctx.homeDir }),
 		}),
