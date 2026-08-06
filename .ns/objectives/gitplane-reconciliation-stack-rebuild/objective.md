@@ -8,23 +8,23 @@ edges:
 
 ## Thesis
 
-Rebuild reconciliation from `master` as a stack of additively verifiable PRs — each slice carrying its own proof obligation and review question — instead of landing the ~3,000-line single-commit prototype. Branch `gitplane-cursor-reconciliation-baseline-repair` @ `09d75c3ae` (PR #4076) remains an unmerged prototype-quality reference to mine for code, tests, and rationale; it is never landed as-is and closes once the stack fully lands.
+Rebuild reconciliation from `master` as a stack of additively verifiable PRs, each with its own proof obligation and review question, instead of landing either prototype PR #4076 or the later single-commit replacement PR #4130. Both reference PRs are now closed unmerged; their immutable commits and PR history remain evidence, not landing candidates.
 
-The original rebuild contract used cursor diffs, ancestry/descent classification, initial `--full`, and linear-history guards. The generation-aware snapshot amendment deliberately supersedes those requirements: reconciliation is level-triggered from the last completed Gitplane control snapshot to the complete immutable target-commit corpus, and history is not an input. Preserve the old rationale in Objective and PR history, including PR #4128's conservative shallow-history classification, while removing it from normative and runtime requirements.
+The original rebuild contract used cursor diffs, ancestry/descent classification, initial `--full`, and linear-history guards. The generation-aware snapshot amendment deliberately supersedes those requirements: reconciliation is level-triggered from the last completed Gitplane control snapshot to the complete immutable target-commit corpus, and history is not an input. Historical rationale remains in Objective and PR history, including open PR #4128's conservative shallow-history classification, but not in normative or runtime requirements.
 
-The rebuild retains Gather → Decide → Apply: I/O-only immutable fact gathering, a pure deterministic planner (`deriveReconciliationPlan(facts)` with no gateways), and ordered retry-safe effect application. The package's public core interface stays `reconcile(context, options)`; the planner is internal.
+The replacement retains Gather → Decide → Apply: I/O-only immutable fact gathering, a pure deterministic internal planner (`deriveReconciliationPlan(facts)` with no gateways), and ordered retry-safe effect application. The package's public core interface remains `reconcile(context, options)`.
 
-The five-boundary replacement is implemented on the rebased local stack through implementation tip `e7fdc08304e956200c29e1662aaa818e55c2aaec`, followed by an accounting-only change. `architecture-accounting.md` records the immutable comparison against the prototype and superseded implementation without attempting to name the accounting change's own commit. This is closure readiness, not a claim that the stack has been published or landed: remote verification, disposition of former PR #4130, closure of PR #4076, and Objective closure remain pending.
+The five-boundary replacement is implemented and published as open non-draft PRs #4132–#4136. Remote base/head topology was verified against the intended additive boundaries before this restack. `architecture-accounting.md` records the immutable comparison against the prototype and superseded implementation using the current rebased implementation anchor `e7fdc08304e956200c29e1662aaa818e55c2aaec`; it does not attempt to name the accounting change's own commit. Publication is not landing: required CI, review, and Graphite mergeability checks remain pending, the replacement PRs are unmerged, and the Objective remains open. Prototype PR #4076 and superseded single-commit PR #4130 are closed unmerged.
 
 ## Scope
 
-- A reshaped five-boundary stack: contract amendment; complete target/completed-store snapshot facts plus pure planner; generation-aware durable plan/cursor/event protocol; retry-safe engine and CLI; closure and accounting.
+- A five-boundary replacement stack: contract amendment; complete target/completed-store snapshot facts plus pure planner; generation-aware durable plan/cursor/event protocol; retry-safe engine and CLI; closure accounting.
 - Complete target-corpus discovery. Gather resolves the requested commit and retains raw topology for canonical planner validation; it does not read cursor trees, ancestry, diffs, operator target rows, or shallow-history state.
 - One coherent materialization-store snapshot containing generation cursor, all current records including tombstones, lineage, and a Pending Plan. New planning requires a completed snapshot with no Pending Plan; a matching plan replays, a different requested target completes the inherited Pending Plan before new planning without replacing it, and post-CAS residue is cleanup-only.
 - Generation-aware identities and completion: absent cursor is conceptual generation 0; completed transitions advance generation; equal no-op/cleanup does not. Attempt IDs and event identities are stable on retry and distinct on later visits to the same commit. Generation CAS proves commit-string ABA safety.
 - Pure lifecycle planning for create/restore/revise/move/unchanged/delete.
 - Proof restructuring by level: pure snapshot policy, shared fake/SQLite Pending Plan and generation conformance, fault-injected engine convergence, and minimal real-Git/SQLite E2E including initial, older, divergent, merge, repeated-target, unavailable-target, and depth-1 behavior.
-- Behavioral accounting against reference commit `09d75c3ae`, reconciliation of the parent `gitplane` Objective's evidence, and explicit preparation for later prototype PR closure after publication verification.
+- Behavioral accounting against prototype commit `09d75c3ae`, superseded implementation `48a07b6bb`, and historical PR #4128, followed by landing and propagation of completion evidence to the parent `gitplane` Objective.
 
 ## Non-Goals
 
@@ -38,7 +38,7 @@ The five-boundary replacement is implemented on the rebased local stack through 
 
 ## Completion Criteria
 
-- The reshaped stack is implemented locally through additive review boundaries: contract amendment; snapshot facts/planner; durable generation protocol; retry-safe engine/CLI; closure/accounting. Publication and landing are separate closure actions.
+- The five additive review boundaries are implemented and published with verified remote parentage: contract amendment; snapshot facts/planner; durable generation protocol; retry-safe engine/CLI; closure accounting.
 - Complete target snapshot and coherent completed-store snapshot are the only planning facts. Initial, forward, older, divergent, and merge targets use identical planning rules, with no ancestry/diff/shallow probe in source logs; a depth-1 real clone reconciles without fetching.
 - The pure planner validates complete raw topology/corpus before writes and proves lifecycle, lineage legality, deterministic order/plan equality, complete deletion detection, and merge neutrality.
 - Atomic Pending Plan persistence and a complete Reconciliation Plan prevent source/config reinterpretation. Matching retry replays, different requested work first completes the inherited Pending Plan without replacing it, and post-CAS residue is cleanup-only.
@@ -47,7 +47,8 @@ The five-boundary replacement is implemented on the rebased local stack through 
 - Failure injection before and after every write boundary converges to uninterrupted cursor generation, control rows, revisions, target values, event IDs/sequences, and attempt cleanup.
 - Fake and SQLite share snapshot/Reconciliation Plan/generation/event conformance and sequential retry proof under SQLite's single-writer boundary; incompatible old pre-release schema is refused without mutation.
 - CLI exposes `gitplane reconcile <commit>` with bounded lifecycle count/cursor/replay/cleanup output, no repair, ancestry, or event-reconstruction fields, and guaranteed single-store close.
-- Stack-tip accounting names cursor-diff, descent, merge rejection, initial-full, target-commit event collapse, and old repair naming as intentionally superseded differences from `09d75c3ae`; PR #4128's rationale remains historical evidence, and PR #4076 is ready to close unmerged only after replacement publication and remote verification.
+- Stack-tip accounting names cursor-diff, descent, merge rejection, initial-full, target-commit event collapse, and old repair naming as intentionally superseded differences from `09d75c3ae`; PR #4128's rationale remains historical evidence.
+- Required remote CI lanes, review checks, and Graphite mergeability are verified for the published replacement stack; the stack lands; prototype PR #4076 and superseded PR #4130 remain closed unmerged; completion is propagated to the parent `gitplane` Objective.
 
 ## Metaprompt
 
@@ -57,19 +58,20 @@ Every prompt produced for this Objective must start with the `/ns:plan:grill-and
 
 Assumptions:
 
-- Gitplane is unreleased, so the generation-aware records are the supported v1 schema and incompatible prototype stores can be rejected rather than migrated.
+- Gitplane is unreleased, so generation-aware records are the supported v1 schema and incompatible prototype stores can be rejected rather than migrated.
 - Complete scans are an accepted v1 simplicity/correctness trade. Performance must be measured before adding snapshot-local optimizations, and history dependence must never return as a correctness input.
 - Gitplane-owned control state is trustworthy only at a completed cursor generation with no Pending Plan; operator-owned target rows never define desired or prior state.
-- Gather → Decide → Apply can express the complete behavior while keeping the Reconciliation Plan adapter-neutral and replayable without source or registration rereads.
+- Gather → Decide → Apply expresses the complete behavior while keeping the Reconciliation Plan adapter-neutral and replayable without source or registration rereads.
 - Additive review boundaries remain justified because contract, pure policy, durable concurrency/idempotence, effect ordering/user exposure, and closure accounting have distinct correctness questions.
 
 Risks:
 
 - Partial non-transactional materialization remains visible before cursor CAS. Systematic fault injection and cleanup-only residue handling are the primary safety proof.
 - Plan or generation mistakes can permit lost updates or ABA. Reconciliation Plan validation, one Pending Plan per source, generation CAS, and shared adapter conformance are mandatory. This protocol requirement does not imply concurrent-writer support in the SQLite v1 adapter.
-- Scope may drift back toward history optimization because source adapters already contain ancestry/diff machinery. Stale-contract searches and depth-1 tests must prove its removal from reconciliation.
-- Retaining PR #4076 and PR #4128 as references can make superseded behavior look current. Tip accounting must distinguish historical rationale from normative requirements.
+- Scope may drift back toward history optimization because source adapters can contain ancestry/diff machinery. Stale-contract searches and depth-1 tests must preserve reconciliation's history independence.
+- Open preparatory PR #4128 describes superseded runtime behavior. Its rationale is historical evidence only and must not be mistaken for the replacement's normative contract.
+- Publication triggered a fresh remote validation cycle. Until all required checks and mergeability complete successfully, local proof does not establish landing readiness.
 
 ## Open Questions
 
-No material product requirement remains open. Private module names, Reconciliation Plan JSON fields, SQL statement layout, and whether internal schema machinery requires a version bump may vary, but there is no migration and incompatible pre-release stores must be rejected with recreate guidance.
+No material product requirement remains open. The only remaining questions are external status facts: whether every required CI/review/mergeability check completes successfully and whether the published stack lands without further changes. Any implementation change prompted by review must be revalidated against the current architecture accounting and completion criteria.
