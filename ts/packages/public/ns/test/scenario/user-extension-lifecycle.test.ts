@@ -203,7 +203,7 @@ describe("user extension lifecycle", () => {
 		const listed = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
 		expect(listed).toMatchObject({
 			status: "success",
-			data: { scope: "user", extensions: [{ sourceSpec, commandAvailability: "available" }] },
+			data: { scope: "user", extensions: [{ sourceSpec, commandAvailability: "unavailable" }] },
 		});
 
 		const updated = await updateExtension(context.update, {
@@ -267,7 +267,7 @@ describe("user extension lifecycle", () => {
 		const listed = await listExtensions(context.list, { cwd: "/unrelated", scope: "user" });
 		expect(listed).toMatchObject({
 			status: "success",
-			data: { extensions: [{ sourceKind: "npm", commandAvailability: "available", moduleRoot }] },
+			data: { extensions: [{ sourceKind: "npm", commandAvailability: "unavailable", moduleRoot }] },
 		});
 		const updated = await updateExtension(context.update, {
 			cwd: "/outside",
@@ -989,6 +989,167 @@ describe("user extension lifecycle", () => {
 		});
 		expect(absentConfig.writes).toEqual([]);
 		expect(absentConfig.fileContent()).toBeUndefined();
+	});
+
+	it("reports unavailable list evidence when read-only artifact inspection fails", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: `supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(sourceSpec)}]\n`,
+		});
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: {
+				ok: false,
+				error: {
+					code: "missing_home_directory",
+					message: "home unavailable",
+					details: { harness: "pi", scope: "user" },
+				},
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				extensions: [
+					{
+						sourceSpec,
+						artifactStatus: "unavailable",
+						artifactCount: 0,
+						diagnostics: [{ code: "missing-home-directory", message: "home unavailable" }],
+					},
+				],
+			},
+		});
+		expect(userArtifacts.applyCalls()).toEqual([]);
+		expect(config.writes).toEqual([]);
+	});
+
+	it("reports orphan drift for an empty declaration list without applying or writing", async () => {
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: 'supported_harnesses = ["pi"]\nextensions = []\n',
+		});
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			prepareResult: {
+				ok: true,
+				prepared: preparedUserArtifacts({
+					orphans: [
+						{
+							artifactId: "@test/orphan:tools",
+							harness: "pi",
+							scope: "user",
+							targetRoot: "/home/test/.pi/agent/skills",
+							packageName: "@test/orphan",
+							sourceType: "npm-module",
+						},
+					],
+				}),
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				extensions: [],
+				orphanedArtifactCount: 1,
+				harnessSetDriftNote: expect.stringContaining("does not reconcile"),
+			},
+		});
+		expect(userArtifacts.prepareCalls()).toEqual([
+			{
+				cwd: "/outside",
+				descriptors: [],
+				configuredHarnesses: ["pi"],
+				targetPackageNames: [],
+			},
+		]);
+		expect(userArtifacts.applyCalls()).toEqual([]);
+		expect(config.writes).toEqual([]);
+	});
+
+	it("returns an empty, deterministic result for a missing user list config", async () => {
+		const config = new InMemoryUserExtensionConfigGateway();
+		const context = contexts(config);
+		const first = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+		const second = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+		expect(first).toEqual(second);
+		expect(first).toMatchObject({
+			status: "success",
+			data: { scope: "user", extensions: [] },
+		});
+		expect(config.fileContent()).toBeUndefined();
+		expect(config.writes).toEqual([]);
+		expect(context.list.declaredExtensions.calls()).toEqual([
+			{ repoRoot: "/home/test/.config/ns", specs: [] },
+			{ repoRoot: "/home/test/.config/ns", specs: [] },
+		]);
+		expect(context.list.files.operations()).toEqual([]);
+		expect(context.list.artifacts.prepareCalls()).toEqual([]);
+		expect(context.list.artifacts.applyCalls()).toEqual([]);
+	});
+
+	it("reports malformed user list config as a scope-specific user failure", async () => {
+		const content = "extensions = [\n";
+		const config = new InMemoryUserExtensionConfigGateway({ content });
+		const context = contexts(config);
+		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+		expect(result).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-list-user-config-invalid",
+			data: { scope: "user", diagnostics: [expect.objectContaining({ path: expect.any(String) })] },
+		});
+		expect(config.fileContent()).toBe(content);
+		expect(config.writes).toEqual([]);
+		expect(context.list.declaredExtensions.calls()).toEqual([]);
+		expect(context.list.files.operations()).toEqual([]);
+	});
+
+	it("reports mixed valid, missing, relative, and npm list rows without writes", async () => {
+		const missing = "/work/extensions/missing";
+		const content = `extensions = [${JSON.stringify(sourceSpec)}, ${JSON.stringify(missing)}, "./relative", "npm:@test/npm"]\n[ignored]\nvalue = 1\n`;
+		const config = new InMemoryUserExtensionConfigGateway({ content });
+		const context = contexts(config, {
+			diagnostics: [
+				{
+					severity: "error",
+					code: "extension-descriptor-package-missing",
+					message: `Missing ${missing}`,
+					spec: missing,
+				},
+				{
+					severity: "error",
+					code: "extension-local-path-must-be-absolute",
+					message: "Relative user path is invalid.",
+					spec: "./relative",
+				},
+			],
+		});
+		const result = await listExtensions(context.list, { cwd: "/outside", scope: "user" });
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				extensions: [
+					{ sourceSpec, commandAvailability: "unavailable" },
+					{
+						sourceSpec: missing,
+						acquisitionStatus: "missing",
+						commandAvailability: "unavailable",
+					},
+					{ sourceSpec: "./relative", commandAvailability: "unavailable" },
+					{
+						sourceSpec: "npm:@test/npm",
+						sourceKind: "npm",
+						diagnostics: [{ code: "extension-descriptor-status-unavailable" }],
+					},
+				],
+			},
+		});
+		expect(config.writes).toEqual([]);
+		expect(config.fileContent()).toBe(content);
 	});
 
 	it("refuses install and uninstall compare-and-write races", async () => {

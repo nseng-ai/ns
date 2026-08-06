@@ -10,7 +10,7 @@ export const nsExtensionListCommand = nsInitCommand({
 	name: "list",
 	summary: "List installed and declared ns extensions at project or user scope.",
 	description:
-		"Use project scope by default. Inspect installed package extensions and project declarations, or use --scope user for command-only user declarations without acquiring packages or changing files.",
+		"Use project scope by default, or use --scope user to inspect declarations, configured user harnesses, invocation-gated command availability, and bundled-skill reconciliation without changing files.",
 	schema: listExtensionsRequestSchema,
 	options: { scope: { short: "-s" } },
 	resultSchema: listExtensionsResultSchema,

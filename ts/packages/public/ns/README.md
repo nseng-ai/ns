@@ -94,11 +94,12 @@ ns objective show <slug>
 
 ## Choose extension scope
 
-Use **user-scoped command availability** when you want an extension's commands available
-across local repositories. Use **project-scoped activation** when a repository also needs
-the extension's instructions, points, consumer directories, bundled artifacts, harness
-artifacts, or settings. These phrases describe the effect of the selected scope, not
-separate extension types or lifecycle states.
+Use **user-scoped availability and artifacts** when you want an extension's commands and
+point definitions available across local repositories and its bundled skills provisioned
+into configured user harness roots. Use **project-scoped activation** when a repository also
+needs the extension's repository-specific instructions, consumer directories, point
+installations, hooks, prompts, models, settings, or project harness artifacts. These phrases
+describe the effect of the selected scope, not separate extension types or lifecycle states.
 
 Project scope is the default for `ns extension install|list|update|uninstall`: it records
 the extension in the repository and reconciles its declared activation metadata. Use
@@ -114,8 +115,14 @@ ns extension update npm:@acme/my-extension --scope user
 ns extension uninstall npm:@acme/my-extension --scope user
 ```
 
-User declarations live in `$XDG_CONFIG_HOME/ns/ns.toml` (default
-`$HOME/.config/ns/ns.toml`). Explicit `npm:` sources are installed with lifecycle scripts
+User declarations and their top-level `supported_harnesses` live in
+`$XDG_CONFIG_HOME/ns/ns.toml` (default `$HOME/.config/ns/ns.toml`). Install, update, and
+uninstall use that configured set to reconcile bundled skills into each harness's user root;
+editing the set alone does not immediately reconcile existing declarations. This lifecycle
+provisioning is independent of whether the current invocation's Active harness enables the
+User command/point layer.
+
+Explicit `npm:` sources are installed with lifecycle scripts
 disabled into isolated private projects under
 `$XDG_DATA_HOME/ns/extensions/npm/<package-name>/` (default
 `$HOME/.local/share/ns/extensions/npm/<package-name>/`). Unprefixed sources are local
@@ -138,8 +145,10 @@ scope directory); local source bytes and sibling packages are preserved. If decl
 removal succeeds but cleanup fails, command availability is already removed and rerunning
 uninstall retries cleanup.
 
-User scope never activates instructions, points, consumer directories, bundled or harness
-artifacts, or extension settings in a repository. A project may declare the same package
+User scope never performs Project activation or writes extension contributions into a
+repository. Repository-specific instructions, consumer directories, point installations,
+hooks, prompts, models, and extension settings remain dormant; only bundled skills are
+reconciled into configured **user** harness roots. A project may declare the same package
 for project-scoped activation; that project declaration replaces the user declaration as a
 whole package rather than mixing versions. For different packages that contribute the same
 command path, project declarations take precedence over user declarations. Collisions
