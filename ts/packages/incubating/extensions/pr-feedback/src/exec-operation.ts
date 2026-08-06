@@ -111,10 +111,11 @@ export function prFeedbackFailureMessage(
 
 type ExecOperationSpec<S extends z.ZodObject, T> = Omit<
 	ClinkrCommandSpec<PrAddressExecContext, S, T>,
-	"resultSchema" | "schemaDocument"
+	"resultSchema" | "schemaDocument" | "renderHuman"
 > & {
 	readonly resultSchema?: never;
 	readonly schemaDocument?: never;
+	readonly renderHuman: NonNullable<ClinkrCommandSpec<PrAddressExecContext, S, T>["renderHuman"]>;
 };
 
 export interface DefineExecOperationOptions<S extends z.ZodObject, T> {
@@ -148,7 +149,7 @@ export function defineExecOperation<S extends z.ZodObject, T>(
 				schema: spec.schema,
 				...(spec.positionals === undefined ? {} : { positionals: spec.positionals }),
 				resultSchema: options.resultSchema,
-				...(spec.renderHuman === undefined ? {} : { renderHuman: spec.renderHuman }),
+				renderHuman: spec.renderHuman,
 				createContext,
 				handler: async (context, request) => toModernOutcome(await handler(context, request)),
 			});

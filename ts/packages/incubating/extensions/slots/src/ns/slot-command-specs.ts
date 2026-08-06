@@ -104,23 +104,25 @@ export type SlotCompletionKind = "checkout-branches";
 
 export interface SlotCommandSpec extends Omit<
 	ClinkrCommandSpec<SlotCliContext, z.ZodObject, unknown>,
-	"completionProvider" | "summary" | "description" | "resultSchema"
+	"completionProvider" | "summary" | "description" | "resultSchema" | "renderHuman"
 > {
 	group: SlotCommandGroup;
 	summary: string;
 	description: string;
 	resultSchema: z.ZodType<unknown>;
+	renderHuman: (data: unknown, capabilities: RenderCapabilities) => string;
 	completionKind?: SlotCompletionKind;
 }
 
 interface TypedSlotCommandSpec<S extends z.ZodObject, T> extends Omit<
 	ClinkrCommandSpec<SlotCliContext, S, T>,
-	"completionProvider" | "summary" | "description" | "resultSchema"
+	"completionProvider" | "summary" | "description" | "resultSchema" | "renderHuman"
 > {
 	group: SlotCommandGroup;
 	summary: string;
 	description: string;
 	resultSchema: z.ZodType<T>;
+	renderHuman: (data: T, capabilities: RenderCapabilities) => string;
 	completionKind?: SlotCompletionKind;
 }
 
@@ -134,7 +136,7 @@ export function slotCommandBaseSpec(spec: SlotCommandSpec) {
 		...optionalEntry("options", spec.options),
 		resultSchema: spec.resultSchema,
 		handler: spec.handler,
-		...optionalEntry("renderHuman", spec.renderHuman),
+		renderHuman: spec.renderHuman,
 		...optionalEntry("renderMarkdown", spec.renderMarkdown),
 	};
 }
@@ -156,12 +158,7 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 			ctx: SlotCliContext,
 			request: z.output<z.ZodObject>,
 		): Promise<ClinkrExit<unknown>> => await spec.handler(ctx, request as z.output<S>),
-		...(spec.renderHuman === undefined
-			? {}
-			: {
-					renderHuman: (data: unknown, caps: RenderCapabilities) =>
-						spec.renderHuman?.(data as T, caps) ?? "",
-				}),
+		renderHuman: (data: unknown, caps: RenderCapabilities) => spec.renderHuman(data as T, caps),
 		...(spec.renderMarkdown === undefined
 			? {}
 			: {

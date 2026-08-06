@@ -8,9 +8,9 @@ import type { z } from "zod";
 
 import type { NsExtensionApi } from "./execution.ts";
 
-export function createContextfulCommand<S extends z.ZodObject, T>(
-	definition: ContextfulCommandDefinition<NsExtensionApi, S, z.ZodType<T>>,
-): ContextfulCommandDefinition<NsExtensionApi, S, z.ZodType<T>> {
+export function createContextfulCommand<S extends z.ZodObject, TResultSchema extends z.ZodType>(
+	definition: ContextfulCommandDefinition<NsExtensionApi, S, TResultSchema>,
+): ContextfulCommandDefinition<NsExtensionApi, S, TResultSchema> {
 	return defineCommand(definition);
 }
 

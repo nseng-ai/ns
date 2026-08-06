@@ -9,9 +9,11 @@ import type {
 	NsCommandSchema,
 	NsExecOptions,
 	NsExtensionApi,
+	ResultOf,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@nseng-ai/sdk";
+import type { z } from "zod";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
@@ -134,11 +136,14 @@ export function createFakeObjectiveNsApi(
  * Runs one objective ns command against a fake API: the request goes through
  * the command's own SDK adapter (mirroring SDK argv decoding).
  */
-export async function runObjectiveCommand<S extends NsCommandSchema, T>(
-	command: NsCommand<S, T>,
+export async function runObjectiveCommand<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+>(
+	command: NsCommand<S, TResultSchema>,
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
-): Promise<ClinkrExit<T>> {
+): Promise<ClinkrExit<ResultOf<TResultSchema>>> {
 	const parsed = command.schema.parse(request);
 	const outcome = await command.handler(options.api ?? createFakeObjectiveNsApi(), parsed);
 	const exit =
@@ -159,7 +164,9 @@ export async function runObjectiveCommand<S extends NsCommandSchema, T>(
 							message: outcome.message,
 							data: outcome.data,
 						};
-	if (!isClinkrExit<T>(exit)) throw new Error("Objective command returned an invalid exit.");
+	if (!isClinkrExit<ResultOf<TResultSchema>>(exit)) {
+		throw new Error("Objective command returned an invalid exit.");
+	}
 	return exit;
 }
 

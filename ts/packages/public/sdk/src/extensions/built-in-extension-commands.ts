@@ -78,7 +78,7 @@ const extensionPointResultSchema = z.union([
 
 export const extensionPointsCommand: NsCommand<
 	typeof extensionPointsRequestSchema,
-	z.infer<typeof extensionPointsResultSchema>
+	typeof extensionPointsResultSchema
 > = defineCommand({
 	schema: extensionPointsRequestSchema,
 	resultSchema: extensionPointsResultSchema,
@@ -88,7 +88,7 @@ export const extensionPointsCommand: NsCommand<
 
 export const extensionPointCommand: NsCommand<
 	typeof extensionPointDetailRequestSchema,
-	z.infer<typeof extensionPointResultSchema>
+	typeof extensionPointResultSchema
 > = defineCommand({
 	schema: extensionPointDetailRequestSchema,
 	positionals: { id: { position: 0 } },

@@ -20,6 +20,7 @@ describe("ns domain command helper", () => {
 			description: "Says hello through a domain context.",
 			schema: requestSchema,
 			resultSchema,
+			renderHuman: (data) => data.greeting,
 			createContext: (ctx): TestContext => ({ cwd: ctx.cwd }),
 			handler: async (ctx, request) => ok({ greeting: `${request.name} from ${ctx.cwd}` }),
 		});
@@ -36,6 +37,7 @@ describe("ns domain command helper", () => {
 			description: "Says hello through a domain context.",
 			schema: requestSchema,
 			resultSchema,
+			renderHuman: (data) => data.greeting,
 			completionProvider: (_ctx, request) => [{ value: request.current, type: "positional-value" }],
 			createContext: (ctx): TestContext => ({ cwd: ctx.cwd }),
 			handler: async () => ok({ greeting: "unused" }),

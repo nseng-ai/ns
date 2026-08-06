@@ -28,6 +28,7 @@ export const downloadFeedbackOperation = defineExecOperation({
 		name: "download-feedback",
 		description: "Download current PR feedback as a Markdown report.",
 		schema: downloadFeedbackParseSchema,
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: runDownloadFeedbackOperation,
 	},
 });

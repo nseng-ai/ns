@@ -11,6 +11,7 @@ export const branchContextFromPlanNsCommand = branchContextCommand({
 	description: "Create a branch context entry from a saved plan file for agent implementation.",
 	schema: createRequestSchema,
 	resultSchema: branchContextResultSchema,
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: handleCreate,
 });
 

@@ -9,6 +9,7 @@ export const branchContextLoadNsCommand = branchContextCommand({
 	schema: loadRequestSchema,
 	resultSchema: loadPlanResultSchema,
 	positionals: { key: { position: 0 } },
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: handleLoad,
 });
 

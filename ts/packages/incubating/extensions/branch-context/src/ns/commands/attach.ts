@@ -9,6 +9,7 @@ export const branchContextAttachNsCommand = branchContextCommand({
 	schema: attachRequestSchema,
 	resultSchema: attachResultSchema,
 	positionals: { key: { position: 0 } },
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: handleAttach,
 });
 

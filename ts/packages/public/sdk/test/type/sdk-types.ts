@@ -46,6 +46,66 @@ const adaptedCommand = defineCommand({
 	async handler(_ctx, request) {
 		return ok({ greeting: request.name });
 	},
+	renderHuman(result, capabilities) {
+		type Result = typeof result;
+		const checks: [
+			Assert<IsAny<Result> extends false ? true : false>,
+			Assert<IsEqual<Result, { greeting: string }>>,
+		] = [true, true];
+		void checks;
+		void capabilities.canEmitAnsi;
+		return result.greeting;
+	},
+});
+
+// @ts-expect-error a structured SDK command must declare a result schema
+const missingResultSchemaCommand = defineCommand({
+	schema: z.object({}),
+	renderHuman: () => "",
+	handler: () => ok({}),
+});
+
+// @ts-expect-error a structured SDK command must declare a human renderer
+const missingRendererCommand = defineCommand({
+	schema: z.object({}),
+	resultSchema: z.object({}),
+	handler: () => ok({}),
+});
+
+const mismatchedHandlerCommand = defineCommand({
+	schema: z.object({}),
+	resultSchema: z.object({ count: z.number() }),
+	renderHuman: (result) => String(result.count),
+	// @ts-expect-error handler success data must satisfy the declared result schema
+	handler: () => ok({ count: "not-a-number" }),
+});
+
+const mismatchedRendererCommand = defineCommand({
+	schema: z.object({}),
+	resultSchema: z.object({ count: z.number() }),
+	// @ts-expect-error the renderer receives schema-typed data, not arbitrary fields
+	renderHuman: (result) => result.missing,
+	handler: () => ok({ count: 1 }),
+});
+
+const unionResultCommand = defineCommand({
+	name: "union",
+	summary: "Discriminated union result.",
+	description: "Proves renderer narrowing over a discriminated-union result schema.",
+	schema: z.object({}),
+	resultSchema: z.discriminatedUnion("type", [
+		z.object({ type: z.literal("moved"), destination: z.string() }),
+		z.object({ type: z.literal("skipped"), reason: z.string() }),
+	]),
+	handler: () => ok({ type: "moved" as const, destination: "slot-1" }),
+	renderHuman(result) {
+		if (result.type === "moved") {
+			const narrowed: Assert<IsEqual<typeof result.destination, string>> = true;
+			void narrowed;
+			return result.destination;
+		}
+		return result.reason;
+	},
 });
 
 const activation: ExtensionActivation = {
@@ -138,6 +198,11 @@ const commandOk: boolean =
 
 void extension;
 void commandlessExtension;
+void missingResultSchemaCommand;
+void missingRendererCommand;
+void mismatchedHandlerCommand;
+void mismatchedRendererCommand;
+void unionResultCommand;
 void descriptorCheck;
 void rawCommandCheck;
 void outcome;

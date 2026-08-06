@@ -9,9 +9,11 @@ import type {
 	NsCommandSchema,
 	NsExecOptions,
 	NsExtensionApi,
+	ResultOf,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@nseng-ai/sdk";
+import type { z } from "zod";
 
 import { HANDOFF_NAMESPACE } from "../../src/core/identity.ts";
 
@@ -80,11 +82,11 @@ export function createFakeHandoffNsApi(options: FakeHandoffNsApiOptions = {}): F
 	return new FakeHandoffNsApi(options);
 }
 
-export async function runHandoffCommand<S extends NsCommandSchema, T>(
-	command: NsCommand<S, T>,
+export async function runHandoffCommand<S extends NsCommandSchema, TResultSchema extends z.ZodType>(
+	command: NsCommand<S, TResultSchema>,
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
-): Promise<ClinkrExit<T>> {
+): Promise<ClinkrExit<ResultOf<TResultSchema>>> {
 	const api = options.api ?? createFakeHandoffNsApi();
 	const parsed = command.schema.safeParse(request);
 	const outcome = parsed.success
@@ -112,7 +114,7 @@ export async function runHandoffCommand<S extends NsCommandSchema, T>(
 							message: outcome.message,
 							data: outcome.data,
 						};
-	if (!isClinkrExit<T>(exit)) {
+	if (!isClinkrExit<ResultOf<TResultSchema>>(exit)) {
 		throw new Error(`Command returned a legacy ns result instead of a Clinkr exit.`);
 	}
 	return exit;

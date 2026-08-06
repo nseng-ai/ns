@@ -4,25 +4,26 @@ import {
 	type DefineCommandSpec,
 	type NsCommand,
 	type NsCommandSchema,
+	type ResultOf,
 } from "@nseng-ai/sdk";
 import type { z } from "zod";
 
 import type { ReviewsRuntime } from "../core/context.ts";
 import { createNsReviewsRuntime } from "./context.ts";
 
-type ReviewsNsCommandOptions<S extends NsCommandSchema, T> = Omit<
-	DefineCommandSpec<S, T>,
+type ReviewsNsCommandOptions<S extends NsCommandSchema, TResultSchema extends z.ZodType> = Omit<
+	DefineCommandSpec<S, TResultSchema>,
 	"handler"
 > & {
 	readonly handler: (
 		runtime: ReviewsRuntime,
 		request: z.output<S>,
-	) => CommandExit<T> | Promise<CommandExit<T>>;
+	) => CommandExit<ResultOf<TResultSchema>> | Promise<CommandExit<ResultOf<TResultSchema>>>;
 };
 
-export function reviewsNsCommand<S extends NsCommandSchema, T>(
-	options: ReviewsNsCommandOptions<S, T>,
-): NsCommand<S, T> {
+export function reviewsNsCommand<S extends NsCommandSchema, TResultSchema extends z.ZodType>(
+	options: ReviewsNsCommandOptions<S, TResultSchema>,
+): NsCommand<S, TResultSchema> {
 	return defineCommand({
 		...options,
 		handler: async (ctx, request) => await options.handler(createNsReviewsRuntime(ctx), request),

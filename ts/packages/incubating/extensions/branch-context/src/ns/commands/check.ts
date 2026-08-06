@@ -8,6 +8,7 @@ export const branchContextCheckNsCommand = branchContextCommand({
 	schema: keyRequestSchema,
 	resultSchema: checkResultSchema,
 	positionals: { key: { position: 0 } },
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: handleCheck,
 });
 

@@ -55,10 +55,14 @@ These apply to every ns CLI command regardless of audience.
 3. **stdout is the result; stderr is for humans/logs/status.** Machine output
    (`--format json`) goes to stdout; human negative/status messaging goes to
    stderr.
-4. **Stable, documented machine output.** Agent-facing results carry a
-   `resultSchema`; `--json-schema` must publish the real envelope shape. Human
-   rendering (`renderHuman`) may evolve freely; the machine envelope may not,
-   except additively.
+4. **Stable, documented machine output.** Every structured SDK command carries a
+   `resultSchema` and a `renderHuman` over that schema's typed output — both are
+   required by `@nseng-ai/sdk`; `--json-schema` must publish the real envelope
+   shape. The handler returns semantic data validated by the result schema;
+   `renderHuman` renders that typed data. Never return pre-rendered terminal
+   text as result data. Machine-oriented/hidden commands whose intended human
+   representation is JSON use an explicit deterministic JSON renderer. Human
+   rendering may evolve freely; the machine envelope may not, except additively.
 5. **Process exit codes are coarse and stable:** `ok=0`, `negative=1`,
    `failure`/`usageError=2` (ADR 0010). Detailed failure semantics live
    in the machine envelope (`errorType` + structured `data`), not in numeric exit

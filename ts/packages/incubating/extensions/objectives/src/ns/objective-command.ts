@@ -6,45 +6,51 @@ import {
 	type NsCommand,
 	type NsCommandSchema,
 	type NsExtensionApi,
+	type ResultOf,
 } from "@nseng-ai/sdk";
 import type { z } from "zod";
 
 import type { ObjectiveCliContext } from "../core/context.ts";
 import { createNsObjectiveContext } from "./context.ts";
 
-type ObjectiveCommandOptions<S extends NsCommandSchema, T, TContext> = Omit<
-	DefineCommandSpec<S, T>,
-	"handler"
-> & {
+type ObjectiveCommandOptions<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+	TContext,
+> = Omit<DefineCommandSpec<S, TResultSchema>, "handler"> & {
 	readonly createContext: (api: NsExtensionApi) => Promise<TContext> | TContext;
 	readonly handler: (context: TContext, request: z.output<S>) => Promise<unknown> | unknown;
 };
 
-type DefaultObjectiveCommandOptions<S extends NsCommandSchema, T> = Omit<
-	ObjectiveCommandOptions<S, T, ObjectiveCliContext>,
-	"createContext"
->;
+type DefaultObjectiveCommandOptions<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+> = Omit<ObjectiveCommandOptions<S, TResultSchema, ObjectiveCliContext>, "createContext">;
 
-export function objectiveNsCommand<S extends NsCommandSchema, T>(
-	options: DefaultObjectiveCommandOptions<S, T>,
-): NsCommand<S, T> {
+export function objectiveNsCommand<S extends NsCommandSchema, TResultSchema extends z.ZodType>(
+	options: DefaultObjectiveCommandOptions<S, TResultSchema>,
+): NsCommand<S, TResultSchema> {
 	return defineObjectiveCommand({ ...options, createContext: createNsObjectiveContext });
 }
 
-export function objectiveNsCommandWithContext<S extends NsCommandSchema, T, TContext>(
-	options: ObjectiveCommandOptions<S, T, TContext>,
-): NsCommand<S, T> {
+export function objectiveNsCommandWithContext<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+	TContext,
+>(options: ObjectiveCommandOptions<S, TResultSchema, TContext>): NsCommand<S, TResultSchema> {
 	return defineObjectiveCommand(options);
 }
 
-function defineObjectiveCommand<S extends NsCommandSchema, T, TContext>(
-	options: ObjectiveCommandOptions<S, T, TContext>,
-): NsCommand<S, T> {
+function defineObjectiveCommand<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+	TContext,
+>(options: ObjectiveCommandOptions<S, TResultSchema, TContext>): NsCommand<S, TResultSchema> {
 	const { createContext, handler, ...definition } = options;
 	return defineCommand({
 		...definition,
 		handler: async (api, request) =>
-			toModernOutcome<T>(await handler(await createContext(api), request)),
+			toModernOutcome<ResultOf<TResultSchema>>(await handler(await createContext(api), request)),
 	});
 }
 

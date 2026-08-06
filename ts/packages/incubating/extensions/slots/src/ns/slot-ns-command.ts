@@ -3,7 +3,6 @@ import {
 	defineCommand,
 	type CommandExit,
 	type NsCommand,
-	type NsCommandSchema,
 	type NsExtensionApi,
 } from "@nseng-ai/sdk";
 
@@ -36,7 +35,7 @@ async function createSlotExtensionContext(ctx: NsExtensionApi): Promise<SlotCliC
 	});
 }
 
-function slotCommandFromSpec(spec: SlotCommandSpec): NsCommand<NsCommandSchema, unknown> {
+function slotCommandFromSpec(spec: SlotCommandSpec): NsCommand {
 	const completionProvider = checkoutBranchesCompletionProviderFor({
 		completionKind: spec.completionKind,
 		gitFromContext: async (ctx: NsExtensionApi) => (await createSlotExtensionContext(ctx)).git,

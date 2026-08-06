@@ -6,6 +6,7 @@ import {
 	type NsCommand,
 	type NsCommandSchema,
 	type NsExtensionApi,
+	type ResultOf,
 } from "@nseng-ai/sdk";
 import type { z } from "zod";
 
@@ -14,23 +15,25 @@ import {
 	type BranchContextCliContext,
 } from "../core/operations.ts";
 
-type BranchContextNsCommandOptions<S extends NsCommandSchema, T> = Omit<
-	DefineCommandSpec<S, T>,
-	"handler"
-> & {
+type BranchContextNsCommandOptions<
+	S extends NsCommandSchema,
+	TResultSchema extends z.ZodType,
+> = Omit<DefineCommandSpec<S, TResultSchema>, "handler"> & {
 	readonly handler: (
 		ctx: BranchContextCliContext,
 		request: z.output<S>,
 	) => Promise<unknown> | unknown;
 };
 
-export function branchContextCommand<S extends NsCommandSchema, T>(
-	options: BranchContextNsCommandOptions<S, T>,
-): NsCommand<S, T> {
+export function branchContextCommand<S extends NsCommandSchema, TResultSchema extends z.ZodType>(
+	options: BranchContextNsCommandOptions<S, TResultSchema>,
+): NsCommand<S, TResultSchema> {
 	return defineCommand({
 		...options,
 		handler: async (ctx, request) =>
-			toModernOutcome<T>(await options.handler(createBranchContextExtensionContext(ctx), request)),
+			toModernOutcome<ResultOf<TResultSchema>>(
+				await options.handler(createBranchContextExtensionContext(ctx), request),
+			),
 	});
 }
 
