@@ -15,10 +15,6 @@ export interface GatewayError {
 export type GatewayResult<T> =
 	| { readonly ok: true; readonly value: T }
 	| { readonly ok: false; readonly error: GatewayError };
-export type LookupResult<T> =
-	| { readonly type: "found"; readonly value: T }
-	| { readonly type: "missing" }
-	| { readonly type: "error"; readonly error: GatewayError };
 export type OperationResult =
 	| { readonly ok: true }
 	| { readonly ok: false; readonly error: GatewayError };
@@ -78,7 +74,6 @@ export interface ArtifactCurrentRecord {
 	readonly revisionId: string;
 	readonly path: string;
 	readonly classification: ArtifactClassification;
-	readonly observedCommit: string;
 	readonly tombstoned: boolean;
 }
 export interface ArtifactLineageRecord {
@@ -190,24 +185,12 @@ export interface MaterializationStoreGateway {
 		readonly sourceId: string;
 		readonly attemptId: string;
 	}): Promise<OperationResult>;
-	readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>>;
 	compareAndSetCursor(request: {
 		readonly sourceId: string;
 		readonly expectedGeneration: number;
 		readonly next: CursorRecord;
 	}): Promise<CursorCompareAndSetResult>;
-	readLineage(request: {
-		readonly sourceId: string;
-		readonly artifactId: ArtifactId;
-	}): Promise<LookupResult<ArtifactLineageRecord>>;
-	readCurrentArtifact(request: {
-		readonly sourceId: string;
-		readonly artifactId: ArtifactId;
-	}): Promise<LookupResult<ArtifactCurrentRecord>>;
 	upsertLineage(record: ArtifactLineageRecord): Promise<OperationResult>;
-	listCurrentArtifacts(request: {
-		readonly sourceId: string;
-	}): Promise<GatewayResult<readonly ArtifactCurrentRecord[]>>;
 	insertRevision(record: RevisionRecord): Promise<InsertResult>;
 	upsertCurrentArtifact(record: ArtifactCurrentRecord): Promise<OperationResult>;
 	upsertTargetRow(record: TargetRowRecord): Promise<OperationResult>;

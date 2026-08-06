@@ -25,6 +25,10 @@ export const CONTROL_SCHEMA = {
 			`INSERT INTO gitplane_schema (schema_version) VALUES (1)`,
 		],
 	},
+	// One of the engine's two reentry dispatch facts: a `gitplane_cursors` row equal to the
+	// pending plan's Resulting Cursor (commit_id = targetCommit, generation =
+	// expectedGeneration + 1; no row = generation 0) means materialization completed and only
+	// cleanup remains. Any other cursor with a pending plan means Apply must resume.
 	cursors: {
 		name: "gitplane_cursors",
 		columns: [
@@ -37,6 +41,10 @@ export const CONTROL_SCHEMA = {
 			`CREATE TABLE gitplane_cursors (source_id TEXT PRIMARY KEY, commit_id TEXT NOT NULL, generation INTEGER NOT NULL CHECK (generation > 0)) STRICT`,
 		],
 	},
+	// The other reentry dispatch fact: a `gitplane_reconciliation_plans` row is the Pending
+	// Plan — retry authority for incomplete work. `source_id` as PRIMARY KEY mechanically
+	// enforces one Pending Plan per source; no row means the cursor is a completed baseline
+	// for new planning.
 	plans: {
 		name: "gitplane_reconciliation_plans",
 		columns: [
@@ -70,12 +78,11 @@ export const CONTROL_SCHEMA = {
 			column("revision_id", "TEXT", false),
 			column("artifact_path", "TEXT", false),
 			column("classification", "TEXT", false),
-			column("observed_commit", "TEXT", false),
 			column("tombstoned", "INTEGER", false),
 		],
 		uniqueColumnSets: [["source_id", "artifact_id"]],
 		statements: [
-			`CREATE TABLE gitplane_current_artifacts (source_id TEXT NOT NULL, artifact_id TEXT NOT NULL, revision_id TEXT NOT NULL, artifact_path TEXT NOT NULL, classification TEXT NOT NULL, observed_commit TEXT NOT NULL, tombstoned INTEGER NOT NULL, PRIMARY KEY (source_id, artifact_id)) STRICT`,
+			`CREATE TABLE gitplane_current_artifacts (source_id TEXT NOT NULL, artifact_id TEXT NOT NULL, revision_id TEXT NOT NULL, artifact_path TEXT NOT NULL, classification TEXT NOT NULL, tombstoned INTEGER NOT NULL, PRIMARY KEY (source_id, artifact_id)) STRICT`,
 		],
 	},
 	revisions: {

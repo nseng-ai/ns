@@ -77,7 +77,6 @@ export type {
 	GatewayResult,
 	GitObservation,
 	InsertResult,
-	LookupResult,
 	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
@@ -89,6 +88,8 @@ export type {
 	TreeInventoryEntry,
 } from "./gateways.ts";
 export { gatherSourceFacts } from "./gather-source-facts.ts";
+export { reconcile } from "./reconcile.ts";
+export type { ReconcileOptions, ReconciliationContext, ReconciliationResult } from "./reconcile.ts";
 export type {
 	GatheredSourceFacts,
 	GatherSourceFactsOptions,

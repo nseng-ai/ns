@@ -21,7 +21,6 @@ export async function exerciseMaterializationStoreConformance(
 	const sourceId = "conformance";
 
 	await step("generation cursor compare-and-set and ABA", async () => {
-		deepStrictEqual(await store.readCursor({ sourceId }), { type: "missing" });
 		deepStrictEqual(
 			await store.compareAndSetCursor({
 				sourceId,
@@ -30,10 +29,6 @@ export async function exerciseMaterializationStoreConformance(
 			}),
 			{ type: "updated" },
 		);
-		deepStrictEqual(await store.readCursor({ sourceId }), {
-			type: "found",
-			value: { sourceId, commit: "a", generation: 1 },
-		});
 		deepStrictEqual(
 			await store.compareAndSetCursor({
 				sourceId,
@@ -106,7 +101,6 @@ export async function exerciseMaterializationStoreConformance(
 				revisionId: "mutated-revision",
 				path: "mutated-artifact",
 				classification: { state: "generic" },
-				observedCommit: "mutated-commit",
 				tombstoned: false,
 			} satisfies ArtifactCurrentRecord);
 			if (first.value.pendingPlan !== null) {
@@ -134,13 +128,11 @@ export async function exerciseMaterializationStoreConformance(
 		lastSchemaVersion: null,
 	};
 	await step("artifact lineage", async () => {
-		deepStrictEqual(await store.readLineage({ sourceId, artifactId }), { type: "missing" });
 		deepStrictEqual(await store.upsertLineage(lineage), { ok: true });
 		deepStrictEqual(await store.upsertLineage(lineage), { ok: true });
-		deepStrictEqual(await store.readLineage({ sourceId, artifactId }), {
-			type: "found",
-			value: lineage,
-		});
+		const snapshot = await store.readMaterializationSnapshot({ sourceId });
+		if (!snapshot.ok) throw new Error(snapshot.error.message);
+		deepStrictEqual(snapshot.value.lineage, [lineage]);
 	});
 
 	const revision: RevisionRecord = {
@@ -191,27 +183,14 @@ export async function exerciseMaterializationStoreConformance(
 		revisionId: revision.revisionId,
 		path: "artifact",
 		classification: { state: "generic" as const },
-		observedCommit: "b",
 		tombstoned: false,
 	};
 	await step("current artifact state", async () => {
-		deepStrictEqual(await store.readCurrentArtifact({ sourceId, artifactId }), {
-			type: "missing",
-		});
 		deepStrictEqual(await store.upsertCurrentArtifact(current), { ok: true });
 		deepStrictEqual(await store.upsertCurrentArtifact(current), { ok: true });
-		deepStrictEqual(await store.readCurrentArtifact({ sourceId, artifactId }), {
-			type: "found",
-			value: current,
-		});
-		deepStrictEqual(await store.listCurrentArtifacts({ sourceId }), {
-			ok: true,
-			value: [current],
-		});
-		deepStrictEqual(await store.listCurrentArtifacts({ sourceId: "other" }), {
-			ok: true,
-			value: [],
-		});
+		const snapshot = await store.readMaterializationSnapshot({ sourceId });
+		if (!snapshot.ok) throw new Error(snapshot.error.message);
+		deepStrictEqual(snapshot.value.currentArtifacts, [current]);
 	});
 
 	const target = conformanceTarget();

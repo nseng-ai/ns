@@ -124,7 +124,6 @@ test("prepares live Gateway records and converts planned digest bytes explicitly
 	expect(prepared.current).toMatchObject({
 		sourceId: plan.sourceId,
 		artifactId,
-		observedCommit: plan.targetCommit,
 		tombstoned: false,
 	});
 	expect(prepared.lineage).toMatchObject({ sourceId: plan.sourceId, artifactId });
@@ -292,7 +291,6 @@ function snapshotCurrent(options: {
 		revisionId: options.revisionId,
 		path: options.path,
 		classification: options.classification ?? GENERIC,
-		observedCommit: "old",
 		tombstoned: options.tombstoned ?? false,
 	};
 }

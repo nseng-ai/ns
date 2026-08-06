@@ -14,7 +14,6 @@ import type {
 	GatewayResult,
 	GitplaneStoreFactory,
 	InsertResult,
-	LookupResult,
 	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
@@ -62,14 +61,13 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 					.get(request.sourceId) as { commit_id: string; generation: number } | undefined;
 				const currentRows = this.database
 					.prepare(
-						"SELECT artifact_id, revision_id, artifact_path, classification, observed_commit, tombstoned FROM gitplane_current_artifacts WHERE source_id = ? ORDER BY artifact_id",
+						"SELECT artifact_id, revision_id, artifact_path, classification, tombstoned FROM gitplane_current_artifacts WHERE source_id = ? ORDER BY artifact_id",
 					)
 					.all(request.sourceId) as {
 					artifact_id: ArtifactId;
 					revision_id: string;
 					artifact_path: string;
 					classification: string;
-					observed_commit: string;
 					tombstoned: number;
 				}[];
 				const lineageRows = this.database
@@ -168,16 +166,6 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 				.run(request.sourceId, request.attemptId),
 		);
 	}
-	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {
-		return this.lookup(() => {
-			const row = this.database
-				.prepare("SELECT commit_id, generation FROM gitplane_cursors WHERE source_id = ?")
-				.get(request.sourceId) as { commit_id: string; generation: number } | undefined;
-			return row === undefined
-				? undefined
-				: { sourceId: request.sourceId, commit: row.commit_id, generation: row.generation };
-		});
-	}
 	async compareAndSetCursor(request: {
 		readonly sourceId: string;
 		readonly expectedGeneration: number;
@@ -221,51 +209,6 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 			return { type: "error", error: databaseError(error) };
 		}
 	}
-	async readLineage(request: {
-		readonly sourceId: string;
-		readonly artifactId: ArtifactId;
-	}): Promise<LookupResult<ArtifactLineageRecord>> {
-		return this.lookup(() => {
-			const row = this.database
-				.prepare(
-					"SELECT established_classification, last_schema_version FROM gitplane_lineage WHERE source_id = ? AND artifact_id = ?",
-				)
-				.get(request.sourceId, request.artifactId) as
-				| { established_classification: string | null; last_schema_version: number | null }
-				| undefined;
-			return row === undefined
-				? undefined
-				: {
-						sourceId: request.sourceId,
-						artifactId: request.artifactId,
-						establishedClassification: parseJson(row.established_classification),
-						lastSchemaVersion: row.last_schema_version,
-					};
-		});
-	}
-	async readCurrentArtifact(request: {
-		readonly sourceId: string;
-		readonly artifactId: ArtifactId;
-	}): Promise<LookupResult<ArtifactCurrentRecord>> {
-		return this.lookup(() => {
-			const row = this.database
-				.prepare(
-					"SELECT revision_id, artifact_path, classification, observed_commit, tombstoned FROM gitplane_current_artifacts WHERE source_id = ? AND artifact_id = ?",
-				)
-				.get(request.sourceId, request.artifactId) as
-				| {
-						revision_id: string;
-						artifact_path: string;
-						classification: string;
-						observed_commit: string;
-						tombstoned: number;
-				  }
-				| undefined;
-			return row === undefined
-				? undefined
-				: currentFromRow(request.sourceId, request.artifactId, row);
-		});
-	}
 	async upsertLineage(record: ArtifactLineageRecord): Promise<OperationResult> {
 		return this.operation(() =>
 			this.database
@@ -279,30 +222,6 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 					record.lastSchemaVersion,
 				),
 		);
-	}
-	async listCurrentArtifacts(request: {
-		readonly sourceId: string;
-	}): Promise<GatewayResult<readonly ArtifactCurrentRecord[]>> {
-		try {
-			const rows = this.database
-				.prepare(
-					"SELECT artifact_id, revision_id, artifact_path, classification, observed_commit, tombstoned FROM gitplane_current_artifacts WHERE source_id = ? ORDER BY artifact_id",
-				)
-				.all(request.sourceId) as {
-				artifact_id: ArtifactId;
-				revision_id: string;
-				artifact_path: string;
-				classification: string;
-				observed_commit: string;
-				tombstoned: number;
-			}[];
-			return {
-				ok: true,
-				value: rows.map((row) => currentFromRow(request.sourceId, row.artifact_id, row)),
-			};
-		} catch (error) {
-			return { ok: false, error: databaseError(error) };
-		}
 	}
 	async insertRevision(record: RevisionRecord): Promise<InsertResult> {
 		try {
@@ -353,7 +272,7 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 		return this.operation(() =>
 			this.database
 				.prepare(
-					"INSERT INTO gitplane_current_artifacts (source_id, artifact_id, revision_id, artifact_path, classification, observed_commit, tombstoned) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(source_id, artifact_id) DO UPDATE SET revision_id=excluded.revision_id, artifact_path=excluded.artifact_path, classification=excluded.classification, observed_commit=excluded.observed_commit, tombstoned=excluded.tombstoned",
+					"INSERT INTO gitplane_current_artifacts (source_id, artifact_id, revision_id, artifact_path, classification, tombstoned) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(source_id, artifact_id) DO UPDATE SET revision_id=excluded.revision_id, artifact_path=excluded.artifact_path, classification=excluded.classification, tombstoned=excluded.tombstoned",
 				)
 				.run(
 					record.sourceId,
@@ -361,7 +280,6 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 					record.revisionId,
 					record.path,
 					deterministicJson(record.classification),
-					record.observedCommit,
 					record.tombstoned ? 1 : 0,
 				),
 		);
@@ -532,14 +450,6 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 				.get(table) !== undefined
 		);
 	}
-	private async lookup<T>(operation: () => T | undefined): Promise<LookupResult<T>> {
-		try {
-			const value = operation();
-			return value === undefined ? { type: "missing" } : { type: "found", value };
-		} catch (error) {
-			return { type: "error", error: databaseError(error) };
-		}
-	}
 	private async operation(operation: () => unknown): Promise<OperationResult> {
 		try {
 			operation();
@@ -571,7 +481,6 @@ function currentFromRow(
 		revision_id: string;
 		artifact_path: string;
 		classification: string;
-		observed_commit: string;
 		tombstoned: number;
 	},
 ): ArtifactCurrentRecord {
@@ -581,7 +490,6 @@ function currentFromRow(
 		revisionId: row.revision_id,
 		path: row.artifact_path,
 		classification: parseClassification(row.classification),
-		observedCommit: row.observed_commit,
 		tombstoned: row.tombstoned !== 0,
 	};
 }
