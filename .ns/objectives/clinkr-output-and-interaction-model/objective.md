@@ -38,6 +38,12 @@ The immediate evidence for the need of a settled model is the prototype on `clin
   - which CONTEXT.md/README surfaces receive the vocabulary (the Clinkr package docs, the SDK docs, the repo conventions);
   - the timing — CONTEXT.md must trail the implementation, because the repo rule requires it.
 - Execute that promotion after `clinkr-readme-driven-development` lands the changes that implement the model.
+- Document the complete output-ownership chain across the standalone and embedded hosts:
+  1. Clinkr routes output through invocation-scoped structured-text and raw-byte sinks. Its standalone terminal adapter defaults those sinks to the process streams.
+  2. Foundation adapts sink shapes. When its text callback interface receives Clinkr raw bytes, the adapter performs streaming UTF-8 decoding so split multibyte sequences remain intact.
+  3. The Pi host captures the adapted output and presents it inside the TUI instead of allowing an embedded CLI to write directly to the terminal.
+  4. Pi sanitizes captured terminal controls at this host boundary. Output that is safe for a standalone terminal is not necessarily safe inside Pi: for example, a captured clear-screen sequence can clear the physical terminal behind Pi, desynchronize Pi's differential renderer from the actual screen, and leave subsequent TUI updates corrupted or misplaced.
+- Make ownership explicit in the promoted documentation: Clinkr owns command rendering and stream selection; Foundation owns sink-shape and byte-to-text adaptation; Pi owns host presentation and renderer-specific safety. Do not describe Pi sanitization as a Clinkr rendering policy or Foundation adaptation as host presentation.
 
 ## Non-Goals
 
@@ -55,6 +61,8 @@ The immediate evidence for the need of a settled model is the prototype on `clin
 - The documentation-promotion decision is recorded. After the implementation lands, the decision is executed:
   - each decided ADR is written;
   - the relevant CONTEXT.md/README surfaces are updated in sync with the ground truth;
+  - the output-ownership chain names the Clinkr, Foundation, and Pi responsibilities, including Foundation's streaming UTF-8 decoding and Pi's terminal-control sanitization boundary;
+  - the concrete clear-screen failure explains that an embedded terminal control can desynchronize Pi's differential renderer from the physical screen and corrupt later TUI presentation;
   - the ontology reference is reduced to a provenance pointer if the model is fully promoted.
 
 ## Assumptions and Risks
