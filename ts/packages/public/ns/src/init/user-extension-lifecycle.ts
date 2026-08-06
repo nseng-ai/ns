@@ -329,6 +329,7 @@ export async function loadOneUserDescriptor<TResult>(options: {
 	readonly configDir: string;
 	readonly sourceSpec: string;
 	readonly operation: string;
+	readonly npmModuleRootOverride?: string;
 }): Promise<
 	| {
 			readonly ok: true;
@@ -342,11 +343,13 @@ export async function loadOneUserDescriptor<TResult>(options: {
 		repoRoot: options.configDir,
 		specs: [options.sourceSpec],
 		localPathPolicy: "absolute-only",
-		resolveNpmPackageRoot: (packageName) =>
-			options.context.userManagedNpmStorage.type === "available"
-				? managedNpmPackagePaths(options.context.userManagedNpmStorage.storage, packageName)
-						.packageRoot
-				: undefined,
+		resolveNpmPackageRoot: (packageName, sourceSpec) =>
+			sourceSpec === options.sourceSpec && options.npmModuleRootOverride !== undefined
+				? options.npmModuleRootOverride
+				: options.context.userManagedNpmStorage.type === "available"
+					? managedNpmPackagePaths(options.context.userManagedNpmStorage.storage, packageName)
+							.packageRoot
+					: undefined,
 	});
 	const descriptor = loaded.descriptors[0];
 	if (

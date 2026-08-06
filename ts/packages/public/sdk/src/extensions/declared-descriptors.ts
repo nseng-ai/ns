@@ -52,7 +52,10 @@ export type DeclaredDescriptorPackageManifestResult = DescriptorPackageManifestR
 export type DeclaredDescriptorFileResult = DescriptorPackageFileResult;
 export type DeclaredDescriptorImportResult = DescriptorPackageImportResult;
 export type DeclaredExtensionDescriptorGateway = ExtensionDescriptorPackageGateway;
-export type DeclaredExtensionNpmPackageRootResolver = (packageName: string) => string | undefined;
+export type DeclaredExtensionNpmPackageRootResolver = (
+	packageName: string,
+	sourceSpec: string,
+) => string | undefined;
 
 export interface LoadDeclaredExtensionDescriptorsOptions {
 	readonly repoRoot: string;
@@ -196,7 +199,10 @@ async function loadDeclaredExtensionDescriptor(options: {
 	if (parsed.value.kind === "local") {
 		packageRoot = parsed.value.path;
 	} else {
-		const resolvedPackageRoot = options.resolveNpmPackageRoot(parsed.value.packageName);
+		const resolvedPackageRoot = options.resolveNpmPackageRoot(
+			parsed.value.packageName,
+			options.spec,
+		);
 		if (resolvedPackageRoot === undefined) {
 			return failure({
 				spec: options.spec,

@@ -32,6 +32,11 @@ export interface UserExtensionAvailabilityGateway {
 	evaluate(params: {
 		readonly configDir: string;
 		readonly sourceSpecs: readonly string[];
+		readonly npmPackageRootOverride?: {
+			readonly sourceSpec: string;
+			readonly packageName: string;
+			readonly moduleRoot: string;
+		};
 	}): Promise<readonly UserExtensionPackageAvailabilityFact[]>;
 }
 
@@ -50,11 +55,21 @@ export class RealUserExtensionAvailabilityGateway implements UserExtensionAvaila
 	async evaluate(params: {
 		readonly configDir: string;
 		readonly sourceSpecs: readonly string[];
+		readonly npmPackageRootOverride?: {
+			readonly sourceSpec: string;
+			readonly packageName: string;
+			readonly moduleRoot: string;
+		};
 	}): Promise<readonly UserExtensionPackageAvailabilityFact[]> {
+		const override = params.npmPackageRootOverride;
 		return evaluateUserExtensionPackageAvailability({
-			...params,
+			configDir: params.configDir,
+			sourceSpecs: params.sourceSpecs,
 			preinstalledSources: this.preinstalledSources,
-			resolveNpmPackageRoot: this.resolveNpmPackageRoot,
+			resolveNpmPackageRoot: (packageName, sourceSpec) =>
+				override?.packageName === packageName && override.sourceSpec === sourceSpec
+					? override.moduleRoot
+					: this.resolveNpmPackageRoot(packageName, sourceSpec),
 		});
 	}
 }

@@ -6,6 +6,7 @@ import type { UserExtensionPackageAvailabilityFact } from "@nseng-ai/sdk/extensi
 import { userManagedNpmStorage } from "@nseng-ai/sdk/project-config";
 import { createEmptyPreparedHarnessArtifactTransitions } from "../../src/harness-artifacts/api.ts";
 
+import type { InMemoryUserNpmUpdateAcquisitionState } from "../../src/init/extension-acquisition.ts";
 import type { ExtensionInstallContext } from "../../src/init/install-extension.ts";
 import {
 	installExtension,
@@ -26,6 +27,7 @@ import {
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
+	InMemoryUserNpmUpdateAcquisitionGateway,
 	InMemoryUserArtifactActivationGateway,
 	InMemoryUserExtensionConfigGateway,
 	InMemoryUserExtensionAvailabilityGateway,
@@ -57,6 +59,7 @@ function contexts(
 		readonly existingProjectRoots?: readonly string[];
 		readonly installedPackageNames?: readonly string[];
 		readonly userArtifacts?: InMemoryUserArtifactActivationGateway;
+		readonly userNpmUpdate?: InMemoryUserNpmUpdateAcquisitionState;
 		readonly env?: Readonly<Record<string, string | undefined>>;
 		readonly cleanupFailureByPackageName?: Readonly<
 			Record<
@@ -127,6 +130,16 @@ function contexts(
 		} satisfies ExtensionListContext,
 		update: {
 			...shared,
+			userNpmUpdateAcquisition: new InMemoryUserNpmUpdateAcquisitionGateway({
+				candidateModuleRootBySpec: Object.fromEntries(
+					(options.descriptors ?? [descriptor])
+						.filter((item) => item.sourceKind === "npm")
+						.map((item) => [item.spec, item.moduleRoot]),
+				),
+				existingCanonicalPackageNames:
+					options.installedPackageRoots?.map(() => "@test/tools") ?? [],
+				...options.userNpmUpdate,
+			}),
 			updateAcquisition: new InMemoryExtensionUpdateAcquisitionGateway(
 				options.installedPackageRoots === undefined
 					? {}
@@ -309,7 +322,7 @@ describe("user extension lifecycle", () => {
 		},
 	] as const)(
 		"retains managed npm bytes when whole-catalog admission rejects an applied $label update",
-		async ({ npmSpec, installedPackageRoots, expectedIntent, expectedOutcome }) => {
+		async ({ npmSpec, installedPackageRoots }) => {
 			const otherSpec = "/work/extensions/other";
 			const content = `extensions = [${JSON.stringify(otherSpec)}, ${JSON.stringify(npmSpec)}]\n`;
 			const config = new InMemoryUserExtensionConfigGateway({ content });
@@ -322,7 +335,18 @@ describe("user extension lifecycle", () => {
 				packageName: "@test/tools",
 				sourceLevel: "user" as const,
 			};
+			const npmModuleRoot =
+				"/home/test/.local/share/ns/extensions/npm/@test/tools/node_modules/@test/tools";
 			const context = contexts(config, {
+				descriptors: [
+					{
+						...descriptor,
+						spec: npmSpec,
+						sourceKind: "npm",
+						moduleRoot: npmModuleRoot,
+						descriptorPath: `${npmModuleRoot}/extension.ts`,
+					},
+				],
 				installedPackageRoots,
 				availabilityFacts: [
 					{
@@ -355,32 +379,29 @@ describe("user extension lifecycle", () => {
 					scope: "user",
 					sourceSpec: npmSpec,
 					diagnostics: [{ ...collisionDiagnostic, code: "extension-package-same-level-conflict" }],
-					sourceAcquisitionCompleted: true,
-					managedBytesRetained: true,
-					acquisitionIntent: expectedIntent,
-					acquisitionOutcome: expectedOutcome,
+					canonicalBytesUnchanged: true,
 				},
 			});
-			expect(context.update.updateAcquisition.operations()).toEqual([
-				{
-					operation: "reconcile",
-					params: {
-						repoRoot: "/home/test/.config/ns",
-						sourceSpec: npmSpec,
-						managedNpmStorage: userManagedNpmStorage("/home/test/.local/share/ns/extensions"),
-					},
-				},
+			expect(context.update.updateAcquisition.operations()).toEqual([]);
+			expect(context.update.userNpmUpdateAcquisition.operations()).toEqual([
+				{ operation: "prepare", sourceSpec: npmSpec },
+				{ operation: "discard", sourceSpec: npmSpec },
 			]);
 			expect(context.update.userExtensionAvailability.calls()).toEqual([
 				{
 					configDir: "/home/test/.config/ns",
 					sourceSpecs: [otherSpec, npmSpec],
+					npmPackageRootOverride: {
+						sourceSpec: npmSpec,
+						packageName: "@test/tools",
+						moduleRoot: npmModuleRoot,
+					},
 				},
 			]);
-			expect(context.update.updateAcquisition.installedRoots()).toContain(
-				"/home/test/.local/share/ns/extensions/npm/@test/tools/node_modules/@test/tools",
+			expect(context.update.updateAcquisition.installedRoots()).toEqual(
+				new Set(installedPackageRoots),
 			);
-			expect(context.update.declaredExtensions.calls()).toEqual([]);
+			expect(context.update.declaredExtensions.calls()).toHaveLength(1);
 			expect(config.fileContent()).toBe(content);
 			expect(config.writes).toEqual([]);
 			expect(context.update.files.operations()).toEqual([]);
@@ -555,13 +576,30 @@ describe("user extension lifecycle", () => {
 		expect(renderInstallExtensionMarkdown(result)).toContain("acquisition: installed");
 	});
 
-	it("reports declaration-first partial npm cleanup and retries absent declarations", async () => {
+	it("applies artifacts before declaration write and reports them on npm cleanup failure", async () => {
 		const npmSpec = "npm:@test/tools";
 		const config = new InMemoryUserExtensionConfigGateway({
 			content: `extensions = [${JSON.stringify(npmSpec)}]\n`,
 		});
+		const completed = {
+			key: "pi:tools",
+			action: "removed" as const,
+			artifactId: "@test/tools:tools",
+			skillName: "tools",
+			harness: "pi" as const,
+			targetArtifactPath: "/home/test/.pi/agent/skills/tools",
+			manifestPath: "/home/test/.pi/agent/skills/.ns-harness-artifacts-manifest.json",
+			writtenFiles: [],
+			conflictingFiles: [],
+			removedFiles: ["/home/test/.pi/agent/skills/tools/SKILL.md"],
+			removalReason: "removed-source" as const,
+		};
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			applyResult: { ok: true, completed: [completed] },
+		});
 		const context = contexts(config, {
 			installedPackageNames: ["@test/tools"],
+			userArtifacts,
 			cleanupFailureByPackageName: {
 				"@test/tools": {
 					code: "extension_acquisition_npm_remove_failed",
@@ -570,11 +608,33 @@ describe("user extension lifecycle", () => {
 				},
 			},
 		});
-		const partial = await uninstallExtension(context.uninstall, {
-			cwd: "/outside",
-			source: npmSpec,
-			scope: "user",
-		});
+		const events: string[] = [];
+		const partial = await uninstallExtension(
+			{
+				...context.uninstall,
+				userArtifacts: {
+					prepare: (params) => userArtifacts.prepare(params),
+					apply: async (prepared) => {
+						events.push("apply-artifacts");
+						return userArtifacts.apply(prepared);
+					},
+				},
+				userExtensionConfig: {
+					read: () => config.read(),
+					compareAndWrite: async (options) => {
+						events.push("write-config");
+						return config.compareAndWrite(options);
+					},
+				},
+				uninstallAcquisition: {
+					removeManagedNpmPackage: async (params) => {
+						events.push("cleanup-npm");
+						return context.uninstall.uninstallAcquisition.removeManagedNpmPackage(params);
+					},
+				},
+			},
+			{ cwd: "/outside", source: npmSpec, scope: "user" },
+		);
 		expect(partial).toMatchObject({
 			status: "failure",
 			errorType: "ns-extension-uninstall-user-managed-package-cleanup-failed",
@@ -582,8 +642,10 @@ describe("user extension lifecycle", () => {
 				declarationAction: "removed",
 				declarationCompleted: true,
 				retainedPath: expect.any(String),
+				completedArtifacts: [completed],
 			},
 		});
+		expect(events).toEqual(["apply-artifacts", "write-config", "cleanup-npm"]);
 		expect(config.fileContent()).toBe("extensions = []\n");
 
 		const retryContext = contexts(config);
@@ -916,13 +978,164 @@ describe("user extension lifecycle", () => {
 			status: "failure",
 			errorType: "ns-extension-update-user-artifact-apply-failed",
 			data: {
-				acquisitionCompleted: true,
 				completedArtifacts: [completed],
 				retryGuidance: expect.stringContaining("extension update --scope user"),
 			},
 		});
 		expect(config.writes).toEqual([]);
 		expect(userArtifacts.applyCalls()).toHaveLength(1);
+	});
+
+	it("stages, promotes, applies candidate artifacts, and commits a User npm update", async () => {
+		const npmSpec = "npm:@test/tools";
+		const candidateModuleRoot = "/candidate/@test/tools";
+		const npmDescriptor: DeclaredExtensionDescriptor = {
+			...descriptor,
+			spec: npmSpec,
+			sourceKind: "npm",
+			moduleRoot: candidateModuleRoot,
+			descriptorPath: `${candidateModuleRoot}/extension.ts`,
+			version: "2.0.0",
+		};
+		const config = new InMemoryUserExtensionConfigGateway({
+			content: `supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(npmSpec)}]\n`,
+		});
+		const context = contexts(config, {
+			descriptors: [npmDescriptor],
+			installedPackageRoots: ["/canonical/@test/tools"],
+			userNpmUpdate: { candidateModuleRootBySpec: { [npmSpec]: candidateModuleRoot } },
+		});
+
+		const result = await updateExtension(context.update, {
+			cwd: "/outside",
+			source: npmSpec,
+			scope: "user",
+			dryRun: false,
+		});
+
+		expect(result).toMatchObject({
+			status: "success",
+			data: { packageVersion: "2.0.0", moduleRoot: candidateModuleRoot },
+		});
+		expect(context.update.userNpmUpdateAcquisition.operations()).toEqual([
+			{ operation: "prepare", sourceSpec: npmSpec },
+			{ operation: "promote", sourceSpec: npmSpec },
+			{ operation: "commit", sourceSpec: npmSpec },
+		]);
+		expect(context.update.userArtifacts.prepareCalls()[0]?.descriptors).toEqual([npmDescriptor]);
+		expect(context.update.userArtifacts.applyCalls()).toHaveLength(1);
+	});
+
+	it.each([
+		["rollback", "ns-extension-update-user-artifact-apply-failed", "failed"],
+		["commit", "ns-extension-update-user-commit-cleanup-failed", undefined],
+	] as const)(
+		"reports staged User npm %s failure and retained operation paths",
+		async (failedOperation, errorType, packageRollback) => {
+			const npmSpec = "npm:@test/tools";
+			const candidateModuleRoot = "/candidate/@test/tools";
+			const npmDescriptor: DeclaredExtensionDescriptor = {
+				...descriptor,
+				spec: npmSpec,
+				sourceKind: "npm",
+				moduleRoot: candidateModuleRoot,
+				descriptorPath: `${candidateModuleRoot}/extension.ts`,
+			};
+			const userArtifacts = new InMemoryUserArtifactActivationGateway({
+				applyResult:
+					failedOperation === "rollback"
+						? {
+								ok: false,
+								error: {
+									code: "filesystem_error",
+									message: "artifact apply failed",
+									details: { path: "/artifact", operation: "write" },
+									completedTransitions: new Map(),
+								},
+								completed: [],
+							}
+						: { ok: true, completed: [] },
+			});
+			const context = contexts(
+				new InMemoryUserExtensionConfigGateway({
+					content: `extensions = [${JSON.stringify(npmSpec)}]\n`,
+				}),
+				{
+					descriptors: [npmDescriptor],
+					userArtifacts,
+					userNpmUpdate: {
+						candidateModuleRootBySpec: { [npmSpec]: candidateModuleRoot },
+						failureByOperation: {
+							[failedOperation]: {
+								code: "extension_acquisition_npm_project_failed",
+								message: `${failedOperation} failed`,
+							},
+						},
+					},
+				},
+			);
+
+			const result = await updateExtension(context.update, {
+				cwd: "/outside",
+				source: npmSpec,
+				scope: "user",
+				dryRun: false,
+			});
+
+			expect(result).toMatchObject({
+				status: "failure",
+				errorType,
+				data: {
+					retainedPaths: expect.any(Array),
+					...(packageRollback === undefined ? {} : { packageRollback }),
+				},
+			});
+		},
+	);
+
+	it("reports candidate discard failure with the primary descriptor failure", async () => {
+		const npmSpec = "npm:@test/tools";
+		const context = contexts(
+			new InMemoryUserExtensionConfigGateway({
+				content: `extensions = [${JSON.stringify(npmSpec)}]\n`,
+			}),
+			{
+				descriptors: [],
+				diagnostics: [
+					{
+						severity: "error",
+						code: "extension-descriptor-package-missing",
+						message: "candidate descriptor missing",
+						spec: npmSpec,
+					},
+				],
+				userNpmUpdate: {
+					failureByOperation: {
+						discard: {
+							code: "extension_acquisition_npm_project_failed",
+							message: "discard failed",
+						},
+					},
+				},
+			},
+		);
+
+		const result = await updateExtension(context.update, {
+			cwd: "/outside",
+			source: npmSpec,
+			scope: "user",
+			dryRun: false,
+		});
+
+		expect(result).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-update-user-candidate-cleanup-failed",
+			data: {
+				primaryFailure: { errorType: "ns-extension-update-user-descriptor-invalid" },
+				cleanupDiagnostics: [{ message: "discard failed" }],
+				retainedPaths: [expect.stringContaining(".updates")],
+			},
+		});
 	});
 
 	it("blocks identifiable uninstall before declaration mutation or apply", async () => {
@@ -1152,6 +1365,67 @@ describe("user extension lifecycle", () => {
 		expect(config.fileContent()).toBe(content);
 	});
 
+	it("retains authority after partial artifact failure and succeeds on a second uninstall", async () => {
+		const content = `extensions = [${JSON.stringify(sourceSpec)}]\n`;
+		const config = new InMemoryUserExtensionConfigGateway({ content });
+		const completed = {
+			key: "pi:tools",
+			action: "removed" as const,
+			artifactId: "@test/tools:tools",
+			skillName: "tools",
+			harness: "pi" as const,
+			targetArtifactPath: "/home/test/.pi/agent/skills/tools",
+			manifestPath: "/home/test/.pi/agent/skills/.ns-harness-artifacts-manifest.json",
+			writtenFiles: [],
+			conflictingFiles: [],
+			removedFiles: ["/home/test/.pi/agent/skills/tools/SKILL.md"],
+			removalReason: "removed-source" as const,
+		};
+		const userArtifacts = new InMemoryUserArtifactActivationGateway({
+			applyResult: {
+				ok: false,
+				error: {
+					code: "filesystem_error",
+					message: "artifact root is busy",
+					details: { path: "/home/test/.pi/skills/tools", operation: "delete" },
+					completedTransitions: new Map(),
+				},
+				completed: [completed],
+			},
+		});
+		const context = contexts(config, { userArtifacts });
+
+		const result = await uninstallExtension(context.uninstall, {
+			cwd: "/work",
+			source: "./extensions/tools",
+			scope: "user",
+		});
+
+		expect(result).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-uninstall-user-artifact-removal-failed",
+			data: { declarationCompleted: false, completedArtifacts: [completed] },
+		});
+		expect(config.fileContent()).toBe(content);
+		expect(config.writes).toEqual([]);
+		expect(userArtifacts.applyCalls()).toHaveLength(1);
+		expect(context.uninstall.uninstallAcquisition.removals()).toEqual([]);
+
+		const retryContext = contexts(config);
+		const retry = await uninstallExtension(retryContext.uninstall, {
+			cwd: "/work",
+			source: "./extensions/tools",
+			scope: "user",
+		});
+		expect(retry).toMatchObject({
+			status: "success",
+			data: { declarationAction: "removed", artifactReconciliation: "performed" },
+		});
+		expect(retryContext.uninstall.declaredExtensions.calls()).toHaveLength(1);
+		expect(retryContext.uninstall.userArtifacts.applyCalls()).toHaveLength(1);
+		expect(config.fileContent()).toBe("extensions = []\n");
+	});
+
 	it("refuses install and uninstall compare-and-write races", async () => {
 		const installConfig = new InMemoryUserExtensionConfigGateway({
 			mutateBeforeWriteTo: "# concurrent install\n",
@@ -1181,8 +1455,14 @@ describe("user extension lifecycle", () => {
 		expect(uninstall).toMatchObject({
 			status: "failure",
 			errorType: "ns-extension-uninstall-user-config-write-failed",
-			data: { scope: "user", error: { code: "user-config-prepared-state-mismatch" } },
+			data: {
+				scope: "user",
+				declarationCompleted: false,
+				completedArtifacts: [],
+				error: { code: "user-config-prepared-state-mismatch" },
+			},
 		});
+		expect(uninstallContext.uninstall.userArtifacts.applyCalls()).toHaveLength(1);
 		expect(uninstallConfig.fileContent()).toBe("# concurrent uninstall\n");
 		expect(uninstallContext.uninstall.files.operations()).toEqual([]);
 		expect(uninstallContext.uninstall.artifacts.prepareCalls()).toEqual([]);

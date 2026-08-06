@@ -106,7 +106,7 @@ the extension in the repository and reconciles its declared activation metadata.
 `--scope user` (`-s`) for machine-wide declarations whose contributions are gated by an
 explicit Active harness — the invocation's `NS_HARNESS` must name a canonical harness
 (`claude-code`, `codex`, `pi`) listed in the user config's top-level `supported_harnesses`
-array, or every user contribution stays hidden fail-closed (ADR 0055):
+array, or every user contribution stays hidden fail-closed (ADR 0056):
 
 ```bash
 ns extension install npm:@acme/my-extension --scope user
@@ -138,12 +138,15 @@ loading, admission, or config mutation fails. List retains rejected declarations
 `unavailable`; update refuses unavailable packages; uninstall remains available for recovery.
 
 An unversioned `npm:<name>` declaration floats and refreshes on explicit update. A pinned
-`npm:<name>@<version>` update only ensures/restores the declared version. Repeating an
-install ensures missing bytes but does not refresh an existing floating package. npm
-uninstall removes only the package's lifecycle-owned private project (and an empty npm
-scope directory); local source bytes and sibling packages are preserved. If declaration
-removal succeeds but cleanup fails, command availability is already removed and rerunning
-uninstall retries cleanup.
+`npm:<name>@<version>` update only ensures/restores the declared version. User npm updates
+stage candidate bytes separately, then load the descriptor, check admission, and preflight
+bundled artifacts before package-specific canonical promotion. The previous package remains
+available for rollback until artifact apply succeeds. Repeating an install ensures missing
+bytes but does not refresh an existing floating package. Identifiable uninstall applies
+targeted bundled-artifact removals before its guarded declaration removal, preserving the
+declaration as retry authority; lifecycle-owned npm cleanup remains last. npm uninstall
+removes only the package's lifecycle-owned private project (and an empty npm scope
+directory); local source bytes and sibling packages are preserved.
 
 User scope never performs Project activation or writes extension contributions into a
 repository. Repository-specific instructions, consumer directories, point installations,

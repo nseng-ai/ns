@@ -14,6 +14,7 @@ import {
 	RealExtensionInstallAcquisitionGateway,
 	RealExtensionUninstallAcquisitionGateway,
 	RealExtensionUpdateAcquisitionGateway,
+	RealUserNpmUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";
 import type { ExtensionInstallContext } from "../install-extension.ts";
 import type { ExtensionListContext } from "../list-extensions.ts";
@@ -64,6 +65,7 @@ export function createNsInitContext(
 		installAcquisition: new RealExtensionInstallAcquisitionGateway(acquisition),
 		uninstallAcquisition: new RealExtensionUninstallAcquisitionGateway(acquisition),
 		updateAcquisition: new RealExtensionUpdateAcquisitionGateway(acquisition),
+		userNpmUpdateAcquisition: new RealUserNpmUpdateAcquisitionGateway(acquisition),
 		files: new RealActivationFilesGateway(),
 		declaredExtensions: new RealDeclaredExtensionsGateway(),
 		userExtensionAvailability: new RealUserExtensionAvailabilityGateway(

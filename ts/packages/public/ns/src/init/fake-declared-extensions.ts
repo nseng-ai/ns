@@ -37,20 +37,23 @@ export interface InMemoryUserExtensionAvailabilityState {
 
 export class InMemoryUserExtensionAvailabilityGateway implements UserExtensionAvailabilityGateway {
 	private readonly facts: readonly UserExtensionPackageAvailabilityFact[];
-	private readonly evaluateLog: {
-		readonly configDir: string;
-		readonly sourceSpecs: readonly string[];
-	}[] = [];
+	private readonly evaluateLog: Array<Parameters<UserExtensionAvailabilityGateway["evaluate"]>[0]> =
+		[];
 
 	constructor(state: InMemoryUserExtensionAvailabilityState = {}) {
 		this.facts = structuredClone(state.facts ?? []);
 	}
 
-	async evaluate(params: {
-		readonly configDir: string;
-		readonly sourceSpecs: readonly string[];
-	}): Promise<readonly UserExtensionPackageAvailabilityFact[]> {
-		this.evaluateLog.push({ configDir: params.configDir, sourceSpecs: [...params.sourceSpecs] });
+	async evaluate(
+		params: Parameters<UserExtensionAvailabilityGateway["evaluate"]>[0],
+	): Promise<readonly UserExtensionPackageAvailabilityFact[]> {
+		this.evaluateLog.push({
+			configDir: params.configDir,
+			sourceSpecs: [...params.sourceSpecs],
+			...(params.npmPackageRootOverride === undefined
+				? {}
+				: { npmPackageRootOverride: { ...params.npmPackageRootOverride } }),
+		});
 		return params.sourceSpecs.map((sourceSpec) =>
 			structuredClone(
 				this.facts.find((fact) => fact.sourceSpec === sourceSpec) ?? {
@@ -62,7 +65,7 @@ export class InMemoryUserExtensionAvailabilityGateway implements UserExtensionAv
 		);
 	}
 
-	calls(): readonly { readonly configDir: string; readonly sourceSpecs: readonly string[] }[] {
+	calls(): readonly Parameters<UserExtensionAvailabilityGateway["evaluate"]>[0][] {
 		return structuredClone(this.evaluateLog);
 	}
 }

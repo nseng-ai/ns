@@ -22,11 +22,13 @@ export type {
 	InMemoryExtensionInstallAcquisitionState,
 	InMemoryExtensionUninstallAcquisitionState,
 	InMemoryExtensionUpdateAcquisitionState,
+	InMemoryUserNpmUpdateAcquisitionState,
 } from "../extension-acquisition.ts";
 export {
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
+	InMemoryUserNpmUpdateAcquisitionGateway,
 } from "../extension-acquisition.ts";
 export type { LifecycleTraceSink } from "../lifecycle-observability.ts";
 

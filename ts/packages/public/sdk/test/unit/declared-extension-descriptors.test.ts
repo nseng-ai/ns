@@ -204,7 +204,8 @@ describe("declared extension descriptors", () => {
 		]);
 	});
 
-	test("uses a caller-supplied npm package-root resolver", async () => {
+	test("passes exact source identity to a caller-supplied npm package-root resolver", async () => {
+		const resolutions: Array<{ packageName: string; sourceSpec: string }> = [];
 		const gateway = new FakeDeclaredExtensionDescriptorGateway([
 			{
 				root: "/user-managed/@acme/tools",
@@ -220,10 +221,14 @@ describe("declared extension descriptors", () => {
 		const result = await loadDeclaredExtensionDescriptors({
 			repoRoot: "/repo",
 			specs: ["npm:@acme/tools"],
-			resolveNpmPackageRoot: (packageName) => `/user-managed/${packageName}`,
+			resolveNpmPackageRoot: (packageName, sourceSpec) => {
+				resolutions.push({ packageName, sourceSpec });
+				return `/user-managed/${packageName}`;
+			},
 			gateway,
 		});
 
+		expect(resolutions).toEqual([{ packageName: "@acme/tools", sourceSpec: "npm:@acme/tools" }]);
 		expect(result.descriptors).toMatchObject([
 			{
 				moduleRoot: "/user-managed/@acme/tools",

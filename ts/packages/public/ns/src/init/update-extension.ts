@@ -34,8 +34,10 @@ import {
 import type { NsActivationContext } from "./activation-context.ts";
 import type {
 	ExtensionUpdateAcquisitionGateway,
+	PreparedUserNpmUpdate,
 	PreviewExtensionUpdateSourceResult,
 	ReconcileExtensionUpdateSourceResult,
+	UserNpmUpdateAcquisitionGateway,
 } from "./extension-acquisition.ts";
 import {
 	extensionLifecycleFailure,
@@ -56,6 +58,7 @@ import {
 export interface ExtensionUpdateContext
 	extends NsActivationContext, UserExtensionLifecycleContext, UserExtensionAvailabilityContext {
 	readonly updateAcquisition: ExtensionUpdateAcquisitionGateway;
+	readonly userNpmUpdateAcquisition: UserNpmUpdateAcquisitionGateway;
 }
 
 export const updateExtensionRequestSchema = z.object({
@@ -409,26 +412,21 @@ async function updateUserExtension(
 			sourceSpec: target.matchedSpec,
 			managedNpmStorage: context.userManagedNpmStorage.storage,
 		};
-		const acquisition = request.dryRun
-			? await context.updateAcquisition.preview(params)
-			: await context.updateAcquisition.reconcile(params);
-		if (acquisition.type === "failed")
-			return failure(
-				"ns-extension-update-user-acquisition-failed",
-				acquisition.diagnostics[0]?.message ?? `Could not update ${target.matchedSpec}.`,
-				{
-					scope: "user",
-					diagnostics: normalizeExtensionDiagnostics(acquisition.diagnostics),
-				},
-			);
 		if (request.dryRun) {
+			const preview = await context.updateAcquisition.preview(params);
+			if (preview.type === "failed")
+				return failure(
+					"ns-extension-update-user-acquisition-failed",
+					preview.diagnostics[0]?.message ?? `Could not update ${target.matchedSpec}.`,
+					{ scope: "user", diagnostics: normalizeExtensionDiagnostics(preview.diagnostics) },
+				);
 			return ok({
 				scope: "user",
 				sourceSpec: target.matchedSpec,
 				sourceKind: "npm",
 				mode: "dry-run",
 				configPath: prepared.configPath,
-				acquisitionIntent: acquisition.intent,
+				acquisitionIntent: preview.intent,
 				acquisitionOutcome: "planned",
 				commandAvailability,
 				userExtensionLayer,
@@ -439,41 +437,102 @@ async function updateUserExtension(
 				artifactEffects: "deferred",
 			});
 		}
-		if (acquisition.type !== "applied") throw new Error("Applied update returned preview state.");
+		const staged = await context.userNpmUpdateAcquisition.prepare(params);
+		if (staged.type === "failed")
+			return failure(
+				"ns-extension-update-user-acquisition-failed",
+				staged.diagnostics[0]?.message ?? `Could not stage ${target.matchedSpec}.`,
+				{
+					scope: "user",
+					diagnostics: normalizeExtensionDiagnostics(staged.diagnostics),
+					retainedPaths: [...staged.retainedPaths],
+				},
+			);
+		const candidate = staged.prepared;
+		const loaded = await loadOneUserDescriptor<UpdateExtensionResult>({
+			context,
+			configDir: prepared.configDir,
+			sourceSpec: target.matchedSpec,
+			operation: "update",
+			npmModuleRootOverride: candidate.candidateModuleRoot,
+		});
+		if (!loaded.ok) return discardUserNpmCandidate(context, candidate, loaded.exit);
 		const availability = await context.userExtensionAvailability.evaluate({
 			configDir: prepared.configDir,
 			sourceSpecs: configuredSourceSpecs,
+			npmPackageRootOverride: {
+				sourceSpec: target.matchedSpec,
+				packageName: candidate.packageName,
+				moduleRoot: candidate.candidateModuleRoot,
+			},
 		});
 		const targetAvailability = availability.find((fact) => fact.sourceSpec === target.matchedSpec);
-		if (targetAvailability?.availability !== "available")
-			return failure(
+		if (targetAvailability?.availability !== "available") {
+			const primary: CommandOutcome<UpdateExtensionResult> = failure(
 				"ns-extension-update-user-package-unavailable",
 				`User extension package is not fully available: ${target.matchedSpec}.`,
 				{
 					scope: "user",
 					sourceSpec: target.matchedSpec,
 					diagnostics: normalizeExtensionDiagnostics(targetAvailability?.diagnostics ?? []),
-					sourceAcquisitionCompleted: true,
-					managedBytesRetained: true,
-					acquisitionIntent: acquisition.intent,
-					acquisitionOutcome: acquisition.outcome,
+					canonicalBytesUnchanged: true,
 				},
 			);
-		const loaded = await loadOneUserDescriptor<UpdateExtensionResult>({
-			context,
-			configDir: prepared.configDir,
-			sourceSpec: target.matchedSpec,
-			operation: "update",
-		});
-		if (!loaded.ok) return loaded.exit;
-		const artifacts = await reconcileUserUpdateArtifacts({
+			return discardUserNpmCandidate(context, candidate, primary);
+		}
+		const artifactPreparation = await prepareUserUpdateArtifacts({
 			context,
 			request,
 			descriptor: loaded.descriptor,
 			supportedHarnesses,
-			acquisitionOutcome: acquisition.outcome,
+			acquisitionOutcome: candidate.outcome,
 		});
-		if ("exit" in artifacts) return artifacts.exit;
+		if ("exit" in artifactPreparation)
+			return discardUserNpmCandidate(context, candidate, artifactPreparation.exit);
+		const promoted = await context.userNpmUpdateAcquisition.promote(candidate);
+		if (promoted.type === "failed")
+			return failure(
+				"ns-extension-update-user-promotion-failed",
+				promoted.diagnostics[0]?.message ?? `Could not promote ${target.matchedSpec}.`,
+				{
+					scope: "user",
+					diagnostics: normalizeExtensionDiagnostics(promoted.diagnostics),
+					retainedPaths: [...promoted.retainedPaths],
+				},
+			);
+		const applied = await context.userArtifacts.apply(artifactPreparation.prepared.prepared);
+		if (!applied.ok) {
+			const rollback = await context.userNpmUpdateAcquisition.settle(promoted.promoted, "rollback");
+			return failure("ns-extension-update-user-artifact-apply-failed", applied.error.message, {
+				scope: "user",
+				acquisitionOutcome: candidate.outcome,
+				completedArtifacts: completedUserArtifactEvidence(applied.completed),
+				diagnostics: [normalizeExtensionDiagnostic(applied.error)],
+				packageRollback: rollback.type === "settled" ? "completed" : "failed",
+				...(rollback.type === "failed"
+					? {
+							rollbackDiagnostics: normalizeExtensionDiagnostics(rollback.diagnostics),
+							retainedPaths: [...rollback.retainedPaths],
+						}
+					: {}),
+				retryGuidance: `Canonical package bytes were ${rollback.type === "settled" ? "restored" : "not fully restored"}; completed Harness artifact transitions were not rolled back. Re-run ns extension update --scope user ${request.source} to reconcile them idempotently.`,
+			});
+		}
+		const committed = await context.userNpmUpdateAcquisition.settle(promoted.promoted, "commit");
+		if (committed.type === "failed")
+			return failure(
+				"ns-extension-update-user-commit-cleanup-failed",
+				committed.diagnostics[0]?.message ?? "User npm update completed but cleanup failed.",
+				{
+					scope: "user",
+					packagePromotionCompleted: true,
+					completedArtifacts: completedUserArtifactEvidence(applied.completed),
+					diagnostics: normalizeExtensionDiagnostics(committed.diagnostics),
+					retainedPaths: [...committed.retainedPaths],
+					retryGuidance:
+						"The promoted package and artifacts are active. Retry update or remove only the reported operation residue after inspection.",
+				},
+			);
 		return ok({
 			scope: "user",
 			sourceSpec: target.matchedSpec,
@@ -485,14 +544,14 @@ async function updateUserExtension(
 			moduleRoot: loaded.descriptor.moduleRoot,
 			commandAvailability,
 			userExtensionLayer,
-			acquisitionIntent: acquisition.intent,
-			acquisitionOutcome: acquisition.outcome,
+			acquisitionIntent: candidate.intent,
+			acquisitionOutcome: candidate.outcome,
 			activation: "not-performed",
 			configWrite: "not-performed",
 			supportedHarnessesState: supportedHarnesses.type,
 			configuredHarnesses: [...supportedHarnesses.harnesses],
 			artifactEffects: "available",
-			artifacts: artifacts.completed,
+			artifacts: completedUserArtifactEvidence(applied.completed),
 		});
 	}
 	const availability = await context.userExtensionAvailability.evaluate({
@@ -577,15 +636,32 @@ async function updateUserExtension(
 	});
 }
 
+async function discardUserNpmCandidate(
+	context: ExtensionUpdateContext,
+	candidate: PreparedUserNpmUpdate,
+	primary: CommandOutcome<UpdateExtensionResult>,
+): Promise<CommandOutcome<UpdateExtensionResult>> {
+	const discarded = await context.userNpmUpdateAcquisition.discard(candidate);
+	if (discarded.type === "settled") return primary;
+	return failure(
+		"ns-extension-update-user-candidate-cleanup-failed",
+		discarded.diagnostics[0]?.message ?? "User npm update candidate cleanup failed.",
+		{
+			scope: "user",
+			primaryFailure: primary,
+			cleanupDiagnostics: normalizeExtensionDiagnostics(discarded.diagnostics),
+			retainedPaths: [...discarded.retainedPaths],
+		},
+	);
+}
+
 interface UserUpdateArtifactSuccess {
 	readonly completed: readonly z.infer<typeof declaredArtifactActivationOutcomeSchema>[];
 }
 
 /**
- * Reconcile the updated extension's bundled artifacts across the configured
- * harness set. Failures report whether acquisition already advanced so callers
- * can distinguish stale bytes from stale artifacts; no rollback is claimed
- * because none is performed.
+ * Prepare the candidate extension's bundled artifacts across the configured
+ * harness set. Callers decide whether candidate package promotion has occurred.
  */
 async function prepareUserUpdateArtifacts(options: {
 	readonly context: ExtensionUpdateContext;
@@ -614,7 +690,7 @@ async function prepareUserUpdateArtifacts(options: {
 			exit: failure("ns-extension-update-user-artifact-preflight-failed", prepared.error.message, {
 				scope: "user",
 				acquisitionOutcome: options.acquisitionOutcome,
-				acquisitionCompleted: options.acquisitionOutcome !== "planned",
+				packagePromotionCompleted: false,
 				diagnostics: [normalizeExtensionDiagnostic(prepared.error)],
 			}),
 		};
@@ -627,7 +703,7 @@ async function prepareUserUpdateArtifacts(options: {
 				{
 					scope: "user",
 					acquisitionOutcome: options.acquisitionOutcome,
-					acquisitionCompleted: options.acquisitionOutcome !== "planned",
+					packagePromotionCompleted: false,
 					diagnostics: blockers,
 				},
 			),

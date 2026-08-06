@@ -359,6 +359,20 @@ async function uninstallUserExtension(
 				},
 			);
 	}
+	let artifacts: readonly z.infer<typeof declaredArtifactActivationOutcomeSchema>[] = [];
+	if (preparedArtifactRemoval?.ok === true) {
+		const applied = await context.userArtifacts.apply(preparedArtifactRemoval.prepared);
+		if (!applied.ok)
+			return failure("ns-extension-uninstall-user-artifact-removal-failed", applied.error.message, {
+				scope: "user",
+				declarationAction: "removed",
+				declarationCompleted: false,
+				completedArtifacts: completedUserArtifactEvidence(applied.completed),
+				diagnostics: [normalizeExtensionDiagnostic(applied.error)],
+				retryGuidance: `The User declaration was retained. Re-run ns extension uninstall --scope user ${source.sourceSpec} to reconcile the remaining artifact transitions and retry declaration removal.`,
+			});
+		artifacts = completedUserArtifactEvidence(applied.completed);
+	}
 	if (declaration.isRemoved) {
 		const written = await context.userExtensionConfig.compareAndWrite({
 			expected: prepared.expected,
@@ -367,22 +381,11 @@ async function uninstallUserExtension(
 		if (!written.ok)
 			return failure("ns-extension-uninstall-user-config-write-failed", written.error.message, {
 				scope: "user",
+				declarationCompleted: false,
+				completedArtifacts: artifacts,
 				error: written.error,
+				retryGuidance: `The User declaration was retained. Re-run ns extension uninstall --scope user ${source.sourceSpec}; already removed artifacts will reconcile idempotently before declaration removal is retried.`,
 			});
-	}
-	let artifacts: readonly z.infer<typeof declaredArtifactActivationOutcomeSchema>[] = [];
-	if (preparedArtifactRemoval?.ok === true) {
-		const applied = await context.userArtifacts.apply(preparedArtifactRemoval.prepared);
-		if (!applied.ok)
-			return failure("ns-extension-uninstall-user-artifact-removal-failed", applied.error.message, {
-				scope: "user",
-				declarationAction: "removed",
-				declarationCompleted: true,
-				completedArtifacts: completedUserArtifactEvidence(applied.completed),
-				diagnostics: [normalizeExtensionDiagnostic(applied.error)],
-				retryGuidance: `Re-run ns extension uninstall --scope user ${source.sourceSpec} to retry the remaining artifact transitions.`,
-			});
-		artifacts = completedUserArtifactEvidence(applied.completed);
 	}
 	let cleanup: { status: "removed" | "already-absent" | "not-applicable"; path?: string } = {
 		status: "not-applicable",
@@ -407,6 +410,7 @@ async function uninstallUserExtension(
 					declarationAction: declaration.isRemoved ? "removed" : "already-absent",
 					declarationCompleted: true,
 					retainedPath: removed.error.path ?? managedPath,
+					completedArtifacts: artifacts,
 					diagnostic: normalizeExtensionDiagnostic(removed.error),
 				},
 			);

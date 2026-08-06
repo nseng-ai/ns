@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { lstat, mkdir, rename, rm } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	gitExtensionSourceUnsupportedMessage,
@@ -226,6 +230,364 @@ export class RealExtensionUpdateAcquisitionGateway implements ExtensionUpdateAcq
 			outcome: root.wasInstalled ? "refreshed" : "restored",
 		};
 	}
+}
+
+export interface PrepareUserNpmUpdateParams extends EnsureExtensionSourceParams {
+	readonly managedNpmStorage: ManagedNpmStorage;
+}
+
+export interface PreparedUserNpmUpdate {
+	readonly storage: ManagedNpmStorage;
+	readonly operationId: string;
+	readonly packageName: string;
+	readonly sourceSpec: string;
+	readonly intent: "ensure-pinned" | "refresh-floating";
+	readonly outcome: "restored" | "refreshed" | "unchanged";
+	readonly candidateModuleRoot: string;
+	readonly candidateProjectRoot: string;
+	readonly operationRoot: string;
+	readonly canonicalProjectRoot: string;
+	readonly backupProjectRoot: string;
+	readonly canonicalExisted: boolean;
+}
+
+export type PromotedUserNpmUpdate = PreparedUserNpmUpdate;
+
+export interface UserNpmUpdateFailure {
+	readonly type: "failed";
+	readonly diagnostics: readonly ExtensionAcquisitionDiagnostic[];
+	readonly retainedPaths: readonly string[];
+}
+
+export type PrepareUserNpmUpdateResult =
+	| { readonly type: "prepared"; readonly prepared: PreparedUserNpmUpdate }
+	| UserNpmUpdateFailure;
+export type PromoteUserNpmUpdateResult =
+	| { readonly type: "promoted"; readonly promoted: PromotedUserNpmUpdate }
+	| UserNpmUpdateFailure;
+export type SettleUserNpmUpdateResult = { readonly type: "settled" } | UserNpmUpdateFailure;
+
+/** Consumer Gateway for the package-specific staged lifecycle of a User npm update. */
+export interface UserNpmUpdateAcquisitionGateway {
+	prepare(params: PrepareUserNpmUpdateParams): Promise<PrepareUserNpmUpdateResult>;
+	promote(prepared: PreparedUserNpmUpdate): Promise<PromoteUserNpmUpdateResult>;
+	settle(
+		promoted: PromotedUserNpmUpdate,
+		disposition: "commit" | "rollback",
+	): Promise<SettleUserNpmUpdateResult>;
+	discard(prepared: PreparedUserNpmUpdate): Promise<SettleUserNpmUpdateResult>;
+}
+
+export class RealUserNpmUpdateAcquisitionGateway implements UserNpmUpdateAcquisitionGateway {
+	private readonly acquisition: ExtensionAcquisitionGateway;
+
+	constructor(acquisition: ExtensionAcquisitionGateway) {
+		this.acquisition = acquisition;
+	}
+
+	async prepare(params: PrepareUserNpmUpdateParams): Promise<PrepareUserNpmUpdateResult> {
+		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
+		if (!parsed.ok || parsed.value.kind !== "npm") {
+			return {
+				type: "failed",
+				diagnostics: parsed.ok ? [] : [{ ...parsed.error }],
+				retainedPaths: [],
+			};
+		}
+		const operationId = randomUUID();
+		const packageSegments = parsed.value.packageName.split("/");
+		const updatesRoot = join(params.managedNpmStorage.npmRoot, ".updates");
+		const packageOperationsRoot = join(updatesRoot, ...packageSegments);
+		const operationRoot = join(packageOperationsRoot, operationId);
+		const candidateNpmRoot = join(operationRoot, "candidate");
+		const stagingStorage: ManagedNpmStorage = {
+			npmRoot: candidateNpmRoot,
+			trustedAncestors: [
+				...params.managedNpmStorage.trustedAncestors,
+				updatesRoot,
+				...(packageSegments.length === 2 ? [join(updatesRoot, packageSegments[0] ?? "")] : []),
+				packageOperationsRoot,
+				operationRoot,
+				candidateNpmRoot,
+			],
+		};
+		const canonicalPaths = managedNpmPackagePaths(
+			params.managedNpmStorage,
+			parsed.value.packageName,
+		);
+		const canonicalPresent = await this.acquisition.isManagedNpmProjectPresent({
+			storage: params.managedNpmStorage,
+			packageName: parsed.value.packageName,
+		});
+		if (!canonicalPresent.ok) {
+			return { type: "failed", diagnostics: [canonicalPresent.error], retainedPaths: [] };
+		}
+		const candidate = await resolveDeclaredExtensionModules({
+			projectRoot: params.repoRoot,
+			managedNpmStorage: stagingStorage,
+			declaredSpecs: [params.sourceSpec],
+			mode: "apply",
+			npmAcquisition: "refresh-floating",
+			gateway: this.acquisition,
+		});
+		const root = candidate.roots[0];
+		if (root === undefined || root.sourceKind !== "npm" || candidate.diagnostics.length > 0) {
+			try {
+				await validateDirectoryChain([
+					...stagingStorage.trustedAncestors.slice(0, -1),
+					operationRoot,
+				]);
+				await rm(operationRoot, { recursive: true });
+				return { type: "failed", diagnostics: candidate.diagnostics, retainedPaths: [] };
+			} catch (error) {
+				return {
+					type: "failed",
+					diagnostics: [
+						...candidate.diagnostics,
+						updateDiagnostic(
+							"discard candidate after preparation failure",
+							params.sourceSpec,
+							operationRoot,
+							error,
+						),
+					],
+					retainedPaths: [operationRoot],
+				};
+			}
+		}
+		const candidatePaths = managedNpmPackagePaths(stagingStorage, parsed.value.packageName);
+		return {
+			type: "prepared",
+			prepared: {
+				storage: copyManagedNpmStorage(params.managedNpmStorage),
+				operationId,
+				packageName: parsed.value.packageName,
+				sourceSpec: params.sourceSpec,
+				intent: parsed.value.isPinned ? "ensure-pinned" : "refresh-floating",
+				outcome: canonicalPresent.value
+					? parsed.value.isPinned
+						? "unchanged"
+						: "refreshed"
+					: "restored",
+				candidateModuleRoot: root.moduleRoot,
+				candidateProjectRoot: candidatePaths.npmProjectRoot,
+				operationRoot,
+				canonicalProjectRoot: canonicalPaths.npmProjectRoot,
+				backupProjectRoot: join(operationRoot, "backup"),
+				canonicalExisted: canonicalPresent.value,
+			},
+		};
+	}
+
+	async promote(prepared: PreparedUserNpmUpdate): Promise<PromoteUserNpmUpdateResult> {
+		try {
+			await validatePreparedUpdate(prepared);
+			const state = await classifyPreparedUpdate(prepared);
+			if (state === "promoted") return { type: "promoted", promoted: copyPreparedUpdate(prepared) };
+			if (state === "ready") {
+				if (prepared.canonicalExisted)
+					await rename(prepared.canonicalProjectRoot, prepared.backupProjectRoot);
+				else await mkdir(dirname(prepared.canonicalProjectRoot), { recursive: true });
+			} else if (state !== "backup-retained") {
+				throw new Error(`Cannot promote staged User npm update from ${state} state.`);
+			}
+			await rename(prepared.candidateProjectRoot, prepared.canonicalProjectRoot);
+			return { type: "promoted", promoted: copyPreparedUpdate(prepared) };
+		} catch (error) {
+			return updateOperationFailure("promote", prepared, error);
+		}
+	}
+
+	async settle(
+		promoted: PromotedUserNpmUpdate,
+		disposition: "commit" | "rollback",
+	): Promise<SettleUserNpmUpdateResult> {
+		try {
+			await validatePreparedUpdate(promoted);
+			const state = await classifyPreparedUpdate(promoted);
+			const rollbackAlreadyRestored =
+				disposition === "rollback" &&
+				(state === "rollback-restored" || state === "rollback-retained");
+			if (state !== "promoted" && !rollbackAlreadyRestored)
+				throw new Error(`Cannot ${disposition} staged User npm update from ${state} state.`);
+			if (disposition === "rollback" && !rollbackAlreadyRestored) {
+				const promotedResidue = join(promoted.operationRoot, "promoted");
+				await rename(promoted.canonicalProjectRoot, promotedResidue);
+				if (promoted.canonicalExisted) {
+					try {
+						await rename(promoted.backupProjectRoot, promoted.canonicalProjectRoot);
+					} catch (error) {
+						await rename(promotedResidue, promoted.canonicalProjectRoot).catch(() => undefined);
+						throw error;
+					}
+				}
+			}
+			await rm(promoted.operationRoot, { recursive: true });
+			return { type: "settled" };
+		} catch (error) {
+			return updateOperationFailure(disposition, promoted, error);
+		}
+	}
+
+	async discard(prepared: PreparedUserNpmUpdate): Promise<SettleUserNpmUpdateResult> {
+		try {
+			await validatePreparedUpdate(prepared);
+			const state = await classifyPreparedUpdate(prepared);
+			if (state !== "ready")
+				throw new Error(`Cannot discard staged User npm update from ${state} state.`);
+			await rm(prepared.operationRoot, { recursive: true });
+			return { type: "settled" };
+		} catch (error) {
+			return updateOperationFailure("discard", prepared, error);
+		}
+	}
+}
+
+type PreparedUpdateState =
+	| "ready"
+	| "backup-retained"
+	| "promoted"
+	| "rollback-restored"
+	| "rollback-retained"
+	| "missing"
+	| "inconsistent";
+
+async function validatePreparedUpdate(prepared: PreparedUserNpmUpdate): Promise<void> {
+	const parsedSource = parseExtensionSourceSpec(prepared.storage.npmRoot, prepared.sourceSpec);
+	if (
+		!parsedSource.ok ||
+		parsedSource.value.kind !== "npm" ||
+		parsedSource.value.packageName !== prepared.packageName
+	)
+		throw new Error("Staged User npm update source does not match its package identity.");
+	const canonical = managedNpmPackagePaths(prepared.storage, prepared.packageName).npmProjectRoot;
+	const packageSegments = prepared.packageName.split("/");
+	const packageOperationsRoot = join(prepared.storage.npmRoot, ".updates", ...packageSegments);
+	const expectedOperationRoot = join(packageOperationsRoot, prepared.operationId);
+	const candidateStorage: ManagedNpmStorage = {
+		npmRoot: join(expectedOperationRoot, "candidate"),
+		trustedAncestors: [],
+	};
+	const candidatePaths = managedNpmPackagePaths(candidateStorage, prepared.packageName);
+	if (
+		!isCanonicalAbsolutePath(prepared.storage.npmRoot) ||
+		prepared.operationId.length === 0 ||
+		join(prepared.operationId) !== prepared.operationId ||
+		!isStrictlyBelow(packageOperationsRoot, expectedOperationRoot) ||
+		prepared.canonicalProjectRoot !== canonical ||
+		prepared.operationRoot !== expectedOperationRoot ||
+		prepared.backupProjectRoot !== join(expectedOperationRoot, "backup") ||
+		prepared.candidateProjectRoot !== candidatePaths.npmProjectRoot ||
+		prepared.candidateModuleRoot !== candidatePaths.packageRoot
+	)
+		throw new Error(
+			"Staged User npm update paths do not match their package-specific operation identity.",
+		);
+	await validateDirectoryChain([
+		...prepared.storage.trustedAncestors,
+		join(prepared.storage.npmRoot, ".updates"),
+		...(packageSegments.length === 2
+			? [join(prepared.storage.npmRoot, ".updates", packageSegments[0] ?? "")]
+			: []),
+		join(prepared.storage.npmRoot, ".updates", ...packageSegments),
+		prepared.operationRoot,
+	]);
+}
+
+async function classifyPreparedUpdate(
+	prepared: PreparedUserNpmUpdate,
+): Promise<PreparedUpdateState> {
+	const [candidate, canonical, backup, promotedResidue] = await Promise.all([
+		directoryPresence(prepared.candidateProjectRoot),
+		directoryPresence(prepared.canonicalProjectRoot),
+		directoryPresence(prepared.backupProjectRoot),
+		directoryPresence(join(prepared.operationRoot, "promoted")),
+	]);
+	if (candidate && canonical === prepared.canonicalExisted && !backup && !promotedResidue)
+		return "ready";
+	if (prepared.canonicalExisted && candidate && !canonical && backup && !promotedResidue)
+		return "backup-retained";
+	if (!candidate && canonical && backup === prepared.canonicalExisted && !promotedResidue)
+		return "promoted";
+	if (prepared.canonicalExisted && !candidate && canonical && !backup && promotedResidue)
+		return "rollback-restored";
+	if (!prepared.canonicalExisted && !candidate && !canonical && !backup && promotedResidue)
+		return "rollback-retained";
+	if (!candidate && !canonical && !backup && !promotedResidue) return "missing";
+	return "inconsistent";
+}
+
+async function directoryPresence(path: string): Promise<boolean> {
+	try {
+		const entry = await lstat(path);
+		if (entry.isSymbolicLink() || !entry.isDirectory())
+			throw new Error(`Unsafe User npm update path: ${path}.`);
+		return true;
+	} catch (error) {
+		if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
+		throw error;
+	}
+}
+
+async function validateDirectoryChain(paths: readonly string[]): Promise<void> {
+	for (const path of paths) {
+		if (!(await directoryPresence(path)))
+			throw new Error(`Missing trusted User npm update ancestor: ${path}.`);
+	}
+}
+
+function isCanonicalAbsolutePath(path: string): boolean {
+	return isAbsolute(path) && resolve(path) === path;
+}
+
+function isStrictlyBelow(parent: string, child: string): boolean {
+	const childRelative = relative(parent, child);
+	return (
+		childRelative !== "" &&
+		childRelative !== ".." &&
+		!childRelative.startsWith(`..${sep}`) &&
+		!isAbsolute(childRelative)
+	);
+}
+
+function copyPreparedUpdate(prepared: PreparedUserNpmUpdate): PreparedUserNpmUpdate {
+	return { ...prepared, storage: copyManagedNpmStorage(prepared.storage) };
+}
+
+function updateDiagnostic(
+	operation: string,
+	sourceSpec: string,
+	path: string,
+	error: unknown,
+): ExtensionAcquisitionDiagnostic {
+	return {
+		code: "extension_acquisition_npm_project_failed",
+		message: `Could not ${operation} for ${sourceSpec}: ${error instanceof Error ? error.message : String(error)}`,
+		path,
+	};
+}
+
+function updateOperationFailure(
+	operation: string,
+	prepared: PreparedUserNpmUpdate,
+	error: unknown,
+): UserNpmUpdateFailure {
+	const message = error instanceof Error ? error.message : String(error);
+	return {
+		type: "failed",
+		diagnostics: [
+			{
+				code: "extension_acquisition_npm_project_failed",
+				message: `Could not ${operation} staged User npm update for ${prepared.sourceSpec}: ${message}`,
+				path: prepared.operationRoot,
+			},
+		],
+		retainedPaths: [
+			prepared.operationRoot,
+			prepared.canonicalProjectRoot,
+			prepared.backupProjectRoot,
+		],
+	};
 }
 
 export interface RemoveManagedNpmExtensionParams {
@@ -463,6 +825,133 @@ export class InMemoryExtensionUpdateAcquisitionGateway implements ExtensionUpdat
 			operation: entry.operation,
 			params: { ...entry.params },
 		}));
+	}
+}
+
+export interface InMemoryUserNpmUpdateAcquisitionState {
+	readonly candidateModuleRootBySpec?: Readonly<Record<string, string>>;
+	readonly existingCanonicalPackageNames?: readonly string[];
+	readonly failureByOperation?: Readonly<
+		Partial<
+			Record<
+				"prepare" | "promote" | "commit" | "rollback" | "discard",
+				ExtensionAcquisitionDiagnostic
+			>
+		>
+	>;
+}
+
+export class InMemoryUserNpmUpdateAcquisitionGateway implements UserNpmUpdateAcquisitionGateway {
+	private readonly candidateModuleRootBySpec: Readonly<Record<string, string>>;
+	private readonly existingCanonicalPackageNames: Set<string>;
+	private readonly failureByOperation: InMemoryUserNpmUpdateAcquisitionState["failureByOperation"];
+	private readonly operationLog: Array<{
+		readonly operation: string;
+		readonly sourceSpec: string;
+	}> = [];
+
+	constructor(state: InMemoryUserNpmUpdateAcquisitionState = {}) {
+		this.candidateModuleRootBySpec = structuredClone(state.candidateModuleRootBySpec ?? {});
+		this.existingCanonicalPackageNames = new Set(state.existingCanonicalPackageNames ?? []);
+		this.failureByOperation = structuredClone(state.failureByOperation ?? {});
+	}
+
+	async prepare(params: PrepareUserNpmUpdateParams): Promise<PrepareUserNpmUpdateResult> {
+		this.operationLog.push({ operation: "prepare", sourceSpec: params.sourceSpec });
+		const failure = this.failureByOperation?.prepare;
+		if (failure !== undefined)
+			return { type: "failed", diagnostics: [{ ...failure }], retainedPaths: [] };
+		const parsed = parseExtensionSourceSpec(params.repoRoot, params.sourceSpec);
+		if (!parsed.ok || parsed.value.kind !== "npm") {
+			return {
+				type: "failed",
+				diagnostics: parsed.ok ? [] : [{ ...parsed.error }],
+				retainedPaths: [],
+			};
+		}
+		const operationId = `fake-${this.operationLog.length}`;
+		const canonicalPaths = managedNpmPackagePaths(
+			params.managedNpmStorage,
+			parsed.value.packageName,
+		);
+		const operationRoot = join(
+			params.managedNpmStorage.npmRoot,
+			".updates",
+			...parsed.value.packageName.split("/"),
+			operationId,
+		);
+		const candidateProjectRoot = join(
+			operationRoot,
+			"candidate",
+			...parsed.value.packageName.split("/"),
+		);
+		const candidateModuleRoot =
+			this.candidateModuleRootBySpec[params.sourceSpec] ??
+			join(candidateProjectRoot, "node_modules", ...parsed.value.packageName.split("/"));
+		const canonicalExisted = this.existingCanonicalPackageNames.has(parsed.value.packageName);
+		return {
+			type: "prepared",
+			prepared: {
+				storage: copyManagedNpmStorage(params.managedNpmStorage),
+				operationId,
+				packageName: parsed.value.packageName,
+				sourceSpec: params.sourceSpec,
+				intent: parsed.value.isPinned ? "ensure-pinned" : "refresh-floating",
+				outcome: canonicalExisted
+					? parsed.value.isPinned
+						? "unchanged"
+						: "refreshed"
+					: "restored",
+				candidateModuleRoot,
+				candidateProjectRoot,
+				operationRoot,
+				canonicalProjectRoot: canonicalPaths.npmProjectRoot,
+				backupProjectRoot: join(operationRoot, "backup"),
+				canonicalExisted,
+			},
+		};
+	}
+
+	async promote(prepared: PreparedUserNpmUpdate): Promise<PromoteUserNpmUpdateResult> {
+		this.operationLog.push({ operation: "promote", sourceSpec: prepared.sourceSpec });
+		const failure = this.failureByOperation?.promote;
+		if (failure !== undefined)
+			return {
+				type: "failed",
+				diagnostics: [{ ...failure }],
+				retainedPaths: [prepared.operationRoot],
+			};
+		this.existingCanonicalPackageNames.add(prepared.packageName);
+		return { type: "promoted", promoted: copyPreparedUpdate(prepared) };
+	}
+
+	async settle(
+		promoted: PromotedUserNpmUpdate,
+		disposition: "commit" | "rollback",
+	): Promise<SettleUserNpmUpdateResult> {
+		this.operationLog.push({ operation: disposition, sourceSpec: promoted.sourceSpec });
+		const failure = this.failureByOperation?.[disposition];
+		if (failure !== undefined)
+			return {
+				type: "failed",
+				diagnostics: [{ ...failure }],
+				retainedPaths: [promoted.operationRoot, promoted.backupProjectRoot],
+			};
+		if (disposition === "rollback" && !promoted.canonicalExisted)
+			this.existingCanonicalPackageNames.delete(promoted.packageName);
+		return { type: "settled" };
+	}
+
+	async discard(prepared: PreparedUserNpmUpdate): Promise<SettleUserNpmUpdateResult> {
+		this.operationLog.push({ operation: "discard", sourceSpec: prepared.sourceSpec });
+		const failure = this.failureByOperation?.discard;
+		return failure === undefined
+			? { type: "settled" }
+			: { type: "failed", diagnostics: [{ ...failure }], retainedPaths: [prepared.operationRoot] };
+	}
+
+	operations(): readonly { readonly operation: string; readonly sourceSpec: string }[] {
+		return this.operationLog.map((entry) => ({ ...entry }));
 	}
 }
 
