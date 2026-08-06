@@ -4,7 +4,7 @@ import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { NotifyLevel, SetWidgetFunction } from "../runtime/tool-types.ts";
-import { LiveCommandProgress } from "./cli-command-live-progress.ts";
+import { CliCommandStatusActivity } from "./cli-command-status.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
 import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } from "./events.ts";
 import { withSafePiUi, withSafePiUiAsync } from "../kit/shared/safe-ui.ts";
@@ -83,13 +83,13 @@ export interface CliCommandRunDeps {
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
 	/**
-	 * Emits transient live-progress text for the Pi widget/status path only.
-	 * Text sent here is not included in the final rendered command result; use
-	 * stdout/stderr for output that should remain visible after the command ends.
+	 * Compatibility surface retained pending the clinkr-output-and-interaction-model
+	 * ruling. Pi no longer supplies this callback or renders transient CLI output;
+	 * use stdout/stderr for output that should remain visible after the command ends.
 	 */
 	onOutput?: (stream: OutputStreamName, text: string) => void;
 	/**
-	 * Emits structured live-progress phase events for the Pi widget/status path only.
+	 * Emits structured live-progress phase events for the Pi footer status path only.
 	 * Events sent here are not included in the final rendered command result; use
 	 * stdout/stderr for output that should remain visible after the command ends.
 	 */
@@ -193,7 +193,7 @@ export function registerCliCommandExtension(
 	assertValidCommandSpec(spec);
 	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
 	traceCliCommand("register", {
-		bridgeMode: "custom-rendered-message-with-above-editor-live-stream",
+		bridgeMode: "custom-rendered-message-with-footer-status",
 		cliName: spec.cliName,
 		commands: spec.commands.map((command) => command.name),
 		messageRendererAvailable: hasMessageRenderer(pi),
@@ -231,9 +231,8 @@ export function registerCliCommandExtension(
 					}
 				},
 			},
-			// CLI-backed commands render their own live progress block above the editor.
-			// Suppress the generic footer ack so the same command-running state is not
-			// shown both above and below the fold.
+			// The command handler synchronously installs its own footer status line.
+			// Suppress the generic footer ack so command-running state has one writer.
 			options: { delivery: "none" },
 		});
 	}
@@ -404,19 +403,17 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 
 	let stdout = "";
 	let stderr = "";
-	let hasLiveOutput = false;
 	let exitCode = 1;
 	const argv = [...commandArgvPrefix(command), ...commandArgs];
 	emitCliCommandStart(ctx, command.startMessage);
-	const progress = new LiveCommandProgress(ctx, {
-		argv,
+	const activity = new CliCommandStatusActivity(ctx, {
 		cliName: spec.cliName,
 		commandName: commandDisplayName(command),
 		piCommandName,
 		...(spec.timers === undefined ? {} : { timers: spec.timers }),
 	});
 	try {
-		progress.setPhase("waiting for Pi to finish responding");
+		activity.setPhase("waiting for Pi to finish responding");
 		const waitStartedAt = Date.now();
 		traceCliCommand("wait_for_idle_start", { commandName: command.name, piCommandName });
 		await ctx.waitForIdle();
@@ -426,54 +423,44 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			piCommandName,
 		});
 
-		progress.setPhase("running CLI command");
+		activity.setPhase("running CLI command");
 		const runnerStartedAt = Date.now();
 		traceCliCommand("runner_start", { argv, commandName: command.name, piCommandName });
 		const runDeps: CliCommandRunDeps = {
 			cwd: ctx.cwd,
 			stdout: (text) => {
 				stdout += text;
-				if (!hasLiveOutput) {
-					progress.appendOutput("stdout", text);
-				}
 			},
 			stderr: (text) => {
 				stderr += text;
-				if (!hasLiveOutput) {
-					progress.appendOutput("stderr", text);
-				}
 			},
 			// Every CLI bridged through Pi runs under the Pi harness; the copied
 			// per-invocation environment carries that identity explicitly and wins
 			// over inherited values without mutating process.env (ADR 0055).
 			env: { ...(spec.env ?? process.env), [NS_HARNESS_ENV_VAR]: PI_ACTIVE_HARNESS },
-			onOutput: (stream, text) => {
-				hasLiveOutput = true;
-				progress.appendOutput(stream, text);
-			},
 			onProgress: (event) => {
-				progress.applyPhaseEvent(event);
+				activity.applyPhaseEvent(event);
 			},
 		};
 		if (ctx.hasUI && ctx.ui.confirm !== undefined) {
 			const confirm = ctx.ui.confirm;
 			runDeps.confirm = async (title, message, options) => {
-				progress.setPhase("waiting for confirmation");
+				activity.setPhase("waiting for confirmation");
 				try {
 					return await confirm(title, message, options);
 				} finally {
-					progress.setPhase("running CLI command");
+					activity.setPhase("running CLI command");
 				}
 			};
 		}
 		if (ctx.hasUI && ctx.ui.select !== undefined) {
 			const select = ctx.ui.select;
 			runDeps.select = async (title, selectOptions) => {
-				progress.setPhase("waiting for selection");
+				activity.setPhase("waiting for selection");
 				try {
 					return await select(title, [...selectOptions]);
 				} finally {
-					progress.setPhase("running CLI command");
+					activity.setPhase("running CLI command");
 				}
 			};
 		}
@@ -488,7 +475,6 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 				piCommandName,
 			});
 			stderr += exceptionOutput;
-			progress.appendOutput("stderr", exceptionOutput);
 		}
 
 		traceCliCommand("runner_done", {
@@ -500,7 +486,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			totalElapsedMs: Date.now() - commandStartedAt,
 		});
 	} finally {
-		progress.close();
+		activity.close();
 	}
 
 	const details = buildOutputDetails({

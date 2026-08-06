@@ -681,7 +681,7 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "selected=two\n");
 	});
 
-	test("does not intercept ambient process output while selection and live progress are pending", async () => {
+	test("does not intercept ambient process output while selection is pending", async () => {
 		let finishSelect: (() => void) | undefined;
 		const selectFinished = new Promise<void>((resolve) => {
 			finishSelect = resolve;
@@ -694,7 +694,6 @@ describe("cli command extension helper", () => {
 		let afterDetails: CliCommandOutputDetails | undefined;
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				deps.onOutput?.("stdout", "command progress\n");
 				const selected = await deps.select?.("Choose a target", ["one", "two"]);
 				deps.stdout(`selected=${String(selected)}\n`);
 				deps.stderr("command warning\n");
@@ -704,7 +703,7 @@ describe("cli command extension helper", () => {
 				afterDetails = details;
 			},
 		});
-		const { ctx, widgets } = createContext([], {
+		const { ctx, statuses, widgets } = createContext([], {
 			select: async () => {
 				markSelectStarted?.();
 				await selectFinished;
@@ -716,9 +715,11 @@ describe("cli command extension helper", () => {
 		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await selectStarted;
 		expect(process.stdout.write).toBe(originalStdoutWrite);
-		const pendingWidget = widgets.at(-1)?.lines?.join("\n") ?? "";
-		expect(pendingWidget).toContain("waiting for selection");
-		expect(pendingWidget).toContain("command progress");
+		expect(statuses.at(-1)).toEqual({
+			key: "ns-cli-command",
+			value: "? /dev:preview-status · waiting for selection",
+		});
+		expect(widgets).toEqual([]);
 
 		if (finishSelect === undefined) throw new Error("Expected select resolver to be initialized.");
 		finishSelect();
@@ -726,47 +727,9 @@ describe("cli command extension helper", () => {
 
 		expectSingleCliOutputMessage(pi, "stdout:\nselected=one\n\nstderr:\ncommand warning\n");
 		expect(afterDetails).toMatchObject({ stdout: "selected=one\n", stderr: "command warning\n" });
-		expect(widgets.length).toBeLessThan(20);
 	});
 
-	test("shows waiting-for-selection live progress while the CLI runner awaits UI selection", async () => {
-		let finishSelect: (() => void) | undefined;
-		const selectFinished = new Promise<void>((resolve) => {
-			finishSelect = resolve;
-		});
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: async (_args, deps) => {
-				const selected = await deps.select?.("Choose a target", ["one", "two"]);
-				deps.stdout(`selected=${String(selected)}\n`);
-				return 0;
-			},
-		});
-		let markSelectStarted: (() => void) | undefined;
-		const selectStarted = new Promise<void>((resolve) => {
-			markSelectStarted = resolve;
-		});
-		const { ctx, widgets } = createContext([], {
-			select: async () => {
-				markSelectStarted?.();
-				await selectFinished;
-				return "one";
-			},
-		});
-
-		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
-		await selectStarted;
-
-		expect(widgets.at(-1)?.lines?.join("\n")).toContain("waiting for selection");
-
-		if (finishSelect === undefined) throw new Error("Expected select resolver to be initialized.");
-		finishSelect();
-		await commandPromise;
-
-		expectSingleCliOutputMessage(pi, "selected=one\n");
-	});
-
-	test("shows waiting-for-confirmation live progress while the CLI runner awaits UI confirmation", async () => {
+	test("shows prompt waits in footer status", async () => {
 		let finishConfirm: (() => void) | undefined;
 		const confirmFinished = new Promise<void>((resolve) => {
 			finishConfirm = resolve;
@@ -794,11 +757,12 @@ describe("cli command extension helper", () => {
 		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await confirmStarted;
 
-		// CLI-backed commands render their own live progress block, so they suppress
-		// the generic footer ack to avoid duplicate above/below-fold progress.
-		expect(statuses).toEqual([]);
+		expect(statuses.at(-1)).toEqual({
+			key: "ns-cli-command",
+			value: "? /dev:preview-status · waiting for confirmation",
+		});
 		expect(pi.progressMessages).toEqual([]);
-		expect(widgets.at(-1)?.lines?.join("\n")).toContain("waiting for confirmation");
+		expect(widgets).toEqual([]);
 
 		if (finishConfirm === undefined)
 			throw new Error("Expected confirm resolver to be initialized.");
@@ -829,25 +793,23 @@ describe("cli command extension helper", () => {
 			expect(events.map((event) => event.event)).toEqual([
 				"register",
 				"command_start",
-				"live_progress_start",
+				"status_start",
 				"wait_for_idle_start",
 				"wait_for_idle_done",
 				"runner_start",
-				"live_progress_output",
 				"runner_done",
-				"live_progress_stop",
+				"status_stop",
 				"emit_output",
 			]);
 			expect(events.find((event) => event.event === "register")).toMatchObject({
-				bridgeMode: "custom-rendered-message-with-above-editor-live-stream",
+				bridgeMode: "custom-rendered-message-with-footer-status",
 				messageRendererAvailable: true,
 				piNamespace: "dev",
 				sendMessageAvailable: true,
 				version: "above-editor-live-stream-trace-v3",
 			});
-			expect(events.find((event) => event.event === "live_progress_start")).toMatchObject({
-				sendMessageCalled: false,
-				target: "widget",
+			expect(events.find((event) => event.event === "status_start")).toMatchObject({
+				target: "status",
 			});
 			expect(events.find((event) => event.event === "runner_done")).toMatchObject({
 				exitCode: 0,
@@ -1243,7 +1205,7 @@ describe("cli command extension helper", () => {
 		expect(rendered).not.toContain("<muted>");
 	});
 
-	test("updates the live widget without footer status while the CLI command is running", async () => {
+	test("uses footer status and never installs a widget while the CLI command is running", async () => {
 		let markRunStarted: (() => void) | undefined;
 		const runStarted = new Promise<void>((resolve) => {
 			markRunStarted = resolve;
@@ -1267,14 +1229,12 @@ describe("cli command extension helper", () => {
 		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await runStarted;
 
-		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
-		expect(widgets.at(-1)?.placement).toBe("aboveEditor");
-		// CLI-backed commands render their own live progress block, so they suppress
-		// the generic footer ack to avoid duplicate above/below-fold progress.
-		expect(statuses).toEqual([]);
+		expect(widgets).toEqual([]);
+		expect(statuses.at(-1)).toEqual({
+			key: "ns-cli-command",
+			value: "⠋ /dev:preview-status · running",
+		});
 		expect(pi.progressMessages).toEqual([]);
-		expect(liveWidgetText).toContain("/dev:preview-status running CLI command");
-		expect(liveWidgetText).toContain("stdout: started");
 		expect(pi.sentMessages).toEqual([]);
 
 		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
@@ -1282,16 +1242,12 @@ describe("cli command extension helper", () => {
 		await commandPromise;
 
 		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
-		expect(widgets.at(-1)).toEqual({
-			key: "ns-cli-command-output",
-			lines: undefined,
-			placement: undefined,
-		});
+		expect(widgets).toEqual([]);
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "stdout:\nstarted\n\nstderr:\nfinished\n");
 	});
 
-	test("uses footer status as a fallback when live widgets are unavailable", async () => {
+	test("uses footer status when widget capability is unavailable", async () => {
 		let markRunStarted: (() => void) | undefined;
 		const runStarted = new Promise<void>((resolve) => {
 			markRunStarted = resolve;
@@ -1315,7 +1271,7 @@ describe("cli command extension helper", () => {
 		await runStarted;
 
 		expect(widgets).toEqual([]);
-		expect(statuses.at(-1)?.value).toContain("/dev:preview-status running CLI command");
+		expect(statuses.at(-1)?.value).toBe("⠋ /dev:preview-status · running");
 
 		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
 		finishRun();
@@ -1324,7 +1280,7 @@ describe("cli command extension helper", () => {
 		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
 	});
 
-	test("keeps footer status stable while the live widget ticks", async () => {
+	test("advances the footer heartbeat once per second", async () => {
 		const timers = createManualTimerScheduler();
 		let markRunStarted: (() => void) | undefined;
 		const runStarted = new Promise<void>((resolve) => {
@@ -1349,16 +1305,15 @@ describe("cli command extension helper", () => {
 		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await runStarted;
 
-		// Ignore the transient auto-clearing ack status; this test isolates whether the
-		// live-widget ticks churn the footer status, not the one-shot ack lifecycle.
-		const withoutAck = (entries: StatusUpdate[]): (string | undefined)[] =>
-			entries.filter((status) => status.key !== "ns-command-ack").map((status) => status.value);
-		const statusValuesBeforeTicks = withoutAck(statuses);
-		const widgetCountBeforeTicks = widgets.length;
+		const statusCountBeforeTicks = statuses.length;
 		timers.advanceMs(3_000);
 
-		expect(withoutAck(statuses)).toEqual(statusValuesBeforeTicks);
-		expect(widgets.length).toBeGreaterThan(widgetCountBeforeTicks);
+		expect(statuses.slice(statusCountBeforeTicks).map((status) => status.value)).toEqual([
+			"⠙ /dev:preview-status · running",
+			"⠹ /dev:preview-status · running",
+			"⠸ /dev:preview-status · running",
+		]);
+		expect(widgets).toEqual([]);
 
 		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
 		finishRun();
@@ -1394,13 +1349,12 @@ describe("cli command extension helper", () => {
 		expect(pi.sentMessages).toEqual([]);
 	});
 
-	test("stops live progress when the Pi command context becomes stale", async () => {
+	test("stops footer status when the Pi command context becomes stale", async () => {
 		let isStale = false;
 		const pi = new FakePi();
 		registerFakeCli(pi, {
-			runCli: (_args, deps) => {
+			runCli: () => {
 				isStale = true;
-				deps.onOutput?.("stdout", "still running after replacement\n");
 				return 0;
 			},
 		});
@@ -1438,45 +1392,25 @@ describe("cli command extension helper", () => {
 		expect(notifications).toEqual([]);
 	});
 
-	test("streams live CLI output separately from final captured output", async () => {
-		let markLiveOutputObserved: (() => void) | undefined;
-		const liveOutputObserved = new Promise<void>((resolve) => {
-			markLiveOutputObserved = resolve;
-		});
-		let finishRun: (() => void) | undefined;
-		const runFinished = new Promise<void>((resolve) => {
-			finishRun = resolve;
-		});
+	test("does not supply the deferred transient-output callback", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
-			runCli: async (_args, deps) => {
-				deps.onOutput?.("stdout", "live stdout\n");
-				deps.onOutput?.("stderr", "live stderr");
-				markLiveOutputObserved?.();
-				await runFinished;
+			runCli: (_args, deps) => {
+				expect(deps.onOutput).toBeUndefined();
 				deps.stdout("final stdout\n");
 				return 0;
 			},
 		});
 		const { ctx, notifications, widgets } = createContext();
 
-		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
-		await liveOutputObserved;
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
 
-		const liveWidgetText = widgets.at(-1)?.lines?.join("\n") ?? "";
-		expect(liveWidgetText).toContain("… 1 earlier recent CLI line hidden");
-		expect(liveWidgetText).toContain("stderr: live stderr");
-		expect(liveWidgetText).not.toContain("final stdout");
-
-		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
-		finishRun();
-		await commandPromise;
-
+		expect(widgets).toEqual([]);
 		expect(notifications).toEqual([]);
 		expectSingleCliOutputMessage(pi, "final stdout\n");
 	});
 
-	test("renders structured CLI phase progress as a checklist widget", async () => {
+	test("reduces structured CLI phase progress to footer status", async () => {
 		let markPhasesObserved: (() => void) | undefined;
 		const phasesObserved = new Promise<void>((resolve) => {
 			markPhasesObserved = resolve;
@@ -1523,51 +1457,16 @@ describe("cli command extension helper", () => {
 				return 0;
 			},
 		});
-		const { ctx, widgets } = createContext();
+		const { ctx, statuses, widgets } = createContext();
 
 		const commandPromise = commandFor(pi, "ns:flow:submit").handler("", ctx);
 		await phasesObserved;
 
-		expect(widgets.at(-1)?.lines).toEqual([
-			"/ns:flow:submit (0s elapsed)",
-			"✓ Checkpoint    checkpoint complete",
-			"⠋ Submit        running gt submit --no-edit…",
-			"· Verification",
-		]);
-
-		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
-		finishRun();
-		await commandPromise;
-	});
-
-	test("keeps the raw live widget layout when no structured progress events arrive", async () => {
-		let markLiveOutputObserved: (() => void) | undefined;
-		const liveOutputObserved = new Promise<void>((resolve) => {
-			markLiveOutputObserved = resolve;
+		expect(statuses.at(-1)).toEqual({
+			key: "ns-cli-command",
+			value: "⠋ /ns:flow:submit · Submit · running gt submit --no-edit…",
 		});
-		let finishRun: (() => void) | undefined;
-		const runFinished = new Promise<void>((resolve) => {
-			finishRun = resolve;
-		});
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: async (_args, deps) => {
-				deps.onOutput?.("stderr", "live stderr");
-				markLiveOutputObserved?.();
-				await runFinished;
-				return 0;
-			},
-		});
-		const { ctx, widgets } = createContext();
-
-		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
-		await liveOutputObserved;
-
-		expect(widgets.at(-1)?.lines).toEqual([
-			"/dev:preview-status running CLI command (0s elapsed)",
-			"$ fake-cli preview-status · stdout 0, stderr 11",
-			"stderr: live stderr",
-		]);
+		expect(widgets).toEqual([]);
 
 		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
 		finishRun();
@@ -1593,84 +1492,49 @@ describe("cli command extension helper", () => {
 				return 0;
 			},
 		});
-		const { ctx, widgets } = createContext();
+		const { ctx, statuses, widgets } = createContext();
 
 		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
 		await phasesObserved;
 
-		expect(widgets.at(-1)?.lines).toEqual([
-			"/dev:preview-status (0s elapsed)",
-			"✓ discover  finding work",
-			"⠋ submit    submitting",
-		]);
+		expect(statuses.at(-1)).toEqual({
+			key: "ns-cli-command",
+			value: "⠋ /dev:preview-status · submit · submitting",
+		});
+		expect(widgets).toEqual([]);
 
 		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
 		finishRun();
 		await commandPromise;
 	});
 
-	test("shows the latest raw output line at the end of the structured phase widget", async () => {
-		let markTailObserved: (() => void) | undefined;
-		const tailObserved = new Promise<void>((resolve) => {
-			markTailObserved = resolve;
-		});
-		let finishRun: (() => void) | undefined;
-		const runFinished = new Promise<void>((resolve) => {
-			finishRun = resolve;
-		});
-		const pi = new FakePi();
-		registerFakeCli(pi, {
-			runCli: async (_args, deps) => {
-				deps.onProgress?.({
-					type: "phases-declared",
-					title: "fake-cli preview-status",
-					phases: [{ key: "submit", name: "Submit" }],
-				});
-				deps.onProgress?.({ type: "phase-started", phaseKey: "submit", label: "running" });
-				deps.onOutput?.("stderr", "Pushing branches to remote…");
-				markTailObserved?.();
-				await runFinished;
-				return 0;
-			},
-		});
-		const { ctx, widgets } = createContext();
-
-		const commandPromise = commandFor(pi, "dev:preview-status").handler("", ctx);
-		await tailObserved;
-
-		expect(widgets.at(-1)?.lines).toEqual([
-			"/dev:preview-status (0s elapsed)",
-			"⠋ Submit  running",
-			"  stderr: Pushing branches to remote…",
-		]);
-
-		if (finishRun === undefined) throw new Error("Expected run resolver to be initialized.");
-		finishRun();
-		await commandPromise;
-	});
-
-	test("clears the structured live widget when the CLI command finishes", async () => {
+	test("sanitizes event-derived footer status and clears it when the command finishes", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
 				deps.onProgress?.({
 					type: "phases-declared",
 					title: "fake-cli preview-status",
-					phases: [{ key: "submit", name: "Submit" }],
+					phases: [{ key: "submit", name: "Sub\u001b[2Jmit\u0007" }],
 				});
-				deps.onProgress?.({ type: "phase-done", phaseKey: "submit", detail: "done" });
+				deps.onProgress?.({
+					type: "phase-started",
+					phaseKey: "submit",
+					label: "push\u001b[Hing\n",
+				});
 				return 0;
 			},
 		});
-		const { ctx, widgets } = createContext();
+		const { ctx, statuses, widgets } = createContext();
 
 		await commandFor(pi, "dev:preview-status").handler("", ctx);
 
-		expect(widgets.at(-1)).toEqual({
-			key: "ns-cli-command-output",
-			lines: undefined,
-			placement: undefined,
+		expect(statuses).toContainEqual({
+			key: "ns-cli-command",
+			value: "⠋ /dev:preview-status · Submit · pushing",
 		});
+		expect(statuses.at(-1)).toEqual({ key: "ns-cli-command", value: undefined });
+		expect(widgets).toEqual([]);
 	});
 
 	test("parses shell-like whitespace quotes and escapes", () => {

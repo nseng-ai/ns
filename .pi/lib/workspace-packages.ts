@@ -24,8 +24,8 @@ const workspacePackageFallbacks: Record<string, string> = {
 		"../../ts/packages/internal/hosts/pi/tools/pi-tools/src/thermo-council/extension.ts",
 	"@nseng-ai/pi-runtime/commands/ack":
 		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/ack.ts",
-	"@nseng-ai/pi-runtime/commands/cli-command-live-progress":
-		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/cli-command-live-progress.ts",
+	"@nseng-ai/pi-runtime/commands/cli-command-status":
+		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/commands/cli-command-status.ts",
 	"@nseng-ai/pi-runtime/core/model-shortcuts/extension":
 		"../../ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/core/model-shortcuts/extension.ts",
 	"@nseng-ai/pi-runtime/core/pr/extension":

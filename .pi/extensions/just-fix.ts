@@ -7,9 +7,9 @@ const { sendCommandProgressOrNotify, registerCommandWithImmediateAck } =
 	await importTypeScriptWorkspaceModule<typeof import("@nseng-ai/pi-runtime/commands/ack")>(
 		"@nseng-ai/pi-runtime/commands/ack",
 	);
-const { LiveCommandProgress } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/pi-runtime/commands/cli-command-live-progress")
->("@nseng-ai/pi-runtime/commands/cli-command-live-progress");
+const { CliCommandStatusActivity } = await importTypeScriptWorkspaceModule<
+	typeof import("@nseng-ai/pi-runtime/commands/cli-command-status")
+>("@nseng-ai/pi-runtime/commands/cli-command-status");
 const { requireRepoSkillBlockFromPath, requireRepoSkillPath } =
 	await importTypeScriptWorkspaceModule<
 		typeof import("@nseng-ai/pi-runtime/skills/expansion")
@@ -159,23 +159,19 @@ async function runJustThenInvokeSkill(
 
 	sendCommandProgressOrNotify({ host: pi, ctx, message: `Running \`${command.displayCommand}\`…` });
 
-	const progress = new LiveCommandProgress(ctx, {
-		argv: command.recipeArgs,
+	const activity = new CliCommandStatusActivity(ctx, {
 		cliName: "just",
 		commandName: command.displayCommand,
 		piCommandName: command.name,
 	});
-	progress.setPhase("running");
 	let result: ExecResult;
 	try {
 		result = await exec("just", command.recipeArgs, {
 			cwd: ctx.cwd,
 			timeout: command.timeoutMs,
-			onStdout: (text) => progress.appendOutput("stdout", text),
-			onStderr: (text) => progress.appendOutput("stderr", text),
 		});
 	} finally {
-		progress.close();
+		activity.close();
 	}
 
 	if (result.code === 0 && !result.killed) {

@@ -217,23 +217,14 @@ Repair the failed just run.
 						options: {
 							cwd: repoDir,
 							timeout: JUST_TIMEOUT_MS,
-							onStdout: expect.any(Function),
-							onStderr: expect.any(Function),
 						},
 					},
 				]);
-				expect(context.statuses).toEqual([{ key: "ns-cli-command", value: undefined }]);
-				expect(
-					context.widgets.some((update) => update.value?.includes("stdout: unit failed")),
-				).toBe(true);
-				expect(
-					context.widgets.some((update) => update.value?.includes("stderr: lint failed")),
-				).toBe(true);
-				expect(context.widgets.at(-1)).toEqual({
-					key: "ns-cli-command-output",
-					value: undefined,
-					options: undefined,
-				});
+				expect(context.statuses).toEqual([
+					{ key: "ns-cli-command", value: "⠋ /just · running" },
+					{ key: "ns-cli-command", value: undefined },
+				]);
+				expect(context.widgets).toEqual([]);
 				expect(pi.messages).toEqual([
 					{
 						customType: "ns-command-progress",
@@ -316,13 +307,14 @@ Repair the failed just run.
 						options: {
 							cwd: repoDir,
 							timeout: JUST_CI_TIMEOUT_MS,
-							onStdout: expect.any(Function),
-							onStderr: expect.any(Function),
 						},
 					},
 				]);
-				expect(context.statuses).toEqual([{ key: "ns-cli-command", value: undefined }]);
-				expect(context.widgets.at(-1)?.value).toBeUndefined();
+				expect(context.statuses).toEqual([
+					{ key: "ns-cli-command", value: "⠋ /just-ci · running" },
+					{ key: "ns-cli-command", value: undefined },
+				]);
+				expect(context.widgets).toEqual([]);
 				expect(pi.messages).toEqual([
 					{
 						customType: "ns-command-progress",
