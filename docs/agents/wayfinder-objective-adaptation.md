@@ -48,7 +48,7 @@ changed.
 | wayfinder concept                                                                                                                            | ns ideation counterpart                                                                                                                              |
 | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Destination** — named first, shapes every ticket                                                                                           | **Destination** — thesis + completion criteria, settled before any rows are charted                                                                  |
-| Ticket — one question, sized to one agent session                                                                                            | **Question Row** — a roadmap row that is an open decision or investigation                                                                           |
+| **Decision ticket** — one question whose resolution is a decision rather than a build slice, sized to one agent session                      | **Question Row** — a roadmap row asking a question whose resolution is a decision rather than executable work                                        |
 | Ticket types: `research` / `prototype` / `grilling` / `task`                                                                                 | Question Row types — the identical four                                                                                                              |
 | Blocking edges between tickets; no other ordering                                                                                            | Explicit blocked-by references between rows; unordered beyond blocking                                                                               |
 | **Frontier** — open, unblocked tickets, the edge of the known                                                                                | **Frontier** — open, unblocked Question Rows                                                                                                         |
@@ -59,7 +59,7 @@ changed.
 | **HITL/AFK** ticket attribute — human-in-the-loop vs agent-alone                                                                             | Prose guidance on Question Row types (grilling/prototype resolve only through live exchange; research agent-alone; task either), never machine state |
 | No-map escape hatch — if breadth-first charting surfaces no fog, don't build the map                                                         | `objective-create`'s wayfinding reference declines to create an ideation Objective when charting surfaces no Fog                                     |
 | Breadth-first charting — fan out, don't go deep on one thread                                                                                | Breadth-first initial roadmap                                                                                                                        |
-| Resolve one ticket per session                                                                                                               | Resolve one Question Row per session                                                                                                                 |
+| Resolve one ticket per session, except parallel research tickets dispatched while charting                                                   | Resolve one Question Row per session, except independent research rows dispatched through the `research` skill while creating the record             |
 | Resolution graduates fog into new tickets, may invalidate others                                                                             | Resolution graduates Fog into new rows, may invalidate other rows                                                                                    |
 
 ## What was deliberately dropped
@@ -86,8 +86,8 @@ rejected by default unless the rationale below no longer holds.
 - **The `/prototype` skill dependency.** As of the v1.1 refresh `prototype` *is*
   vendored, but ideation prose still describes the intended artifact generically rather
   than binding to the skill.
-- **Tracker-doc indirection (v1.1).** Upstream now tells agents the tracker "should have
-  been provided" and routes missing trackers through `/setup-matt-pocock-skills`.
+- **Tracker-doc indirection (v1.2).** Upstream tells agents the tracker should have
+  been provided and routes missing trackers through `/setup-matt-pocock-skills`.
   Rejected: the tracker backend is a deliberate drop (Objectives are the ns planning
   surface), and the vendored copy carries the recorded one-line fork instead.
 - **Out-of-scope as a map section.** The conceptual split (fog is in-scope only) was
@@ -106,6 +106,12 @@ rejected by default unless the rationale below no longer holds.
 - **Fog placement** — under `## Open Questions` in `objective.md`, not a map-body
   section. ns also keeps the name **Fog** for the canonical vocabulary; upstream renamed
   its map section to "Not yet specified" while keeping the fog-of-war concept.
+- **Research dispatch adaptation (v1.2).** Upstream resolves newly charted research
+  tickets with parallel `/research` subagents on throwaway branches and records ticket
+  context pointers. ns adopts the parallel background-agent resolution and exemption
+  from one-row-per-session through the `research` skill, but rejects the prescribed
+  throwaway branch and ticket-pointer mechanics: the research skill owns its artifact,
+  and `objective-update` records each resolution in the Objective.
 
 ## LM-driven update process
 

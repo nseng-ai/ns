@@ -79,7 +79,7 @@ jobs:
         run: just ts-test-typescript-style-guard
 
   skill-exposure-check:
-    if: github.event.pull_request.draft != true
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

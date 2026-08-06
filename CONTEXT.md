@@ -45,7 +45,7 @@ The settled end-state an **Ideation Objective** is finding its way to — its th
 *Avoid*: vision statement, moving target, roadmap row
 
 **Question Row**:
-A roadmap row in an **Ideation Objective** that is an open decision or investigation rather than executable work, typed as one of grilling, research, prototype, or task, carrying explicit blocked-by references to other rows, and sized to one agent session. Grilling and prototype rows resolve only through live exchange with the user; research rows are agent-alone; task rows may be either — prose guidance, not machine state.
+A roadmap row in an **Ideation Objective** that asks a question whose resolution is a decision rather than a build slice, typed as one of grilling, research, prototype, or task, carrying explicit blocked-by references to other rows, and sized to one agent session. Grilling and prototype rows resolve only through live exchange with the user; research rows are agent-alone and use the `research` skill's background-agent workflow; task rows may be either — prose guidance, not machine state.
 *Avoid*: ticket, task-tracker item, execution row, subissue
 
 **Frontier**:

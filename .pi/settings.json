@@ -38,13 +38,12 @@
 		"-skills/ns-typescript-style-tripwire",
 		"-skills/fdt-refactor-mock-to-fake",
 		"-skills/thermo-nuclear-code-quality-review",
-		"-skills/improve-codebase-architecture",
-		"-skills/writing-great-skills",
 		"-skills/code-gt-restack-resolve",
 		"-skills/code-resolve-merge-conflicts",
 		"-skills/review-dry-but-not-too-dry",
 		"-skills/review-improve-codebase-architecture",
 		"-skills/review-thermonuclear-review",
-		"-skills/skill-audit"
+		"-skills/writing-for-agents",
+		"-skills/improve-codebase-architecture"
 	]
 }
