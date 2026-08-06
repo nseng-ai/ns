@@ -194,12 +194,28 @@ function makeLandStackPi(env: NodeJS.ProcessEnv): LandExecutionApi {
 				args[1] === "exec" &&
 				args[2] === "read-graphite-branch-metadata" &&
 				args[3] === "--db-path" &&
-				args[4] !== undefined
+				args[4] !== undefined &&
+				args[5] === "--format" &&
+				args[6] === "json"
 			) {
-				return await runCommand("sqlite3", graphiteBranchMetadataReadonlyJsonArgs(args[4]), {
-					...options,
-					env,
-				});
+				const result = await runCommand(
+					"sqlite3",
+					graphiteBranchMetadataReadonlyJsonArgs(args[4]),
+					{
+						...options,
+						env,
+					},
+				);
+				if (result.type !== "exited" || result.code !== 0 || result.signal !== null) return result;
+				const stdout = result.stdout.trim();
+				return {
+					...result,
+					stdout: `${JSON.stringify({
+						status: "success",
+						exitCode: 0,
+						data: JSON.parse(stdout === "" ? "[]" : stdout) as unknown,
+					})}\n`,
+				};
 			}
 			return await runCommand(command, args, {
 				...options,

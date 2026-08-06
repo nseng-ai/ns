@@ -27,6 +27,7 @@ import {
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
+	metadataSuccessEnvelopeJson,
 	TOPOLOGY_COMMAND,
 	topologyArgs,
 } from "./land-test-helpers.ts";
@@ -307,7 +308,9 @@ function repoIntro(
 				shaForBranch: testShaForBranch,
 			}),
 		}),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+			stdout: `${metadataSuccessEnvelopeJson(dbRows)}\n`,
+		}),
 	];
 }
 

@@ -38,6 +38,65 @@ describe("checked-in flow ns extension loading", () => {
 		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 	});
 
+	test("real loader hosts typed Graphite metadata rows through the filesystem route", async () => {
+		const cwd = await createFlowProject();
+		const dbPath = join(cwd, ".git", ".graphite_metadata.db");
+		const sqliteRows = [
+			{
+				branch_name: "main",
+				parent_branch_name: null,
+				children: "[]",
+				validation_result: "TRUNK",
+			},
+		];
+		const sqliteCommand = [
+			"sqlite3",
+			"-readonly",
+			"-json",
+			dbPath,
+			"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata",
+		].join(" ");
+		const run = runWithRealFlowExtension({
+			args: [
+				"flow",
+				"exec",
+				"read-graphite-branch-metadata",
+				"--db-path",
+				dbPath,
+				"--format",
+				"json",
+			],
+			cwd,
+			state: { exec: [{ match: sqliteCommand, result: { stdout: JSON.stringify(sqliteRows) } }] },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr.join("")).toBe("");
+		expect(parseJsonOutput(run)).toEqual({ status: "success", exitCode: 0, data: sqliteRows });
+		expect(formattedExecCalls(run.context)).toEqual([sqliteCommand]);
+
+		const schema = runWithRealFlowExtension({
+			args: ["flow", "exec", "read-graphite-branch-metadata", "--db-path", dbPath, "--json-schema"],
+			cwd,
+		});
+		expect(await schema.exit).toBe(0);
+		expect(schema.stderr.join("")).toBe("");
+		const schemaDocument = parseJsonOutput(schema);
+		expect(schemaDocument.outputJsonSchema).toMatchObject({ type: "array" });
+		expect(schemaDocument.machineEnvelopeJsonSchema).toMatchObject({
+			anyOf: expect.arrayContaining([
+				expect.objectContaining({
+					properties: expect.objectContaining({
+						status: expect.objectContaining({ const: "success" }),
+						exitCode: expect.objectContaining({ const: 0 }),
+						data: expect.objectContaining({ type: "array" }),
+					}),
+				}),
+			]),
+		});
+		expect(schema.context.execCalls).toEqual([]);
+	});
+
 	test("real loader reaches a simple cp invocation path", async () => {
 		const cwd = await createFlowProject();
 		const run = runWithRealFlowExtension({

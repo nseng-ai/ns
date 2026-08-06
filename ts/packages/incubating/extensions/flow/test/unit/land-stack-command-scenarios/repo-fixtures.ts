@@ -10,6 +10,7 @@ import {
 	TOPOLOGY_COMMAND,
 	formatLiveBranchTips,
 	metadataDbJson,
+	metadataSuccessEnvelopeJson,
 	topologyArgs,
 } from "../land-test-helpers.ts";
 
@@ -160,7 +161,9 @@ export function buildRepoIntro(options: RepoIntroOptions): ScriptedExec[] {
 				shaForBranch: testShaForBranch,
 			}),
 		}),
-		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+		step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+			stdout: `${metadataSuccessEnvelopeJson(dbRows)}\n`,
+		}),
 	];
 }
 

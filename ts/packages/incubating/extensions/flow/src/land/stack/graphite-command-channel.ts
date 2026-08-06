@@ -124,7 +124,13 @@ export function createLandGraphiteCommandChannel(
 export function readGraphiteBranchMetadataCommand(
 	dbPath: string,
 ): ReadGraphiteBranchMetadataCommand {
-	const args = [...READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX, "--db-path", dbPath];
+	const args = [
+		...READ_GRAPHITE_BRANCH_METADATA_ARGS_PREFIX,
+		"--db-path",
+		dbPath,
+		"--format",
+		"json",
+	];
 	return { command: "ns", args, display: formatCommand("ns", args) };
 }
 

@@ -6,6 +6,8 @@ import {
 import {
 	GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
 	graphiteBranchMetadataReadonlyJsonArgs,
+	graphiteBranchMetadataRowsSchema,
+	type GraphiteBranchMetadataRows,
 } from "@nseng-ai/extension-kit/graphite/metadata";
 import {
 	defineCommand,
@@ -28,14 +30,14 @@ export const flowExecReadGraphiteBranchMetadataCommand: NsCommand<
 	typeof execReadGraphiteBranchMetadataSchema
 > = defineCommand({
 	schema: execReadGraphiteBranchMetadataSchema,
-	resultSchema: z.string(),
+	resultSchema: graphiteBranchMetadataRowsSchema,
 	handler: async (ctx, request) => await runExecReadGraphiteBranchMetadata(ctx, request),
 });
 
 async function runExecReadGraphiteBranchMetadata(
 	ctx: NsExtensionApi,
 	request: ExecReadGraphiteBranchMetadataRequest,
-): Promise<CommandExit<string>> {
+): Promise<CommandExit<GraphiteBranchMetadataRows>> {
 	const args = graphiteBranchMetadataReadonlyJsonArgs(request.dbPath);
 	const result = await ctx.exec("sqlite3", args, {
 		timeoutMs: GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS,
@@ -48,7 +50,24 @@ async function runExecReadGraphiteBranchMetadata(
 		].join("\n");
 		return failure(FLOW_COMMAND_FAILED, details);
 	}
-	return ok(result.stdout.trim() === "" ? "[]" : result.stdout.trim());
+	const stdout = result.stdout.trim();
+	let rawRows: unknown;
+	try {
+		rawRows = JSON.parse(stdout === "" ? "[]" : stdout);
+	} catch {
+		return failure(
+			FLOW_COMMAND_FAILED,
+			`sqlite3 returned invalid JSON for Graphite branch metadata from ${request.dbPath}.`,
+		);
+	}
+	const rows = graphiteBranchMetadataRowsSchema.safeParse(rawRows);
+	if (!rows.success) {
+		return failure(
+			FLOW_COMMAND_FAILED,
+			`sqlite3 returned an invalid row array for Graphite branch metadata from ${request.dbPath}.`,
+		);
+	}
+	return ok(rows.data);
 }
 
 export default flowExecReadGraphiteBranchMetadataCommand;

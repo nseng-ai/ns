@@ -6,6 +6,7 @@ import {
 	graphiteTrunkMarkerStatus,
 	hasExpectedGraphiteBranchMetadataSchema,
 	filterLiveBranchNames,
+	graphiteBranchMetadataRowsSchema,
 	parseGraphiteBranchMetadataRows,
 	parseGraphiteChildren,
 	reconcileTopologyToLiveBranches,
@@ -64,6 +65,31 @@ describe("Graphite metadata core", () => {
 				message: "sqlite3 output was not valid JSON",
 			},
 		});
+	});
+
+	test("validates exact Graphite metadata query columns", () => {
+		const row = {
+			branch_name: "main",
+			parent_branch_name: null,
+			children: "[]",
+			validation_result: "TRUNK",
+		};
+		expect(graphiteBranchMetadataRowsSchema.safeParse([row]).success).toBe(true);
+		expect(graphiteBranchMetadataRowsSchema.safeParse({ branch_name: "main" }).success).toBe(false);
+		expect(
+			graphiteBranchMetadataRowsSchema.safeParse([{ ...row, future_column: { nested: true } }])
+				.success,
+		).toBe(false);
+		expect(
+			graphiteBranchMetadataRowsSchema.safeParse([
+				{
+					branch_name: "main",
+					parent_branch_name: null,
+					children: "[]",
+				},
+			]).success,
+		).toBe(false);
+		expect(graphiteBranchMetadataRowsSchema.safeParse([row, 7]).success).toBe(false);
 	});
 
 	test("validates required branch_metadata schema columns", () => {

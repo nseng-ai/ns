@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { errorCodeFromUnknown, isRecord } from "@nseng-ai/foundation/primitives";
 import { resultErr, type Result } from "@nseng-ai/foundation/result";
+import { z } from "zod";
 
 export const GRAPHITE_METADATA_SQLITE_QUERY_TIMEOUT_MS = 1_000;
 
@@ -137,6 +138,16 @@ export const GRAPHITE_METADATA_DB_NAME = ".graphite_metadata.db";
 export const GRAPHITE_BRANCH_METADATA_QUERY =
 	"SELECT branch_name, parent_branch_name, children, validation_result FROM branch_metadata";
 export const GRAPHITE_BRANCH_METADATA_SCHEMA_QUERY = "PRAGMA table_info(branch_metadata)";
+
+/** Exact SQLite query columns; topology value semantics are validated separately. */
+export const graphiteBranchMetadataRowSchema = z.strictObject({
+	branch_name: z.unknown(),
+	parent_branch_name: z.unknown(),
+	children: z.unknown(),
+	validation_result: z.unknown(),
+});
+export const graphiteBranchMetadataRowsSchema = z.array(graphiteBranchMetadataRowSchema);
+export type GraphiteBranchMetadataRows = z.infer<typeof graphiteBranchMetadataRowsSchema>;
 
 export function graphiteBranchMetadataReadonlyJsonArgs(dbPath: string): string[] {
 	return ["-readonly", "-json", dbPath, GRAPHITE_BRANCH_METADATA_QUERY];

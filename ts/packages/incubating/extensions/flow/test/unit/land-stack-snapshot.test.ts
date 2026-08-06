@@ -9,6 +9,7 @@ import type { LandExecutionApi } from "../../src/land/stack/types.ts";
 import {
 	formatLiveBranchTips,
 	metadataDbJson,
+	metadataSuccessEnvelopeJson,
 	TOPOLOGY_COMMAND,
 	topologyArgs,
 } from "./land-test-helpers.ts";
@@ -134,7 +135,9 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		current = CURRENT,
 	): Promise<LandResult<StackSnapshot>> {
 		const pi = new FakeLandExecutionApi([
-			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+				stdout: `${metadataSuccessEnvelopeJson(dbRows)}\n`,
+			}),
 			step("git", FOR_EACH_REF_ARGS, {
 				stdout: formatLiveBranchTips(liveBranches),
 			}),
@@ -215,7 +218,9 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 			{ branch: "feature-b", parent: TRUNK, children: [] },
 		]);
 		const pi = new FakeLandExecutionApi([
-			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, { stdout: `${dbRows}\n` }),
+			step(TOPOLOGY_COMMAND, TOPOLOGY_ARGS, {
+				stdout: `${metadataSuccessEnvelopeJson(dbRows)}\n`,
+			}),
 			step("git", FOR_EACH_REF_ARGS, { code: 128, stderr: "boom" }),
 		]);
 
