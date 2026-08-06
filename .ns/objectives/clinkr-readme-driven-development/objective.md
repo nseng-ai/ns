@@ -2,6 +2,8 @@
 edges:
   - objective: foundation-readme-driven-pass
     annotation: Parent umbrella; this Subobjective owns its Clinkr gate dry-run and returns process amendments before the Foundation package pass begins.
+  - objective: clinkr-output-and-interaction-model
+    annotation: Supplies the settled output/interaction channel vocabulary (ClinkrResponse, invocation services) that this rebuild's presentation seam and host adapters must conform to.
 ---
 
 # Clinkr README-Driven Development
