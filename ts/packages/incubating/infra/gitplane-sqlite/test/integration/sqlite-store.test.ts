@@ -115,6 +115,73 @@ test("satisfies shared gateway conformance", () =>
 		);
 	}));
 
+test("fails closed for malformed or row-inconsistent reconciliation plans", () =>
+	withDatabase(async (directory, file) => {
+		expect(await initializeSqliteStore({ path: file, baseDirectory: directory })).toEqual({
+			ok: true,
+		});
+		const database = new DatabaseSync(path.join(directory, file));
+		const validAttempt = {
+			schemaVersion: 1,
+			sourceId: "source",
+			attemptId: "gpa_valid",
+			targetCommit: "target",
+			targetCommitish: "HEAD",
+			expectedCursor: null,
+			artifactMaterialization: [],
+			completion: { created: 0, restored: 0, revised: 0, unchanged: 0, deleted: 0 },
+		};
+		database
+			.prepare("INSERT INTO gitplane_reconciliation_plans VALUES (?, ?, ?)")
+			.run("source", "gpa_row_mismatch", JSON.stringify(validAttempt));
+		database.close();
+		const inconsistent = openStore(directory, file, "read-only");
+		expect(await inconsistent.readMaterializationSnapshot({ sourceId: "source" })).toMatchObject({
+			ok: false,
+			error: { code: "sqlite-operation-failed" },
+		});
+		expect(await inconsistent.close()).toEqual({ ok: true });
+
+		const mutate = new DatabaseSync(path.join(directory, file));
+		mutate
+			.prepare("UPDATE gitplane_reconciliation_plans SET attempt_id = ?, reconciliation_plan = ?")
+			.run("gpa_valid", '{"schemaVersion":1}');
+		mutate.close();
+		const malformed = openStore(directory, file, "read-only");
+		expect(await malformed.readMaterializationSnapshot({ sourceId: "source" })).toMatchObject({
+			ok: false,
+			error: { code: "sqlite-operation-failed" },
+		});
+		expect(await malformed.close()).toEqual({ ok: true });
+	}));
+
+test("sequential reopen retries preserve canonical plan idempotency", () =>
+	withDatabase(async (directory, file) => {
+		expect(await initializeSqliteStore({ path: file, baseDirectory: directory })).toEqual({
+			ok: true,
+		});
+		const plan = {
+			schemaVersion: 1 as const,
+			sourceId: "source",
+			attemptId: "gpa_retry",
+			targetCommit: "target",
+			targetCommitish: "HEAD",
+			expectedCursor: null,
+			artifactMaterialization: [],
+			completion: { created: 0, restored: 0, revised: 0, unchanged: 0, deleted: 0 },
+		};
+		const first = openStore(directory, file, "read-write");
+		expect(await first.insertReconciliationPlan(plan)).toEqual({ type: "inserted" });
+		expect(await first.close()).toEqual({ ok: true });
+		const retry = openStore(directory, file, "read-write");
+		expect(await retry.insertReconciliationPlan(plan)).toEqual({ type: "existing" });
+		expect(await retry.insertReconciliationPlan({ ...plan, targetCommitish: "target" })).toEqual({
+			type: "conflict",
+			message: "Source already has a different pending plan.",
+		});
+		expect(await retry.close()).toEqual({ ok: true });
+	}));
+
 test("implements target JSON upsert, restore, tombstone, and quoted identifiers", () =>
 	withDatabase(async (directory, file) => {
 		expect(await initializeSqliteStore({ path: file, baseDirectory: directory })).toEqual({

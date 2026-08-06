@@ -26,7 +26,7 @@ This Objective follows the readme-driven-development pattern with two canonical 
 - Deterministic recursive SHA-256 content digests and `gpr_` revision IDs, plus generation/attempt-aware deterministic `gpe_` event IDs. Revisions are immutable content snapshots whose identity includes the repository-relative artifact path, plus a first-observed Git locator and file-digest manifest; moves therefore create revisions, while raw bytes remain in Git.
 - One operator-owned current-state target table per kind, with mandatory mapped lineage semantics and composite `(source_id, artifact_id)` uniqueness. RFC 6901 field mappings include arbitrary JSON-subtree projection. Gitplane owns no target DDL.
 - Move recognition by stable ID, deletion tombstones preserving last live domain values/path, restoration, immutable revisions, durable deterministic event facts, and sanitized reconciliation errors.
-- Non-transactional, cursor-last reconciliation. Partial writes may be visible after failure; one atomically persisted frozen attempt and deterministic identities make retry idempotent, while generation compare-and-set detects races and commit-string ABA. Source leases and broader distributed scheduling remain unsupported in v1.
+- Non-transactional, cursor-last reconciliation. Partial writes may be visible after failure; one atomically persisted Reconciliation Plan and deterministic identities make retry idempotent, while generation compare-and-set detects races and commit-string ABA. Source leases and broader distributed scheduling remain unsupported in v1.
 - Valid artifact-domain access behind one canonical `ArtifactGateway`, with local creation, target-commit resolution, discovery, and complete recursive target snapshots; reconciliation has no ancestry or commit-diff operations, while creation consumes only its narrowed create operation. Stateless working-tree checking uses a separate `CorpusCheckGateway` for raw tree inventory and candidate reads so invalid corpus entries cannot leak into downstream artifact operations. Storage sits behind a complete operation-level `MaterializationStoreGateway`. One adapter owns both control records and target-table writes. SQLite is the test/local implementation, not a deployment commitment.
 - A shipped check-only composite GitHub Action that runs `gitplane check` against the PR head for each explicitly configured domain, plus documentation showing conceptual reconcile-in-CI wiring.
 - A permanent documentation-grade reference consumer and fake-driven scenario suite proving the pin-and-react/materialization contract and convergence behavior.
@@ -37,7 +37,7 @@ Each deliberate shortcut preserves a named future path where applicable:
 
 - **No ID minting during discovery or reconciliation.** Only local `gitplane artifact create` mints an ID or accepts a caller-supplied canonical ID; all other paths consume artifact IDs already present in markers.
 - **No incremental snapshot optimization.** V1 scans the complete target corpus; tree-OID caches and commit-diff fast paths may be measured later but can never become correctness inputs.
-- **No source leases or broad distributed scheduling.** Atomic single-attempt persistence plus generation CAS serializes the implemented workflow.
+- **No source leases or broad distributed scheduling.** The backend-neutral protocol permits one Pending Plan plus generation CAS. The native SQLite v1 adapter supports that protocol only with one active writer; concurrent SQLite writers or simultaneous replayers are unsupported.
 - **No GitHub API source fetching.** Local Git is primary; another source may implement the gateway later.
 - **No event dispatch, webhooks, or async outbox publication.** V1 records immutable, sequence-ordered event facts without delivery state; a future dispatcher can consume them.
 - **No production persistence commitment.** SQLite is local/reference only; production adapters implement the same gateway.
@@ -73,17 +73,17 @@ This guidance shapes prompt serialization only; it grants no execution authority
 
 Assumptions:
 
-- **Completed-snapshot, cursor-last reconciliation is convergence-safe without transactions.** A complete frozen plan persisted before writes is retry authority; completed Gitplane control state is prior state only when no attempt is unresolved, and generation CAS protects completion. Partial visibility is accepted and fault-injection scenarios must prove convergence.
+- **Completed-snapshot, cursor-last reconciliation is convergence-safe without transactions.** A complete Reconciliation Plan persisted before writes is retry authority; completed Gitplane control state is prior state only when no Pending Plan exists, and generation CAS protects completion. Partial visibility is accepted and fault-injection scenarios must prove convergence.
 - **History independence is the simpler v1 correctness model.** Initial, forward, older, divergent, and merge target commits are immutable snapshots handled identically; ancestry is never observed.
 - **Operator-owned target DDL is the correct boundary.** Gitplane maps and attempts writes, while `doctor` catches introspectable incompatibilities and backend failures remain authoritative.
 - **Durable event facts are enough for v1.** Sequence-ordered immutable events preserve a future dispatch/outbox path without implementing delivery now.
-- **SQLite behind the operation-level gateway is faithful enough** to prove adapter semantics without implying production readiness.
+- **SQLite behind the operation-level gateway is faithful enough** to prove adapter semantics and sequential retry without implying production readiness or multi-writer safety.
 - **Incubating platform placement fits Gitplane** per `docs/conventions/platform-and-consumer.md` and `ts/packages/README.md`.
 
 Risks:
 
 - **Non-transactional partial visibility.** A failed reconcile can expose some target rows or control records before retry completes; consumers must treat cursor advancement as the completed-materialization boundary where needed.
-- **Control-state trust requires attempt discipline.** Operator target rows are never planning authorities, and Gitplane control state is authoritative only at a completed cursor generation with no unresolved attempt; matching replay, conflict refusal, and cleanup precedence require shared fake/SQLite proof.
+- **Control-state trust requires Pending Plan discipline.** Operator target rows are never planning authorities, and Gitplane control state is authoritative only at a completed cursor generation with no Pending Plan; matching replay, conflict refusal, and cleanup precedence require shared fake/SQLite proof.
 - **Target schemas can reject blind mappings.** Projection writes deliberately rely on operator-owned SQL constraints and fail closed; `doctor` cannot guarantee compatibility where an adapter reports unsupported introspection.
 - **First-observed Git locators depend on retained history.** Raw bytes become unavailable if a revision's referenced commit is removed; object-store replication remains an explicit future upgrade.
 - **Scope gravity toward workflow behavior.** Runtime activation and event delivery must stay outside v1.

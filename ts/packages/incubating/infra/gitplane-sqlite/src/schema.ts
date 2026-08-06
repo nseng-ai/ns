@@ -37,16 +37,16 @@ export const CONTROL_SCHEMA = {
 			`CREATE TABLE gitplane_cursors (source_id TEXT PRIMARY KEY, commit_id TEXT NOT NULL, generation INTEGER NOT NULL CHECK (generation > 0)) STRICT`,
 		],
 	},
-	attempts: {
-		name: "gitplane_reconciliation_attempts",
+	plans: {
+		name: "gitplane_reconciliation_plans",
 		columns: [
 			column("source_id", "TEXT", false, 1),
 			column("attempt_id", "TEXT", false),
-			column("frozen_plan", "TEXT", false),
+			column("reconciliation_plan", "TEXT", false),
 		],
 		uniqueColumnSets: [["attempt_id"], ["source_id"]],
 		statements: [
-			`CREATE TABLE gitplane_reconciliation_attempts (source_id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE, frozen_plan TEXT NOT NULL) STRICT`,
+			`CREATE TABLE gitplane_reconciliation_plans (source_id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE, reconciliation_plan TEXT NOT NULL) STRICT`,
 		],
 	},
 	lineage: {

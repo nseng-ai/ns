@@ -15,14 +15,15 @@ import type {
 	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
-	ReconciliationAttemptRecord,
 	ReconciliationErrorRecord,
+	ReconciliationPlan,
 	RevisionRecord,
 	StoredEvent,
 	StoredReconciliationError,
 	TargetMapping,
 	TargetRowRecord,
 } from "../core/index.ts";
+import { parseReconciliationPlan } from "../core/index.ts";
 
 type FailureKey = keyof MaterializationStoreGateway;
 export interface MaterializedTargetRow {
@@ -35,7 +36,7 @@ export interface InMemoryMaterializationStoreState {
 	readonly cursors?: readonly CursorRecord[];
 	readonly lineage?: readonly ArtifactLineageRecord[];
 	readonly currentArtifacts?: readonly ArtifactCurrentRecord[];
-	readonly attempts?: readonly ReconciliationAttemptRecord[];
+	readonly plans?: readonly ReconciliationPlan[];
 	readonly revisions?: readonly RevisionRecord[];
 	readonly targetRows?: readonly MaterializedTargetRow[];
 	readonly events?: readonly StoredEvent[];
@@ -51,7 +52,7 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 	private readonly cursors: CursorRecord[];
 	private readonly lineage: ArtifactLineageRecord[];
 	private readonly current: ArtifactCurrentRecord[];
-	private readonly attempts: ReconciliationAttemptRecord[];
+	private readonly plans: ReconciliationPlan[];
 	private readonly revisions: RevisionRecord[];
 	private readonly targets: MaterializedTargetRow[];
 	private readonly events: StoredEvent[];
@@ -62,7 +63,7 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		this.cursors = copy([...(state.cursors ?? [])]);
 		this.lineage = copy([...(state.lineage ?? [])]);
 		this.current = copy([...(state.currentArtifacts ?? [])]);
-		this.attempts = copy([...(state.attempts ?? [])]);
+		this.plans = (state.plans ?? []).map((plan) => copy(parseReconciliationPlan(plan)));
 		this.revisions = copy([...(state.revisions ?? [])]);
 		this.targets = copy([...(state.targetRows ?? [])]);
 		this.events = copy([...(state.events ?? [])]);
@@ -84,7 +85,7 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 			cursors: this.cursors,
 			lineage: this.lineage,
 			currentArtifacts: this.current,
-			attempts: this.attempts,
+			plans: this.plans,
 			revisions: this.revisions,
 			targetRows: this.targets,
 			events: this.events,
@@ -107,37 +108,40 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 				cursor: this.cursors.find((item) => item.sourceId === request.sourceId) ?? null,
 				currentArtifacts: this.current.filter((item) => item.sourceId === request.sourceId),
 				lineage: this.lineage.filter((item) => item.sourceId === request.sourceId),
-				pendingAttempt: this.attempts.find((item) => item.sourceId === request.sourceId) ?? null,
+				pendingPlan: this.plans.find((item) => item.sourceId === request.sourceId) ?? null,
 			}),
 		};
 	}
-	async insertReconciliationAttempt(record: ReconciliationAttemptRecord): Promise<InsertResult> {
-		const failure = this.failure("insertReconciliationAttempt");
+	async insertReconciliationPlan(plan: ReconciliationPlan): Promise<InsertResult> {
+		const failure = this.failure("insertReconciliationPlan");
 		if (failure !== undefined) return { type: "error", error: failure };
-		const existing = this.attempts.find((item) => item.sourceId === record.sourceId);
+		const parsed = parseReconciliationPlan(plan);
+		const existing = this.plans.find((item) => item.sourceId === parsed.sourceId);
 		if (existing !== undefined)
-			return isDeepStrictEqual(existing, record)
+			return isDeepStrictEqual(existing, parsed)
 				? { type: "existing" }
-				: { type: "conflict", message: "Source already has a different pending attempt." };
-		const cursor = this.cursors.find((item) => item.sourceId === record.sourceId) ?? null;
-		if (!isDeepStrictEqual(cursor, record.plan.expectedCursor))
+				: { type: "conflict", message: "Source already has a different pending plan." };
+		const cursor = this.cursors.find((item) => item.sourceId === parsed.sourceId) ?? null;
+		const compactCursor =
+			cursor === null ? null : { commit: cursor.commit, generation: cursor.generation };
+		if (!isDeepStrictEqual(compactCursor, parsed.expectedCursor))
 			return {
 				type: "conflict",
-				message: "Completed cursor no longer matches the reconciliation attempt.",
+				message: "Completed cursor no longer matches the reconciliation plan.",
 			};
-		this.attempts.push(copy(record));
+		this.plans.push(copy(parsed));
 		return { type: "inserted" };
 	}
-	async deleteReconciliationAttempt(request: {
+	async deleteReconciliationPlan(request: {
 		readonly sourceId: string;
 		readonly attemptId: string;
 	}): Promise<OperationResult> {
-		const failure = this.failure("deleteReconciliationAttempt");
+		const failure = this.failure("deleteReconciliationPlan");
 		if (failure !== undefined) return { ok: false, error: failure };
-		const index = this.attempts.findIndex(
+		const index = this.plans.findIndex(
 			(item) => item.sourceId === request.sourceId && item.attemptId === request.attemptId,
 		);
-		if (index >= 0) this.attempts.splice(index, 1);
+		if (index >= 0) this.plans.splice(index, 1);
 		return { ok: true };
 	}
 	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {

@@ -99,11 +99,11 @@ test("matches generation-aware attempt literal vector", () => {
 });
 
 test.each([
-	"artifact.created",
-	"artifact.restored",
-	"artifact.revised",
-	"artifact.deleted",
-] as const)("derives retry-stable, generation-aware %s event identity", (eventType) => {
+	["artifact.created", "gpe_9608zkb02462te4c5fs3dwf4ndz6k57ssm93cstbvys5xx6n2vdg"],
+	["artifact.restored", "gpe_x9b5ry0n83fj2tj0vsbfs0a3wmpk5d8fmp697degwhvj1f3bw75g"],
+	["artifact.revised", "gpe_q3m8m607vb5m30jd2y9y5r9ahegjfjq39nsq5a1mf6bt9cm0ef60"],
+	["artifact.deleted", "gpe_kxjjsbjn2jv4pezjr02xwaxt56h78y44f99r71sz578pyzjyegrg"],
+] as const)("matches the retry-stable %s event literal vector", (eventType, expected) => {
 	const options = {
 		sourceId: "acme/greetings",
 		artifactId,
@@ -112,9 +112,33 @@ test.each([
 		reconciledCommit: "abc123",
 		eventType,
 	};
+	expect(deriveEventId(options)).toBe(expected);
+	expect(deriveEventId(options)).toBe(deriveEventId(options));
+});
+
+test("generation and attempt changes affect event identity", () => {
+	const options = {
+		sourceId: "acme/greetings",
+		artifactId,
+		reconciliationGeneration: 8,
+		attemptId: "gpa_attempt",
+		reconciledCommit: "abc123",
+		eventType: "artifact.revised" as const,
+	};
 	const identity = deriveEventId(options);
-	expect(identity).toBe(deriveEventId(options));
-	expect(identity).not.toBe(
-		deriveEventId({ ...options, reconciliationGeneration: 9, attemptId: "gpa_later" }),
-	);
+	expect(deriveEventId({ ...options, reconciliationGeneration: 9 })).not.toBe(identity);
+	expect(deriveEventId({ ...options, attemptId: "gpa_later" })).not.toBe(identity);
+});
+
+test("matches the repeated-target later reconciliation literal vector", () => {
+	expect(
+		deriveEventId({
+			sourceId: "acme/greetings",
+			artifactId,
+			reconciliationGeneration: 9,
+			attemptId: "gpa_later",
+			reconciledCommit: "abc123",
+			eventType: "artifact.revised",
+		}),
+	).toBe("gpe_299cy197f09jwk7r5vnxzhnwdas7ybrps2x076ej4gm4ckxv8rk0");
 });

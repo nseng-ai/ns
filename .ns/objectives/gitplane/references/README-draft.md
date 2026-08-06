@@ -138,7 +138,7 @@ CREATE TABLE greetings (
 
 ### 4. Initialize control-plane tables
 
-Gitplane keeps its own control-plane tables (generation cursors, lineage, current state, immutable revisions, frozen reconciliation attempts, generation-aware durable events, and reconciliation errors) in the same store, strictly under its control. Initialize the native Node SQLite adapter explicitly during setup:
+Gitplane keeps its own control-plane tables (generation cursors, lineage, current state, immutable revisions, durable Reconciliation Plans, generation-aware durable events, and reconciliation errors) in the same store, strictly under its control. Initialize the native Node SQLite adapter explicitly during setup:
 
 ```ts
 import { initializeSqliteStore } from "@nseng-ai/gitplane-sqlite";
@@ -150,6 +150,8 @@ await initializeSqliteStore({
 ```
 
 Initialization is idempotent and refuses incompatible existing control objects without migrating or rewriting them. Opening the adapter and running `doctor` or `reconcile` never creates or migrates tables. The parent directory must already exist; applications do not author the control-plane DDL.
+
+The native SQLite adapter is a single-writer local/reference adapter in v1. Sequential process restarts and retries are idempotent, but concurrent SQLite writers or simultaneous replayers are unsupported. Use one active reconciliation writer per database.
 
 ### 5. Add the CI job
 
@@ -203,9 +205,9 @@ Common behavior:
 - for completed `check` runs, exit `0` means clean or warning-only findings and exit `1` means at least one error finding; usage, configuration, source, store, or other operational failure exits `2` and emits no partial corpus result;
 - completed JSON `check` output identifies `sourceId` and normalized `artifactRoot` and includes `artifactCount`, severity counts, and the deterministically sorted findings.
 
-For reconciliation, the target commit tree is immutable desired state and the complete Gitplane-owned control snapshot at the last completed cursor generation is prior state. Operator-owned target-table values are never planning authorities. Control state is safe to plan from only when no unresolved attempt exists: matching work replays its frozen plan, conflicting work is refused, and residue left after cursor advancement is cleaned before new planning.
+For reconciliation, the target commit tree is immutable desired state and the complete Gitplane-owned control snapshot at the last completed cursor generation is prior state. Operator-owned target-table values are never planning authorities. Control state is safe to plan from only when no Pending Plan exists: matching work replays its Reconciliation Plan, conflicting work is refused, and residue left after cursor advancement is cleaned before new planning. A Reconciliation Plan contains Planned Artifact Materializations and stores shared replay facts once. Domain logic prepares each Planned Artifact Materialization for the Materialization Store Gateway as a Prepared Artifact Materialization; the Resulting Cursor and deterministic event identity cannot be independently authored.
 
-Successful generation-and-commit cursor compare-and-set is the completed-materialization boundary. Because writes are non-transactional, readers that do not check the cursor may observe stale or mixed materialized state while reconciliation is in progress; consumers that need snapshot-level freshness must check both cursor commit and generation. Cleanup can still fail after materialization has completed. The advanced cursor and persisted attempt retain enough state to identify that post-completion residue, so a later invocation retries error resolution and attempt deletion idempotently without replaying materialization or artifact events. A stale writer is rejected by generation even when its expected commit string has been revisited. The result reports bounded lifecycle counts, prior and resulting cursors, whether this invocation advanced the cursor, and whether it replayed or only cleaned an attempt; it does not report repair, ancestry, or event-reconstruction status.
+Successful generation-and-commit cursor compare-and-set is the completed-materialization boundary. Because writes are non-transactional, readers that do not check the cursor may observe stale or mixed materialized state while reconciliation is in progress; consumers that need snapshot-level freshness must check both cursor commit and generation. Cleanup can still fail after materialization has completed. The advanced cursor and Pending Plan retain enough state to identify that post-completion residue, so a later invocation retries error resolution and plan deletion idempotently without replaying materialization or artifact events. A stale writer is rejected by generation even when its expected commit string has been revisited. The result reports bounded lifecycle counts, prior and resulting cursors, whether this invocation advanced the cursor, and whether it replayed or only cleaned an attempt; it does not report repair, ancestry, or event-reconstruction status.
 
 Complete command semantics — atomic creation, validation coverage, snapshot reconciliation and failure guarantees, and doctor checks — are specified in [SPEC-draft.md](SPEC-draft.md).
 

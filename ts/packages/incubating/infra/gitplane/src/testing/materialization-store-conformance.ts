@@ -65,45 +65,38 @@ export async function exerciseMaterializationStoreConformance(
 		);
 	});
 
-	const attempt = {
+	const plan = {
+		schemaVersion: 1 as const,
 		sourceId,
 		attemptId: "gpa_conformance",
-		plan: {
-			schemaVersion: 1 as const,
-			sourceId,
-			attemptId: "gpa_conformance",
-			targetCommit: "c",
-			targetCommitish: "c",
-			expectedCursor: { sourceId, commit: "b", generation: 4 },
-			nextCursor: { sourceId, commit: "c", generation: 5 },
-			artifactWork: [],
-			completion: { eventCount: 0 },
-		},
+		targetCommit: "c",
+		targetCommitish: "c",
+		expectedCursor: { commit: "b", generation: 4 },
+		artifactMaterialization: [],
+		completion: { created: 0, restored: 0, revised: 0, unchanged: 0, deleted: 0 },
 	};
 	await step(
-		"atomic pending attempt reuse, conflict, snapshot immutability, and cleanup",
+		"atomic pending plan reuse, conflict, snapshot immutability, and cleanup",
 		async () => {
 			deepStrictEqual(
-				await store.insertReconciliationAttempt({
-					...attempt,
+				await store.insertReconciliationPlan({
+					...plan,
 					attemptId: "gpa_stale",
-					plan: {
-						...attempt.plan,
-						attemptId: "gpa_stale",
-						expectedCursor: { sourceId, commit: "a", generation: 3 },
-						nextCursor: { sourceId, commit: "c", generation: 4 },
-					},
+					expectedCursor: { commit: "a", generation: 3 },
 				}),
 				{
 					type: "conflict",
-					message: "Completed cursor no longer matches the reconciliation attempt.",
+					message: "Completed cursor no longer matches the reconciliation plan.",
 				},
 			);
-			deepStrictEqual(await store.insertReconciliationAttempt(attempt), { type: "inserted" });
-			deepStrictEqual(await store.insertReconciliationAttempt(attempt), { type: "existing" });
+			deepStrictEqual(await store.insertReconciliationPlan(plan), { type: "inserted" });
+			deepStrictEqual(await store.insertReconciliationPlan(plan), { type: "existing" });
 			deepStrictEqual(
-				await store.insertReconciliationAttempt({ ...attempt, attemptId: "gpa_other" }),
-				{ type: "conflict", message: "Source already has a different pending attempt." },
+				await store.insertReconciliationPlan({
+					...plan,
+					attemptId: "gpa_other",
+				}),
+				{ type: "conflict", message: "Source already has a different pending plan." },
 			);
 			const first = await store.readMaterializationSnapshot({ sourceId });
 			if (!first.ok) throw new Error(first.error.message);
@@ -116,16 +109,19 @@ export async function exerciseMaterializationStoreConformance(
 				observedCommit: "mutated-commit",
 				tombstoned: false,
 			} satisfies ArtifactCurrentRecord);
+			if (first.value.pendingPlan !== null) {
+				(first.value.pendingPlan.completion as { created: number }).created = 99;
+			}
 			const second = await store.readMaterializationSnapshot({ sourceId });
 			if (!second.ok) throw new Error(second.error.message);
 			deepStrictEqual(second.value.currentArtifacts, []);
-			deepStrictEqual(second.value.pendingAttempt, attempt);
+			deepStrictEqual(second.value.pendingPlan, plan);
 			deepStrictEqual(
-				await store.deleteReconciliationAttempt({ sourceId, attemptId: attempt.attemptId }),
+				await store.deleteReconciliationPlan({ sourceId, attemptId: plan.attemptId }),
 				{ ok: true },
 			);
 			deepStrictEqual(
-				await store.deleteReconciliationAttempt({ sourceId, attemptId: attempt.attemptId }),
+				await store.deleteReconciliationPlan({ sourceId, attemptId: plan.attemptId }),
 				{ ok: true },
 			);
 		},
@@ -291,7 +287,7 @@ export async function exerciseMaterializationStoreConformance(
 		sourceId,
 		artifactId,
 		reconciliationGeneration: 5,
-		attemptId: attempt.attemptId,
+		attemptId: plan.attemptId,
 		reconciledCommit: "b",
 		eventType: "artifact.created",
 		priorRevisionId: null,

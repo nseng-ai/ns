@@ -132,7 +132,7 @@ export function deriveEventId(options: {
 	readonly reconciledCommit: string;
 	readonly eventType: ArtifactEventType;
 }): `gpe_${string}` {
-	return `gpe_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(Buffer.from(options.artifactId)), frame(u64be(options.reconciliationGeneration)), frame(Buffer.from(options.attemptId)), frame(Buffer.from(options.reconciledCommit)), frame(Buffer.from(options.eventType))]))}`;
+	return `gpe_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(Buffer.from(options.artifactId)), u64be(options.reconciliationGeneration), frame(Buffer.from(options.attemptId)), frame(Buffer.from(options.reconciledCommit)), frame(Buffer.from(options.eventType))]))}`;
 }
 export interface ArtifactIdGenerator {
 	generateArtifactId(): ArtifactId;

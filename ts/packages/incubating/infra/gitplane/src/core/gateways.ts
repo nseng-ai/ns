@@ -5,7 +5,7 @@ import type {
 	TargetMapping,
 	TargetProjectionField,
 } from "./domain.ts";
-import type { FrozenReconciliationPlan } from "./frozen-plan.ts";
+import type { ReconciliationPlan } from "./reconciliation-plan.ts";
 import type { ArtifactEventType, ContentDigest } from "./identity.ts";
 
 export interface GatewayError {
@@ -162,16 +162,11 @@ export interface DoctorIntrospection {
 	}[];
 	readonly jsonProjection: DoctorCapability;
 }
-export interface ReconciliationAttemptRecord {
-	readonly sourceId: string;
-	readonly attemptId: string;
-	readonly plan: FrozenReconciliationPlan;
-}
 export interface MaterializationSnapshot {
 	readonly cursor: CursorRecord | null;
 	readonly currentArtifacts: readonly ArtifactCurrentRecord[];
 	readonly lineage: readonly ArtifactLineageRecord[];
-	readonly pendingAttempt: ReconciliationAttemptRecord | null;
+	readonly pendingPlan: ReconciliationPlan | null;
 }
 export type CursorCompareAndSetResult =
 	| { readonly type: "updated" }
@@ -190,8 +185,8 @@ export interface MaterializationStoreGateway {
 	readMaterializationSnapshot(request: {
 		readonly sourceId: string;
 	}): Promise<GatewayResult<MaterializationSnapshot>>;
-	insertReconciliationAttempt(record: ReconciliationAttemptRecord): Promise<InsertResult>;
-	deleteReconciliationAttempt(request: {
+	insertReconciliationPlan(plan: ReconciliationPlan): Promise<InsertResult>;
+	deleteReconciliationPlan(request: {
 		readonly sourceId: string;
 		readonly attemptId: string;
 	}): Promise<OperationResult>;

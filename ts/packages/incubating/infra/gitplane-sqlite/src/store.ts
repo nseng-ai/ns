@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { artifactClassificationSchema, frozenReconciliationPlanSchema } from "@nseng-ai/gitplane";
+import { artifactClassificationSchema, reconciliationPlanSchema } from "@nseng-ai/gitplane";
 import type {
 	ArtifactClassification,
 	ArtifactCurrentRecord,
@@ -10,6 +10,7 @@ import type {
 	DoctorIntrospection,
 	EventInsertResult,
 	EventRecord,
+	ReconciliationPlan,
 	GatewayResult,
 	GitplaneStoreFactory,
 	InsertResult,
@@ -17,7 +18,6 @@ import type {
 	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
-	ReconciliationAttemptRecord,
 	ReconciliationErrorRecord,
 	RevisionRecord,
 	TargetMapping,
@@ -83,9 +83,9 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 				}[];
 				const attemptRow = this.database
 					.prepare(
-						"SELECT attempt_id, frozen_plan FROM gitplane_reconciliation_attempts WHERE source_id = ?",
+						"SELECT attempt_id, reconciliation_plan FROM gitplane_reconciliation_plans WHERE source_id = ?",
 					)
-					.get(request.sourceId) as { attempt_id: string; frozen_plan: string } | undefined;
+					.get(request.sourceId) as { attempt_id: string; reconciliation_plan: string } | undefined;
 				snapshot = {
 					cursor:
 						cursorRow === undefined
@@ -104,8 +104,7 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 						establishedClassification: parseJson(row.established_classification),
 						lastSchemaVersion: row.last_schema_version,
 					})),
-					pendingAttempt:
-						attemptRow === undefined ? null : parseAttempt(request.sourceId, attemptRow),
+					pendingPlan: attemptRow === undefined ? null : parseAttempt(request.sourceId, attemptRow),
 				};
 			});
 			if (snapshot === undefined)
@@ -115,27 +114,28 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 			return { ok: false, error: databaseError(error) };
 		}
 	}
-	async insertReconciliationAttempt(record: ReconciliationAttemptRecord): Promise<InsertResult> {
+	async insertReconciliationPlan(plan: ReconciliationPlan): Promise<InsertResult> {
 		try {
-			const serialized = deterministicJson(record.plan);
+			const parsed = reconciliationPlanSchema.parse(plan);
+			const serialized = deterministicJson(parsed);
 			let result: InsertResult = { type: "inserted" };
 			transaction(this.database, () => {
 				const existing = this.database
 					.prepare(
-						"SELECT attempt_id, frozen_plan FROM gitplane_reconciliation_attempts WHERE source_id = ?",
+						"SELECT attempt_id, reconciliation_plan FROM gitplane_reconciliation_plans WHERE source_id = ?",
 					)
-					.get(record.sourceId) as { attempt_id: string; frozen_plan: string } | undefined;
+					.get(parsed.sourceId) as { attempt_id: string; reconciliation_plan: string } | undefined;
 				if (existing !== undefined) {
 					result =
-						existing.attempt_id === record.attemptId && existing.frozen_plan === serialized
+						existing.attempt_id === parsed.attemptId && existing.reconciliation_plan === serialized
 							? { type: "existing" }
-							: { type: "conflict", message: "Source already has a different pending attempt." };
+							: { type: "conflict", message: "Source already has a different pending plan." };
 					return;
 				}
 				const cursor = this.database
 					.prepare("SELECT commit_id, generation FROM gitplane_cursors WHERE source_id = ?")
-					.get(record.sourceId) as { commit_id: string; generation: number } | undefined;
-				const expected = record.plan.expectedCursor;
+					.get(parsed.sourceId) as { commit_id: string; generation: number } | undefined;
+				const expected = parsed.expectedCursor;
 				if (
 					(cursor === undefined) !== (expected === null) ||
 					(cursor !== undefined &&
@@ -143,30 +143,28 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 				) {
 					result = {
 						type: "conflict",
-						message: "Completed cursor no longer matches the reconciliation attempt.",
+						message: "Completed cursor no longer matches the reconciliation plan.",
 					};
 					return;
 				}
 				this.database
 					.prepare(
-						"INSERT INTO gitplane_reconciliation_attempts (source_id, attempt_id, frozen_plan) VALUES (?, ?, ?)",
+						"INSERT INTO gitplane_reconciliation_plans (source_id, attempt_id, reconciliation_plan) VALUES (?, ?, ?)",
 					)
-					.run(record.sourceId, record.attemptId, serialized);
+					.run(parsed.sourceId, parsed.attemptId, serialized);
 			});
 			return result;
 		} catch (error) {
 			return { type: "error", error: databaseError(error) };
 		}
 	}
-	async deleteReconciliationAttempt(request: {
+	async deleteReconciliationPlan(request: {
 		readonly sourceId: string;
 		readonly attemptId: string;
 	}): Promise<OperationResult> {
 		return this.operation(() =>
 			this.database
-				.prepare(
-					"DELETE FROM gitplane_reconciliation_attempts WHERE source_id = ? AND attempt_id = ?",
-				)
+				.prepare("DELETE FROM gitplane_reconciliation_plans WHERE source_id = ? AND attempt_id = ?")
 				.run(request.sourceId, request.attemptId),
 		);
 	}
@@ -554,16 +552,16 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 
 function parseAttempt(
 	sourceId: string,
-	row: { readonly attempt_id: string; readonly frozen_plan: string },
-): ReconciliationAttemptRecord {
-	const parsed = frozenReconciliationPlanSchema.safeParse(JSON.parse(row.frozen_plan));
+	row: { readonly attempt_id: string; readonly reconciliation_plan: string },
+): ReconciliationPlan {
+	const parsed = reconciliationPlanSchema.safeParse(JSON.parse(row.reconciliation_plan));
 	if (
 		!parsed.success ||
 		parsed.data.sourceId !== sourceId ||
 		parsed.data.attemptId !== row.attempt_id
 	)
-		throw new Error("Persisted frozen reconciliation plan is invalid.");
-	return { sourceId, attemptId: row.attempt_id, plan: parsed.data };
+		throw new Error("Persisted reconciliation plan is invalid.");
+	return parsed.data;
 }
 
 function currentFromRow(

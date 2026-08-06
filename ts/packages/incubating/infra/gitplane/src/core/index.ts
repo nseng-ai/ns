@@ -42,8 +42,17 @@ export {
 	deriveRevisionId,
 	digestArtifactContent,
 } from "./identity.ts";
-export { frozenReconciliationPlanSchema } from "./frozen-plan.ts";
-export type { FrozenArtifactWork, FrozenReconciliationPlan } from "./frozen-plan.ts";
+export {
+	prepareArtifactMaterialization,
+	prepareResultingCursor,
+	reconciliationPlanSchema,
+	parseReconciliationPlan,
+} from "./reconciliation-plan.ts";
+export type {
+	PreparedArtifactMaterialization,
+	PlannedArtifactMaterialization,
+	ReconciliationPlan,
+} from "./reconciliation-plan.ts";
 export type {
 	ArtifactEventType,
 	ArtifactIdGenerator,
@@ -72,7 +81,6 @@ export type {
 	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
-	ReconciliationAttemptRecord,
 	ReconciliationErrorRecord,
 	RevisionRecord,
 	StoredEvent,
