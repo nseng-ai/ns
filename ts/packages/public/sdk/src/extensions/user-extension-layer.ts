@@ -69,6 +69,55 @@ export interface UserExtensionLayerDiagnostic {
 	path?: string;
 }
 
+export type UserSupportedHarnessesFacts =
+	| { readonly type: "missing" }
+	| { readonly type: "invalid" }
+	| { readonly type: "configured"; readonly harnesses: readonly HarnessId[] };
+
+/** Decide contribution visibility from already parsed facts; performs no I/O. */
+export function decideUserExtensionLayer(options: {
+	readonly env: Record<string, string | undefined> | undefined;
+	readonly supportedHarnesses: UserSupportedHarnessesFacts;
+}): UserExtensionLayerDecision {
+	const activeHarness = resolveActiveHarness(options.env);
+	if (activeHarness.type === "unset") {
+		return { enabled: false, reason: { type: "active-harness-unset" } };
+	}
+	if (activeHarness.type === "unknown") {
+		return {
+			enabled: false,
+			reason: { type: "active-harness-unknown", value: activeHarness.value },
+		};
+	}
+	if (options.supportedHarnesses.type === "missing") {
+		return {
+			enabled: false,
+			reason: { type: "supported-harnesses-missing", activeHarness: activeHarness.harness },
+		};
+	}
+	if (options.supportedHarnesses.type === "invalid") {
+		return {
+			enabled: false,
+			reason: { type: "supported-harnesses-invalid", activeHarness: activeHarness.harness },
+		};
+	}
+	if (!options.supportedHarnesses.harnesses.includes(activeHarness.harness)) {
+		return {
+			enabled: false,
+			reason: {
+				type: "active-harness-unsupported",
+				activeHarness: activeHarness.harness,
+				supportedHarnesses: options.supportedHarnesses.harnesses,
+			},
+		};
+	}
+	return {
+		enabled: true,
+		activeHarness: activeHarness.harness,
+		supportedHarnesses: options.supportedHarnesses.harnesses,
+	};
+}
+
 export interface EffectiveUserExtensionLayer {
 	decision: UserExtensionLayerDecision;
 	userConfigPath?: string;
@@ -106,18 +155,25 @@ const userSupportedHarnessesSettingsKey = userSupportedHarnessesSettingsSchema.p
 export async function loadEffectiveUserExtensionLayer(
 	options: LoadUserExtensionLayerOptions,
 ): Promise<EffectiveUserExtensionLayer> {
-	const activeHarness = resolveActiveHarness(options.env);
-	if (activeHarness.type === "unset") {
-		return disabledLayer({ type: "active-harness-unset" });
+	const initialDecision = decideUserExtensionLayer({
+		env: options.env,
+		supportedHarnesses: { type: "missing" },
+	});
+	if (!initialDecision.enabled && initialDecision.reason.type === "active-harness-unset") {
+		return disabledLayer(initialDecision.reason);
 	}
-	if (activeHarness.type === "unknown") {
-		return disabledLayer({ type: "active-harness-unknown", value: activeHarness.value }, [
+	if (!initialDecision.enabled && initialDecision.reason.type === "active-harness-unknown") {
+		return disabledLayer(initialDecision.reason, [
 			{
 				code: "user_extension_layer_unknown_harness",
-				message: `User extension configuration: ${NS_HARNESS_ENV_VAR}=${JSON.stringify(activeHarness.value)} is not a known harness. Known harness ids: ${ALL_HARNESS_IDS.join(", ")}.`,
+				message: `User extension configuration: ${NS_HARNESS_ENV_VAR}=${JSON.stringify(initialDecision.reason.value)} is not a known harness. Known harness ids: ${ALL_HARNESS_IDS.join(", ")}.`,
 			},
 		]);
 	}
+	if (initialDecision.enabled || !("activeHarness" in initialDecision.reason)) {
+		throw new Error("Initial User extension layer decision lost its resolved Active harness.");
+	}
+	const activeHarness = initialDecision.reason.activeHarness;
 
 	const env = mergeXdgHomeEnv({
 		baseEnv: {},
@@ -139,7 +195,7 @@ export async function loadEffectiveUserExtensionLayer(
 		return {
 			...disabledLayer({
 				type: "supported-harnesses-missing",
-				activeHarness: activeHarness.harness,
+				activeHarness,
 			}),
 			userConfigPath,
 		};
@@ -179,50 +235,38 @@ export async function loadEffectiveUserExtensionLayer(
 	);
 	if (settingsInvalid) {
 		return {
-			...disabledLayer(
-				{ type: "supported-harnesses-invalid", activeHarness: activeHarness.harness },
-				configDiagnostics,
-			),
+			...disabledLayer({ type: "supported-harnesses-invalid", activeHarness }, configDiagnostics),
 			userConfigPath,
 		};
 	}
 	if (declaredHarnesses === undefined) {
 		return {
-			...disabledLayer(
-				{ type: "supported-harnesses-missing", activeHarness: activeHarness.harness },
-				configDiagnostics,
-			),
+			...disabledLayer({ type: "supported-harnesses-missing", activeHarness }, configDiagnostics),
 			userConfigPath,
 		};
 	}
 	const supportedHarnesses = validateSupportedHarnesses(declaredHarnesses);
 	if (supportedHarnesses.type === "invalid") {
 		return {
-			...disabledLayer(
-				{ type: "supported-harnesses-invalid", activeHarness: activeHarness.harness },
-				[
-					...configDiagnostics,
-					userConfigDiagnostic(
-						"user_supported_harnesses_invalid",
-						`${userConfigPath}: ${supportedHarnesses.message}`,
-						undefined,
-						userConfigPath,
-					),
-				],
-			),
+			...disabledLayer({ type: "supported-harnesses-invalid", activeHarness }, [
+				...configDiagnostics,
+				userConfigDiagnostic(
+					"user_supported_harnesses_invalid",
+					`${userConfigPath}: ${supportedHarnesses.message}`,
+					undefined,
+					userConfigPath,
+				),
+			]),
 			userConfigPath,
 		};
 	}
-	if (!supportedHarnesses.harnesses.includes(activeHarness.harness)) {
+	const decision = decideUserExtensionLayer({
+		env: options.env,
+		supportedHarnesses: { type: "configured", harnesses: supportedHarnesses.harnesses },
+	});
+	if (!decision.enabled) {
 		return {
-			...disabledLayer(
-				{
-					type: "active-harness-unsupported",
-					activeHarness: activeHarness.harness,
-					supportedHarnesses: supportedHarnesses.harnesses,
-				},
-				configDiagnostics,
-			),
+			...disabledLayer(decision.reason, configDiagnostics),
 			userConfigPath,
 		};
 	}
@@ -256,11 +300,7 @@ export async function loadEffectiveUserExtensionLayer(
 		resolveNpmPackageRoot,
 	});
 	return {
-		decision: {
-			enabled: true,
-			activeHarness: activeHarness.harness,
-			supportedHarnesses: supportedHarnesses.harnesses,
-		},
+		decision,
 		userConfigPath,
 		descriptors: loaded.descriptors,
 		declaredSourceIdentities: activeSpecs.flatMap((spec) => {
