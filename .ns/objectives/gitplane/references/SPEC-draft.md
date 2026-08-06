@@ -22,7 +22,7 @@ Working-tree discovery uses `lstat` semantics and never follows symlinks. It fir
 
 Within an outer boundary, regular files and directories are supported. Symlinks and other special entries produce `unsupported-artifact-entry`. Non-regular entries outside attempted boundaries are ignored unless they carry the reserved marker name. Ordinary files and directories outside boundaries are also ignored.
 
-Every reconciliation resolves the requested commit and recursively discovers its complete artifact corpus. The immutable target commit tree is desired state; dirty or untracked working-tree contents are never included. Normal and repair modes use the same complete target snapshot facts. Gitplane does not inspect ancestry, parents, diffs, or the prior commit tree, and V1 deliberately has no incremental snapshot optimization.
+Every reconciliation resolves the requested commit and recursively discovers its complete artifact corpus. The immutable target commit tree is desired state; dirty or untracked working-tree contents are never included. Gitplane does not inspect ancestry, parents, diffs, or the prior commit tree, and V1 deliberately has no incremental snapshot optimization.
 
 ## Artifact envelope and identity
 
@@ -185,7 +185,7 @@ After the nesting-first phase defined under Artifact discovery, `check` reads ea
 
 Lineage legality across completed materialization snapshots (immutable `gpApiVersion`/`gpKind`, registered schema transitions, no ID replacement at one path) is not `check`'s job. `reconcile` enforces it while planning from the complete Gitplane control snapshot to the complete target-commit corpus and fails closed. If pre-merge validation of the commit-based process proves necessary, a future `reconcile --dry-run` can plan and validate without writes.
 
-### `gitplane reconcile <commit> [--repair]`
+### `gitplane reconcile <commit>`
 
 `reconcile` is level-triggered: it converges Gitplane control state and classified target rows from the last completed materialization snapshot to the complete artifact snapshot at resolved target commit `C`. Initial, forward, older, divergent, and merge snapshots all use the same algorithm. Git ancestry, parentage, commit diffs, and history completeness are never observed, reported, or used to fetch additional history.
 
@@ -198,7 +198,7 @@ Lineage legality across completed materialization snapshots (immutable `gpApiVer
 7. Compare-and-set the cursor from the expected generation to `{ commit: C, generation: expected + 1 }`. This is the completed-materialization boundary.
 8. Resolve applicable errors and delete completed attempt residue.
 
-A normal equal completed snapshot with no semantic work is a no-op and does not fabricate a generation. Cleanup-only work also leaves the generation unchanged. A completed transition to a distinct target commit advances generation even if artifact contents are identical; a deliberate repair completion advances generation. Absent cursor is conceptual generation `0`, and first completed materialization writes generation `1`.
+An equal completed snapshot with no semantic work is a no-op and does not fabricate a generation. Cleanup-only work also leaves the generation unchanged. A completed transition to a distinct target commit advances generation even if artifact contents are identical. Absent cursor is conceptual generation `0`, and first completed materialization writes generation `1`.
 
 Writes are non-transactional. Partial materialization can be visible before cursor CAS, but matching retry replays the frozen plan with stable identities and converges. Atomic pending-attempt insertion serializes competing invocations before artifact writes; generation CAS protects the completion boundary, including ABA when a commit is revisited. Source leases remain out of scope.
 
@@ -206,17 +206,15 @@ Writes are non-transactional. Partial materialization can be visible before curs
 
 **Truth and validation.** The immutable target commit tree is desired state. The complete Gitplane-owned snapshot at the last completed cursor generation is prior state. Dirty/untracked working-tree contents and operator-owned target-table values are not planning authorities. Complete target topology, corpus, lineage legality, classification/schema legality, and the semantic plan are validated before the first materialization write.
 
-**Transition selection.** Normal mode derives exactly these lifecycle outcomes: unseen + present → `artifact.created`; tombstoned + present → `artifact.restored`; live + changed revision or path → `artifact.revised`; live + identical revision and path → no event; live + absent → `artifact.deleted`. A successful plan emits at most one outcome per artifact. Generic-to-classified and moves are revisions.
-
-**Repair.** `--repair` (`-r`) deliberately reapplies every live target artifact and removes every stored-live artifact absent from the target, emitting one lineage-free `artifact.repaired` event for each such work item. Already-absent tombstones need no synthetic repair. Repair never reads target rows to infer drift and never asserts a Git-history transition. There is no `--full` compatibility alias.
+**Transition selection.** Reconciliation derives exactly these lifecycle outcomes: unseen + present → `artifact.created`; tombstoned + present → `artifact.restored`; live + changed revision or path → `artifact.revised`; live + identical revision and path → no event; live + absent → `artifact.deleted`. A successful plan emits at most one outcome per artifact. Generic-to-classified and moves are revisions. V1 has no repair mode or operator target-row drift detection.
 
 **Apply ordering.** Persist attempt and frozen plan → for each artifact in canonical artifact-ID order, revision → lineage → control current state → classified target operation when applicable → event when applicable → after all artifacts, cursor generation/commit CAS → resolve errors → delete attempt. This is adapter-neutral semantic ordering.
 
-**Completion and visibility.** Successful generation CAS is the completed-materialization boundary. Consumers requiring snapshot freshness check cursor commit and generation. Post-CAS cleanup failure leaves recognizable attempt residue; a later invocation performs cleanup only and never replays materialization or events. Results report mode, bounded lifecycle/repair counts, prior/resulting cursor, `cursorAdvanced`, and replay/cleanup-only indication directly; obsolete event-reconstruction status is not retained.
+**Completion and visibility.** Successful generation CAS is the completed-materialization boundary. Consumers requiring snapshot freshness check cursor commit and generation. Post-CAS cleanup failure leaves recognizable attempt residue; a later invocation performs cleanup only and never replays materialization or events. Results report bounded lifecycle counts, prior/resulting cursor, `cursorAdvanced`, and replay/cleanup-only indication directly; repair and obsolete event-reconstruction status are not retained.
 
 **Failure split.** Structural failures are deterministic corpus, lineage, classification/schema, attempt-conflict, frozen-plan-conflict, or CAS-precondition outcomes and create no durable reconciliation-error row. Operational source/store failures after writes begin record a sanitized error best-effort without replacing the primary failure. Semantic CAS mismatch and attempt conflict remain distinct from backend failures.
 
-**Generation-aware attempts and events.** A `gpa_` attempt ID is deterministically derived by length-framed hashing of source ID, expected cursor generation (or the initial sentinel), target commit, and mode. Its frozen plan owns expected and next generation and every value required for replay without source/config rereads. Event identity includes reconciliation generation/attempt identity, target commit, artifact, and type: retries reproduce the same `gpe_`, while later visits to the same commit can emit distinct events.
+**Generation-aware attempts and events.** A `gpa_` attempt ID is deterministically derived by length-framed hashing of source ID, expected cursor generation (or the initial sentinel), and target commit. Its frozen plan owns expected and next generation and every value required for replay without source/config rereads. Event identity includes reconciliation generation/attempt identity, target commit, artifact, and type: retries reproduce the same `gpe_`, while later visits to the same commit can emit distinct events.
 
 **Single pending attempt.** One unresolved attempt is permitted per source. Matching work replays it verbatim, conflicting work fails before artifact writes, and residue whose cursor already matches the attempt's completed next generation is cleanup-only. Existing incompatible pre-release stores are rejected with recreate guidance; v1 defines generation-aware cursor, attempt, and event records directly and provides no migration.
 
@@ -235,9 +233,6 @@ This curated matrix assigns stable public-interface and protocol proofs; it is n
 | `snapshot-equal-noop`            | equal completed target; no residue                              | No artifact work, event, or fabricated generation.                                                                               |
 | `snapshot-equal-cleanup`         | completed attempt residue                                       | Cleanup only; no materialization/event replay or generation change.                                                              |
 | `lifecycle-matrix`               | create/restore/revise/move/unchanged/delete                     | Exact lifecycle table, legal lineage, at most one event per artifact.                                                            |
-| `repair-matching`                | target live artifact already represented                        | Reapply and emit `artifact.repaired` without target-row read.                                                                    |
-| `repair-changed`                 | target live artifact differs                                    | Reapply desired snapshot and emit lineage-free `artifact.repaired`.                                                              |
-| `repair-removal`                 | stored-live artifact absent                                     | Tombstone and emit lineage-free `artifact.repaired`; absent tombstones stay quiet.                                               |
 | `generation-repeat`              | `A → B → A → B`                                                 | Every completed transition has a distinct generation and event identity.                                                         |
 | `generation-aba`                 | stale writer expects old generation while commit string matches | CAS rejects stale expected generation and returns actual cursor facts.                                                           |
 | `attempt-first-persist`          | no pending attempt                                              | Frozen complete plan persists atomically before artifact writes.                                                                 |
@@ -247,7 +242,7 @@ This curated matrix assigns stable public-interface and protocol proofs; it is n
 | `failure-boundary-convergence`   | fail before/after every write boundary, then retry              | Final cursor generation, control rows, revisions, target values, event IDs/sequences, and cleanup equal uninterrupted execution. |
 | `schema-incompatible-prerelease` | old cursor/event schema                                         | Refused without mutation; operator is told to recreate the store.                                                                |
 
-Pure planner tests own lifecycle, lineage, ordering, determinism, and normal/repair policy. Shared fake/SQLite conformance owns snapshot immutability, one-attempt atomicity, generation CAS/ABA, identity conflicts, events, and cleanup. Engine fault injection owns interruption convergence. Minimal real-Git/SQLite E2E owns initial/update/older/divergent/merge/repair/repeated-target/unavailable-target behavior, including depth-1 reconciliation without fetch or shallow-history probes. CLI scenarios own bounded output, schema/help/runtime/version, `--repair` spelling, and store close on every path.
+Pure planner tests own lifecycle, lineage, ordering, and determinism. Shared fake/SQLite conformance owns snapshot immutability, one-attempt atomicity, generation CAS/ABA, identity conflicts, events, and cleanup. Engine fault injection owns interruption convergence. Minimal real-Git/SQLite E2E owns initial/update/older/divergent/merge/repeated-target/unavailable-target behavior, including depth-1 reconciliation without fetch or shallow-history probes. CLI scenarios own bounded output, schema/help/runtime/version, rejection of repair flags, and store close on every path.
 
 ### `gitplane doctor`
 
@@ -263,7 +258,7 @@ Checks return `pass`, `fail`, or `unsupported`. A failure exits `1`. Unsupported
 
 ## Reconciliation events
 
-Normal-mode event emission follows completed control-state lineage. A successful plan emits at most one transition event per artifact, with this precedence:
+Event emission follows completed control-state lineage. A successful plan emits at most one transition event per artifact, with this precedence:
 
 1. `artifact.created` — an unseen ID is present in the target snapshot, including ordinary initial reconciliation;
 2. `artifact.restored` — a tombstoned ID becomes live;
@@ -271,7 +266,7 @@ Normal-mode event emission follows completed control-state lineage. A successful
 4. no event — revision and path are unchanged;
 5. `artifact.deleted` — a live ID disappears.
 
-Repair mode uses `artifact.repaired` instead of lifecycle kinds for every live target artifact it reapplies and every stored-live artifact absent from the target that it removes. Already-absent tombstones require no synthetic repair work. V1 deliberately does not read operator-owned target rows to suppress matching repair writes or events; noisy repairs are intentional, and target-row drift detection is out of scope. Events carry prior/current revision and path where applicable, so revised and repaired events can describe moves. A repair removal tombstones the artifact and carries its prior revision/path with null current revision/path. `artifact.created` is a materialization-lifecycle fact, not a claim about repository introduction; `artifact.repaired` is corrective materialization work, not a claim about Git lineage. Generic artifacts emit the same event kinds as classified artifacts; generic-to-classified and outer-path moves use `artifact.revised` in normal mode.
+Events carry prior/current revision and path where applicable, so revised events can describe moves. `artifact.created` is a materialization-lifecycle fact, not a claim about repository introduction. Generic artifacts emit the same event kinds as classified artifacts; generic-to-classified and outer-path moves use `artifact.revised`.
 
 Event identity is deterministic:
 
@@ -338,6 +333,7 @@ V1 deliberately excludes:
 - artifact scaffolding beyond local `artifact create`, or ID minting during discovery/reconciliation;
 - incremental snapshot optimization through tree-OID caching, commit diffs, or ancestry;
 - source leases or broader distributed scheduling;
+- repair mode or operator target-row drift detection;
 - GitHub API source fetching;
 - event dispatch, webhooks, or an async outbox publisher;
 - production persistence adapters;

@@ -115,16 +115,14 @@ export const ARTIFACT_EVENT_TYPES = [
 	"artifact.restored",
 	"artifact.revised",
 	"artifact.deleted",
-	"artifact.repaired",
 ] as const;
 export type ArtifactEventType = (typeof ARTIFACT_EVENT_TYPES)[number];
 export function deriveAttemptId(options: {
 	readonly sourceId: string;
 	readonly expectedGeneration: number;
 	readonly targetCommit: string;
-	readonly mode: "normal" | "repair";
 }): `gpa_${string}` {
-	return `gpa_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(u64be(options.expectedGeneration)), frame(Buffer.from(options.targetCommit)), frame(Buffer.from(options.mode))]))}`;
+	return `gpa_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(u64be(options.expectedGeneration)), frame(Buffer.from(options.targetCommit))]))}`;
 }
 export function deriveEventId(options: {
 	readonly sourceId: string;

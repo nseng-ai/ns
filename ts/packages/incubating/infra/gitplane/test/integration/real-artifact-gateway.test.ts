@@ -142,7 +142,6 @@ test("gathers a complete target snapshot from a depth-1 clone without fetching h
 				artifactRoot: "artifacts",
 				targetCommitish: "HEAD",
 				kinds: [],
-				mode: "normal",
 			}),
 		).toMatchObject({
 			ok: true,

@@ -84,50 +84,45 @@ function source(
 	});
 }
 
-async function gather(gateway: InMemoryArtifactGateway, mode: "normal" | "repair" = "normal") {
+async function gather(gateway: InMemoryArtifactGateway) {
 	return gatherSourceFacts({
 		gateway,
 		sourceId: "source",
 		artifactRoot: "artifacts",
 		targetCommitish: "HEAD",
 		kinds: [registration],
-		mode,
 	});
 }
 
-test.each(["normal", "repair"] as const)(
-	"Gather returns one complete target snapshot in %s mode",
-	async (mode) => {
-		const gateway = source();
-		const result = await gather(gateway, mode);
-		expect(result).toMatchObject({
-			ok: true,
-			facts: {
-				type: "gathered",
-				sourceId: "source",
-				artifactRoot: "artifacts",
-				targetCommit: "target",
-				mode,
-				kinds: [registration],
-				targetSnapshot: {
-					commit: "target",
-					candidates: [
-						{ path: "artifacts/a" },
-						{ path: "artifacts/a/nested" },
-						{ path: "artifacts/b" },
-					],
-				},
+test("Gather returns one complete target snapshot", async () => {
+	const gateway = source();
+	const result = await gather(gateway);
+	expect(result).toMatchObject({
+		ok: true,
+		facts: {
+			type: "gathered",
+			sourceId: "source",
+			artifactRoot: "artifacts",
+			targetCommit: "target",
+			kinds: [registration],
+			targetSnapshot: {
+				commit: "target",
+				candidates: [
+					{ path: "artifacts/a" },
+					{ path: "artifacts/a/nested" },
+					{ path: "artifacts/b" },
+				],
 			},
-		});
-		expect(gateway.operationLog()).toEqual([
-			"resolveCommit:HEAD",
-			"inventoryCommitTree:target:artifacts",
-			"readCommitTreeCandidate:target:artifacts/a",
-			"readCommitTreeCandidate:target:artifacts/a/nested",
-			"readCommitTreeCandidate:target:artifacts/b",
-		]);
-	},
-);
+		},
+	});
+	expect(gateway.operationLog()).toEqual([
+		"resolveCommit:HEAD",
+		"inventoryCommitTree:target:artifacts",
+		"readCommitTreeCandidate:target:artifacts/a",
+		"readCommitTreeCandidate:target:artifacts/a/nested",
+		"readCommitTreeCandidate:target:artifacts/b",
+	]);
+});
 
 test("Gather preserves complete raw topology before semantic validation", async () => {
 	const result = await gather(source());
@@ -174,7 +169,6 @@ test.each([
 				type: "target-unavailable",
 				sourceId: "source",
 				targetCommitish: "HEAD",
-				mode: "normal",
 				reason: "missing-object",
 			},
 		});

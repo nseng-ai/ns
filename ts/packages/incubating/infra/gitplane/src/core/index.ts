@@ -85,7 +85,6 @@ export type {
 	GatheredSourceFacts,
 	GatherSourceFactsOptions,
 	GatherSourceFactsResult,
-	ReconciliationMode,
 	TargetSnapshotFacts,
 } from "./gather-source-facts.ts";
 export { checkArtifactCorpus } from "./check/check-artifact-corpus.ts";

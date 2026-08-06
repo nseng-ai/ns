@@ -7,7 +7,6 @@ import type {
 	TreeInventoryEntry,
 } from "./gateways.ts";
 
-export type ReconciliationMode = "normal" | "repair";
 export interface TargetSnapshotFacts {
 	readonly commit: string;
 	readonly inventory: readonly TreeInventoryEntry[];
@@ -18,7 +17,6 @@ export type GatheredSourceFacts =
 			readonly type: "target-unavailable";
 			readonly sourceId: string;
 			readonly targetCommitish: string;
-			readonly mode: ReconciliationMode;
 			readonly reason: "missing-object";
 	  }
 	| {
@@ -28,7 +26,6 @@ export type GatheredSourceFacts =
 			readonly targetCommit: string;
 			readonly targetSnapshot: TargetSnapshotFacts;
 			readonly kinds: readonly ArtifactKindRegistration[];
-			readonly mode: ReconciliationMode;
 	  };
 export type GatherSourceFactsResult =
 	| { readonly ok: true; readonly facts: GatheredSourceFacts }
@@ -39,7 +36,6 @@ export interface GatherSourceFactsOptions {
 	readonly artifactRoot: string;
 	readonly targetCommitish: string;
 	readonly kinds: readonly ArtifactKindRegistration[];
-	readonly mode: ReconciliationMode;
 }
 
 export async function gatherSourceFacts(
@@ -67,7 +63,6 @@ export async function gatherSourceFacts(
 			targetCommit,
 			targetSnapshot: targetSnapshotResult.value.value,
 			kinds: options.kinds,
-			mode: options.mode,
 		},
 	};
 }
@@ -113,7 +108,6 @@ function targetUnavailable(options: GatherSourceFactsOptions): GatherSourceFacts
 			type: "target-unavailable",
 			sourceId: options.sourceId,
 			targetCommitish: options.targetCommitish,
-			mode: options.mode,
 			reason: "missing-object",
 		},
 	};

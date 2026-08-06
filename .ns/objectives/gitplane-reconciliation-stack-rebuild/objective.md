@@ -16,19 +16,19 @@ The rebuild retains Gather → Decide → Apply: I/O-only immutable fact gatheri
 
 ## Scope
 
-- A reshaped five-boundary stack: contract amendment; complete target/completed-store snapshot facts plus pure planner; generation-aware durable attempt/cursor/event protocol; retry-safe engine and CLI with `--repair`; closure and accounting.
-- Complete target-corpus discovery for normal and repair modes. Gather resolves the requested commit and retains raw topology for canonical planner validation; it does not read cursor trees, ancestry, diffs, operator target rows, or shallow-history state.
+- A reshaped five-boundary stack: contract amendment; complete target/completed-store snapshot facts plus pure planner; generation-aware durable attempt/cursor/event protocol; retry-safe engine and CLI; closure and accounting.
+- Complete target-corpus discovery. Gather resolves the requested commit and retains raw topology for canonical planner validation; it does not read cursor trees, ancestry, diffs, operator target rows, or shallow-history state.
 - One coherent materialization-store snapshot containing generation cursor, all current records including tombstones, lineage, and pending attempt. New planning requires a completed snapshot with no unresolved attempt; matching attempts replay, conflicts refuse replacement, and post-CAS residue is cleanup-only.
-- Generation-aware identities and completion: absent cursor is conceptual generation 0; completed transitions and repairs advance generation; equal no-op/cleanup does not. Attempt and event identities are stable on retry and distinct on later visits to the same commit. Generation CAS proves commit-string ABA safety.
-- Pure lifecycle planning for create/restore/revise/move/unchanged/delete; `--repair` reapplies all live target artifacts and required removals with lineage-free `artifact.repaired`, while already-absent tombstones remain quiet.
-- Proof restructuring by level: pure snapshot policy, shared fake/SQLite generation and attempt conformance, fault-injected engine convergence, and minimal real-Git/SQLite E2E including initial, older, divergent, merge, repair, repeated-target, unavailable-target, and depth-1 behavior.
+- Generation-aware identities and completion: absent cursor is conceptual generation 0; completed transitions advance generation; equal no-op/cleanup does not. Attempt and event identities are stable on retry and distinct on later visits to the same commit. Generation CAS proves commit-string ABA safety.
+- Pure lifecycle planning for create/restore/revise/move/unchanged/delete.
+- Proof restructuring by level: pure snapshot policy, shared fake/SQLite generation and attempt conformance, fault-injected engine convergence, and minimal real-Git/SQLite E2E including initial, older, divergent, merge, repeated-target, unavailable-target, and depth-1 behavior.
 - Behavioral accounting against reference commit `09d75c3ae`, prototype PR closure, and reconciliation of the parent `gitplane` Objective's evidence.
 
 ## Non-Goals
 
 - No ancestry observation as a warning, gate, metric, fetch trigger, or optimization; no commit-diff or tree-OID fast path in v1.
 - No working-tree reconciliation: dirty and untracked contents are outside the immutable target commit snapshot.
-- No operator target-row drift detection. Repair deliberately reapplies without reading target rows.
+- No operator target-row drift detection or repair mode. The operational need and backend-neutral comparison semantics must be proven before adding either capability.
 - No source leases or broader distributed scheduling beyond atomic one-attempt persistence and generation CAS.
 - No migration of prototype or incompatible pre-release reconciliation state. The supported v1 schema is generation-aware directly; incompatible stores fail closed with recreate guidance.
 - No event dispatch, production persistence, or workflow behavior beyond the parent Objective.
@@ -38,14 +38,13 @@ The rebuild retains Gather → Decide → Apply: I/O-only immutable fact gatheri
 
 - The reshaped stack lands through additive reviewed boundaries: contract amendment; snapshot facts/planner; durable generation protocol; retry-safe engine/CLI; closure/accounting.
 - Complete target snapshot and coherent completed-store snapshot are the only planning facts. Initial, forward, older, divergent, and merge targets use identical planning rules, with no ancestry/diff/shallow probe in source logs; a depth-1 real clone reconciles without fetching.
-- The pure planner validates complete raw topology/corpus before writes and proves lifecycle, lineage legality, deterministic order/plan equality, complete deletion detection, merge neutrality, and normal-versus-repair behavior.
+- The pure planner validates complete raw topology/corpus before writes and proves lifecycle, lineage legality, deterministic order/plan equality, complete deletion detection, and merge neutrality.
 - Atomic one-pending-attempt persistence and a complete frozen semantic plan prevent source/config reinterpretation. Matching retry replays, conflicting work is refused before artifact writes, and post-CAS residue is cleanup-only.
 - Cursor records carry monotonic generation and CAS returns actual cursor facts on mismatch. Literal/conformance coverage proves stale expected generation is rejected after `A → B → A → B` even when the commit string matches.
 - Deterministic `gpa_` and generation/attempt-aware `gpe_` identities have literal vectors: one attempt is stable across retry, while later visits to the same target/type produce distinct events.
-- Repair reapplies every live target artifact plus required removal of stored-live artifacts absent from target and emits lineage-free `artifact.repaired`; already-absent tombstones produce no synthetic work.
 - Failure injection before and after every write boundary converges to uninterrupted cursor generation, control rows, revisions, target values, event IDs/sequences, and attempt cleanup.
 - Fake and SQLite share snapshot/attempt/generation/event conformance; incompatible old pre-release schema is refused without mutation.
-- CLI exposes `gitplane reconcile <commit> [--repair|-r]` with no `--full` alias, bounded mode/count/cursor/replay/cleanup output, no ancestry or event-reconstruction fields, and guaranteed single-store close.
+- CLI exposes `gitplane reconcile <commit>` with bounded lifecycle count/cursor/replay/cleanup output, no repair, ancestry, or event-reconstruction fields, and guaranteed single-store close.
 - Stack-tip accounting names cursor-diff, descent, merge rejection, initial-full, target-commit event collapse, and old repair naming as intentionally superseded differences from `09d75c3ae`; PR #4076 closes unmerged and PR #4128's rationale remains historical evidence.
 
 ## Metaprompt
@@ -66,7 +65,6 @@ Risks:
 
 - Partial non-transactional materialization remains visible before cursor CAS. Systematic fault injection and cleanup-only residue handling are the primary safety proof.
 - Attempt or generation mistakes can permit lost updates or ABA. Atomic insertion, one pending attempt per source, generation CAS, and shared adapter conformance are mandatory.
-- Repair can be noisy because target rows are not read. This is deliberate; drift detection is a later capability, not hidden v1 planning input.
 - Scope may drift back toward history optimization because source adapters already contain ancestry/diff machinery. Stale-contract searches and depth-1 tests must prove its removal from reconciliation.
 - Retaining PR #4076 and PR #4128 as references can make superseded behavior look current. Tip accounting must distinguish historical rationale from normative requirements.
 

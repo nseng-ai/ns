@@ -94,9 +94,8 @@ test("matches generation-aware attempt literal vector", () => {
 			sourceId: "acme/greetings",
 			expectedGeneration: 7,
 			targetCommit: "abc123",
-			mode: "repair",
 		}),
-	).toBe("gpa_a2a3rwqxv4dhj78ty8fd2mx6sbp2psy6swyamnftgb7t8js1600g");
+	).toBe("gpa_xh5nfn6vjae24kwah25p63xv63hfycstkaqnxq3xwsr9w6dyreng");
 });
 
 test.each([
@@ -104,7 +103,6 @@ test.each([
 	"artifact.restored",
 	"artifact.revised",
 	"artifact.deleted",
-	"artifact.repaired",
 ] as const)("derives retry-stable, generation-aware %s event identity", (eventType) => {
 	const options = {
 		sourceId: "acme/greetings",
@@ -116,8 +114,6 @@ test.each([
 	};
 	const identity = deriveEventId(options);
 	expect(identity).toBe(deriveEventId(options));
-	if (eventType === "artifact.repaired")
-		expect(identity).toBe("gpe_bcjk3wkm6mx91abk375kgx008wggwx7r3603st9nxm2g453c8mvg");
 	expect(identity).not.toBe(
 		deriveEventId({ ...options, reconciliationGeneration: 9, attemptId: "gpa_later" }),
 	);

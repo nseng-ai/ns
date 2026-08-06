@@ -74,7 +74,6 @@ export async function exerciseMaterializationStoreConformance(
 			attemptId: "gpa_conformance",
 			targetCommit: "c",
 			targetCommitish: "c",
-			mode: "normal" as const,
 			expectedCursor: { sourceId, commit: "b", generation: 4 },
 			nextCursor: { sourceId, commit: "c", generation: 5 },
 			artifactWork: [],

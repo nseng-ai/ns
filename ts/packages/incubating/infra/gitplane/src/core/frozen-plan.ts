@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { artifactClassificationSchema, artifactIdSchema } from "./artifact.ts";
-import type { ReconciliationMode } from "./gather-source-facts.ts";
 
 const jsonPrimitiveSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 type JsonValue = z.infer<typeof jsonPrimitiveSchema> | JsonValue[] | { [key: string]: JsonValue };
@@ -8,11 +7,6 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 	z.union([jsonPrimitiveSchema, z.array(jsonValueSchema), z.record(z.string(), jsonValueSchema)]),
 );
 const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
-
-export const reconciliationModeSchema: z.ZodType<ReconciliationMode> = z.union([
-	z.literal("normal"),
-	z.literal("repair"),
-]);
 
 export const cursorRecordSchema = z.object({
 	sourceId: z.string().min(1),
@@ -77,7 +71,6 @@ const eventTypeSchema = z.union([
 	z.literal("artifact.restored"),
 	z.literal("artifact.revised"),
 	z.literal("artifact.deleted"),
-	z.literal("artifact.repaired"),
 ]);
 
 const eventRecordSchema = z.object({
@@ -135,7 +128,6 @@ export const frozenReconciliationPlanSchema = z
 		attemptId: z.string().regex(/^gpa_[0-9a-z]+$/u),
 		targetCommit: z.string().min(1),
 		targetCommitish: z.string().min(1),
-		mode: reconciliationModeSchema,
 		expectedCursor: cursorRecordSchema.nullable(),
 		nextCursor: cursorRecordSchema,
 		artifactWork: z.array(frozenArtifactWorkSchema),
