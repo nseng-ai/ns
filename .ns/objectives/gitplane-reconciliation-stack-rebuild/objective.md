@@ -14,15 +14,17 @@ The original rebuild contract used cursor diffs, ancestry/descent classification
 
 The rebuild retains Gather → Decide → Apply: I/O-only immutable fact gathering, a pure deterministic planner (`deriveReconciliationPlan(facts)` with no gateways), and ordered retry-safe effect application. The package's public core interface stays `reconcile(context, options)`; the planner is internal.
 
+The five-boundary replacement is implemented on the rebased local stack through implementation tip `e7fdc08304e956200c29e1662aaa818e55c2aaec`, followed by an accounting-only change. `architecture-accounting.md` records the immutable comparison against the prototype and superseded implementation without attempting to name the accounting change's own commit. This is closure readiness, not a claim that the stack has been published or landed: remote verification, disposition of former PR #4130, closure of PR #4076, and Objective closure remain pending.
+
 ## Scope
 
-- A reshaped five-boundary stack: contract amendment; complete target/completed-store snapshot facts plus pure planner; generation-aware durable attempt/cursor/event protocol; retry-safe engine and CLI; closure and accounting.
+- A reshaped five-boundary stack: contract amendment; complete target/completed-store snapshot facts plus pure planner; generation-aware durable plan/cursor/event protocol; retry-safe engine and CLI; closure and accounting.
 - Complete target-corpus discovery. Gather resolves the requested commit and retains raw topology for canonical planner validation; it does not read cursor trees, ancestry, diffs, operator target rows, or shallow-history state.
 - One coherent materialization-store snapshot containing generation cursor, all current records including tombstones, lineage, and a Pending Plan. New planning requires a completed snapshot with no Pending Plan; a matching plan replays, a different requested target completes the inherited Pending Plan before new planning without replacing it, and post-CAS residue is cleanup-only.
-- Generation-aware identities and completion: absent cursor is conceptual generation 0; completed transitions advance generation; equal no-op/cleanup does not. Attempt and event identities are stable on retry and distinct on later visits to the same commit. Generation CAS proves commit-string ABA safety.
+- Generation-aware identities and completion: absent cursor is conceptual generation 0; completed transitions advance generation; equal no-op/cleanup does not. Attempt IDs and event identities are stable on retry and distinct on later visits to the same commit. Generation CAS proves commit-string ABA safety.
 - Pure lifecycle planning for create/restore/revise/move/unchanged/delete.
-- Proof restructuring by level: pure snapshot policy, shared fake/SQLite generation and attempt conformance, fault-injected engine convergence, and minimal real-Git/SQLite E2E including initial, older, divergent, merge, repeated-target, unavailable-target, and depth-1 behavior.
-- Behavioral accounting against reference commit `09d75c3ae`, prototype PR closure, and reconciliation of the parent `gitplane` Objective's evidence.
+- Proof restructuring by level: pure snapshot policy, shared fake/SQLite Pending Plan and generation conformance, fault-injected engine convergence, and minimal real-Git/SQLite E2E including initial, older, divergent, merge, repeated-target, unavailable-target, and depth-1 behavior.
+- Behavioral accounting against reference commit `09d75c3ae`, reconciliation of the parent `gitplane` Objective's evidence, and explicit preparation for later prototype PR closure after publication verification.
 
 ## Non-Goals
 
@@ -36,16 +38,16 @@ The rebuild retains Gather → Decide → Apply: I/O-only immutable fact gatheri
 
 ## Completion Criteria
 
-- The reshaped stack lands through additive reviewed boundaries: contract amendment; snapshot facts/planner; durable generation protocol; retry-safe engine/CLI; closure/accounting.
+- The reshaped stack is implemented locally through additive review boundaries: contract amendment; snapshot facts/planner; durable generation protocol; retry-safe engine/CLI; closure/accounting. Publication and landing are separate closure actions.
 - Complete target snapshot and coherent completed-store snapshot are the only planning facts. Initial, forward, older, divergent, and merge targets use identical planning rules, with no ancestry/diff/shallow probe in source logs; a depth-1 real clone reconciles without fetching.
 - The pure planner validates complete raw topology/corpus before writes and proves lifecycle, lineage legality, deterministic order/plan equality, complete deletion detection, and merge neutrality.
 - Atomic Pending Plan persistence and a complete Reconciliation Plan prevent source/config reinterpretation. Matching retry replays, different requested work first completes the inherited Pending Plan without replacing it, and post-CAS residue is cleanup-only.
 - Cursor records carry monotonic generation and CAS returns actual cursor facts on mismatch. Literal/conformance coverage proves stale expected generation is rejected after `A → B → A → B` even when the commit string matches.
 - Deterministic `gpa_` and generation/attempt-aware `gpe_` identities have literal vectors: one attempt is stable across retry, while later visits to the same target/type produce distinct events.
 - Failure injection before and after every write boundary converges to uninterrupted cursor generation, control rows, revisions, target values, event IDs/sequences, and attempt cleanup.
-- Fake and SQLite share snapshot/canonical-plan/generation/event conformance and sequential retry proof under SQLite's single-writer boundary; incompatible old pre-release schema is refused without mutation.
+- Fake and SQLite share snapshot/Reconciliation Plan/generation/event conformance and sequential retry proof under SQLite's single-writer boundary; incompatible old pre-release schema is refused without mutation.
 - CLI exposes `gitplane reconcile <commit>` with bounded lifecycle count/cursor/replay/cleanup output, no repair, ancestry, or event-reconstruction fields, and guaranteed single-store close.
-- Stack-tip accounting names cursor-diff, descent, merge rejection, initial-full, target-commit event collapse, and old repair naming as intentionally superseded differences from `09d75c3ae`; PR #4076 closes unmerged and PR #4128's rationale remains historical evidence.
+- Stack-tip accounting names cursor-diff, descent, merge rejection, initial-full, target-commit event collapse, and old repair naming as intentionally superseded differences from `09d75c3ae`; PR #4128's rationale remains historical evidence, and PR #4076 is ready to close unmerged only after replacement publication and remote verification.
 
 ## Metaprompt
 
