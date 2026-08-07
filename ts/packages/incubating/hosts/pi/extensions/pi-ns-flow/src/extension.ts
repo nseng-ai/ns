@@ -1,4 +1,5 @@
 import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	FLOW_COMMAND_SPECS,
 	nodeFlowSubmitRecoveryContext,
@@ -65,9 +66,7 @@ export default function registerFlowExtension(
 		options.resultSummary ??
 		createRealCliCommandResultSummaryContext({
 			git: new RealGitGateway(commands),
-			...(options.resultSummaryCompleteFn === undefined
-				? {}
-				: { completeFn: options.resultSummaryCompleteFn }),
+			...optionalEntry("completeFn", options.resultSummaryCompleteFn),
 		});
 	registerCliCommandExtension(pi, {
 		cliName: "ns",

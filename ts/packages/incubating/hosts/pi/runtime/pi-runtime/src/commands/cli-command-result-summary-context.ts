@@ -4,6 +4,7 @@ import {
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { writeCliCommandResultLogs } from "./cli-command-result-log-writer.ts";
@@ -87,7 +88,7 @@ export function createRealCliCommandResultSummaryContext(options: {
 				userText: request.prompt,
 				maxTokens: CLI_COMMAND_RESULT_SUMMARY_MAX_TOKENS,
 				timeoutMs: CLI_COMMAND_RESULT_SUMMARY_TIMEOUT_MS,
-				...(options.completeFn === undefined ? {} : { completeFn: options.completeFn }),
+				...optionalEntry("completeFn", options.completeFn),
 			});
 			if (!result.ok) {
 				return {
