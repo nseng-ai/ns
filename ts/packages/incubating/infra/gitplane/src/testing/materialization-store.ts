@@ -12,15 +12,18 @@ import type {
 	GatewayResult,
 	InsertResult,
 	LookupResult,
+	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
+	ReconciliationPlan,
 	RevisionRecord,
 	StoredEvent,
 	StoredReconciliationError,
 	TargetMapping,
 	TargetRowRecord,
 } from "../core/index.ts";
+import { parseReconciliationPlan } from "../core/index.ts";
 
 type FailureKey = keyof MaterializationStoreGateway;
 export interface MaterializedTargetRow {
@@ -33,6 +36,7 @@ export interface InMemoryMaterializationStoreState {
 	readonly cursors?: readonly CursorRecord[];
 	readonly lineage?: readonly ArtifactLineageRecord[];
 	readonly currentArtifacts?: readonly ArtifactCurrentRecord[];
+	readonly plans?: readonly ReconciliationPlan[];
 	readonly revisions?: readonly RevisionRecord[];
 	readonly targetRows?: readonly MaterializedTargetRow[];
 	readonly events?: readonly StoredEvent[];
@@ -48,6 +52,7 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 	private readonly cursors: CursorRecord[];
 	private readonly lineage: ArtifactLineageRecord[];
 	private readonly current: ArtifactCurrentRecord[];
+	private readonly plans: ReconciliationPlan[];
 	private readonly revisions: RevisionRecord[];
 	private readonly targets: MaterializedTargetRow[];
 	private readonly events: StoredEvent[];
@@ -58,6 +63,7 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		this.cursors = copy([...(state.cursors ?? [])]);
 		this.lineage = copy([...(state.lineage ?? [])]);
 		this.current = copy([...(state.currentArtifacts ?? [])]);
+		this.plans = (state.plans ?? []).map((plan) => copy(parseReconciliationPlan(plan)));
 		this.revisions = copy([...(state.revisions ?? [])]);
 		this.targets = copy([...(state.targetRows ?? [])]);
 		this.events = copy([...(state.events ?? [])]);
@@ -79,6 +85,7 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 			cursors: this.cursors,
 			lineage: this.lineage,
 			currentArtifacts: this.current,
+			plans: this.plans,
 			revisions: this.revisions,
 			targetRows: this.targets,
 			events: this.events,
@@ -90,6 +97,53 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		const failure = this.failures[operation];
 		return failure === undefined ? undefined : { ...failure };
 	}
+	async readMaterializationSnapshot(request: {
+		readonly sourceId: string;
+	}): Promise<GatewayResult<MaterializationSnapshot>> {
+		const failure = this.failure("readMaterializationSnapshot");
+		if (failure !== undefined) return { ok: false, error: failure };
+		return {
+			ok: true,
+			value: copy({
+				cursor: this.cursors.find((item) => item.sourceId === request.sourceId) ?? null,
+				currentArtifacts: this.current.filter((item) => item.sourceId === request.sourceId),
+				lineage: this.lineage.filter((item) => item.sourceId === request.sourceId),
+				pendingPlan: this.plans.find((item) => item.sourceId === request.sourceId) ?? null,
+			}),
+		};
+	}
+	async insertReconciliationPlan(plan: ReconciliationPlan): Promise<InsertResult> {
+		const failure = this.failure("insertReconciliationPlan");
+		if (failure !== undefined) return { type: "error", error: failure };
+		const parsed = parseReconciliationPlan(plan);
+		const existing = this.plans.find((item) => item.sourceId === parsed.sourceId);
+		if (existing !== undefined)
+			return isDeepStrictEqual(existing, parsed)
+				? { type: "existing" }
+				: { type: "conflict", message: "Source already has a different pending plan." };
+		const cursor = this.cursors.find((item) => item.sourceId === parsed.sourceId) ?? null;
+		const compactCursor =
+			cursor === null ? null : { commit: cursor.commit, generation: cursor.generation };
+		if (!isDeepStrictEqual(compactCursor, parsed.expectedCursor))
+			return {
+				type: "conflict",
+				message: "Completed cursor no longer matches the reconciliation plan.",
+			};
+		this.plans.push(copy(parsed));
+		return { type: "inserted" };
+	}
+	async deleteReconciliationPlan(request: {
+		readonly sourceId: string;
+		readonly attemptId: string;
+	}): Promise<OperationResult> {
+		const failure = this.failure("deleteReconciliationPlan");
+		if (failure !== undefined) return { ok: false, error: failure };
+		const index = this.plans.findIndex(
+			(item) => item.sourceId === request.sourceId && item.attemptId === request.attemptId,
+		);
+		if (index >= 0) this.plans.splice(index, 1);
+		return { ok: true };
+	}
 	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {
 		const failure = this.failure("readCursor");
 		if (failure !== undefined) return { type: "error", error: failure };
@@ -98,18 +152,29 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 	}
 	async compareAndSetCursor(request: {
 		readonly sourceId: string;
-		readonly expectedCommit: string | null;
-		readonly nextCommit: string;
+		readonly expectedGeneration: number;
+		readonly next: CursorRecord;
 	}): Promise<CursorCompareAndSetResult> {
 		const failure = this.failure("compareAndSetCursor");
 		if (failure !== undefined) return { type: "error", error: failure };
 		const index = this.cursors.findIndex((item) => item.sourceId === request.sourceId);
 		const existing = this.cursors[index];
-		const actual = existing === undefined ? null : existing.commit;
-		if (actual !== request.expectedCommit) return { type: "mismatch", actual };
-		const record = { sourceId: request.sourceId, commit: request.nextCommit };
-		if (index < 0) this.cursors.push(record);
-		else this.cursors[index] = record;
+		const actualGeneration = existing?.generation ?? 0;
+		if (actualGeneration !== request.expectedGeneration)
+			return { type: "mismatch", actual: existing === undefined ? null : copy(existing) };
+		if (
+			request.next.sourceId !== request.sourceId ||
+			request.next.generation !== request.expectedGeneration + 1
+		)
+			return {
+				type: "error",
+				error: {
+					code: "invalid-cursor-transition",
+					message: "Cursor generation must advance by one.",
+				},
+			};
+		if (index < 0) this.cursors.push(copy(request.next));
+		else this.cursors[index] = copy(request.next);
 		return { type: "updated" };
 	}
 	async readLineage(request: {

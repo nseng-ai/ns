@@ -117,13 +117,22 @@ export const ARTIFACT_EVENT_TYPES = [
 	"artifact.deleted",
 ] as const;
 export type ArtifactEventType = (typeof ARTIFACT_EVENT_TYPES)[number];
+export function deriveAttemptId(options: {
+	readonly sourceId: string;
+	readonly expectedGeneration: number;
+	readonly targetCommit: string;
+}): `gpa_${string}` {
+	return `gpa_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(u64be(options.expectedGeneration)), frame(Buffer.from(options.targetCommit))]))}`;
+}
 export function deriveEventId(options: {
 	readonly sourceId: string;
 	readonly artifactId: ArtifactId;
+	readonly reconciliationGeneration: number;
+	readonly attemptId: string;
 	readonly reconciledCommit: string;
 	readonly eventType: ArtifactEventType;
 }): `gpe_${string}` {
-	return `gpe_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(Buffer.from(options.artifactId)), frame(Buffer.from(options.reconciledCommit)), frame(Buffer.from(options.eventType))]))}`;
+	return `gpe_${crockfordBase32Lower(hash([frame(Buffer.from(options.sourceId)), frame(Buffer.from(options.artifactId)), u64be(options.reconciliationGeneration), frame(Buffer.from(options.attemptId)), frame(Buffer.from(options.reconciledCommit)), frame(Buffer.from(options.eventType))]))}`;
 }
 export interface ArtifactIdGenerator {
 	generateArtifactId(): ArtifactId;

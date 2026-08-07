@@ -1,51 +1,31 @@
 import { ARTIFACT_MARKER_NAME } from "./artifact.ts";
-import type { ArtifactCandidate } from "./domain.ts";
+import type { ArtifactCandidate, ArtifactKindRegistration } from "./domain.ts";
 import type {
 	ArtifactGateway,
-	CommitFacts,
 	GatewayError,
 	GitObservation,
-	GitUnavailableReason,
+	TreeInventoryEntry,
 } from "./gateways.ts";
 
-export type ReconciliationMode = "normal" | "full";
-export type HistoryRelationship =
-	| { readonly type: "equal" }
-	| { readonly type: "ancestor" }
-	| { readonly type: "non-forward" }
-	| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
-export interface CommitCorpusFacts {
+export interface TargetSnapshotFacts {
 	readonly commit: string;
+	readonly inventory: readonly TreeInventoryEntry[];
 	readonly candidates: readonly ArtifactCandidate[];
 }
-export type GatheredCursorFacts =
-	| { readonly type: "none" }
-	| { readonly type: "unavailable"; readonly commit: string; readonly reason: GitUnavailableReason }
-	| {
-			readonly type: "observed";
-			readonly commit: string;
-			readonly facts: CommitFacts;
-			readonly corpus: GitObservation<CommitCorpusFacts>;
-			readonly relationship: HistoryRelationship;
-	  };
 export type GatheredSourceFacts =
 	| {
 			readonly type: "target-unavailable";
 			readonly sourceId: string;
 			readonly targetCommitish: string;
-			readonly cursorCommit: string | null;
-			readonly mode: ReconciliationMode;
-			readonly reason: GitUnavailableReason;
+			readonly reason: "missing-object";
 	  }
 	| {
 			readonly type: "gathered";
 			readonly sourceId: string;
 			readonly artifactRoot: string;
 			readonly targetCommit: string;
-			readonly targetFacts: CommitFacts;
-			readonly targetCorpus: CommitCorpusFacts;
-			readonly cursor: GatheredCursorFacts;
-			readonly mode: ReconciliationMode;
+			readonly targetSnapshot: TargetSnapshotFacts;
+			readonly kinds: readonly ArtifactKindRegistration[];
 	  };
 export type GatherSourceFactsResult =
 	| { readonly ok: true; readonly facts: GatheredSourceFacts }
@@ -55,8 +35,7 @@ export interface GatherSourceFactsOptions {
 	readonly sourceId: string;
 	readonly artifactRoot: string;
 	readonly targetCommitish: string;
-	readonly cursorCommit: string | null;
-	readonly mode: ReconciliationMode;
+	readonly kinds: readonly ArtifactKindRegistration[];
 }
 
 export async function gatherSourceFacts(
@@ -64,22 +43,16 @@ export async function gatherSourceFacts(
 ): Promise<GatherSourceFactsResult> {
 	const resolved = await options.gateway.resolveCommit({ commitish: options.targetCommitish });
 	if (!resolved.ok) return resolved;
-	if (resolved.value.type === "unavailable")
-		return targetUnavailable(options, resolved.value.reason);
+	if (resolved.value.type === "unavailable") return targetUnavailable(options);
 
 	const targetCommit = resolved.value.value;
-	const targetFactsResult = await options.gateway.readCommitFacts({ commit: targetCommit });
-	if (!targetFactsResult.ok) return targetFactsResult;
-	if (targetFactsResult.value.type === "unavailable")
-		return targetUnavailable(options, targetFactsResult.value.reason);
-
-	const targetCorpusResult = await readCorpus(options.gateway, targetCommit, options.artifactRoot);
-	if (!targetCorpusResult.ok) return targetCorpusResult;
-	if (targetCorpusResult.value.type === "unavailable")
-		return targetUnavailable(options, targetCorpusResult.value.reason);
-
-	const cursorResult = await gatherCursorFacts(options, targetCommit);
-	if (!cursorResult.ok) return cursorResult;
+	const targetSnapshotResult = await readTargetSnapshot(
+		options.gateway,
+		targetCommit,
+		options.artifactRoot,
+	);
+	if (!targetSnapshotResult.ok) return targetSnapshotResult;
+	if (targetSnapshotResult.value.type === "unavailable") return targetUnavailable(options);
 
 	return {
 		ok: true,
@@ -88,26 +61,19 @@ export async function gatherSourceFacts(
 			sourceId: options.sourceId,
 			artifactRoot: options.artifactRoot,
 			targetCommit,
-			targetFacts: targetFactsResult.value.value,
-			targetCorpus: targetCorpusResult.value.value,
-			cursor: cursorResult.value,
-			mode: options.mode,
+			targetSnapshot: targetSnapshotResult.value.value,
+			kinds: options.kinds,
 		},
 	};
 }
 
-async function readCorpus(
+async function readTargetSnapshot(
 	gateway: ArtifactGateway,
 	commit: string,
 	artifactRoot: string,
 ): Promise<
 	| { readonly ok: false; readonly error: GatewayError }
-	| {
-			readonly ok: true;
-			readonly value:
-				| { readonly type: "found"; readonly value: CommitCorpusFacts }
-				| { readonly type: "unavailable"; readonly reason: GitUnavailableReason };
-	  }
+	| { readonly ok: true; readonly value: GitObservation<TargetSnapshotFacts> }
 > {
 	const inventory = await gateway.inventoryCommitTree({ commit, artifactRoot });
 	if (!inventory.ok) return inventory;
@@ -126,64 +92,23 @@ async function readCorpus(
 		if (candidate.value.type === "unavailable") return { ok: true, value: candidate.value };
 		candidates.push(candidate.value.value);
 	}
-	return { ok: true, value: { type: "found", value: { commit, candidates } } };
-}
-
-async function gatherCursorFacts(
-	options: GatherSourceFactsOptions,
-	targetCommit: string,
-): Promise<
-	| { readonly ok: false; readonly error: GatewayError }
-	| { readonly ok: true; readonly value: GatheredCursorFacts }
-> {
-	if (options.cursorCommit === null) return { ok: true, value: { type: "none" } };
-	const commit = options.cursorCommit;
-	const factsResult = await options.gateway.readCommitFacts({ commit });
-	if (!factsResult.ok) return factsResult;
-	if (factsResult.value.type === "unavailable")
-		return { ok: true, value: { type: "unavailable", commit, reason: factsResult.value.reason } };
-
-	const corpusResult = await readCorpus(options.gateway, commit, options.artifactRoot);
-	if (!corpusResult.ok) return corpusResult;
-
-	let relationship: HistoryRelationship;
-	if (commit === targetCommit) relationship = { type: "equal" };
-	else {
-		const ancestry = await options.gateway.isAncestor({
-			ancestor: commit,
-			descendant: targetCommit,
-		});
-		if (!ancestry.ok) return ancestry;
-		relationship =
-			ancestry.value.type === "unavailable"
-				? { type: "unavailable", reason: ancestry.value.reason }
-				: { type: ancestry.value.value ? "ancestor" : "non-forward" };
-	}
 	return {
 		ok: true,
 		value: {
-			type: "observed",
-			commit,
-			facts: factsResult.value.value,
-			corpus: corpusResult.value,
-			relationship,
+			type: "found",
+			value: { commit, inventory: inventory.value.value, candidates },
 		},
 	};
 }
 
-function targetUnavailable(
-	options: GatherSourceFactsOptions,
-	reason: GitUnavailableReason,
-): GatherSourceFactsResult {
+function targetUnavailable(options: GatherSourceFactsOptions): GatherSourceFactsResult {
 	return {
 		ok: true,
 		facts: {
 			type: "target-unavailable",
 			sourceId: options.sourceId,
 			targetCommitish: options.targetCommitish,
-			cursorCommit: options.cursorCommit,
-			mode: options.mode,
-			reason,
+			reason: "missing-object",
 		},
 	};
 }

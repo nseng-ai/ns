@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { artifactClassificationSchema } from "@nseng-ai/gitplane";
+import { artifactClassificationSchema, reconciliationPlanSchema } from "@nseng-ai/gitplane";
 import type {
 	ArtifactClassification,
 	ArtifactCurrentRecord,
@@ -10,10 +10,12 @@ import type {
 	DoctorIntrospection,
 	EventInsertResult,
 	EventRecord,
+	ReconciliationPlan,
 	GatewayResult,
 	GitplaneStoreFactory,
 	InsertResult,
 	LookupResult,
+	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
 	ReconciliationErrorRecord,
@@ -21,7 +23,13 @@ import type {
 	TargetMapping,
 	TargetRowRecord,
 } from "@nseng-ai/gitplane";
-import { databaseError, quoteIdentifier, resolveDatabasePath, transaction } from "./database.ts";
+import {
+	databaseError,
+	quoteIdentifier,
+	readTransaction,
+	resolveDatabasePath,
+	transaction,
+} from "./database.ts";
 import { inspectControlSchema } from "./schema.ts";
 
 export interface CreateSqliteStoreOptions {
@@ -43,35 +51,170 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 	constructor(database: DatabaseSync) {
 		this.database = database;
 	}
-	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {
-		return this.lookup(() => {
-			const row = this.database
-				.prepare("SELECT commit_id FROM gitplane_cursors WHERE source_id = ?")
-				.get(request.sourceId) as { commit_id: string } | undefined;
-			return row === undefined ? undefined : { sourceId: request.sourceId, commit: row.commit_id };
-		});
-	}
-	async compareAndSetCursor(request: {
+	async readMaterializationSnapshot(request: {
 		readonly sourceId: string;
-		readonly expectedCommit: string | null;
-		readonly nextCommit: string;
-	}): Promise<CursorCompareAndSetResult> {
+	}): Promise<GatewayResult<MaterializationSnapshot>> {
 		try {
-			let result: CursorCompareAndSetResult = { type: "updated" };
+			let snapshot: MaterializationSnapshot | undefined;
+			readTransaction(this.database, () => {
+				const cursorRow = this.database
+					.prepare("SELECT commit_id, generation FROM gitplane_cursors WHERE source_id = ?")
+					.get(request.sourceId) as { commit_id: string; generation: number } | undefined;
+				const currentRows = this.database
+					.prepare(
+						"SELECT artifact_id, revision_id, artifact_path, classification, observed_commit, tombstoned FROM gitplane_current_artifacts WHERE source_id = ? ORDER BY artifact_id",
+					)
+					.all(request.sourceId) as {
+					artifact_id: ArtifactId;
+					revision_id: string;
+					artifact_path: string;
+					classification: string;
+					observed_commit: string;
+					tombstoned: number;
+				}[];
+				const lineageRows = this.database
+					.prepare(
+						"SELECT artifact_id, established_classification, last_schema_version FROM gitplane_lineage WHERE source_id = ? ORDER BY artifact_id",
+					)
+					.all(request.sourceId) as {
+					artifact_id: ArtifactId;
+					established_classification: string | null;
+					last_schema_version: number | null;
+				}[];
+				const attemptRow = this.database
+					.prepare(
+						"SELECT attempt_id, reconciliation_plan FROM gitplane_reconciliation_plans WHERE source_id = ?",
+					)
+					.get(request.sourceId) as { attempt_id: string; reconciliation_plan: string } | undefined;
+				snapshot = {
+					cursor:
+						cursorRow === undefined
+							? null
+							: {
+									sourceId: request.sourceId,
+									commit: cursorRow.commit_id,
+									generation: cursorRow.generation,
+								},
+					currentArtifacts: currentRows.map((row) =>
+						currentFromRow(request.sourceId, row.artifact_id, row),
+					),
+					lineage: lineageRows.map((row) => ({
+						sourceId: request.sourceId,
+						artifactId: row.artifact_id,
+						establishedClassification: parseJson(row.established_classification),
+						lastSchemaVersion: row.last_schema_version,
+					})),
+					pendingPlan: attemptRow === undefined ? null : parseAttempt(request.sourceId, attemptRow),
+				};
+			});
+			if (snapshot === undefined)
+				throw new Error("Materialization snapshot transaction produced no value.");
+			return { ok: true, value: snapshot };
+		} catch (error) {
+			return { ok: false, error: databaseError(error) };
+		}
+	}
+	async insertReconciliationPlan(plan: ReconciliationPlan): Promise<InsertResult> {
+		try {
+			const parsed = reconciliationPlanSchema.parse(plan);
+			const serialized = deterministicJson(parsed);
+			let result: InsertResult = { type: "inserted" };
 			transaction(this.database, () => {
-				const row = this.database
-					.prepare("SELECT commit_id FROM gitplane_cursors WHERE source_id = ?")
-					.get(request.sourceId) as { commit_id: string } | undefined;
-				const actual = row?.commit_id ?? null;
-				if (actual !== request.expectedCommit) {
-					result = { type: "mismatch", actual };
+				const existing = this.database
+					.prepare(
+						"SELECT attempt_id, reconciliation_plan FROM gitplane_reconciliation_plans WHERE source_id = ?",
+					)
+					.get(parsed.sourceId) as { attempt_id: string; reconciliation_plan: string } | undefined;
+				if (existing !== undefined) {
+					result =
+						existing.attempt_id === parsed.attemptId && existing.reconciliation_plan === serialized
+							? { type: "existing" }
+							: { type: "conflict", message: "Source already has a different pending plan." };
+					return;
+				}
+				const cursor = this.database
+					.prepare("SELECT commit_id, generation FROM gitplane_cursors WHERE source_id = ?")
+					.get(parsed.sourceId) as { commit_id: string; generation: number } | undefined;
+				const expected = parsed.expectedCursor;
+				if (
+					(cursor === undefined) !== (expected === null) ||
+					(cursor !== undefined &&
+						(cursor.commit_id !== expected?.commit || cursor.generation !== expected.generation))
+				) {
+					result = {
+						type: "conflict",
+						message: "Completed cursor no longer matches the reconciliation plan.",
+					};
 					return;
 				}
 				this.database
 					.prepare(
-						"INSERT INTO gitplane_cursors (source_id, commit_id) VALUES (?, ?) ON CONFLICT(source_id) DO UPDATE SET commit_id = excluded.commit_id",
+						"INSERT INTO gitplane_reconciliation_plans (source_id, attempt_id, reconciliation_plan) VALUES (?, ?, ?)",
 					)
-					.run(request.sourceId, request.nextCommit);
+					.run(parsed.sourceId, parsed.attemptId, serialized);
+			});
+			return result;
+		} catch (error) {
+			return { type: "error", error: databaseError(error) };
+		}
+	}
+	async deleteReconciliationPlan(request: {
+		readonly sourceId: string;
+		readonly attemptId: string;
+	}): Promise<OperationResult> {
+		return this.operation(() =>
+			this.database
+				.prepare("DELETE FROM gitplane_reconciliation_plans WHERE source_id = ? AND attempt_id = ?")
+				.run(request.sourceId, request.attemptId),
+		);
+	}
+	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {
+		return this.lookup(() => {
+			const row = this.database
+				.prepare("SELECT commit_id, generation FROM gitplane_cursors WHERE source_id = ?")
+				.get(request.sourceId) as { commit_id: string; generation: number } | undefined;
+			return row === undefined
+				? undefined
+				: { sourceId: request.sourceId, commit: row.commit_id, generation: row.generation };
+		});
+	}
+	async compareAndSetCursor(request: {
+		readonly sourceId: string;
+		readonly expectedGeneration: number;
+		readonly next: CursorRecord;
+	}): Promise<CursorCompareAndSetResult> {
+		if (
+			request.next.sourceId !== request.sourceId ||
+			request.next.generation !== request.expectedGeneration + 1
+		)
+			return {
+				type: "error",
+				error: {
+					code: "invalid-cursor-transition",
+					message: "Cursor generation must advance by one.",
+				},
+			};
+		try {
+			let result: CursorCompareAndSetResult = { type: "updated" };
+			transaction(this.database, () => {
+				const row = this.database
+					.prepare("SELECT commit_id, generation FROM gitplane_cursors WHERE source_id = ?")
+					.get(request.sourceId) as { commit_id: string; generation: number } | undefined;
+				if ((row?.generation ?? 0) !== request.expectedGeneration) {
+					result = {
+						type: "mismatch",
+						actual:
+							row === undefined
+								? null
+								: { sourceId: request.sourceId, commit: row.commit_id, generation: row.generation },
+					};
+					return;
+				}
+				this.database
+					.prepare(
+						"INSERT INTO gitplane_cursors (source_id, commit_id, generation) VALUES (?, ?, ?) ON CONFLICT(source_id) DO UPDATE SET commit_id = excluded.commit_id, generation = excluded.generation",
+					)
+					.run(request.sourceId, request.next.commit, request.next.generation);
 			});
 			return result;
 		} catch (error) {
@@ -265,7 +408,7 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 		try {
 			const existing = this.database
 				.prepare(
-					"SELECT source_id, sequence, artifact_id, reconciled_commit, event_type, prior_revision_id, current_revision_id, prior_path, current_path FROM gitplane_events WHERE event_id = ?",
+					"SELECT source_id, sequence, artifact_id, reconciliation_generation, attempt_id, reconciled_commit, event_type, prior_revision_id, current_revision_id, prior_path, current_path FROM gitplane_events WHERE event_id = ?",
 				)
 				.get(record.eventId) as ({ sequence: number } & Record<string, unknown>) | undefined;
 			if (existing !== undefined)
@@ -282,13 +425,15 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 				sequence = row.value + 1;
 				this.database
 					.prepare(
-						"INSERT INTO gitplane_events (event_id, source_id, sequence, artifact_id, reconciled_commit, event_type, prior_revision_id, current_revision_id, prior_path, current_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+						"INSERT INTO gitplane_events (event_id, source_id, sequence, artifact_id, reconciliation_generation, attempt_id, reconciled_commit, event_type, prior_revision_id, current_revision_id, prior_path, current_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 					)
 					.run(
 						record.eventId,
 						record.sourceId,
 						sequence,
 						record.artifactId,
+						record.reconciliationGeneration,
+						record.attemptId,
 						record.reconciledCommit,
 						record.eventType,
 						record.priorRevisionId,
@@ -405,6 +550,20 @@ class SqliteMaterializationStore implements MaterializationStoreGateway {
 	}
 }
 
+function parseAttempt(
+	sourceId: string,
+	row: { readonly attempt_id: string; readonly reconciliation_plan: string },
+): ReconciliationPlan {
+	const parsed = reconciliationPlanSchema.safeParse(JSON.parse(row.reconciliation_plan));
+	if (
+		!parsed.success ||
+		parsed.data.sourceId !== sourceId ||
+		parsed.data.attemptId !== row.attempt_id
+	)
+		throw new Error("Persisted reconciliation plan is invalid.");
+	return parsed.data;
+}
+
 function currentFromRow(
 	sourceId: string,
 	artifactId: ArtifactId,
@@ -474,6 +633,8 @@ function eventMatches(row: Record<string, unknown>, event: EventRecord): boolean
 	return (
 		row.source_id === event.sourceId &&
 		row.artifact_id === event.artifactId &&
+		row.reconciliation_generation === event.reconciliationGeneration &&
+		row.attempt_id === event.attemptId &&
 		row.reconciled_commit === event.reconciledCommit &&
 		row.event_type === event.eventType &&
 		row.prior_revision_id === event.priorRevisionId &&

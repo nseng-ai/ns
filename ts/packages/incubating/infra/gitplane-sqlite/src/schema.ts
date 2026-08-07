@@ -27,10 +27,26 @@ export const CONTROL_SCHEMA = {
 	},
 	cursors: {
 		name: "gitplane_cursors",
-		columns: [column("source_id", "TEXT", false, 1), column("commit_id", "TEXT", false)],
+		columns: [
+			column("source_id", "TEXT", false, 1),
+			column("commit_id", "TEXT", false),
+			column("generation", "INTEGER", false),
+		],
 		uniqueColumnSets: [["source_id"]],
 		statements: [
-			`CREATE TABLE gitplane_cursors (source_id TEXT PRIMARY KEY, commit_id TEXT NOT NULL) STRICT`,
+			`CREATE TABLE gitplane_cursors (source_id TEXT PRIMARY KEY, commit_id TEXT NOT NULL, generation INTEGER NOT NULL CHECK (generation > 0)) STRICT`,
+		],
+	},
+	plans: {
+		name: "gitplane_reconciliation_plans",
+		columns: [
+			column("source_id", "TEXT", false, 1),
+			column("attempt_id", "TEXT", false),
+			column("reconciliation_plan", "TEXT", false),
+		],
+		uniqueColumnSets: [["attempt_id"], ["source_id"]],
+		statements: [
+			`CREATE TABLE gitplane_reconciliation_plans (source_id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE, reconciliation_plan TEXT NOT NULL) STRICT`,
 		],
 	},
 	lineage: {
@@ -87,6 +103,8 @@ export const CONTROL_SCHEMA = {
 			column("source_id", "TEXT", false),
 			column("sequence", "INTEGER", false),
 			column("artifact_id", "TEXT", false),
+			column("reconciliation_generation", "INTEGER", false),
+			column("attempt_id", "TEXT", false),
 			column("reconciled_commit", "TEXT", false),
 			column("event_type", "TEXT", false),
 			column("prior_revision_id", "TEXT", true),
@@ -96,7 +114,7 @@ export const CONTROL_SCHEMA = {
 		],
 		uniqueColumnSets: [["event_id"], ["source_id", "sequence"]],
 		statements: [
-			`CREATE TABLE gitplane_events (event_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, sequence INTEGER NOT NULL, artifact_id TEXT NOT NULL, reconciled_commit TEXT NOT NULL, event_type TEXT NOT NULL, prior_revision_id TEXT, current_revision_id TEXT, prior_path TEXT, current_path TEXT, UNIQUE (source_id, sequence)) STRICT`,
+			`CREATE TABLE gitplane_events (event_id TEXT PRIMARY KEY, source_id TEXT NOT NULL, sequence INTEGER NOT NULL, artifact_id TEXT NOT NULL, reconciliation_generation INTEGER NOT NULL CHECK (reconciliation_generation > 0), attempt_id TEXT NOT NULL, reconciled_commit TEXT NOT NULL, event_type TEXT NOT NULL, prior_revision_id TEXT, current_revision_id TEXT, prior_path TEXT, current_path TEXT, UNIQUE (source_id, sequence)) STRICT`,
 		],
 	},
 	errors: {

@@ -138,7 +138,7 @@ CREATE TABLE greetings (
 
 ### 4. Initialize control-plane tables
 
-Gitplane keeps its own control-plane tables (cursors, lineage, current state, immutable revisions, durable events, and reconciliation errors) in the same store, strictly under its control. Initialize the native Node SQLite adapter explicitly during setup:
+Gitplane keeps its own control-plane tables (generation cursors, lineage, current state, immutable revisions, durable Reconciliation Plans, generation-aware durable events, and reconciliation errors) in the same store, strictly under its control. Initialize the native Node SQLite adapter explicitly during setup:
 
 ```ts
 import { initializeSqliteStore } from "@nseng-ai/gitplane-sqlite";
@@ -150,6 +150,8 @@ await initializeSqliteStore({
 ```
 
 Initialization is idempotent and refuses incompatible existing control objects without migrating or rewriting them. Opening the adapter and running `doctor` or `reconcile` never creates or migrates tables. The parent directory must already exist; applications do not author the control-plane DDL.
+
+The native SQLite adapter is a single-writer local/reference adapter in v1. Sequential process restarts and retries are idempotent, but concurrent SQLite writers or simultaneous replayers are unsupported. Use one active reconciliation writer per database.
 
 ### 5. Add the CI job
 
@@ -168,7 +170,7 @@ Commit an artifact, then check and reconcile:
 
 ```text
 gitplane check                    # checks the working tree
-gitplane reconcile HEAD --full    # first reconciliation requires --full
+gitplane reconcile HEAD           # initial reconciliation is ordinary snapshot materialization
 ```
 
 One live row per classified artifact appears in its domain table, carrying lineage plus projected fields. Generic artifacts remain tracked in control storage without a domain row:
@@ -191,7 +193,7 @@ Gitplane ships four command surfaces using Clinkr's filesystem-first command lay
 
 - `gitplane artifact create <directory>` — locally and atomically creates a generic artifact by default, without loading config, inspecting Git history, requiring an artifact root, or opening storage. It returns the created path and artifact ID. Existing targets and missing parents are structured semantic conflicts; invalid options/IDs are usage errors; unexpected filesystem failures are operational errors.
 - `gitplane check` — validates the complete corpus in the working tree. It is stateless, never opens the store, and never consults Git history. Empty artifact roots are valid.
-- `gitplane reconcile <commit> [--full]` — brings control state and any classified domain rows up to date with the target commit. The first reconciliation and intentional repair require `--full`. Initial `--full` rebuilds materialization from scratch and emits one `artifact.created` materialization-lifecycle event per target artifact; those events do not claim when the artifacts first appeared in repository history. Every later `--full` is a repair regardless of ancestry: it reapplies every artifact in its repair plan and emits `artifact.repaired` for each one, recording corrective work without asserting Git lineage. V1 does not read target rows to suppress already-matching repair writes or events, so noisy repair events are intentional. V1 assumes linear, squash-only source history; merge commits are rejected.
+- `gitplane reconcile <commit>` — converges Gitplane control state and classified domain rows from the last completed materialization snapshot to the complete artifact snapshot at the resolved target commit. Initial materialization, forward updates, older-commit rollbacks, divergent commits, and merge commits use the same level-triggered planning rules; Git history and ancestry are not reconciliation inputs. It emits lifecycle transitions from stored control state. V1 has no repair mode or operator target-row drift detection.
 - `gitplane doctor` — read-only verification of the configuration, store, control tables, configured domain tables, and mappings.
 
 Common behavior:
@@ -203,9 +205,11 @@ Common behavior:
 - for completed `check` runs, exit `0` means clean or warning-only findings and exit `1` means at least one error finding; usage, configuration, source, store, or other operational failure exits `2` and emits no partial corpus result;
 - completed JSON `check` output identifies `sourceId` and normalized `artifactRoot` and includes `artifactCount`, severity counts, and the deterministically sorted findings.
 
-For reconciliation, successful cursor advancement is the completed-materialization boundary. Because writes are non-transactional, readers that do not check the cursor may observe stale or mixed materialized state while reconciliation is in progress; consumers that need commit-level freshness must use cursor equality as the completion signal. Cleanup can still fail after materialization has completed. The advanced cursor and persisted attempt retain enough state to identify that post-completion residue, so later equal-cursor invocations retry error resolution and attempt deletion idempotently without replaying materialization or artifact events. Transient cleanup failures are therefore eventually recoverable; permanent failures may require operator recovery, whose controls remain deferred. The `cursorAdvanced` result says whether the current invocation advanced the cursor, so that later cleanup-only invocation reports `false` even though the durable cursor already equals the target.
+For reconciliation, the target commit tree is immutable desired state and the complete Gitplane-owned control snapshot at the last completed cursor generation is prior state. Operator-owned target-table values are never planning authorities. Control state is safe to plan from only when no Pending Plan exists: matching work replays its Reconciliation Plan, conflicting work is refused, and residue left after cursor advancement is cleaned before new planning. A Reconciliation Plan contains Planned Artifact Materializations and stores shared replay facts once. Domain logic prepares each Planned Artifact Materialization for the Materialization Store Gateway as a Prepared Artifact Materialization; the Resulting Cursor and deterministic event identity cannot be independently authored.
 
-Complete command semantics — atomic creation, validation coverage, reconciliation planning and failure guarantees, `--full` repair, and doctor checks — are specified in [SPEC-draft.md](SPEC-draft.md).
+Successful generation-and-commit cursor compare-and-set is the completed-materialization boundary. Because writes are non-transactional, readers that do not check the cursor may observe stale or mixed materialized state while reconciliation is in progress; consumers that need snapshot-level freshness must check both cursor commit and generation. Cleanup can still fail after materialization has completed. The advanced cursor and Pending Plan retain enough state to identify that post-completion residue, so a later invocation retries error resolution and plan deletion idempotently without replaying materialization or artifact events. A stale writer is rejected by generation even when its expected commit string has been revisited. The result reports bounded lifecycle counts, prior and resulting cursors, whether this invocation advanced the cursor, and whether it replayed or only cleaned an attempt; it does not report repair, ancestry, or event-reconstruction status.
+
+Complete command semantics — atomic creation, validation coverage, snapshot reconciliation and failure guarantees, and doctor checks — are specified in [SPEC-draft.md](SPEC-draft.md).
 
 ## GitHub Action
 

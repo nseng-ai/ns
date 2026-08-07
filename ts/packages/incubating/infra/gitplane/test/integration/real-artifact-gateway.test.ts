@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { expect, test } from "vitest";
+import { gatherSourceFacts } from "@nseng-ai/gitplane";
 import { RealArtifactGateway } from "@nseng-ai/gitplane/cli";
+import { expect, test } from "vitest";
 
 function git(cwd: string, args: readonly string[]): string {
 	return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -85,28 +86,13 @@ test("inventories and reads the working tree without following symlinks or marke
 	}
 });
 
-test("reads commit facts, ancestry, filtered tree candidates, and diffs", async () => {
+test("resolves commits and reads complete filtered tree candidates", async () => {
 	const repo = await repository();
 	try {
 		const gateway = new RealArtifactGateway({ cwd: repo.directory });
 		expect(await gateway.resolveCommit({ commitish: "HEAD" })).toEqual({
 			ok: true,
 			value: { type: "found", value: repo.second },
-		});
-		expect(await gateway.readCommitFacts({ commit: repo.second })).toEqual({
-			ok: true,
-			value: {
-				type: "found",
-				value: { commit: repo.second, parents: [repo.first], isMerge: false },
-			},
-		});
-		expect(await gateway.isAncestor({ ancestor: repo.first, descendant: repo.second })).toEqual({
-			ok: true,
-			value: { type: "found", value: true },
-		});
-		expect(await gateway.isAncestor({ ancestor: repo.second, descendant: repo.first })).toEqual({
-			ok: true,
-			value: { type: "found", value: false },
 		});
 		const inventory = await gateway.inventoryCommitTree({
 			commit: repo.second,
@@ -134,17 +120,6 @@ test("reads commit facts, ancestry, filtered tree candidates, and diffs", async 
 			);
 			expect(body === undefined ? undefined : Buffer.from(body.bytes).toString()).toBe("first");
 		}
-		expect(await gateway.diffCommits({ fromCommit: repo.first, toCommit: repo.second })).toEqual({
-			ok: true,
-			value: {
-				type: "found",
-				value: {
-					fromCommit: repo.first,
-					toCommit: repo.second,
-					changedPaths: ["artifacts/a/nested/body.txt", "outside.txt"],
-				},
-			},
-		});
 		expect(
 			await gateway.inventoryCommitTree({ commit: repo.second, artifactRoot: "../outside" }),
 		).toMatchObject({ ok: false });
@@ -153,34 +128,32 @@ test("reads commit facts, ancestry, filtered tree candidates, and diffs", async 
 	}
 });
 
-test("conservatively reports shallow negative ancestry as incomplete history", async () => {
-	const source = await mkdtemp(path.join(os.tmpdir(), "gitplane-shallow-source-"));
+test("gathers a complete target snapshot from a depth-1 clone without fetching history", async () => {
+	const source = await repository();
 	const clone = await mkdtemp(path.join(os.tmpdir(), "gitplane-shallow-clone-"));
 	try {
-		git(source, ["init", "-b", "main"]);
-		git(source, ["config", "user.name", "Gitplane Test"]);
-		git(source, ["config", "user.email", "gitplane@example.test"]);
-		for (const revision of ["first", "second", "third"]) {
-			await writeFile(path.join(source, "body.txt"), revision);
-			git(source, ["add", "."]);
-			git(source, ["commit", "-m", revision]);
-		}
-		// A plain local-path clone ignores --depth; the file:// transport honors it.
-		git(clone, ["clone", "--depth=2", `file://${source}`, "."]);
+		git(clone, ["clone", "--depth=1", `file://${source.directory}`, "."]);
 		expect(git(clone, ["rev-parse", "--is-shallow-repository"])).toBe("true");
-		const tip = git(clone, ["rev-parse", "HEAD"]);
-		const parent = git(clone, ["rev-parse", "HEAD~1"]);
-		const gateway = new RealArtifactGateway({ cwd: clone });
-		expect(await gateway.isAncestor({ ancestor: parent, descendant: tip })).toEqual({
+		const targetCommit = git(clone, ["rev-parse", "HEAD"]);
+		expect(
+			await gatherSourceFacts({
+				gateway: new RealArtifactGateway({ cwd: clone }),
+				sourceId: "source",
+				artifactRoot: "artifacts",
+				targetCommitish: "HEAD",
+				kinds: [],
+			}),
+		).toMatchObject({
 			ok: true,
-			value: { type: "found", value: true },
+			facts: {
+				type: "gathered",
+				targetCommit,
+				targetSnapshot: { commit: targetCommit, candidates: [{ path: "artifacts/a" }] },
+			},
 		});
-		expect(await gateway.isAncestor({ ancestor: tip, descendant: parent })).toEqual({
-			ok: true,
-			value: { type: "unavailable", reason: "incomplete-history" },
-		});
+		expect(git(clone, ["rev-list", "--count", "HEAD"])).toBe("1");
 	} finally {
-		await rm(source, { recursive: true, force: true });
+		await rm(source.directory, { recursive: true, force: true });
 		await rm(clone, { recursive: true, force: true });
 	}
 });

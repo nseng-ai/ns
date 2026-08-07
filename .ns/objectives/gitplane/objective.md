@@ -1,7 +1,7 @@
 ---
 edges:
   - objective: gitplane-reconciliation-stack-rebuild
-    annotation: The cursor-diff reconciliation slice lands through that Objective's verified PR stack rather than prototype PR #4076.
+    annotation: The level-triggered snapshot reconciliation slice lands through that Objective's verified PR stack rather than prototype PR #4076.
 ---
 
 # Gitplane v1: Git-backed artifact control plane
@@ -18,16 +18,16 @@ This Objective follows the readme-driven-development pattern with two canonical 
 - Clinkr filesystem-first CLI with four surfaces:
   - `gitplane artifact create <directory>` — local, config-free creation of a generic artifact by default, with optional classification.
   - `gitplane check` — stateless validation of the full corpus in the working tree.
-  - `gitplane reconcile <commit>` — fast-forward cursor-diff reconciliation with cursor-last, idempotent writes; `--full` handles initial sync and repair.
+  - `gitplane reconcile <commit>` — level-triggered complete-snapshot reconciliation with generation-aware cursor-last and idempotent writes.
   - `gitplane doctor` — read-only configuration, control-store, target-table, mapping, and uniqueness checks.
 - Multiple independent Gitplane domains per repository through explicitly selected TypeScript config files. Each config selects exactly one immutable source ID and one artifact root; `source` is the minimum config, while kind registration and storage are independently optional capabilities.
 - Recursive, symlink-safe working-tree discovery through the fixed `gitplane-artifact.json` marker. A regular file with the reserved name establishes an attempted boundary regardless of marker validity; nesting and non-regular reserved-name entries are discovered globally before corpus reads, special entries under boundaries are findings, and ordinary entries outside boundaries are ignored.
 - Generic envelope validation requiring canonical lowercase ULID IDs. Classification is an optional all-or-none `gpApiVersion`/`gpKind`/`gpSchemaVersion` block: generic artifacts need no registry and are first-class tracked, revisioned, and evented artifacts; classified artifacts require an exact registered kind and declared current schema version but no custom validator. Projection and transition metadata are consumed only by later reconciliation, where one generic-to-classified transition is allowed, API/kind lineage becomes immutable, and schema changes follow explicit directed transitions.
-- Deterministic recursive SHA-256 content digests and `gpr_` revision IDs, plus deterministic `gpe_` event IDs. Revisions are immutable content snapshots whose identity includes the repository-relative artifact path, plus a first-observed Git locator and file-digest manifest; moves therefore create revisions, while raw bytes remain in Git.
+- Deterministic recursive SHA-256 content digests and `gpr_` revision IDs, plus generation/attempt-aware deterministic `gpe_` event IDs. Revisions are immutable content snapshots whose identity includes the repository-relative artifact path, plus a first-observed Git locator and file-digest manifest; moves therefore create revisions, while raw bytes remain in Git.
 - One operator-owned current-state target table per kind, with mandatory mapped lineage semantics and composite `(source_id, artifact_id)` uniqueness. RFC 6901 field mappings include arbitrary JSON-subtree projection. Gitplane owns no target DDL.
 - Move recognition by stable ID, deletion tombstones preserving last live domain values/path, restoration, immutable revisions, durable deterministic event facts, and sanitized reconciliation errors.
-- Non-transactional, cursor-last reconciliation. Partial writes may be visible after failure; deterministic plans and IDs make retry idempotent, and compare-and-set cursor advancement detects races. Concurrent writers remain unsupported in v1.
-- Valid artifact-domain access behind one canonical `ArtifactGateway`, with local creation, commit/history facts, discovery, complete recursive snapshots, and commit diffs; creation consumes only its narrowed create operation. Stateless working-tree checking uses a separate `CorpusCheckGateway` for raw tree inventory and candidate reads so invalid corpus entries cannot leak into downstream artifact operations. Storage sits behind a complete operation-level `MaterializationStoreGateway`. One adapter owns both control records and target-table writes. SQLite is the test/local implementation, not a deployment commitment.
+- Non-transactional, cursor-last reconciliation. Partial writes may be visible after failure; one atomically persisted Reconciliation Plan and deterministic identities make retry idempotent, while generation compare-and-set detects races and commit-string ABA. Source leases and broader distributed scheduling remain unsupported in v1.
+- Valid artifact-domain access behind one canonical `ArtifactGateway`, with local creation, target-commit resolution, discovery, and complete recursive target snapshots; reconciliation has no ancestry or commit-diff operations, while creation consumes only its narrowed create operation. Stateless working-tree checking uses a separate `CorpusCheckGateway` for raw tree inventory and candidate reads so invalid corpus entries cannot leak into downstream artifact operations. Storage sits behind a complete operation-level `MaterializationStoreGateway`. One adapter owns both control records and target-table writes. SQLite is the test/local implementation, not a deployment commitment.
 - A shipped check-only composite GitHub Action that runs `gitplane check` against the PR head for each explicitly configured domain, plus documentation showing conceptual reconcile-in-CI wiring.
 - A permanent documentation-grade reference consumer and fake-driven scenario suite proving the pin-and-react/materialization contract and convergence behavior.
 
@@ -36,8 +36,8 @@ This Objective follows the readme-driven-development pattern with two canonical 
 Each deliberate shortcut preserves a named future path where applicable:
 
 - **No ID minting during discovery or reconciliation.** Only local `gitplane artifact create` mints an ID or accepts a caller-supplied canonical ID; all other paths consume artifact IDs already present in markers.
-- **No merge commits or nonlinear-history support.** V1 assumes squash-only/linear repositories.
-- **No concurrent-writer coordination.** Operators ensure one reconciler per source; a future source lease remains possible.
+- **No incremental snapshot optimization.** V1 scans the complete target corpus; tree-OID caches and commit-diff fast paths may be measured later but can never become correctness inputs.
+- **No source leases or broad distributed scheduling.** The backend-neutral protocol permits one Pending Plan plus generation CAS. The native SQLite v1 adapter supports that protocol only with one active writer; concurrent SQLite writers or simultaneous replayers are unsupported.
 - **No GitHub API source fetching.** Local Git is primary; another source may implement the gateway later.
 - **No event dispatch, webhooks, or async outbox publication.** V1 records immutable, sequence-ordered event facts without delivery state; a future dispatcher can consume them.
 - **No production persistence commitment.** SQLite is local/reference only; production adapters implement the same gateway.
@@ -52,13 +52,13 @@ Each deliberate shortcut preserves a named future path where applicable:
 ## Completion Criteria
 
 - Both workspace packages exist with the documented topology, package-local clock seam, canonical artifact, corpus-check, and store gateways, in-memory fakes, and SQLite reference adapter.
-- `gitplane artifact create <directory>`, `gitplane check`, `gitplane reconcile <commit>`/`--full`, and `gitplane doctor` work against a local clone through Clinkr's filesystem-first command layout and stable output contract; creation is config-free, validates or mints a canonical lowercase ULID, supports optional classification, and is atomic at the artifact gateway boundary.
+- `gitplane artifact create <directory>`, `gitplane check`, `gitplane reconcile <commit>`, and `gitplane doctor` work against a local clone through Clinkr's filesystem-first command layout and stable output contract; creation is config-free, validates or mints a canonical lowercase ULID, supports optional classification, and is atomic at the artifact gateway boundary.
 - `gitplane check` is a stateless, corpus-only working-tree operation: it resolves one config/root within the invocation directory, never follows symlinks or invokes storage/history, discovers all nesting before reads, aggregates the fixed normative finding set deterministically, counts outer attempted boundaries, and distinguishes completed finding exits from operational/configuration/source failure without partial data.
-- Recursive discovery, generic and classified envelope behavior, optional kind/schema registration and projection, deterministic digest/revision/event identity with repository-relative artifact path in revision identity, move/delete/restore behavior, initial-full materialization creation events, lineage-free events for every artifact reapplied by any full repair after initial materialization, one-way generic-to-classified lineage, cursor-last retry convergence, immutable events, and durable errors work as specified in the README and spec drafts.
+- Recursive discovery, generic and classified envelope behavior, optional kind/schema registration and projection, deterministic digest/revision identity and generation-aware attempt/event identity, move/delete/restore behavior, ordinary initial materialization creation events, one-way generic-to-classified lineage, generation-aware cursor-last retry convergence and ABA rejection, immutable events, and durable errors work as specified in the README and spec drafts.
 - The SQLite adapter explicitly initializes and manages control tables, operates against operator-owned target tables, and supports every v1 read-only `doctor` check.
 - The check-only composite GitHub Action ships and is documented, including PR-head/per-domain behavior and a conceptual reconcile-in-CI recipe.
 - The reference consumer exists and demonstrates operator-owned DDL, artifact+revision pinning, mapped JSON, event consumption, and runtime-state separation.
-- Scenario and conformance suites cover recursive artifacts, renames/moves, revisions, deletes, duplicate IDs, restoration, partial-write retries, cursor CAS failure, repeated reconcile attempts, and full repair.
+- Scenario and conformance suites cover recursive artifacts, lifecycle and lineage legality, initial/older/divergent/merge snapshots, partial-write retries, matching/conflicting/post-CAS attempts, generation CAS including `A → B → A → B` ABA, and repeated-target event identity.
 - The settled README is promoted from `references/README-draft.md` to the shipped package README, the settled spec is promoted from `references/SPEC-draft.md` to the shipped package's reference documentation, and this Objective's canonical references point at the promoted documents.
 
 ## Prompt Guidance
@@ -73,17 +73,17 @@ This guidance shapes prompt serialization only; it grants no execution authority
 
 Assumptions:
 
-- **Cursor-derived, cursor-last reconciliation is convergence-safe without transactions.** While the cursor remains unchanged, retry reconstructs the same Git-tree transition plan and deterministic writes; partial visibility is accepted. Scenario tests must falsify this if an operation cannot be made idempotent.
-- **Linear source history is sufficient for v1.** `reconcile` rejects merge commits; repositories using Gitplane initially enforce squash-only history.
+- **Completed-snapshot, cursor-last reconciliation is convergence-safe without transactions.** A complete Reconciliation Plan persisted before writes is retry authority; completed Gitplane control state is prior state only when no Pending Plan exists, and generation CAS protects completion. Partial visibility is accepted and fault-injection scenarios must prove convergence.
+- **History independence is the simpler v1 correctness model.** Initial, forward, older, divergent, and merge target commits are immutable snapshots handled identically; ancestry is never observed.
 - **Operator-owned target DDL is the correct boundary.** Gitplane maps and attempts writes, while `doctor` catches introspectable incompatibilities and backend failures remain authoritative.
 - **Durable event facts are enough for v1.** Sequence-ordered immutable events preserve a future dispatch/outbox path without implementing delivery now.
-- **SQLite behind the operation-level gateway is faithful enough** to prove adapter semantics without implying production readiness.
+- **SQLite behind the operation-level gateway is faithful enough** to prove adapter semantics and sequential retry without implying production readiness or multi-writer safety.
 - **Incubating platform placement fits Gitplane** per `docs/conventions/platform-and-consumer.md` and `ts/packages/README.md`.
 
 Risks:
 
 - **Non-transactional partial visibility.** A failed reconcile can expose some target rows or control records before retry completes; consumers must treat cursor advancement as the completed-materialization boundary where needed.
-- **Event correctness depends on cursor-tree planning.** Retries must derive transitions from cursor Git tree to target Git tree rather than partially written store rows; scenario coverage is mandatory.
+- **Control-state trust requires Pending Plan discipline.** Operator target rows are never planning authorities, and Gitplane control state is authoritative only at a completed cursor generation with no Pending Plan; matching replay, conflict refusal, and cleanup precedence require shared fake/SQLite proof.
 - **Target schemas can reject blind mappings.** Projection writes deliberately rely on operator-owned SQL constraints and fail closed; `doctor` cannot guarantee compatibility where an adapter reports unsupported introspection.
 - **First-observed Git locators depend on retained history.** Raw bytes become unavailable if a revision's referenced commit is removed; object-store replication remains an explicit future upgrade.
 - **Scope gravity toward workflow behavior.** Runtime activation and event delivery must stay outside v1.

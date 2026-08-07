@@ -2,6 +2,7 @@ import { deepStrictEqual } from "node:assert/strict";
 import { parseArtifactId } from "../core/artifact.ts";
 import type { TargetMapping } from "../core/domain.ts";
 import type {
+	ArtifactCurrentRecord,
 	ArtifactLineageRecord,
 	EventRecord,
 	MaterializationStoreGateway,
@@ -19,25 +20,112 @@ export async function exerciseMaterializationStoreConformance(
 	const artifactId = parsed.artifactId;
 	const sourceId = "conformance";
 
-	await step("cursor compare-and-set", async () => {
+	await step("generation cursor compare-and-set and ABA", async () => {
 		deepStrictEqual(await store.readCursor({ sourceId }), { type: "missing" });
 		deepStrictEqual(
-			await store.compareAndSetCursor({ sourceId, expectedCommit: null, nextCommit: "a" }),
+			await store.compareAndSetCursor({
+				sourceId,
+				expectedGeneration: 0,
+				next: { sourceId, commit: "a", generation: 1 },
+			}),
 			{ type: "updated" },
 		);
 		deepStrictEqual(await store.readCursor({ sourceId }), {
 			type: "found",
-			value: { sourceId, commit: "a" },
+			value: { sourceId, commit: "a", generation: 1 },
 		});
 		deepStrictEqual(
-			await store.compareAndSetCursor({ sourceId, expectedCommit: null, nextCommit: "b" }),
-			{ type: "mismatch", actual: "a" },
+			await store.compareAndSetCursor({
+				sourceId,
+				expectedGeneration: 0,
+				next: { sourceId, commit: "b", generation: 1 },
+			}),
+			{ type: "mismatch", actual: { sourceId, commit: "a", generation: 1 } },
 		);
+		for (const [commit, generation] of [
+			["b", 2],
+			["a", 3],
+			["b", 4],
+		] as const)
+			deepStrictEqual(
+				await store.compareAndSetCursor({
+					sourceId,
+					expectedGeneration: generation - 1,
+					next: { sourceId, commit, generation },
+				}),
+				{ type: "updated" },
+			);
 		deepStrictEqual(
-			await store.compareAndSetCursor({ sourceId, expectedCommit: "a", nextCommit: "b" }),
-			{ type: "updated" },
+			await store.compareAndSetCursor({
+				sourceId,
+				expectedGeneration: 2,
+				next: { sourceId, commit: "a", generation: 3 },
+			}),
+			{ type: "mismatch", actual: { sourceId, commit: "b", generation: 4 } },
 		);
 	});
+
+	const plan = {
+		schemaVersion: 1 as const,
+		sourceId,
+		attemptId: "gpa_conformance",
+		targetCommit: "c",
+		targetCommitish: "c",
+		expectedCursor: { commit: "b", generation: 4 },
+		artifactMaterialization: [],
+		completion: { created: 0, restored: 0, revised: 0, unchanged: 0, deleted: 0 },
+	};
+	await step(
+		"atomic pending plan reuse, conflict, snapshot immutability, and cleanup",
+		async () => {
+			deepStrictEqual(
+				await store.insertReconciliationPlan({
+					...plan,
+					attemptId: "gpa_stale",
+					expectedCursor: { commit: "a", generation: 3 },
+				}),
+				{
+					type: "conflict",
+					message: "Completed cursor no longer matches the reconciliation plan.",
+				},
+			);
+			deepStrictEqual(await store.insertReconciliationPlan(plan), { type: "inserted" });
+			deepStrictEqual(await store.insertReconciliationPlan(plan), { type: "existing" });
+			deepStrictEqual(
+				await store.insertReconciliationPlan({
+					...plan,
+					attemptId: "gpa_other",
+				}),
+				{ type: "conflict", message: "Source already has a different pending plan." },
+			);
+			const first = await store.readMaterializationSnapshot({ sourceId });
+			if (!first.ok) throw new Error(first.error.message);
+			(first.value.currentArtifacts as ArtifactCurrentRecord[]).push({
+				sourceId,
+				artifactId,
+				revisionId: "mutated-revision",
+				path: "mutated-artifact",
+				classification: { state: "generic" },
+				observedCommit: "mutated-commit",
+				tombstoned: false,
+			} satisfies ArtifactCurrentRecord);
+			if (first.value.pendingPlan !== null) {
+				(first.value.pendingPlan.completion as { created: number }).created = 99;
+			}
+			const second = await store.readMaterializationSnapshot({ sourceId });
+			if (!second.ok) throw new Error(second.error.message);
+			deepStrictEqual(second.value.currentArtifacts, []);
+			deepStrictEqual(second.value.pendingPlan, plan);
+			deepStrictEqual(
+				await store.deleteReconciliationPlan({ sourceId, attemptId: plan.attemptId }),
+				{ ok: true },
+			);
+			deepStrictEqual(
+				await store.deleteReconciliationPlan({ sourceId, attemptId: plan.attemptId }),
+				{ ok: true },
+			);
+		},
+	);
 
 	const lineage: ArtifactLineageRecord = {
 		sourceId,
@@ -198,6 +286,8 @@ export async function exerciseMaterializationStoreConformance(
 		eventId: "gpe_conformance",
 		sourceId,
 		artifactId,
+		reconciliationGeneration: 5,
+		attemptId: plan.attemptId,
 		reconciledCommit: "b",
 		eventType: "artifact.created",
 		priorRevisionId: null,
