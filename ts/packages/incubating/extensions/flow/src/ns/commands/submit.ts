@@ -50,10 +50,7 @@ import {
 	validatePrTitlePrefix,
 	type NormalizedPrTitlePrefix,
 } from "../../submit/pr-title-prefix.ts";
-import {
-	formatSubmitSuccessFallbackText,
-	formatSubmitSuccessText,
-} from "../../submit/submit-format.ts";
+import { formatSubmitSuccessText } from "../../submit/submit-format.ts";
 
 const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
@@ -131,27 +128,19 @@ const checkpointSuccessSchema = z.discriminatedUnion("type", [
 		message: z.string(),
 	}),
 ]);
-const submitPublicationSuccessSchema = z.discriminatedUnion("type", [
-	z.object({
-		type: z.literal("reconciled"),
-		plan: submitPlanSchema,
-		prs: z.array(submitPrLinkSchema),
-		metadataApplied: z.array(submitPrLinkSchema),
-		metadataPreviews: z.array(
-			z.object({
-				link: submitPrLinkSchema,
-				title: z.string(),
-				inventoryFirstLine: z.string().nullable(),
-			}),
-		),
-	}),
-	z.object({
-		type: z.literal("submitted-unresolved"),
-		plan: submitPlanSchema,
-		recentOutput: z.string(),
-		inventoryGenerated: z.literal(false),
-	}),
-]);
+const submitPublicationSuccessSchema = z.object({
+	type: z.literal("reconciled"),
+	plan: submitPlanSchema,
+	prs: z.array(submitPrLinkSchema).min(1),
+	metadataApplied: z.array(submitPrLinkSchema),
+	metadataPreviews: z.array(
+		z.object({
+			link: submitPrLinkSchema,
+			title: z.string(),
+			inventoryFirstLine: z.string().nullable(),
+		}),
+	),
+});
 const submitSuccessSchema = z.object({
 	checkpoint: checkpointSuccessSchema,
 	publication: submitPublicationSuccessSchema,
@@ -471,16 +460,13 @@ function renderSubmitSuccess(result: SubmitSuccess): string {
 		result.checkpoint.type === "clean"
 			? "Checkpoint: worktree clean."
 			: `${result.checkpoint.summary}\n${result.checkpoint.message}`;
-	const publication =
-		result.publication.type === "reconciled"
-			? formatSubmitSuccessText(result.publication.prs, {
-					applied: result.publication.metadataApplied,
-					previews: result.publication.metadataPreviews.map((preview) => ({
-						...preview,
-						inventoryFirstLine: preview.inventoryFirstLine ?? undefined,
-					})),
-				})
-			: formatSubmitSuccessFallbackText(result.publication.recentOutput, "");
+	const publication = formatSubmitSuccessText(result.publication.prs, {
+		applied: result.publication.metadataApplied,
+		previews: result.publication.metadataPreviews.map((preview) => ({
+			...preview,
+			inventoryFirstLine: preview.inventoryFirstLine ?? undefined,
+		})),
+	});
 	return `${checkpoint}\n${publication}`;
 }
 

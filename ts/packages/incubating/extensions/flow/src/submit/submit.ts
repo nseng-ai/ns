@@ -37,7 +37,6 @@ import {
 	formatSubmitInventoryFailureOutput,
 	formatItemCount,
 	formatSubmitFailureOutput,
-	formatSubmitOutputTail,
 } from "./submit-format.ts";
 import type { SubmitStackInspectionGateway } from "./submit-stack-inspection.ts";
 import { buildSubmitPlan, type SubmitPlan } from "./submit-plan.ts";
@@ -343,23 +342,16 @@ export async function runSubmitCommand(options: RunSubmitCommandOptions): Promis
 			phaseKey: "inventories",
 			detail: "inventories ready",
 		});
-		return prLinks.length > 0
-			? {
-					type: "reconciled",
-					plan: planToExecute,
-					prs: prLinks,
-					metadataApplied: inventoryResult.applied,
-					metadataPreviews: inventoryResult.previews,
-				}
-			: {
-					type: "submitted-unresolved",
-					plan: planToExecute,
-					recentOutput: formatSubmitOutputTail(
-						submitOutcome.output.stdout,
-						submitOutcome.output.stderr,
-					),
-					inventoryGenerated: false,
-				};
+		if (prLinks.length === 0) {
+			throw new Error("Successful submit reconciliation must include at least one PR.");
+		}
+		return {
+			type: "reconciled",
+			plan: planToExecute,
+			prs: prLinks,
+			metadataApplied: inventoryResult.applied,
+			metadataPreviews: inventoryResult.previews,
+		};
 	}
 }
 

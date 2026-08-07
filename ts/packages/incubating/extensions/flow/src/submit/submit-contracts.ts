@@ -133,11 +133,5 @@ export type SubmitResult =
 			metadataApplied: readonly SubmitPrLink[];
 			metadataPreviews: readonly SubmitPrInventoryPreview[];
 	  }
-	| {
-			type: "submitted-unresolved";
-			plan: SubmitPlan;
-			recentOutput: string;
-			inventoryGenerated: false;
-	  }
 	| ({ type: "refused" } & SubmitFailureFacts)
 	| ({ type: "failed" } & SubmitFailureFacts);

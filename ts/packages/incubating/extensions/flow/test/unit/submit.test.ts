@@ -747,7 +747,7 @@ WARNING: This branch and any dependent branches will not be submitted, as GitHub
 });
 
 describe("runSubmitCommand", () => {
-	test("returns a bounded unresolved success when publication yields no authoritative PRs", async () => {
+	test("rejects successful reconciliation without an authoritative PR", async () => {
 		const gateway: SubmitGateway = {
 			checkSubmitReadiness: async () => ({
 				kind: "ready",
@@ -774,32 +774,28 @@ describe("runSubmitCommand", () => {
 			inspectOpenPrsForBranches: async () => ({ dispositions: [] }),
 		};
 
-		const result = await runSubmitCommand({
-			cwd: "/repo",
-			gateway,
-			metadataGateway,
-			restack: true,
-			force: false,
-			prInventory: {
-				githubPr: unusedGithubPrGateway,
-				textGenerator: unusedTextGenerator,
-				git: unusedGitGateway,
-				descriptorSource: flowExtensionDescriptorSource,
-				modelSelection: {
-					provider: "openai-codex",
-					modelId: "gpt-5.6-luna",
-					thinking: "minimal" as const,
+		await expect(
+			runSubmitCommand({
+				cwd: "/repo",
+				gateway,
+				metadataGateway,
+				restack: true,
+				force: false,
+				prInventory: {
+					githubPr: unusedGithubPrGateway,
+					textGenerator: unusedTextGenerator,
+					git: unusedGitGateway,
+					descriptorSource: flowExtensionDescriptorSource,
+					modelSelection: {
+						provider: "openai-codex",
+						modelId: "gpt-5.6-luna",
+						thinking: "minimal" as const,
+					},
+					env: {},
 				},
-				env: {},
-			},
-			progress: testSubmitProgress(),
-		});
-
-		expect(result).toMatchObject({
-			type: "submitted-unresolved",
-			recentOutput: "submitted without links",
-			inventoryGenerated: false,
-		});
+				progress: testSubmitProgress(),
+			}),
+		).rejects.toThrow("Successful submit reconciliation must include at least one PR.");
 	});
 
 	test("uses authoritative inventory when Graphite output has no PR URLs and current verification lags", async () => {
