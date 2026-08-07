@@ -447,8 +447,9 @@ test.each([
 	},
 ] as const)("reconcile closes exactly once on $name", async (scenario) => {
 	let closeCount = 0;
-	const originalClose = scenario.store.close.bind(scenario.store);
-	scenario.store.close = async () => {
+	const store = scenario.store;
+	const originalClose = store.close.bind(store);
+	store.close = async () => {
 		closeCount += 1;
 		if (scenario.throwClose) throw new Error("private close detail");
 		return originalClose();
@@ -481,7 +482,7 @@ test.each([
 					configDirectory: ".",
 					config: {
 						source: { id: "source", artifactRoot: "artifacts" },
-						store: () => scenario.store,
+						store: () => store,
 					},
 				}),
 			},
