@@ -49,11 +49,9 @@ export { boundaryFailureDiagnostics } from "./types.ts";
 
 export {
 	isLandFailure,
-	landCompleted,
 	landFailure,
 	landingExecutionFailure,
 	landingFailureFacts,
-	landOutcomeFailure,
 	landSuccess,
 } from "./results.ts";
 
@@ -94,6 +92,7 @@ export type {
 	LandingBoundaryFailureDiagnostics,
 	LandingCleanupPolicy,
 	LandingCleanupReport,
+	LandingCompletedExecutionReport,
 	LandingContinuationReport,
 	LandingContinuationRequest,
 	LandingCompletionDisposition,

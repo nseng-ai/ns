@@ -4,13 +4,8 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
 import { snapshotBackupRefs } from "./backup-refs.ts";
 import { formatCommandForDisplay } from "./command-stream.ts";
-import {
-	landCompleted,
-	landFailure,
-	landOutcomeFailure,
-	landSuccess,
-	landingExecutionFailure,
-} from "../api.ts";
+import { landCompleted, landOutcomeFailure } from "../results.ts";
+import { landFailure, landSuccess, landingExecutionFailure } from "../api.ts";
 import type {
 	LandContext,
 	LandGraphiteCommandResult,

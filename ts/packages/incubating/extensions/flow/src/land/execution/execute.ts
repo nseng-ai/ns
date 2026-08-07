@@ -19,6 +19,7 @@ import type {
 	LandedChunk,
 	LandedPullRequest,
 	LandingCleanupReport,
+	LandingCompletedExecutionReport,
 	LandingCompletionDisposition,
 	LandingContinuationReport,
 	LandingExecutionReport,
@@ -461,7 +462,14 @@ function skipped(phase: LandingPhase, reason: string): LandingPhaseOutcome {
 }
 
 function completedResult(draft: ReportDraft): LandingExecutionResult {
-	return { type: "completed", report: reportFromDraft(draft) };
+	return { type: "completed", report: completedReportFromDraft(draft) };
+}
+
+function completedReportFromDraft(draft: ReportDraft): LandingCompletedExecutionReport {
+	if (draft.repoRoot === undefined) {
+		throw new Error("Completed landing execution must include the repository root.");
+	}
+	return { ...reportFromDraft(draft), repoRoot: draft.repoRoot };
 }
 
 function failedResult(

@@ -125,7 +125,7 @@ describe("post-landing slot cleanup defaults", () => {
 			shape: managedShape(),
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
+		expect(outcome.type).toBe("completed");
 		expect(fixture.confirmations).toEqual([]);
 		expect(worktrees.freeSlotsCalls).toEqual([
 			{
@@ -182,7 +182,7 @@ describe("post-landing slot cleanup defaults", () => {
 			chosenCleanupPolicy: "free",
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
+		expect(outcome.type).toBe("completed");
 		expect(worktrees.freeSlotsCalls).toHaveLength(1);
 		expect(graphite.deleteLocalBranchCalls).toEqual([
 			{ repoRoot: SLOT_ROOT, branch: BRANCH, checkedOutConflictHandling: "fail" },
@@ -202,7 +202,7 @@ describe("post-landing slot cleanup defaults", () => {
 			shape,
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
+		expect(outcome.type).toBe("completed");
 		expect(worktrees.freeSlotsCalls).toEqual([
 			{
 				repoRoot: SLOT_ROOT,
@@ -210,10 +210,6 @@ describe("post-landing slot cleanup defaults", () => {
 			},
 		]);
 		expect(graphite.deleteLocalBranchCalls).toEqual([]);
-		expect(fixture.notifications.at(-1)).toEqual({
-			message: "Post-landing cleanup complete: freed slot-02; local trunk branch main was kept.",
-			level: "success",
-		});
 	});
 
 	test("default preserve keeps the slot, skips mutation, and emits a discoverability hint", async () => {
@@ -228,14 +224,10 @@ describe("post-landing slot cleanup defaults", () => {
 			shape: managedShape(),
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
+		expect(outcome.type).toBe("completed");
 		expect(fixture.confirmations).toEqual([]);
 		expect(worktrees.freeSlotsCalls).toEqual([]);
 		expect(graphite.deleteLocalBranchCalls).toEqual([]);
-		expect(fixture.notifications.at(-1)).toEqual({
-			message: `Kept slot-02 and local branch ${BRANCH} — run \`ns slot free --wt slot-02\` when done, or pass --free next time.`,
-			level: "info",
-		});
 	});
 
 	test("--dry-run does not prompt, clean up, or hint", async () => {
@@ -250,7 +242,7 @@ describe("post-landing slot cleanup defaults", () => {
 			shape: managedShape(),
 		});
 
-		expect(outcome).toEqual({ type: "completed" });
+		expect(outcome.type).toBe("completed");
 		expect(fixture.confirmations).toEqual([]);
 		expect(fixture.notifications).toEqual([]);
 		expect(worktrees.freeSlotsCalls).toEqual([]);

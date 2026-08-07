@@ -9,20 +9,13 @@ import type {
 	LandExecutionMessageProgress,
 } from "./execution/host-seams.ts";
 import type { PostLandingCleanupRequest } from "./execution/post-landing-cleanup.ts";
-import {
-	formatSingleBranchDryRunNotification,
-	formatSingleBranchLandingSuccessNotification,
-	notifyPrintAware,
-	presentFailureAndReturn,
-	setStatus,
-} from "./land-presentation.ts";
+import { setStatus } from "./land-presentation.ts";
 import {
 	createFlowLandConfirmationGateway,
 	createUpfrontApprovedLandConfirmationGateway,
 } from "./flow-land-confirmation-gateway.ts";
 import type { PrintAwareLandStackCommandContext } from "./stack/types.ts";
-import { landCompleted, landOutcomeFailure, type LandOutcome } from "./results.ts";
-import type { LandContext, LandingFailure, LandingShape } from "./types.ts";
+import type { LandContext, LandingShape } from "./types.ts";
 
 export interface ValidPullRequestView {
 	number: number;
@@ -46,14 +39,14 @@ interface RunSingleBranchFastPathLandingOptions {
 export { isSingleBranchFastPath };
 
 export interface SingleBranchFastPathLandingResult {
-	readonly outcome: LandOutcome;
+	readonly outcome: SingleBranchLandingOutcome;
 	readonly chosenCleanupPolicy?: PostLandingCleanupRequest["policy"];
 }
 
 export async function runSingleBranchFastPathLanding(
 	options: RunSingleBranchFastPathLandingOptions,
 ): Promise<SingleBranchFastPathLandingResult> {
-	const coreOutcome = await executeSingleBranchLanding({
+	const outcome = await executeSingleBranchLanding({
 		context: options.landContext,
 		host: {
 			confirmation: createUpfrontApprovedLandConfirmationGateway(
@@ -67,68 +60,13 @@ export async function runSingleBranchFastPathLanding(
 		cleanup: options.cleanup,
 	});
 	return {
-		outcome: presentSingleBranchLandingOutcome(options.ctx, coreOutcome),
-		...(coreOutcome.type === "completed" &&
-		coreOutcome.result === "merged" &&
-		coreOutcome.chosenCleanupPolicy !== undefined
-			? { chosenCleanupPolicy: coreOutcome.chosenCleanupPolicy }
+		outcome,
+		...(outcome.type === "completed" &&
+		outcome.result === "merged" &&
+		outcome.chosenCleanupPolicy !== undefined
+			? { chosenCleanupPolicy: outcome.chosenCleanupPolicy }
 			: {}),
 	};
-}
-
-function presentSingleBranchLandingOutcome(
-	ctx: PrintAwareLandStackCommandContext,
-	outcome: SingleBranchLandingOutcome,
-): LandOutcome {
-	if (outcome.type === "failure") {
-		return outcome.stage === "base-check" || outcome.stage === "verification"
-			? presentVerbatimSingleBranchFailure(ctx, outcome.failure)
-			: presentSingleBranchFailure(ctx, outcome.failure);
-	}
-	if (outcome.result === "dry-run") {
-		notifyPrintAware({
-			ctx,
-			message: formatSingleBranchDryRunNotification(
-				outcome.pullRequest.number,
-				outcome.pullRequest.baseRefName,
-			),
-			level: "info",
-			kind: "success",
-		});
-		return landCompleted();
-	}
-
-	notifyPrintAware({
-		ctx,
-		message: formatSingleBranchLandingSuccessNotification({
-			pullRequestNumber: outcome.pullRequest.number,
-			commandOutput: outcome.commandOutput,
-		}),
-		level: "info",
-		kind: "success",
-	});
-	return landCompleted();
-}
-
-function presentSingleBranchFailure(
-	ctx: PrintAwareLandStackCommandContext,
-	failure: LandingFailure,
-): LandOutcome {
-	presentFailureAndReturn(ctx, failure);
-	return landOutcomeFailure(failure);
-}
-
-function presentVerbatimSingleBranchFailure(
-	ctx: PrintAwareLandStackCommandContext,
-	failure: Extract<SingleBranchLandingOutcome, { readonly type: "failure" }>["failure"],
-): LandOutcome {
-	notifyPrintAware({
-		ctx,
-		message: failure.message,
-		level: "error",
-		kind: failure.type === "execution" && failure.outcome === "refusal" ? "refusal" : "failure",
-	});
-	return landOutcomeFailure(failure);
 }
 
 function singleBranchLandingProgress(
@@ -137,7 +75,7 @@ function singleBranchLandingProgress(
 ): LandExecutionMessageProgress {
 	return {
 		note(message): void {
-			if (progressIo === undefined) notifyPrintAware({ ctx, message, level: "info" });
+			progressIo?.message(message);
 		},
 		setStatus(message): void {
 			if (progressIo !== undefined) {

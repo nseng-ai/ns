@@ -121,7 +121,7 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("land stopped at feature-b");
+		expect(notifications[0]?.message).toContain("Failed at: feature-b");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
@@ -166,7 +166,7 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications[0]?.message).toContain("land stopped at feature-b");
+		expect(notifications[0]?.message).toContain("Failed at: feature-b");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");

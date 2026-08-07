@@ -9,9 +9,7 @@ import {
 	collectPrSubmitRequirements,
 	collectSubmitRestackRequirements,
 	isLandFailure,
-	landCompleted,
 	landFailure,
-	landOutcomeFailure,
 	landingParentEdges,
 	landSuccess,
 	scopeStackSnapshot,
@@ -45,9 +43,7 @@ const LAND_API_RUNTIME_ALLOWLIST = [
 	"createRefusingLandConfirmationGateway",
 	"executeLanding",
 	"isLandFailure",
-	"landCompleted",
 	"landFailure",
-	"landOutcomeFailure",
 	"landSuccess",
 	"landingExecutionFailure",
 	"landingFailureFacts",
@@ -95,11 +91,8 @@ describe("@nseng-ai/flow/land API boundary", () => {
 
 		expect(landSuccess("ok")).toEqual({ type: "success", value: "ok" });
 		expect(landFailure(failure)).toEqual({ type: "failure", failure });
-		expect(landCompleted()).toEqual({ type: "completed" });
-		expect(landOutcomeFailure(failure)).toEqual({ type: "failure", failure });
 		expect(isLandFailure(landFailure(failure))).toBe(true);
 		expect(isLandFailure(landSuccess("ok"))).toBe(false);
-		expect(isLandFailure(landCompleted())).toBe(false);
 	});
 
 	test("exports renderer-independent preflight utilities", () => {
@@ -193,19 +186,19 @@ describe("@nseng-ai/flow/land API boundary", () => {
 					resolveRepoRoot: async () => landSuccess("/repo"),
 					currentBranch: async () => landSuccess("feature/b"),
 					workingTreeStatus: async () => landSuccess({ isClean: true }),
-					localBranchExists: async () => landCompleted(),
+					localBranchExists: async () => ({ type: "completed" }),
 					localBranchSha: async () => landSuccess("aaaaaaaa"),
 					listLocalBranches: async () => landSuccess([]),
 					branchContainsParent: async ({ branch }) => landSuccess(branch === "feature/a"),
 					snapshotBackupRefs: async () => landSuccess(new Map()),
-					checkoutBranch: async () => landCompleted(),
+					checkoutBranch: async () => ({ type: "completed" }),
 				},
 				graphite: {
 					trunk: async () => landSuccess("main"),
 					metadataDbPath: async () => landSuccess("/repo/.git/graphite.db"),
 					stackShape: async () => landSuccess(stack),
-					prepareSubmitUpdate: async () => landCompleted(),
-					prepareRestackForSubmit: async () => landCompleted(),
+					prepareSubmitUpdate: async () => ({ type: "completed" }),
+					prepareRestackForSubmit: async () => ({ type: "completed" }),
 					refreshBranchFromRemote: async () => ({
 						type: "success",
 						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },

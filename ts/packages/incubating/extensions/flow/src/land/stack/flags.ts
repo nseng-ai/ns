@@ -127,12 +127,15 @@ export function landCommandOptionSpecs(): LandCommandOptionSpecs {
 	return Object.fromEntries(entries) as LandCommandOptionSpecs;
 }
 
-export function landRawArgsFromCommandRequest(request: LandCommandRequest): string[] {
-	const rawArgs: string[] = [];
-	for (const descriptor of landCommandFlagDescriptors()) {
-		if (request[descriptor.commandRequestField] === true) rawArgs.push(descriptor.long);
-	}
-	return rawArgs;
+export function landParsedArgsFromCommandRequest(request: LandCommandRequest): ParsedArgs {
+	return {
+		shouldSkipConfirmation: request.yes === true,
+		isDryRun: request.dryRun === true,
+		shouldFreeSlot: request.free === true,
+		shouldContinueUpstack: request.up === true,
+		shouldShowHelp: false,
+		shouldStreamVerboseOutput: request.verbose === true,
+	};
 }
 
 function commandDescriptionForDescriptor(descriptor: LandCommandFlagDescriptor): string {

@@ -39,6 +39,7 @@ import { describe, expect, test } from "vitest";
 import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
+import { renderLandWorkflowResult } from "../../src/land/command-result.ts";
 import type {
 	LandStackCommandContext,
 	LandExecutionApi,
@@ -236,7 +237,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("failure");
+					expect(result.outcome.type).toBe("failed");
 					const log = await readCommandLog(sandbox);
 					expect(commandIndex(log, "gt", ["get", FEATURE_C])).toBeGreaterThanOrEqual(0);
 					expect(commandIndex(log, "gt", ["get", FEATURE_D])).toBe(-1);
@@ -248,7 +249,7 @@ describe("land stack sandbox integration", () => {
 					expect(branches).toContain(FEATURE_B);
 					expect(branches).toContain(FEATURE_C);
 					expect(branches).toContain(FEATURE_D);
-					expect(notificationText(result)).toContain("land stopped at feature-c");
+					expect(notificationText(result)).toContain("Failed at: feature-c");
 					expect(notificationText(result)).toContain("targeted Graphite refresh failed");
 				},
 			);
@@ -272,7 +273,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("failure");
+					expect(result.outcome.type).toBe("failed");
 					const log = await readCommandLog(sandbox);
 					const featureCRestack = commandIndex(log, "gt", ["restack", "--branch", FEATURE_C]);
 					expect(featureCRestack).toBeGreaterThanOrEqual(0);
@@ -313,7 +314,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("failure");
+					expect(result.outcome.type).toBe("failed");
 					expect(notificationText(result)).toContain(
 						"Refusing to land: the stack forks at feature-a.",
 					);
@@ -405,6 +406,13 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 		},
 	};
 	const outcome = await executeStackLanding(pi, ctx, parsed.value);
+	notifications.push({
+		message: renderLandWorkflowResult(
+			{ isTty: false, colorDepth: "none", columns: 80, canRenderUnicode: true },
+			{ type: "stack", execution: outcome },
+		),
+		level: outcome.type === "failed" ? "error" : "success",
+	});
 	return { outcome, notifications };
 }
 

@@ -204,7 +204,7 @@ describe("land-stack command scenarios", () => {
 		expect(recheckStackIndex).toBeGreaterThan(submitIndex);
 		expect(recheckStackIndex).toBeLessThan(mergeIndex);
 		expect(stackReadIndices.filter((index) => index < mergeIndex)).toHaveLength(2);
-		expect(context.notifications.at(-1)?.level).toBe("success");
+		// Settled success rendering is owned by the command edge.
 	});
 	test("offers to restack before submit/update when git reachability shows restack is needed", async () => {
 		const restackArgs = ["restack", "--branch", "feature-a", "--upstack", "--no-interactive"];

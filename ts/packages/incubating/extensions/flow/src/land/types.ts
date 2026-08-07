@@ -53,6 +53,7 @@ export type LandResult<T> =
 	| { readonly type: "success"; readonly value: T }
 	| { readonly type: "failure"; readonly failure: LandingFailure };
 
+/** Effect result used by land gateways and internal checks that return no value. */
 export type LandOutcome =
 	| { readonly type: "completed" }
 	| { readonly type: "failure"; readonly failure: LandingFailure };
@@ -158,6 +159,11 @@ export interface LandingExecutionReport {
 	readonly continuation: LandingContinuationReport;
 }
 
+/** Completed execution always observed the repository before reaching a semantic success. */
+export interface LandingCompletedExecutionReport extends LandingExecutionReport {
+	readonly repoRoot: string;
+}
+
 /** Provider-neutral observed outcome of the requested post-landing continuation. */
 export type LandingContinuationReport =
 	| { readonly type: "not-requested" }
@@ -172,9 +178,9 @@ export type LandingContinuationReport =
 	| { readonly type: "verification-failed"; readonly branch: string; readonly actualBranch: string }
 	| { readonly type: "cleanup-failed"; readonly branch: string };
 
-/** Canonical result of {@link LandingRequest} execution. Both variants carry the same report. */
+/** Canonical result of {@link LandingRequest} execution. Both variants carry observed-fact reports. */
 export type LandingExecutionResult =
-	| { readonly type: "completed"; readonly report: LandingExecutionReport }
+	| { readonly type: "completed"; readonly report: LandingCompletedExecutionReport }
 	| {
 			readonly type: "failed";
 			readonly failedPhase: LandingPhase;
