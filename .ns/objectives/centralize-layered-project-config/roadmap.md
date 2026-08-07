@@ -2,21 +2,20 @@
 
 ## Work
 
-- [ ] Inventory and contract decision — complete the production-reader/mutator inventory; define effective-read versus source-mutation interfaces and invocation scope.
-- [ ] Behavior-preserving deep gateway — implement single-project-`ns.toml` behavior behind the new external interface, including nested-cwd root discovery and source-labelled diagnostics.
-- [ ] Composition-root adoption — have ns CLI preparation and Pi-hosted workflows receive/reuse the project config capability/snapshot instead of constructing adapters inside workflows.
-- [ ] Catalog convergence — make command-source inventory, extension descriptors, point definitions, and installations use the coherent config scope.
-- [ ] Typed-setting migration — migrate model policy, Reviews, Slots, harness settings, and remaining consumers; remove direct reads and config-only Git root probes.
-      Execution strategy: use deterministic TypeScript AST/codemod tooling only where a slice is purely syntactic and a suitable repository tool exists; use `refactor-swarm` for the 5+ mixed semantic call-site migration; migrate by consumer family with behavior-preserving tests, not one unreviewable repository-wide replacement; finish with bounded greps for direct `ns.toml` access, `nodeProjectConfigGateway`, config-only `repoRoot` probes, and stale old-interface imports.
-- [ ] Mutation separation — centralize source-targeted edits while preserving byte fidelity, stale-state checks, scope authority, and safe writes.
-- [ ] Enforcement and documentation — add a style/architecture guard, stale-access grep, SDK/context vocabulary updates, and user-facing inspection/provenance docs.
-- [ ] Layering ADR — decide precedence, allowed sources, active-harness effects, paths/security, diagnostics, provenance, and per-setting merge ownership; explicitly refine ADR 0056.
-- [ ] Local layer — implement `ns.local.toml` only under the accepted ADR, with inspection and mutation behavior.
-- [ ] Approved user settings — activate only ADR-approved setting families; keep hooks/prompts dormant unless explicitly authorized.
+- [ ] Inventory and contracts — account for every production config reader and mutator. Define invocation scope, effective reads, and source-specific mutation.
+- [ ] Project-only API — implement current `ns.toml` behavior behind the effective-read interface. Include nested-`cwd` root discovery and source-labelled diagnostics.
+- [ ] Composition roots — create and reuse one config capability or snapshot during ns CLI preparation and Pi-hosted command execution.
+- [ ] Catalogs — move command-source inventory, extension descriptors, point definitions, and point installations to the shared invocation scope.
+- [ ] Typed settings — migrate model policy, Reviews, Slots, harness settings, and the remaining config consumers by setting family. Preserve behavior with tests for each family. Use `refactor-swarm` for a mixed semantic migration of at least five call sites. Use an existing TypeScript codemod only for a purely syntactic slice. Finish with bounded searches for direct `ns.toml` access, `nodeProjectConfigGateway`, config-only `repoRoot` probes, and old-interface imports.
+- [ ] Source mutation — centralize source-targeted edits. Preserve byte fidelity, stale-state checks, scope authority, path containment, and safe writes.
+- [ ] Enforcement and documentation — add an architecture guard, update SDK and context vocabulary, and document config inspection and provenance.
+- [ ] Layering ADR — refine ADR 0056. Decide source precedence and authority, active-harness effects, path and security rules, diagnostics, provenance, and setting-family merge ownership.
+- [ ] Local config — implement `ns.local.toml` only as the accepted ADR specifies. Include inspection and mutation behavior.
+- [ ] User settings — activate only the setting families that the ADR approves. Keep hooks and prompt installations dormant unless the ADR authorizes them.
 
 ## Parked
 
-- User hook and prompt installation layers unless separately approved.
-- Remote/organization-managed policy layers.
-- Arbitrary config-file support outside ns configuration.
-- Performance caching beyond evidence-backed need.
+- User hook and prompt-installation layers without separate approval.
+- Remote or organization-managed policy layers.
+- Config files outside ns configuration.
+- Performance caching without evidence that it is necessary.

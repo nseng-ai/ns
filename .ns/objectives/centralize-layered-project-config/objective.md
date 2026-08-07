@@ -2,65 +2,69 @@
 
 ## Thesis
 
-ns configuration access becomes one deep, typed project-configuration module. Callers provide invocation scope — such as `cwd`, environment, and active harness — and consume effective typed values; they do not discover roots, construct `ns.toml` paths, read TOML, bind Node filesystem adapters, or implement precedence. Today that access is inconsistent: `ProjectConfigGateway`, `nodeProjectConfigGateway`, `loadProjectConfig()`, `parseProjectConfigToml()`, typed `SettingsSchema`, and point-catalog logic live together in `ts/packages/public/sdk/src/project-config/points.ts` as a low-level filesystem probe that requires callers to supply `repoRoot` and file-relative paths, while production consumers variously use that gateway, read `ns.toml` directly, discover roots through Git solely for configuration, or assume `cwd` is the root. Consolidation lands behavior-preservingly before any new configuration layer is activated: accepted ADR 0056 keeps user-level models, extension settings, hooks, and prompt installations dormant, and activating them requires an explicit superseding or refining ADR — never a refactor side effect.
+Give ns one deep, typed project-config API. A caller supplies its invocation scope: `cwd`, environment, and active harness. The API discovers the project root, reads the applicable sources, applies source and setting-family rules, and returns effective typed values with provenance.
+
+Production consumers must use this API instead of discovering roots, locating or reading `ns.toml`, constructing Node config adapters, or applying precedence. First consolidate the current project-only behavior without changing it. Activate `ns.local.toml` or user settings only after a new ADR refines ADR 0056 and defines their authority, provenance, and setting-family rules.
+
+The current implementation does not provide this boundary. `ts/packages/public/sdk/src/project-config/points.ts` combines the low-level `ProjectConfigGateway`, its Node adapter, parsing, typed settings, and point-catalog behavior. Callers must supply repository roots and relative paths. Other production consumers read `ns.toml` directly, probe Git only to find config, or treat `cwd` as the project root.
 
 ## Scope
 
-- Define the external effective-config interface and demote or rename the current low-level filesystem `ProjectConfigGateway` role as an internal adapter dependency if needed.
-- Make project/config-root discovery part of the module rather than each consumer.
-- Preserve typed `SettingsSchema`, shared parsing, points, and source-aware diagnostics where they remain useful.
-- Produce one invocation-scoped configuration snapshot/capability for ns CLI and Pi composition roots instead of repeated reads and root probes.
-- Migrate command-source discovery, point/descriptor discovery, model policy, Reviews, Slots, harness configuration, and other production direct readers to the shared seam.
-- Separate effective reads from explicit source mutation; preserve byte-preserving edits, optimistic stale-state checks, path containment, and user/project scope authority.
-- Add provenance so diagnostics and inspection can identify the winning source.
-- Add mechanical enforcement against direct production `ns.toml` access outside the config implementation/mutation adapters.
-- After consolidation, write an ADR that settles `ns.local.toml` and approved user-settings semantics before enabling them.
-- Implement only the layer families approved by that ADR.
+- Define separate contracts for effective config reads and source-specific mutation.
+- Make project-root and config-root discovery part of effective config reads.
+- Preserve `SettingsSchema`, shared parsing, point behavior, and source-aware diagnostics where they fit the new boundary.
+- Create one invocation-scoped config capability or snapshot for ns CLI and Pi composition roots to reuse.
+- Migrate command-source discovery, extension descriptors, point definitions and installations, model policy, Reviews, Slots, harness settings, and all other production config readers.
+- Preserve source mutation guarantees: byte fidelity, optimistic stale-state checks, path containment, safe writes, and scope authority.
+- Report the winning source for each effective value.
+- Add a mechanical guard for direct production config-file access outside approved config and mutation adapters.
+- Decide later config layers in a new ADR, then implement only the approved setting families.
 
 ## Non-Goals
 
-- No behavior-changing local/user layer during the initial consolidation.
-- No generic TOML deep merge; setting families own merge/replacement semantics.
-- No user hooks or prompt installations without an explicit security/path decision.
-- No compatibility aliases or dual canonical config access paths.
-- No requirement that every arbitrary project file use this module; scope is ns configuration.
-- No broad Git gateway cleanup unrelated to configuration scope.
+- Change project-only behavior during consolidation.
+- Apply one generic TOML deep merge. Each setting family owns its merge or replacement rule.
+- Activate user hooks or prompt installations without explicit security and path decisions.
+- Keep compatibility aliases or two canonical config-access paths.
+- Route arbitrary project files through the project-config API.
+- Perform Git gateway cleanup that config access does not require.
 
 ## Completion Criteria
 
-- Production workflows no longer directly construct/read `ns.toml` or independently discover a root solely for config.
-- Nested-directory invocation resolves the same effective project config as root invocation.
-- Command source inventory, point definitions/installations, and typed settings consume one coherent invocation scope.
-- Effective reads and source-specific mutation are distinct interfaces.
-- Existing project-only behavior remains compatible through the consolidation phase.
-- Source-labelled diagnostics/provenance exist.
-- An architecture guard rejects new direct accesses outside an explicit allowlist.
-- A new ADR refines/supersedes ADR 0056 before `ns.local.toml` or user settings become active.
-- Approved layering behavior and docs/tests land after that ADR.
+- Every production config read uses the effective project-config API.
+- No production workflow discovers a root only to read config.
+- Invocation from a nested directory returns the same effective project config as invocation from the project root.
+- Command sources, extension descriptors, point definitions and installations, and typed settings use one invocation scope.
+- Effective reads and source-specific mutations use separate interfaces.
+- Consolidation tests prove compatibility with existing project-only behavior.
+- Diagnostics and inspection identify the source of each effective value.
+- An architecture guard rejects direct config-file access outside its explicit allowlist.
+- A new accepted ADR refines ADR 0056 before `ns.local.toml` or user settings become active.
+- Tests and user documentation cover every config layer that the new ADR approves.
 
 ## Assumptions and Risks
 
-**Assumptions:**
+**Assumptions**
 
-- `parseProjectConfigToml` and `SettingsSchema` are reusable foundations rather than throwaway code.
-- CLI preparation and per-command Pi contexts provide sufficient scope to establish configuration once per invocation.
-- Existing setting families can define explicit merge/replacement policies without a universal deep merge.
+- `parseProjectConfigToml` and `SettingsSchema` are useful parts of the final implementation.
+- CLI preparation and per-command Pi contexts can establish config once for each invocation.
+- Each setting family can define an explicit merge or replacement rule.
 
-**Risks:**
+**Risks**
 
-- Extension declarations influence which schemas/point definitions exist, creating ordering or cycle pressure.
-- User settings can silently broaden behavior or execute repository-affecting content unless source permissions are explicit.
-- Relative paths need source-specific bases; flattening layers can resolve paths incorrectly.
-- Consolidating reads and adding layers in one step would obscure regressions.
-- Broad migration can recreate shallow pass-through wrappers or duplicate canonical doors.
+- Extension declarations affect the schemas and point definitions available during config loading. This can create ordering cycles.
+- User settings can change repository behavior or execute repository-affecting content. Each source therefore needs explicit permissions.
+- Relative paths need a base from their source. A flattened config can resolve them against the wrong directory.
+- Combining consolidation with new layers can hide behavior regressions.
+- A broad migration can leave shallow wrappers or more than one canonical access path.
 
 ## Open Questions
 
-- Final external interface name and whether the current filesystem contract is renamed or hidden internally.
-- Exact project-root discovery policy outside Git repositories.
-- Cache/snapshot lifetime and invalidation within long-lived Pi sessions.
-- Per-family layer permissions and merge rules.
-- Whether user model settings are harness-gated or globally effective for ns invocations.
-- `ns.local.toml` source-control, secret, path, mutation, and inspection semantics.
-- How extension-provided settings schemas become available without circular discovery.
-- Failure policy for malformed lower-precedence sources when a higher layer supplies a value.
+- What is the public name of the effective-read interface, and does the current filesystem `ProjectConfigGateway` become private or receive a narrower name?
+- How does project-root discovery behave outside a Git repository?
+- How long does an invocation snapshot remain valid in a long-lived Pi session, and what invalidates it?
+- Which sources can define each setting family, and does that family merge or replace values?
+- Does the active harness gate user model settings or only user extension contributions?
+- What are the source-control, secret, path, mutation, and inspection rules for `ns.local.toml`?
+- How do extension-provided setting schemas become available without a discovery cycle?
+- Does a malformed lower-precedence source fail the read when a higher-precedence source supplies the effective value?

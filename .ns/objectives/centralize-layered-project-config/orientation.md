@@ -1,11 +1,13 @@
 # Orientation: centralize-layered-project-config
 
-**Direction: all ns configuration access is converging behind one deep, typed project-config seam — callers supply invocation scope (cwd, environment, active harness) and consume effective typed values; they never discover roots, read `ns.toml`, bind Node adapters, or implement precedence.**
+**Direction: all ns configuration access is converging on one deep, typed project-config API. A caller supplies `cwd`, environment, and active harness. The API returns effective typed values with provenance.**
 
-Getting to: consolidate the current project-only behavior first, behavior-preservingly; later configuration layers (`ns.local.toml`, user settings) require this Objective's ADR refining ADR 0056 plus explicit provenance and per-family merge rules before activation.
+Getting to: preserve project-only behavior during consolidation. Activate `ns.local.toml` or user settings only after this Objective produces an ADR that refines ADR 0056 and defines source authority and setting-family rules.
 
-What you see now: low-level `ProjectConfigGateway` reads, direct `ns.toml` filesystem access, Git root probes done solely for configuration, and cwd-as-root assumptions coexist across production consumers. The deep effective-config gateway does not exist yet.
+What you see now: production code uses low-level `ProjectConfigGateway` reads, direct `ns.toml` access, config-only Git root probes, and `cwd`-as-root assumptions. The effective project-config API does not exist.
 
-Avoid: new direct `ns.toml` (or future `ns.local.toml`) reads, workflow-owned precedence logic, config-only root probes, constructing the Node config adapter inside workflows, generic TOML deep merge, and activating user settings ahead of the ADR.
+Use the shared API for new config reads. Keep root discovery, source reads, Node adapter construction, and precedence inside it. Keep source-specific mutation separate.
 
-Active slice: inventory production readers/mutators and define the effective-read/source-mutation interfaces, then migrate behavior-preservingly in roadmap order.
+Avoid generic TOML deep merge and early activation of later config layers.
+
+Active slice: inventory production readers and mutators. Then define the effective-read and source-mutation interfaces before migration.
