@@ -2,6 +2,7 @@ import { commandSucceeded, type ExecResult } from "@nseng-ai/foundation/command"
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 import { type GitErrorInfo, type GitGateway } from "@nseng-ai/foundation/git";
+import { renderResultBlock, resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 
 import { execNsGit, readNsGitPorcelainStatus } from "../exec.ts";
 
@@ -12,9 +13,20 @@ const PUSH_TIMEOUT_MS = 120_000;
 
 export const PUSH_COMMAND_SUMMARY = "Push committed non-Graphite branch work with git push.";
 
+const pushResultSchema = z.object({ cwd: z.string() });
+
 export const flowPushCommand: NsCommand = defineCommand({
 	schema: z.object({}),
-	resultSchema: z.string(),
+	resultSchema: pushResultSchema,
+	renderHuman: (result, caps) =>
+		renderResultBlock(resolveThemeCaps(caps), {
+			kind: "success",
+			headline: "`git push` completed successfully.",
+			body: "Command: git push",
+			cwd: result.cwd,
+			guidance:
+				"For Graphite-tracked PR branches, prefer `ns flow submit`; if this push moved a PR branch outside Graphite, run `gt get` or `gt sync` before submitting again.",
+		}),
 	handler: async (ctx) => await runPush(ctx),
 });
 
@@ -77,19 +89,7 @@ async function runPush(ctx: NsExtensionApi) {
 	}
 
 	const pushResult = await execNsGit(ctx, ["push"], PUSH_TIMEOUT_MS);
-	if (commandSucceeded(pushResult)) {
-		return ok(
-			renderGitResultBlock(caps, {
-				kind: "success",
-				headline: "`git push` completed successfully.",
-				command: "git push",
-				cwd: ctx.cwd,
-				result: pushResult,
-				guidance:
-					"For Graphite-tracked PR branches, prefer `ns flow submit`; if this push moved a PR branch outside Graphite, run `gt get` or `gt sync` before submitting again.",
-			}),
-		);
-	}
+	if (commandSucceeded(pushResult)) return ok({ cwd: ctx.cwd });
 
 	return negative(
 		renderGitResultBlock(caps, {

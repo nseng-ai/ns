@@ -1,6 +1,6 @@
 import type { LatestCommitAutobranchInput } from "../../autobranch/latest-commit.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
-import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { renderResultBlock, resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
@@ -10,6 +10,8 @@ import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { createAutobranchDispatchEnv } from "../worktree.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveFlowModelSelection } from "../model-policy.ts";
+
+const branchLatestCommitResultSchema = z.object({ cwd: z.string(), summary: z.string() });
 
 const branchLatestCommitRequestSchema = z.object({
 	slug: z
@@ -23,8 +25,15 @@ type BranchLatestCommitRequest = z.output<typeof branchLatestCommitRequestSchema
 export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitRequestSchema> =
 	defineCommand({
 		schema: branchLatestCommitRequestSchema,
-		resultSchema: z.string(),
+		resultSchema: branchLatestCommitResultSchema,
 		options: { slug: { short: "-s" } },
+		renderHuman: (result, caps) =>
+			renderResultBlock(resolveThemeCaps(caps), {
+				kind: "success",
+				headline: "Moved the latest commit to a new Graphite branch.",
+				cwd: result.cwd,
+				body: result.summary,
+			}),
 		handler: async (ctx, request: BranchLatestCommitRequest) => {
 			const caps = resolveFlowStreamCaps(ctx);
 			const args: LatestCommitAutobranchInput["args"] =
@@ -86,14 +95,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 					for (const warning of result.warnings) {
 						ctx.stderr?.(`${warning.trimEnd()}\n`);
 					}
-					return ok(
-						renderResultBlock(caps, {
-							kind: "success",
-							headline: "Moved the latest commit to a new Graphite branch.",
-							cwd: dispatched.snapshot.root,
-							body: result.summary.trimEnd(),
-						}),
-					);
+					return ok({ cwd: dispatched.snapshot.root, summary: result.summary.trimEnd() });
 				}
 			}
 		},
