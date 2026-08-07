@@ -14,7 +14,7 @@ The original rebuild contract used cursor diffs, ancestry/descent classification
 
 The replacement retains Gather → Decide → Apply: I/O-only immutable fact gathering, a pure deterministic internal planner (`deriveReconciliationPlan(facts)` with no gateways), and ordered retry-safe effect application. The package's public core interface remains `reconcile(context, options)`.
 
-The five-boundary replacement is implemented and published as open non-draft PRs #4132–#4136. Remote base/head topology was verified against the intended additive boundaries before this restack. `architecture-accounting.md` records the immutable comparison against the prototype and superseded implementation using the current implementation anchor `3cf5a42826a421b40e9eb7f110a97076003cef43` immediately below the accounting-only commits; it does not attempt to name the accounting change's own commit. Publication is not landing: required CI, review, and Graphite mergeability checks remain pending, the replacement PRs are unmerged, and the Objective remains open. Prototype PR #4076 and superseded single-commit PR #4130 are closed unmerged.
+The five-boundary replacement was implemented and published as PRs #4132–#4136 with the intended additive parentage. `architecture-accounting.md` records the immutable comparison against the prototype and superseded implementation using implementation anchor `3cf5a42826a421b40e9eb7f110a97076003cef43` immediately below the accounting-only commits; it does not attempt to name the accounting change's own commit. The downstack replacement work is landed, and the accounting branch carries the final Objective closure. Prototype PR #4076 and superseded single-commit PR #4130 are closed unmerged.
 
 ## Scope
 
@@ -70,8 +70,23 @@ Risks:
 - Plan or generation mistakes can permit lost updates or ABA. Reconciliation Plan validation, one Pending Plan per source, generation CAS, and shared adapter conformance are mandatory. This protocol requirement does not imply concurrent-writer support in the SQLite v1 adapter.
 - Scope may drift back toward history optimization because source adapters can contain ancestry/diff machinery. Stale-contract searches and depth-1 tests must preserve reconciliation's history independence.
 - Open preparatory PR #4128 describes superseded runtime behavior. Its rationale is historical evidence only and must not be mistaken for the replacement's normative contract.
-- Publication triggered a fresh remote validation cycle. Until all required checks and mergeability complete successfully, local proof does not establish landing readiness.
+- The replacement stack's external validation and landing gate is resolved. Future implementation changes must still be revalidated against the architecture accounting rather than relying on this closure evidence.
 
 ## Open Questions
 
-No material product requirement remains open. The only remaining questions are external status facts: whether every required CI/review/mergeability check completes successfully and whether the published stack lands without further changes. Any implementation change prompted by review must be revalidated against the current architecture accounting and completion criteria.
+No material product requirement remains open. Any later implementation change must be revalidated against the architecture accounting and completion criteria.
+
+## Closure
+
+Outcome: **completed**. The five additive replacement boundaries delivered the amended contract, complete-snapshot planner, durable generation protocol, retry-safe engine and CLI, and architecture accounting. The downstack replacement work is treated as landed by explicit operator confirmation; this accounting branch carries the closure record, so its merge is the closure event on trunk.
+
+Key evidence:
+
+- PRs #4132–#4136 preserve the five intended review boundaries; the downstack replacement work through the implementation boundary is landed, and PR #4136 carries accounting and closure.
+- Implementation anchor `3cf5a42826a421b40e9eb7f110a97076003cef43` is the parent-side implementation boundary below the accounting-only commits.
+- Local Objective checks, repository-wide Objective validation, dprint, bounded architecture probes, and the no-TypeScript accounting-boundary check passed before closure.
+- Prototype PR #4076 and superseded single-commit PR #4130 remain closed unmerged; their immutable commits remain comparison evidence only.
+
+The durable reconciliation vocabulary and semantics are not stranded in this closed record: `ts/packages/incubating/infra/gitplane/CONTEXT.md`, the package implementation, and the parent `gitplane` Objective's canonical README/SPEC drafts own the Reconciliation Plan, Attempt ID, Planned Artifact Materialization, Prepared Artifact Materialization, Pending Plan, Resulting Cursor, complete-snapshot, and generation-CAS contracts.
+
+The parent `gitplane` Objective remains open for its reference consumer, check-only GitHub Action, and README/SPEC promotion rows. Parked optimization, repair, scheduling, migration, dispatch, and production-persistence work remains outside this completed Objective.
