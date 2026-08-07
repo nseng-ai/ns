@@ -34,6 +34,7 @@ export const completeCommand = defineCommand({
 		includeArchived: cliOption(z.boolean().default(false), { short: "-a" }),
 	}),
 	resultSchema: z.object({ matches: z.array(z.string()) }),
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: async (request) => ({
 		status: "success" as const,
 		data: { matches: request.includeArchived ? [request.name] : [] },

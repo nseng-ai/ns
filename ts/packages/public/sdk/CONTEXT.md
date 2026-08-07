@@ -12,7 +12,7 @@ An **Extension Descriptor** describes an extension package without executing its
 
 ## ns extension API
 
-`@nseng-ai/sdk` is the public ns author surface. `defineCommand()` and `defineRawCommand()` return contextful modern Clinkr definitions over `NsExtensionApi`. Structured commands require both a concrete `resultSchema` and a `renderHuman` over that schema's typed output; the handler's successful data and the renderer input are `z.output` of the declared schema. This is stricter than generic Clinkr, which keeps bodyless commands and fallback rendering for lower-level consumers. Command identity and presentation metadata belong to the route-local `metadata.ts`/`group.ts` files or the host's programmatic source, not the executable definition.
+`@nseng-ai/sdk` is the public ns author surface. `defineCommand()` and `defineRawCommand()` return contextful modern Clinkr definitions over `NsExtensionApi`. Structured commands require both a concrete `resultSchema` and a `renderHuman` over that schema's typed output; the handler's successful data and the renderer input are `z.output` of the declared schema. The SDK remains stricter than generic Clinkr only because it forbids bodyless commands; Clinkr's modern `/app` surface also requires `renderHuman` for data-bearing commands. Command identity and presentation metadata belong to the route-local `metadata.ts`/`group.ts` files or the host's programmatic source, not the executable definition.
 
 ## Host composition
 

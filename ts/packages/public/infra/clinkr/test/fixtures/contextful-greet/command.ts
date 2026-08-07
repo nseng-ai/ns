@@ -10,6 +10,7 @@ export async function command() {
 		requiresContext: true,
 		schema: z.object({ name: z.string().default("Ada") }),
 		resultSchema: z.object({ message: z.string() }),
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: async (context: GreetContext, request) =>
 			ok({ message: `${context.prefix}${request.name}` }),
 	});

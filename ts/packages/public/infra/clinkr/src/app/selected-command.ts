@@ -106,6 +106,19 @@ function hasExactContextDiscriminant(record: Record<string, unknown>): boolean {
 	return !("requiresContext" in record) || record.requiresContext === true;
 }
 
+function structuredRendererCouplingError(record: Record<string, unknown>): string | undefined {
+	const hasResultSchema = "resultSchema" in record;
+	const hasHumanRenderer = "renderHuman" in record;
+	const hasMarkdownRenderer = "renderMarkdown" in record;
+	if (hasResultSchema && !hasHumanRenderer) {
+		return "resultSchema declared without renderHuman";
+	}
+	if (!hasResultSchema && (hasHumanRenderer || hasMarkdownRenderer)) {
+		return "renderHuman/renderMarkdown declared on a command without resultSchema";
+	}
+	return undefined;
+}
+
 function isStructuredDefinition(value: object): value is ClinkrCommandDefinition<unknown> {
 	const record = value as Record<string, unknown>;
 	if (Object.keys(record).some((key) => !STRUCTURED_DEFINITION_KEYS.has(key))) return false;
@@ -113,6 +126,7 @@ function isStructuredDefinition(value: object): value is ClinkrCommandDefinition
 		return false;
 	}
 	if (!hasExactContextDiscriminant(record)) return false;
+	if (structuredRendererCouplingError(record) !== undefined) return false;
 	if (record.resultSchema !== undefined && !(record.resultSchema instanceof z.ZodType)) {
 		return false;
 	}
@@ -206,6 +220,15 @@ export async function importSelectedCommand<TContext>(
 	if (!(pendingDefinition instanceof Promise))
 		throw new Error(`clinkr: malformed command definition ${commandPath}`);
 	const definition = await pendingDefinition;
+	if (typeof definition === "object" && definition !== null && !Array.isArray(definition)) {
+		const record = definition as Record<string, unknown>;
+		if (record.type !== "raw") {
+			const couplingError = structuredRendererCouplingError(record);
+			if (couplingError !== undefined) {
+				throw new Error(`clinkr: ${couplingError} in command definition ${commandPath}`);
+			}
+		}
+	}
 	const selected = decodeSelectedCommandDefinition<TContext>(definition);
 	if (selected === undefined)
 		throw new Error(`clinkr: malformed command definition ${commandPath}`);

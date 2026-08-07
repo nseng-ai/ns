@@ -12,6 +12,7 @@ export async function command() {
 			}),
 		}),
 		resultSchema: z.object({ available: z.literal(false) }),
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: async (_context: GitplaneCliContext, request) =>
 			failure(
 				"command-unavailable",

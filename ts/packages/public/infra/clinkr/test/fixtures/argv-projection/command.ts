@@ -30,6 +30,7 @@ export async function command() {
 			mode: z.enum(["exact", "fuzzy"]),
 			tag: z.array(z.string()),
 		}),
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: async (request) => ok(request),
 	});
 }

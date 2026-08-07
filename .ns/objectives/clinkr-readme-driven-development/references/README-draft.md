@@ -197,7 +197,7 @@ Apply `cliOption(...)` or `cliPositional(...)` after Zod modifiers such as `.opt
 
 ## Human, Markdown, and JSON output
 
-A rendered command may provide separate command-level renderers for successful results:
+A data-bearing command must provide `renderHuman` for successful results. It may also provide `renderMarkdown`; Markdown output falls back to `renderHuman` when that renderer is absent:
 
 ```ts
 import { defineCommand, ok } from "@nseng-ai/clinkr/app";
@@ -216,7 +216,7 @@ export async function command() {
 
 Clinkr selects the output format from its standard `--format` option. The default is `human`; choose `md` or `json` for the other rendering modes.
 
-The canonical operation always returns a structured object. Human and Markdown modes pass that same result to `renderHuman` or `renderMarkdown`, keeping every presentation derived from the structured result.
+The canonical operation always returns a structured object. Human and Markdown modes pass that same result to `renderHuman` or `renderMarkdown`, keeping every presentation derived from the structured result. Machine-oriented commands whose human representation is JSON declare `renderHuman: (result) => JSON.stringify(result, null, 2)`.
 
 Each outcome status may declare a corresponding data schema. When present, Clinkr validates the outcome data at runtime and includes it in the composed schema published through `--json-schema`. Outcomes without structured data are bodyless and need no data schema.
 
@@ -356,6 +356,7 @@ export async function command() {
     requiresContext: true,
 		schema: z.object({ branch: z.string() }),
 		resultSchema: z.object({ branch: z.string() }),
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		completionProvider: async (context: YourAppContext, request) =>
 			(await context.git.listBranches())
 				.filter((branch) => branch.startsWith(request.current))

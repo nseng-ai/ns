@@ -13,7 +13,7 @@ interface Context {
 }
 
 const confirmationSchema = z.object({ name: z.string() });
-const definition: ContextfulCommandDefinition<Context, typeof confirmationSchema> = {
+const definition: ContextfulCommandDefinition<Context, typeof confirmationSchema, undefined> = {
 	requiresContext: true,
 	schema: confirmationSchema,
 // README-FENCE-14-START

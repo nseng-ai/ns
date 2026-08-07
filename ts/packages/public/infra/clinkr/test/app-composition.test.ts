@@ -20,6 +20,7 @@ function definition(value: string) {
 	return defineCommand({
 		schema: z.object({}),
 		resultSchema: z.object({ value: z.string() }),
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		handler: async () => ok({ value }),
 	});
 }

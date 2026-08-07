@@ -788,9 +788,9 @@ function boundaryText(canEmitAnsi: boolean, text: string): string {
 
 /**
  * Stdout view of an outcome for run()'s human/md formats: rendered success
- * data (pretty-JSON fallback when no renderer), negative message, and
- * `undefined` when nothing goes to stdout (bodyless success, failure,
- * usage-error). The ANSI output boundary is enforced here.
+ * data, negative message, and `undefined` when nothing goes to stdout
+ * (bodyless success, failure, usage-error). The ANSI output boundary is
+ * enforced here.
  */
 function renderOutcomeView(
 	definition: ClinkrCommandDefinition,
@@ -804,11 +804,10 @@ function renderOutcomeView(
 			format === "md"
 				? (definition.renderMarkdown ?? definition.renderHuman)
 				: definition.renderHuman;
-		const text =
-			renderer === undefined
-				? envelopeJsonText(outcome.data)
-				: renderer(outcome.data, capabilities);
-		return boundaryText(capabilities.canEmitAnsi, text);
+		if (renderer === undefined) {
+			throw new Error("clinkr: data-bearing command is missing renderHuman");
+		}
+		return boundaryText(capabilities.canEmitAnsi, renderer(outcome.data, capabilities));
 	}
 	if (outcome.status === "negative") {
 		return boundaryText(capabilities.canEmitAnsi, outcome.message);
