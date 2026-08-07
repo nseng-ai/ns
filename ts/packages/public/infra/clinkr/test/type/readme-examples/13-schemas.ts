@@ -8,10 +8,10 @@ import { defineCommand } from "@nseng-ai/clinkr/app";
 
 export async function command() {
 // README-FENCE-13-A-END
-	// @ts-expect-error README fragment intentionally abbreviates required fields; see completeCommand.
 // README-FENCE-13-B-START
   return defineCommand({
     schema: z.object({ name: z.string() }),
+    // @ts-expect-error README-COMPILE-SCAFFOLD: fragment intentionally abbreviates required fields.
     resultSchema: contactSchema,
     // handler and renderers...
   });
