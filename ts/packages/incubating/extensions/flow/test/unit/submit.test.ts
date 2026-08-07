@@ -65,7 +65,7 @@ describe("formatSubmitSuccessText", () => {
 
 		const output = formatSubmitSuccessText([link], {
 			applied: [link],
-			previews: [{ link, title: "Generated title", inventoryFirstLine: undefined }],
+			previews: [{ link, title: "Generated title" }],
 		});
 
 		expect(output).toContain("new title: Generated title");

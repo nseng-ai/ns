@@ -200,7 +200,7 @@ export async function generateSubmitPrInventories(input: {
 		previews.push({
 			link: item.link,
 			title: item.replacement.title.trim(),
-			inventoryFirstLine: firstNonEmptyLine(item.replacement.previewBody),
+			...optionalEntry("inventoryFirstLine", firstNonEmptyLine(item.replacement.previewBody)),
 		});
 		input.progress?.onItemProgress?.({
 			prNumber: item.replacement.pr.number,

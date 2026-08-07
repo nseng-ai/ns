@@ -463,8 +463,9 @@ function renderSubmitSuccess(result: SubmitSuccess): string {
 	const publication = formatSubmitSuccessText(result.publication.prs, {
 		applied: result.publication.metadataApplied,
 		previews: result.publication.metadataPreviews.map((preview) => ({
-			...preview,
-			inventoryFirstLine: preview.inventoryFirstLine ?? undefined,
+			link: preview.link,
+			title: preview.title,
+			...optionalEntry("inventoryFirstLine", preview.inventoryFirstLine ?? undefined),
 		})),
 	});
 	return `${checkpoint}\n${publication}`;
