@@ -153,6 +153,38 @@ test("reads commit facts, ancestry, filtered tree candidates, and diffs", async 
 	}
 });
 
+test("conservatively reports shallow negative ancestry as incomplete history", async () => {
+	const source = await mkdtemp(path.join(os.tmpdir(), "gitplane-shallow-source-"));
+	const clone = await mkdtemp(path.join(os.tmpdir(), "gitplane-shallow-clone-"));
+	try {
+		git(source, ["init", "-b", "main"]);
+		git(source, ["config", "user.name", "Gitplane Test"]);
+		git(source, ["config", "user.email", "gitplane@example.test"]);
+		for (const revision of ["first", "second", "third"]) {
+			await writeFile(path.join(source, "body.txt"), revision);
+			git(source, ["add", "."]);
+			git(source, ["commit", "-m", revision]);
+		}
+		// A plain local-path clone ignores --depth; the file:// transport honors it.
+		git(clone, ["clone", "--depth=2", `file://${source}`, "."]);
+		expect(git(clone, ["rev-parse", "--is-shallow-repository"])).toBe("true");
+		const tip = git(clone, ["rev-parse", "HEAD"]);
+		const parent = git(clone, ["rev-parse", "HEAD~1"]);
+		const gateway = new RealArtifactGateway({ cwd: clone });
+		expect(await gateway.isAncestor({ ancestor: parent, descendant: tip })).toEqual({
+			ok: true,
+			value: { type: "found", value: true },
+		});
+		expect(await gateway.isAncestor({ ancestor: tip, descendant: parent })).toEqual({
+			ok: true,
+			value: { type: "unavailable", reason: "incomplete-history" },
+		});
+	} finally {
+		await rm(source, { recursive: true, force: true });
+		await rm(clone, { recursive: true, force: true });
+	}
+});
+
 test("parses gitlinks as submodules without network access", async () => {
 	const repo = await repository();
 	try {
