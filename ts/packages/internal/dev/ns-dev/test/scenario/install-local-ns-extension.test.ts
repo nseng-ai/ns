@@ -121,13 +121,13 @@ describe("install-local-ns-extension", () => {
 			{
 				files: {
 					...BASE_FILES,
-					"/target/ns.toml": 'supported_harnesses = ["claude-code"]\n',
+					"/target/ns.toml": "# preserve\n[unrelated]\nvalue = 1\n",
 				},
 			},
 		);
 		expect(await run.exit).toBe(0);
 		const parsedToml = parsedWrittenToml(run);
-		expect(parsedToml.supported_harnesses).toEqual(["claude-code"]);
+		expect(parsedToml.unrelated).toEqual({ value: 1 });
 		expect(parsedToml.extensions).toEqual(["./node_modules/@nseng-ai/objectives"]);
 	});
 

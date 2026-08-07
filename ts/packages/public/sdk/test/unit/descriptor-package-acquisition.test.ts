@@ -26,7 +26,7 @@ describe("ns.toml extension spec edits", () => {
 	});
 
 	test("plans an install into an absent array without discarding whitespace or CRLF", () => {
-		const nsTomlContent = 'supported_harnesses = ["pi"]\r\n  ';
+		const nsTomlContent = 'fixture_setting = ["pi"]\r\n  ';
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
@@ -35,7 +35,7 @@ describe("ns.toml extension spec edits", () => {
 			}),
 		).toEqual({
 			ok: true,
-			text: 'supported_harnesses = ["pi"]\r\n  \r\nextensions = ["npm:@acme/tools"]\r\n',
+			text: 'fixture_setting = ["pi"]\r\n  \r\nextensions = ["npm:@acme/tools"]\r\n',
 			isAdded: true,
 		});
 	});
@@ -114,10 +114,10 @@ describe("ns.toml extension spec edits", () => {
 
 	test("creates extensions array without reserializing the document", () => {
 		expect(
-			appendDeclaredExtensionSpecToml('supported_harnesses = ["pi"]\n', "./extensions/tools"),
+			appendDeclaredExtensionSpecToml('fixture_setting = ["pi"]\n', "./extensions/tools"),
 		).toEqual({
 			ok: true,
-			text: 'supported_harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
+			text: 'fixture_setting = ["pi"]\nextensions = ["./extensions/tools"]\n',
 			isAdded: true,
 		});
 	});
@@ -179,7 +179,7 @@ describe("ns.toml extension spec edits", () => {
 
 	test("appends to multiline arrays while preserving comments and table order", () => {
 		const nsTomlContent =
-			'supported_harnesses = ["pi"]\nextensions = [\n  "./extensions/a" # keep this comment\n]\n\n[points]\nfoo = "bar"\n';
+			'fixture_setting = ["pi"]\nextensions = [\n  "./extensions/a" # keep this comment\n]\n\n[points]\nfoo = "bar"\n';
 		expect(
 			planDeclaredExtensionInstallToml({
 				projectRoot: "/repo",
@@ -188,7 +188,7 @@ describe("ns.toml extension spec edits", () => {
 			}),
 		).toEqual({
 			ok: true,
-			text: 'supported_harnesses = ["pi"]\nextensions = [\n  "./extensions/a", # keep this comment\n  "npm:@acme/tools@1.2.3"\n]\n\n[points]\nfoo = "bar"\n',
+			text: 'fixture_setting = ["pi"]\nextensions = [\n  "./extensions/a", # keep this comment\n  "npm:@acme/tools@1.2.3"\n]\n\n[points]\nfoo = "bar"\n',
 			isAdded: true,
 		});
 	});

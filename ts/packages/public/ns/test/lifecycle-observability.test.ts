@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
 	createLifecycleRecorder,
 	lifecycleStepSchema,
-	renderLifecycleStepHuman,
 } from "../src/init/lifecycle-observability.ts";
 
 describe("lifecycle recorder", () => {
@@ -89,39 +88,6 @@ describe("lifecycle recorder", () => {
 		]);
 	});
 
-	it("copies ingested and returned steps while keeping the sink in parity", () => {
-		const lines: string[] = [];
-		const recorder = createLifecycleRecorder({ emit: (line) => lines.push(line) });
-		const writtenFiles = ["SKILL.md"];
-
-		recorder.beginPhase("activation-apply");
-		recorder.record({
-			type: "artifact-completed",
-			key: "pi:demo",
-			action: "installed",
-			artifactId: "@test/demo:demo",
-			skillName: "demo",
-			harness: "pi",
-			targetArtifactPath: "/repo/.pi/skills/demo",
-			manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
-			writtenFiles,
-			conflictingFiles: [],
-		});
-		writtenFiles.push("extra.md");
-		recorder.complete();
-
-		const firstCopy = recorder.steps();
-		const artifact = firstCopy[1];
-		if (artifact?.type !== "artifact-completed") throw new Error("Expected artifact detail.");
-		expect(artifact.writtenFiles).toEqual(["SKILL.md"]);
-		artifact.skillName = "mutated";
-		expect(recorder.steps()[1]).toMatchObject({
-			skillName: "demo",
-			writtenFiles: ["SKILL.md"],
-		});
-		expect(lines).toEqual(recorder.steps().map(renderLifecycleStepHuman));
-	});
-
 	it("does not validate ingestion but leaves validation at the boundary schema", () => {
 		const recorder = createLifecycleRecorder();
 		const invalidDetail = {
@@ -129,48 +95,11 @@ describe("lifecycle recorder", () => {
 			descriptorCount: -1,
 			fileCount: 0,
 			consumerDirectoryCount: 0,
-			artifactCount: 0,
 		} as const;
 
 		recorder.beginPhase("activation-preflight");
 		recorder.record(invalidDetail);
 		expect(recorder.steps()[1]).toEqual(invalidDetail);
 		expect(() => lifecycleStepSchema.parse(invalidDetail)).toThrow();
-		expect(() =>
-			lifecycleStepSchema.parse({
-				type: "harnesses-resolved",
-				source: "explicit",
-				harnesses: ["unknown"],
-			}),
-		).toThrow();
-		expect(() =>
-			lifecycleStepSchema.parse({
-				type: "artifact-completed",
-				key: "unknown:demo",
-				action: "installed",
-				artifactId: "@test/demo:demo",
-				skillName: "demo",
-				harness: "unknown",
-				targetArtifactPath: "/tmp/demo",
-				manifestPath: "/tmp/manifest.json",
-				writtenFiles: [],
-				conflictingFiles: [],
-			}),
-		).toThrow();
-		expect(() =>
-			lifecycleStepSchema.parse({
-				type: "artifact-completed",
-				key: "pi:demo",
-				action: "removed",
-				artifactId: "@test/demo:demo",
-				skillName: "demo",
-				harness: "pi",
-				targetArtifactPath: "/tmp/demo",
-				manifestPath: "/tmp/manifest.json",
-				writtenFiles: [],
-				conflictingFiles: [],
-				removalReason: "arbitrary-reason",
-			}),
-		).toThrow();
 	});
 });

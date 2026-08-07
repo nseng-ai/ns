@@ -5,7 +5,7 @@ import { failure, ok } from "@nseng-ai/clinkr/app";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
-import { parseNsTomlExtensions, parseNsTomlSupportedHarnesses } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions } from "../harness-artifacts/api.ts";
 import type {
 	DeclaredExtensionDescriptor,
 	DeclaredExtensionDescriptorDiagnostic,
@@ -24,10 +24,6 @@ import {
 } from "./user-extension-lifecycle.ts";
 
 import type { ActivationFilesGateway } from "./activation-files.ts";
-import type {
-	ArtifactProvisioningStatusGateway,
-	ArtifactProvisioningStatusSummary,
-} from "./artifact-provisioning-status.ts";
 import type { DeclaredExtensionsGateway } from "./declared-extensions.ts";
 import {
 	appendDiagnosticToCollection,
@@ -36,14 +32,6 @@ import {
 
 const extensionSourceKindSchema = z.enum(["package", "npm", "local", "git", "unsupported"]);
 const extensionAcquisitionStatusSchema = z.enum(["installed", "missing", "invalid"]);
-const extensionArtifactStatusSchema = z.enum([
-	"none",
-	"provisioned",
-	"needs-reconcile",
-	"conflicted",
-	"unavailable",
-]);
-
 export const extensionListDiagnosticSchema = z.object({
 	code: z
 		.string()
@@ -60,17 +48,6 @@ export const extensionListRowSchema = z.object({
 	packageVersion: z.string().optional(),
 	moduleRoot: z.string().optional(),
 	acquisitionStatus: extensionAcquisitionStatusSchema,
-	artifactStatus: extensionArtifactStatusSchema,
-	artifactCount: z
-		.number()
-		.int()
-		.nonnegative()
-		.describe("Observed artifact and harness instances."),
-	affectedArtifactCount: z
-		.number()
-		.int()
-		.nonnegative()
-		.describe("Observed instances that are not unchanged; unavailable counts may be partial."),
 	diagnostics: z.array(extensionListDiagnosticSchema),
 });
 
@@ -126,7 +103,6 @@ export interface ExtensionListContext
 	readonly git: Pick<GitGateway, "optionalRepoRoot">;
 	readonly files: Pick<ActivationFilesGateway, "readActivationFile">;
 	readonly declaredExtensions: DeclaredExtensionsGateway;
-	readonly artifactProvisioningStatus: ArtifactProvisioningStatusGateway;
 	readonly installedExtensionPackages: InstalledExtensionPackagesGateway;
 }
 
@@ -174,7 +150,6 @@ class ExtensionListRowAccumulator {
 		this.row = {
 			...this.row,
 			acquisitionStatus: options.acquisitionStatus,
-			artifactStatus: "unavailable",
 		};
 		this.addDiagnostic(options.diagnostic);
 	}
@@ -187,25 +162,7 @@ class ExtensionListRowAccumulator {
 			packageName: descriptor.packageName,
 			packageVersion: descriptor.version,
 			moduleRoot: descriptor.moduleRoot,
-			artifactStatus: "none",
 		};
-	}
-
-	markArtifactUnavailable(diagnostic: ExtensionListDiagnostic): void {
-		this.row = { ...this.row, artifactStatus: "unavailable" };
-		this.addDiagnostic(diagnostic);
-	}
-
-	recordArtifactSummary(summary: ArtifactProvisioningStatusSummary): void {
-		this.row = {
-			...this.row,
-			artifactStatus: summary.artifactStatus,
-			artifactCount: summary.artifactCount,
-			affectedArtifactCount: summary.affectedArtifactCount,
-		};
-		for (const diagnostic of summary.diagnostics) {
-			this.addDiagnostic(normalizeExtensionListDiagnostic(diagnostic));
-		}
 	}
 
 	finalize(): ExtensionListRow {
@@ -265,10 +222,6 @@ export async function listExtensions(
 	if (parsedExtensions.type === "error") {
 		return extensionListConfigFailure({ ...parsedExtensions.error, path: configPath });
 	}
-	const parsedHarnesses = parseNsTomlSupportedHarnesses(config.content, configPath);
-	if (parsedHarnesses.type === "error") {
-		return extensionListConfigFailure({ ...parsedHarnesses.error, path: configPath });
-	}
 	const sourceSpecs = parsedExtensions.type === "missing" ? [] : parsedExtensions.extensions;
 	if (sourceSpecs.length === 0) {
 		return ok({ scope: "project", repoRoot, configPath, extensions: installedRows });
@@ -286,30 +239,6 @@ export async function listExtensions(
 	const visibleInstalledRows = installedRows.filter(
 		(row) => row.packageName === undefined || !declaredPackageNames.has(row.packageName),
 	);
-	const installedDescriptors = loaded.descriptors.filter((descriptor) =>
-		declaredRows.some(
-			(row) => row.sourceSpec === descriptor.spec && row.acquisitionStatus === "installed",
-		),
-	);
-	if (parsedHarnesses.type === "missing") {
-		for (const row of declaredRows) {
-			if (row.acquisitionStatus !== "installed") continue;
-			row.markArtifactUnavailable({
-				code: "supported-harnesses-missing",
-				message:
-					"ns.toml does not configure repository supported harnesses, so artifact status is unavailable.",
-				path: configPath,
-			});
-		}
-	} else if (installedDescriptors.length > 0) {
-		const summaries = await context.artifactProvisioningStatus.inspect({
-			repoRoot,
-			descriptors: installedDescriptors,
-			harnesses: parsedHarnesses.harnesses,
-		});
-		attachArtifactSummaries(declaredRows, installedDescriptors, summaries);
-	}
-
 	return ok({
 		scope: "project",
 		repoRoot,
@@ -326,9 +255,6 @@ function createInstalledPackageRow(installedPackage: InstalledExtensionPackage):
 		...optionalEntry("packageVersion", installedPackage.packageVersion),
 		...optionalEntry("moduleRoot", installedPackage.moduleRoot),
 		acquisitionStatus: "installed",
-		artifactStatus: "none",
-		artifactCount: 0,
-		affectedArtifactCount: 0,
 		diagnostics: [],
 	};
 }
@@ -338,9 +264,6 @@ function createRowSkeleton(repoRoot: string, sourceSpec: string): ExtensionListR
 	const base = {
 		sourceSpec,
 		acquisitionStatus: "invalid" as const,
-		artifactStatus: "unavailable" as const,
-		artifactCount: 0,
-		affectedArtifactCount: 0,
 		diagnostics: [] as ExtensionListDiagnostic[],
 	};
 	switch (classification.type) {
@@ -421,37 +344,6 @@ function markRowsWithoutDescriptorEvidence(rows: readonly ExtensionListRowAccumu
 			code: "extension-descriptor-status-unavailable",
 			message: `No descriptor or diagnostic was returned for declared extension ${row.sourceSpec}.`,
 		});
-	}
-}
-
-function attachArtifactSummaries(
-	rows: readonly ExtensionListRowAccumulator[],
-	descriptors: readonly DeclaredExtensionDescriptor[],
-	summaries: readonly ArtifactProvisioningStatusSummary[],
-): void {
-	for (const descriptor of descriptors) {
-		const descriptorRows = rows.filter(
-			(row) =>
-				row.sourceSpec === descriptor.spec &&
-				row.moduleRoot === descriptor.moduleRoot &&
-				row.acquisitionStatus === "installed",
-		);
-		const matchingSummaries = summaries.filter(
-			(summary) => summary.moduleRoot === descriptor.moduleRoot,
-		);
-		if (descriptorRows.length !== 1 || matchingSummaries.length !== 1) {
-			for (const row of descriptorRows) {
-				row.markArtifactUnavailable({
-					code: "artifact-status-attribution-failed",
-					message: `Expected exactly one artifact status summary for ${descriptor.moduleRoot}.`,
-				});
-			}
-			continue;
-		}
-		const row = descriptorRows[0];
-		const summary = matchingSummaries[0];
-		if (row === undefined || summary === undefined) continue;
-		row.recordArtifactSummary(summary);
 	}
 }
 
@@ -608,7 +500,6 @@ export function renderListExtensionsHuman(result: ListExtensionsResult): string 
 			{ header: "KIND" },
 			{ header: "PACKAGE" },
 			{ header: "ACQUISITION" },
-			{ header: "ARTIFACTS (AFFECTED/OBSERVED)" },
 		],
 		rows: result.extensions.map((row) => [
 			row.sourceSpec,
@@ -617,7 +508,6 @@ export function renderListExtensionsHuman(result: ListExtensionsResult): string 
 				? "-"
 				: `${row.packageName}${row.packageVersion === undefined ? "" : `@${row.packageVersion}`}`,
 			row.acquisitionStatus,
-			`${row.artifactStatus} ${row.affectedArtifactCount}/${row.artifactCount}${row.artifactStatus === "unavailable" ? " (observed may be partial)" : ""}`,
 		]),
 	});
 	const diagnostics = result.extensions.flatMap((row) =>

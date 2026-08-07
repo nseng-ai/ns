@@ -87,7 +87,7 @@ describe("ns command source inventory", () => {
 	test("reports source diagnostics without inventing sources", async () => {
 		const project = await createProject();
 		writeFileSync(path.join(project, "ns.toml"), "extensions = [42]\n");
-		const inventory = await loadNsCommandSourceInventory({ cwd: project });
+		const inventory = await loadNsCommandSourceInventory({ cwd: project, homeDir: project });
 		expect(inventory.sources).toEqual([]);
 		expect(inventory.diagnostics).toMatchObject([
 			{ severity: "error", code: expect.any(String), path: path.join(project, "ns.toml") },

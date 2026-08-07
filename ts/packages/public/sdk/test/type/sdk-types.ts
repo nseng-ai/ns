@@ -71,7 +71,6 @@ const descriptor = defineExtension({
 	],
 	points: [{ id: "submit.pre", accepts: "hook", cardinality: "many" }],
 	activation,
-	bundledArtifacts: [{ kind: "skill", name: "hello", path: "./skills/hello" }],
 });
 
 const descriptorCheck: ExtensionDescriptor = descriptor;

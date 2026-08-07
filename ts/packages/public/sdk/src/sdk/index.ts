@@ -46,7 +46,6 @@ export type {
 	UsageErrorOutcome,
 } from "./result.ts";
 export {
-	bundledArtifactDefinitionSchema,
 	extensionDescriptorSchema,
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
@@ -54,7 +53,6 @@ export {
 	validateExtensionDescriptor,
 } from "./descriptor.ts";
 export type {
-	BundledArtifactDefinition,
 	ExtensionActivation,
 	ExtensionDescriptor,
 	ExtensionDescriptorValidationResult,

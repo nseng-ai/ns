@@ -78,67 +78,12 @@ export {
 	type ResolvedHarnessSkillRoot,
 } from "./harness-paths.ts";
 export {
-	normalizeHarnessSelection,
 	parseNsTomlExtensions,
-	parseNsTomlSupportedHarnesses,
-	planNsTomlSupportedHarnessesWrite,
-	renderNsTomlSupportedHarnesses,
 	type NsTomlChange,
 	type NsTomlErrorCode,
 	type NsTomlErrorInfo,
 	type NsTomlExtensionsParseResult,
-	type NsTomlSupportedHarnessesParseResult,
-	type NsTomlWritePlanResult,
 } from "./ns-toml.ts";
-export {
-	planHarnessArtifactReconcile,
-	reconcileDiagnosticSchema,
-	reconcileReportSchema,
-	runHarnessArtifactReconcile,
-	type DesiredHarnessArtifact,
-	type HarnessManifestSnapshot,
-	type HarnessSelectionState,
-	type OrphanedManifestEntry,
-	type PlannedHarnessArtifactRemoval,
-	type ReconcileArtifactOutcome,
-	type ReconcileDeletionAuthority,
-	type ReconcileDiagnostic,
-	type ReconcileErrorInfo,
-	type ReconcilePair,
-	type ReconcileReport,
-	type SkippedArtifactCollision,
-	type RunHarnessArtifactReconcileRequest,
-} from "./reconcile.ts";
-export {
-	discoverDeclaredExtensionModuleHarnessArtifacts,
-	moduleArtifactDiscoveryDiagnosticSchema,
-	type DeclaredExtensionModuleArtifactFacts,
-	type DiscoverDeclaredExtensionModuleHarnessArtifactsRequest,
-	type DiscoverExtensionModuleHarnessArtifactsResult,
-	MODULE_ARTIFACT_DISCOVERY_DIAGNOSTIC_CODES,
-	type ModuleArtifactDiscoveryDiagnostic,
-	type ModuleArtifactDiscoveryDiagnosticCode,
-	type ResolvedNpmModuleHarnessArtifactCatalog,
-} from "./module-artifact-discovery.ts";
-export {
-	isValidModuleArtifactRelativePath,
-	MODULE_ARTIFACT_DECLARATION_DIAGNOSTIC_CODES,
-	parsePackageManifestArtifactDeclaration,
-	type ModuleArtifactDeclarationDiagnostic,
-	type ModuleArtifactDeclarationDiagnosticCode,
-	type ParseModuleArtifactDeclarationResult,
-} from "./module-artifact-declaration.ts";
-export {
-	applyPreparedDeclaredArtifactActivation,
-	DECLARED_ARTIFACT_ACTIVATION_ACTIONS,
-	prepareDeclaredArtifactActivation,
-	preparedDeclaredArtifactActivationItemArtifactId,
-	type ApplyPreparedDeclaredArtifactActivationResult,
-	type DeclaredArtifactActivationAction,
-	type DeclaredArtifactActivationOutcome,
-	type PreparedDeclaredArtifactActivation,
-	type PrepareDeclaredArtifactActivationRequest,
-} from "./declared-artifact-activation.ts";
 export {
 	applyPreparedProvision,
 	prepareProvision,
@@ -164,15 +109,6 @@ export {
 	type InstallManifestFileData,
 	type InstallManifestSourceData,
 } from "./provision-manifest.ts";
-export {
-	HARNESS_ARTIFACT_REMOVAL_REASONS,
-	type HarnessArtifactRemovalReason,
-	type PreparedHarnessArtifactRemoval,
-} from "./provision-removal.ts";
-export {
-	createEmptyPreparedProjectHarnessArtifactTransitions,
-	type HarnessArtifactProvisionReconciliationErrorInfo,
-} from "./project-harness-artifact-transitions.ts";
 export {
 	buildProvisionPlan,
 	classifyProvisionDecisions,

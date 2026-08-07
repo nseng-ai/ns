@@ -20,8 +20,6 @@ import type { ExtensionListContext } from "../list-extensions.ts";
 import type { ExtensionUninstallContext } from "../uninstall-extension.ts";
 import type { ExtensionUpdateContext } from "../update-extension.ts";
 import { RealActivationFilesGateway } from "../real-activation-files.ts";
-import { RealArtifactActivationGateway } from "../real-artifact-activation.ts";
-import { RealArtifactProvisioningStatusGateway } from "../real-artifact-provisioning-status.ts";
 import {
 	RealDeclaredExtensionsGateway,
 	RealUserExtensionAvailabilityGateway,
@@ -76,8 +74,6 @@ export function createNsInitContext(
 			env: ctx.env,
 			...(ctx.homeDir === undefined ? {} : { homeDir: ctx.homeDir }),
 		}),
-		artifacts: new RealArtifactActivationGateway(),
-		artifactProvisioningStatus: new RealArtifactProvisioningStatusGateway(),
 		installedExtensionPackages: {
 			list: () =>
 				(ctx.installedExtensionPackageNames ?? []).map((packageName) => ({ packageName })),

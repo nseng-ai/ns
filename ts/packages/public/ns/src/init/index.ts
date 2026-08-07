@@ -22,18 +22,6 @@ export {
 	GENERATED_INSTRUCTIONS_PATH,
 } from "./activation-files.ts";
 export type {
-	ArtifactActivationGateway,
-	PrepareArtifactActivationParams,
-	PrepareArtifactActivationResult,
-} from "./artifact-activation.ts";
-export type {
-	ArtifactProvisioningDiagnostic,
-	ArtifactProvisioningStatus,
-	ArtifactProvisioningStatusGateway,
-	ArtifactProvisioningStatusSummary,
-	InspectArtifactProvisioningStatusParams,
-} from "./artifact-provisioning-status.ts";
-export type {
 	DeclaredExtensionsGateway,
 	LoadDeclaredExtensionsParams,
 } from "./declared-extensions.ts";
@@ -125,8 +113,6 @@ export {
 	updateExtensionResultSchema,
 } from "./update-extension.ts";
 export { RealActivationFilesGateway } from "./real-activation-files.ts";
-export { RealArtifactActivationGateway } from "./real-artifact-activation.ts";
-export { RealArtifactProvisioningStatusGateway } from "./real-artifact-provisioning-status.ts";
 export type {
 	ApplyNsPointerStanzaResult,
 	EnsureClaudeAgentsImportResult,

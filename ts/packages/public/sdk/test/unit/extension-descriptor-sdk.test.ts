@@ -40,8 +40,8 @@ describe("modern ns extension author API", () => {
 		).toEqual({ ok: false, message: expect.stringContaining("commandDirectory") });
 	});
 
-	test("does not expose recursive entries, routes, or direct command definitions", () => {
-		for (const staleField of ["entries", "routes", "commands"] as const) {
+	test("does not expose removed or command-topology fields", () => {
+		for (const staleField of ["entries", "routes", "commands", "bundledArtifacts"] as const) {
 			expect(validateExtensionDescriptor({ description: "Bad.", [staleField]: [] })).toEqual({
 				ok: false,
 				message: expect.stringContaining(staleField),
@@ -49,7 +49,7 @@ describe("modern ns extension author API", () => {
 		}
 	});
 
-	test("preserves activation, points, and bundled artifacts", () => {
+	test("preserves activation and points", () => {
 		const descriptor = {
 			description: "Complete metadata.",
 			points: [{ id: "submit.pre", accepts: "hook", cardinality: "many" }],
@@ -57,7 +57,6 @@ describe("modern ns extension author API", () => {
 				instructions: "## Example\n\nFollow this instruction.",
 				consumerDirs: [".ns/example"],
 			},
-			bundledArtifacts: [{ kind: "skill", name: "example", path: "./skills/example" }],
 		} as const;
 		expect(validateExtensionDescriptor(descriptor)).toEqual({ ok: true, descriptor });
 	});

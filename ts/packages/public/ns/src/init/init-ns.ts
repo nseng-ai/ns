@@ -1,13 +1,5 @@
 import type { CommandOutcome } from "@nseng-ai/clinkr/app";
-import { failure, ok, usageError } from "@nseng-ai/clinkr/app";
-import {
-	ALL_HARNESS_IDS,
-	normalizeHarnessSelection,
-	parseNsTomlSupportedHarnesses,
-	planNsTomlSupportedHarnessesWrite,
-	type HarnessId,
-	type NsTomlChange,
-} from "../harness-artifacts/api.ts";
+import { failure, ok } from "@nseng-ai/clinkr/app";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { z } from "zod";
 
@@ -31,28 +23,21 @@ import {
 	type LifecycleStep,
 } from "./lifecycle-observability.ts";
 
-export const initNsRequestSchema = z.object({
-	supportedHarness: z
-		.array(z.string())
-		.default([])
-		.describe("Supported harness to activate; repeatable. One of claude-code, codex, pi."),
-});
+export const initNsRequestSchema = z.object({});
 
 export const initNsResultSchema = z.object({
 	repoRoot: z.string(),
 	trunkBranch: z.string(),
-	harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
-	harnessSource: z.enum(["explicit", "ns-toml"]),
 	completed: activationCompletedSchema,
 	steps: z.array(lifecycleStepSchema).readonly(),
 });
 
-export type InitNsRequest = z.infer<typeof initNsRequestSchema>;
+export type InitNsRequest = z.input<typeof initNsRequestSchema>;
 export type InitNsResult = z.infer<typeof initNsResultSchema>;
 
 export async function initNs(
 	context: NsActivationContext,
-	request: InitNsRequest & { readonly cwd: string },
+	request: { readonly cwd: string },
 ): Promise<CommandOutcome<InitNsResult>> {
 	const recorder = createLifecycleRecorder(context.lifecycleTrace);
 	const tracedFailure = createTracedInitFailure(recorder);
@@ -76,38 +61,15 @@ export async function initNs(
 			tracedFailure,
 		);
 	}
-	const existingContent = configRead.type === "found" ? configRead.content : undefined;
-	const harnessResolution = resolveHarnesses(existingContent, request.supportedHarness);
-	if (harnessResolution.type === "usage-error") {
-		return tracedFailure.usage({
-			diagnostics: [
-				{
-					code: "supported-harness-required",
-					message: harnessResolution.message,
-					path: "ns.toml",
-				},
-			],
-			message: harnessResolution.message,
-			data: harnessResolution.data,
-		});
-	}
-	if (harnessResolution.type === "failure")
-		return preflightFailure([harnessResolution.diagnostic], tracedFailure);
-	recorder.record({
-		type: "harnesses-resolved",
-		source: harnessResolution.harnessSource,
-		harnesses: [...harnessResolution.harnesses],
-	});
+	const nsTomlContent = configRead.type === "found" ? configRead.content : "";
 	recorder.beginPhase("activation-preflight");
 
 	const prepared = await prepareNsActivation(
 		context,
 		{
 			repository: repositoryResult.repository,
-			harnesses: harnessResolution.harnesses,
-			harnessSource: harnessResolution.harnessSource,
-			nsTomlContent: harnessResolution.nsTomlContent,
-			nsTomlChange: harnessResolution.nsTomlChange,
+			nsTomlContent,
+			nsTomlChange: configRead.type === "found" ? "unchanged" : "created",
 			nsTomlExpected:
 				configRead.type === "found"
 					? { type: "file", content: configRead.content }
@@ -135,102 +97,15 @@ export async function initNs(
 	return ok({
 		repoRoot,
 		trunkBranch: repositoryResult.repository.trunkBranch,
-		harnesses: [...harnessResolution.harnesses],
-		harnessSource: harnessResolution.harnessSource,
 		completed: applied.completed,
 		steps: recorder.steps(),
 	});
-}
-
-type HarnessResolution =
-	| {
-			readonly type: "ok";
-			readonly harnesses: readonly HarnessId[];
-			readonly harnessSource: "explicit" | "ns-toml";
-			readonly nsTomlContent: string;
-			readonly nsTomlChange: NsTomlChange;
-	  }
-	| {
-			readonly type: "usage-error";
-			readonly message: string;
-			readonly data: Readonly<Record<string, string>>;
-	  }
-	| {
-			readonly type: "failure";
-			readonly diagnostic: {
-				readonly code: string;
-				readonly message: string;
-				readonly path: string;
-			};
-	  };
-
-function resolveHarnesses(
-	existingContent: string | undefined,
-	explicitValues: readonly string[],
-): HarnessResolution {
-	if (explicitValues.length > 0) {
-		const explicit = normalizeHarnessSelection(explicitValues);
-		if (explicit.type === "error") {
-			return {
-				type: "usage-error",
-				message: explicit.error.message,
-				data: { argument: "supportedHarness", code: explicit.error.code },
-			};
-		}
-		const plan = planNsTomlSupportedHarnessesWrite({
-			content: existingContent,
-			harnesses: explicit.harnesses,
-		});
-		if (plan.type === "error") {
-			return {
-				type: "failure",
-				diagnostic: { code: plan.error.code, message: plan.error.message, path: "ns.toml" },
-			};
-		}
-		return {
-			type: "ok",
-			harnesses: explicit.harnesses,
-			harnessSource: "explicit",
-			nsTomlContent: plan.content,
-			nsTomlChange: plan.change,
-		};
-	}
-	if (existingContent === undefined) return harnessUsageError();
-	const parsed = parseNsTomlSupportedHarnesses(existingContent);
-	if (parsed.type === "missing") return harnessUsageError();
-	if (parsed.type === "error") {
-		return {
-			type: "failure",
-			diagnostic: { code: parsed.error.code, message: parsed.error.message, path: "ns.toml" },
-		};
-	}
-	return {
-		type: "ok",
-		harnesses: parsed.harnesses,
-		harnessSource: "ns-toml",
-		nsTomlContent: existingContent,
-		nsTomlChange: "unchanged",
-	};
-}
-
-function harnessUsageError(): HarnessResolution {
-	return {
-		type: "usage-error",
-		message:
-			"Pass at least one --supported-harness on first ns init run, or add top-level supported_harnesses to ns.toml.",
-		data: { argument: "supportedHarness", configFile: "ns.toml" },
-	};
 }
 
 interface TracedInitFailure {
 	command<TData extends object>(options: {
 		readonly diagnostics: readonly LifecycleDiagnostic[];
 		readonly errorType: string;
-		readonly message: string;
-		readonly data: TData;
-	}): CommandOutcome<InitNsResult>;
-	usage<TData extends object>(options: {
-		readonly diagnostics: readonly LifecycleDiagnostic[];
 		readonly message: string;
 		readonly data: TData;
 	}): CommandOutcome<InitNsResult>;
@@ -245,12 +120,6 @@ function createTracedInitFailure(recorder: LifecycleRecorder): TracedInitFailure
 	return {
 		command(options) {
 			return failure(options.errorType, options.message, {
-				...options.data,
-				steps: failAndSnapshot(options.diagnostics),
-			});
-		},
-		usage(options) {
-			return usageError(options.message, {
 				...options.data,
 				steps: failAndSnapshot(options.diagnostics),
 			});
@@ -320,21 +189,10 @@ export function renderInitNsHuman(data: InitNsResult): string {
 	const directoryRows = (completed.consumerDirectories ?? []).map(
 		(outcome) => [outcome.path, outcome.change] as const,
 	);
-	const artifactRows = (completed.artifacts ?? []).map(
-		(outcome) =>
-			[
-				`${outcome.skillName} (${outcome.harness})`,
-				outcome.removalReason === undefined
-					? outcome.action
-					: `${outcome.action} [${outcome.removalReason}]`,
-			] as const,
-	);
 	return [
 		`Activated ns in ${data.repoRoot}.`,
-		`Supported harnesses (${data.harnessSource}): ${data.harnesses.join(", ")}.`,
 		...buildReportSection("Files:", fileRows),
 		...buildReportSection("Consumer directories:", directoryRows),
-		...buildReportSection("Artifacts:", artifactRows),
 	].join("\n");
 }
 

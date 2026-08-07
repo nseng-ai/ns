@@ -14,7 +14,7 @@ export default defineExtension({
 });
 ```
 
-`commandDirectory` must be absolute. The descriptor may also declare points, project activation, and bundled artifacts. It does not list command routes or loader callbacks.
+`commandDirectory` must be absolute. The descriptor may also declare points and project activation. It does not list command routes or loader callbacks.
 
 ## Route tree
 
@@ -80,5 +80,5 @@ export function command() {
 
 - Route files own names, aliases, descriptions, visibility, and help grouping.
 - Command definitions own request/result schemas, handlers, renderers, and dynamic completion.
-- Descriptors own package-level discovery, points, activation, and artifacts.
+- Descriptors own package-level discovery, points, and activation.
 - The ns host mounts each package as a separately labelled source into one Clinkr app. Clinkr owns routing and completion.

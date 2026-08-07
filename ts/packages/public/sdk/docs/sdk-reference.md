@@ -8,7 +8,6 @@ Returns the descriptor unchanged with literal inference. `ExtensionDescriptor` h
 - `commandDirectory?: string` — absolute Clinkr filesystem source root
 - `points?: ExtensionPointDefinition[]`
 - `activation?: ExtensionActivation`
-- `bundledArtifacts?: BundledArtifactDefinition[]`
 
 Descriptor validation is exact. Recursive command entries, route names, groups, and command loader thunks are not accepted.
 
@@ -41,4 +40,4 @@ The SDK re-exports modern Clinkr `ok`, `negative`, `failure`, and `usageError` c
 
 ## Other exports
 
-The root retains `NsExtensionApi`, command I/O/progress types and helpers, text generation types, descriptor/point/artifact schemas, text normalization/truncation helpers, and `z`.
+The root retains `NsExtensionApi`, command I/O/progress types and helpers, text generation types, descriptor and point schemas, text normalization/truncation helpers, and `z`.

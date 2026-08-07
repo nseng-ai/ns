@@ -19,7 +19,6 @@ import type { ExtensionUpdateContext } from "../../src/init/update-extension.ts"
 import { updateExtension } from "../../src/init/update-extension.ts";
 import {
 	InMemoryActivationFilesGateway,
-	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionUpdateAcquisitionGateway,
 	InMemoryUserExtensionConfigGateway,
@@ -67,12 +66,10 @@ function fixture(options: {
 	acquisition?: InMemoryExtensionUpdateAcquisitionGateway;
 	descriptors?: readonly DeclaredExtensionDescriptor[];
 	diagnostics?: readonly { severity: "error"; code: string; message: string; spec: string }[];
-	artifacts?: InMemoryArtifactActivationGateway;
 }): {
 	context: ExtensionUpdateContext;
 	acquisition: InMemoryExtensionUpdateAcquisitionGateway;
 	declaredExtensions: InMemoryDeclaredExtensionsGateway;
-	artifacts: InMemoryArtifactActivationGateway;
 } {
 	const packageRoot = npmPackageRoot("/repo", "@test/tools");
 	const acquisition =
@@ -86,20 +83,17 @@ function fixture(options: {
 			diagnostics: options.diagnostics ?? [],
 		},
 	});
-	const artifacts = options.artifacts ?? new InMemoryArtifactActivationGateway();
 	return {
 		acquisition,
 		declaredExtensions,
-		artifacts,
 		context: {
 			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 			files: new InMemoryActivationFilesGateway({
 				files: {
-					"ns.toml": `supported_harnesses = ["pi"]\nextensions = ["${options.source}"]\n`,
+					"ns.toml": `fixture_setting = ["pi"]\nextensions = ["${options.source}"]\n`,
 				},
 			}),
 			declaredExtensions,
-			artifacts,
 			updateAcquisition: acquisition,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
@@ -204,7 +198,7 @@ describe("updateExtension acquisition scenarios", () => {
 			effects: "available",
 		},
 	])("reports $label", async ({ source, isInstalled, dryRun, intent, outcome, effects }) => {
-		const { context, acquisition, artifacts } = fixture({ source, isInstalled });
+		const { context, acquisition } = fixture({ source, isInstalled });
 
 		const result = await updateExtension(context, { cwd: "/repo", source, dryRun });
 
@@ -276,9 +270,6 @@ describe("updateExtension acquisition scenarios", () => {
 				params: { repoRoot: "/repo", sourceSpec: source },
 			},
 		]);
-		const shouldPreflight = !dryRun || effects === "available";
-		expect(artifacts.prepareCalls()).toHaveLength(shouldPreflight ? 1 : 0);
-		expect(artifacts.applyCalls()).toHaveLength(dryRun ? 0 : 1);
 	});
 
 	it("returns nonzero when real inspection semantics fail during dry-run", async () => {
@@ -335,32 +326,6 @@ describe("updateExtension acquisition scenarios", () => {
 
 		expect(result).toMatchObject({ status: "success", data: { acquisitionOutcome: "refreshed" } });
 		expect(declaredExtensions.calls()).toEqual([{ repoRoot: "/repo", specs: [source] }]);
-	});
-
-	it("reports activation apply failure after successful acquisition", async () => {
-		const source = "npm:@test/tools";
-		const artifacts = new InMemoryArtifactActivationGateway({
-			applyResult: {
-				ok: false,
-				error: {
-					code: "stale_prepared_reconciliation",
-					message: "target changed",
-					details: { kind: "target", path: "/repo/.pi/skills/tools", installKey: "pi:tools" },
-					completedTransitions: new Map(),
-				},
-				completed: [],
-			},
-		});
-		const { context } = fixture({ source, isInstalled: true, artifacts });
-
-		const result = await updateExtension(context, { cwd: "/repo", source, dryRun: false });
-
-		expect(result).toMatchObject({
-			status: "failure",
-			errorType: "ns-extension-update-apply-failed",
-			data: { phase: "artifacts", completed: { files: {} }, steps: expect.any(Array) },
-		});
-		expectTerminalFailure(failureSteps(result), "activation-apply");
 	});
 
 	it("reports dry-run activation preflight failure without claiming live acquisition", async () => {

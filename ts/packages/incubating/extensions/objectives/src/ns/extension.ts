@@ -1,7 +1,5 @@
 import { defineExtension } from "@nseng-ai/sdk";
 
-const { objectiveBundledArtifacts } = await import("./publish-artifacts.ts");
-
 const OBJECTIVES_INSTRUCTIONS = [
 	"## Objectives",
 	"",
@@ -23,7 +21,6 @@ const objectivesExtensionDescriptor = defineExtension({
 		instructions: OBJECTIVES_INSTRUCTIONS,
 		consumerDirs: [".ns/objectives"],
 	},
-	bundledArtifacts: objectiveBundledArtifacts,
 });
 
 export default objectivesExtensionDescriptor;

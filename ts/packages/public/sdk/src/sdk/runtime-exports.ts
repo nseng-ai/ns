@@ -6,7 +6,6 @@ import {
 } from "@nseng-ai/foundation/text-normalization";
 import { defineCommand, defineExtension, defineRawCommand } from "./command.ts";
 import {
-	bundledArtifactDefinitionSchema,
 	extensionDescriptorSchema,
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
@@ -30,7 +29,6 @@ import {
 } from "./services.ts";
 
 export const nsSdkRuntimeExports = {
-	bundledArtifactDefinitionSchema,
 	centerMatrixProgressText,
 	clampMatrixProgressLabelWidthChars,
 	defineCommand,

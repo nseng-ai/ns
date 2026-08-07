@@ -52,14 +52,6 @@
 	},
 	"ns": {
 		"tier": "host",
-		"settings": [
-			{
-				"path": [
-					"supported_harnesses"
-				],
-				"description": "Agent harnesses this repository supports and for which ns should provision and reconcile agent-facing artifacts."
-			}
-		],
 		"subpackages": [
 			"api",
 			"cli",

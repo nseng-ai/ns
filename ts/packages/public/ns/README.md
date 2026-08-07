@@ -4,9 +4,10 @@ The `ns` CLI, distributed as a single self-contained npm package. Installing it 
 the `ns` binary — the shared command surface that you and your coding agents use to run
 multi-session, multi-branch software work in a git-native way.
 
-`@nseng-ai/ns` ships **bare core**: repository activation (`ns init`) and extension
-management (`ns extension …`). Extensions such as Objectives are installed on top as ns
-extensions — see [Add Objectives](#add-objectives).
+`@nseng-ai/ns` ships **bare core**: repository activation (`ns init`), extension
+management (`ns extension …`), and explicit first-party skill provisioning (`ns skills …`).
+Extensions such as Objectives are installed on top as ns extensions — see
+[Add Objectives](#add-objectives).
 
 ## Prerequisites
 
@@ -14,7 +15,7 @@ extensions — see [Add Objectives](#add-objectives).
   step and no other runtime dependencies.
 - **git.** Project activation and project-scoped workflows are git-native: durable state
   lives in your repository as plain files and refs, not in a hidden database. User-scoped
-  extension commands and installed command surfaces can run outside a repository.
+  extension commands can run outside a repository.
 - **A coding-agent harness** for the full workflow: Claude Code, Codex, or Pi. The CLI
   works standalone, but Objectives are designed to be driven by agents.
 
@@ -40,28 +41,22 @@ ns extension list
 ```
 
 A fresh install is bare core: it does **not** include `ns objective`. That command surface
-arrives when you install the Objectives extension (below).
+arrives when you install the Objectives extension.
 
 ## Activate ns in a repository
 
 From your repository root:
 
 ```bash
-ns init --supported-harness claude-code   # or: codex, pi
+ns init
 ```
 
-`ns init` writes the repository's supported harnesses to `ns.toml`, generates a
-harness-neutral agent-instruction block, creates declared consumer directories, and
-provisions core harness artifacts. The selection is explicit on the first run; repeat
-`--supported-harness` to declare more than one:
+`ns init` needs no harness argument and saves no harness selection. It creates `ns.toml`,
+generates repository-neutral agent instructions, and creates consumer directories declared
+by active project extensions. The checked-in result can be used by any caller that
+understands those instructions. Initialization does not provision skills or other extension
+artifacts into `.claude`, `.agents`, `.pi`, or user-level harness roots.
 
-```toml
-supported_harnesses = ["claude-code", "codex"]
-```
-
-`supported_harnesses` declares the agent harnesses this repository supports. ns uses the
-list to provision and reconcile extension-provided skills and other agent-facing artifacts
-in each harness's project directory. It does not restrict which tools contributors may use.
 `ns init` writes files but never commits — review and commit the changes yourself.
 
 ## Add Objectives
@@ -73,10 +68,19 @@ session — are the `@nseng-ai/objectives` extension:
 ns extension install npm:@nseng-ai/objectives
 ```
 
-This records the extension in `ns.toml`, activates it for the repository's supported
-harnesses, adds the `ns objective` CLI, and provisions the ten Objective skills into each
-supported harness's skill root (for example, `.claude/skills/` for Claude Code). See
-[`@nseng-ai/objectives`](../../incubating/extensions/objectives/README.md) for the full lifecycle.
+This records the extension in `ns.toml`, applies its repository activation metadata, and
+adds the `ns objective` CLI. Extension installation does not copy Objective skills into a
+harness. Provision a first-party ns skill separately when you want one:
+
+```bash
+ns skills list
+ns skills path objective --harness pi --scope project
+ns skills install objective --harness pi --scope project
+```
+
+Use `claude-code`, `codex`, or `pi` as the explicit `--harness` value. The choice applies
+to that command only and is not persisted as repository policy. Use `--scope user` instead
+when you deliberately want the selected skill in that harness's user root.
 
 Once installed, drive an Objective through its lifecycle with your agent:
 
@@ -94,18 +98,15 @@ ns objective show <slug>
 
 ## Choose extension scope
 
-Use **user-scoped command availability** when you want an extension's commands available
-across local repositories. Use **project-scoped activation** when a repository also needs
-the extension's instructions, points, consumer directories, bundled artifacts, harness
-artifacts, or settings. These phrases describe the effect of the selected scope, not
-separate extension types or lifecycle states.
+Use **user scope** when you want an extension's commands and Point definitions available
+across local repositories. These contributions are caller-independent: Pi, Claude Code,
+Codex, and direct terminal invocations resolve the same admitted User catalog without a
+caller-specific environment variable or persisted harness selection.
 
-Project scope is the default for `ns extension install|list|update|uninstall`: it records
-the extension in the repository and reconciles its declared activation metadata. Use
-`--scope user` (`-s`) for machine-wide declarations whose contributions are gated by an
-explicit Active harness — the invocation's `NS_HARNESS` must name a canonical harness
-(`claude-code`, `codex`, `pi`) listed in the user config's top-level `supported_harnesses`
-array, or every user contribution stays hidden fail-closed (ADR 0055):
+Use **project scope** when a repository also needs an extension's activation instructions,
+consumer directories, Point definitions, or project settings. Project scope is the default
+for `ns extension install|list|update|uninstall`; use `--scope user` (`-s`) for machine-wide
+declarations:
 
 ```bash
 ns extension install npm:@acme/my-extension --scope user
@@ -131,21 +132,26 @@ loading, admission, or config mutation fails. List retains rejected declarations
 `unavailable`; update refuses unavailable packages; uninstall remains available for recovery.
 
 An unversioned `npm:<name>` declaration floats and refreshes on explicit update. A pinned
-`npm:<name>@<version>` update only ensures/restores the declared version. Repeating an
+`npm:<name>@<version>` update only ensures or restores the declared version. Repeating an
 install ensures missing bytes but does not refresh an existing floating package. npm
 uninstall removes only the package's lifecycle-owned private project (and an empty npm
 scope directory); local source bytes and sibling packages are preserved. If declaration
 removal succeeds but cleanup fails, command availability is already removed and rerunning
 uninstall retries cleanup.
 
-User scope never activates instructions, points, consumer directories, bundled or harness
-artifacts, or extension settings in a repository. A project may declare the same package
-for project-scoped activation; that project declaration replaces the user declaration as a
-whole package rather than mixing versions. For different packages that contribute the same
-command path, project declarations take precedence over user declarations. Collisions
-within one scope are errors, and built-in host commands remain reserved at both scopes.
-Installing from this repository with `just install-ns` still installs only the
-source-backed ns executable shim and never edits user extension configuration.
+User scope never activates repository instructions, consumer directories, hooks, prompt
+installations, models, or extension-specific project settings. User Point definitions can
+participate in the Point catalog, but Point installations remain Project-owned. A project
+may declare the same package for project-scoped activation; that declaration replaces the
+User declaration as a whole package rather than mixing versions. For different packages
+that contribute the same command path or Point ID, Project declarations take precedence
+over User declarations. Collisions within one scope are errors, and built-in host commands
+remain reserved at both scopes.
+
+No extension scope automatically provisions or removes harness artifacts. Harness-specific
+first-party skill installation is always a separate `ns skills ... --harness <id>` action.
+Installing from this repository with `just install-ns` still installs only the source-backed
+ns executable shim and never edits user extension configuration.
 
 > **Trust warning:** `--ignore-scripts` disables npm lifecycle scripts, but descriptors and
 > selected commands are executable extension code. Install only extensions you trust.
@@ -163,6 +169,6 @@ The source workspace manifest intentionally has no executable, because `bin/ns.j
 exist in a source checkout. The package preparation step adds `bin.ns = bin/ns.js` to the
 generated publish manifest only, and copies the prebuilt JavaScript there; developer
 source-checkout shims stay separate from this npm package boundary. Maintainer release
-qualification runs through the package's
-`publish:dry-run`, `pack:local`, and `smoke:checkout-free` scripts (`pnpm --dir ts --filter
-@nseng-ai/ns run …`); actual publication is a separate authorized step.
+qualification runs through the package's `publish:dry-run`, `pack:local`, and
+`smoke:checkout-free` scripts (`pnpm --dir ts --filter @nseng-ai/ns run …`); actual
+publication is a separate authorized step.

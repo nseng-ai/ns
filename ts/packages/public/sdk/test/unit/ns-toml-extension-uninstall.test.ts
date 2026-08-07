@@ -30,7 +30,7 @@ describe("ns.toml extension update targets", () => {
 	});
 
 	test("reports an absent declaration with empty declared and matching sets", () => {
-		expect(planTarget('supported_harnesses = ["pi"]\n', "npm:@scope/pkg@1")).toEqual({
+		expect(planTarget('fixture_setting = ["pi"]\n', "npm:@scope/pkg@1")).toEqual({
 			ok: false,
 			reason: "not-declared",
 			requestedSpec: "npm:@scope/pkg@1",
@@ -157,7 +157,7 @@ describe("ns.toml extension uninstall edits", () => {
 		});
 	});
 
-	test.each(["", 'supported_harnesses = ["pi"]\r\n'])(
+	test.each(["", 'fixture_setting = ["pi"]\r\n'])(
 		"returns unchanged when the extensions assignment is absent",
 		(nsTomlContent) => {
 			expect(plan(nsTomlContent, "npm:absent")).toEqual({
