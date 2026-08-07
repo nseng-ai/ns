@@ -579,7 +579,7 @@ describe("cli command extension helper", () => {
 
 		expect(order).toEqual(["wait", "run", "logs", "model", "generate", "hook"]);
 		expect(written).toEqual([{ stdout: "one\ntwo\n", stderr: "warning\n" }]);
-		expect(prompt).toContain('Arguments: ["preview-status","--json"]');
+		expect(prompt).toContain('"argv":["preview-status","--json"]');
 		expectSingleCliOutputMessage(
 			pi,
 			"## Summary\n- Listed two objectives\n\n## Raw logs\n- stdout: /tmp/result/stdout.log\n- stderr: /tmp/result/stderr.log",
