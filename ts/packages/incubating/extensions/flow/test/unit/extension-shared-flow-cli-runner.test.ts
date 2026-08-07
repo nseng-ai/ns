@@ -10,99 +10,35 @@ interface ExecCall {
 }
 
 describe("project extension shared Flow CLI runner", () => {
-	test("returns empty success result after forwarding emitted stdout", async () => {
+	test("runs the operation through scoped exec when cwd matches the command", async () => {
 		const sharedModule = await loadFlowCliRunnerModule();
-		const { api, trustedExec, calls, stdout } = createFakeApi([makeExecResult()]);
+		const { api, trustedExec, calls } = createFakeApi([makeExecResult({ stdout: "clean\n" })]);
 
-		const result = await sharedModule.runFlowCli({
+		const result = await sharedModule.runFlowCliOperation({
 			ctx: api,
 			trustedExec,
-			successMessage: "completed",
-			failureMessage: "failed",
 			run: async (io) => {
 				const execResult = await io.exec("git", ["status"], { cwd: "/repo", timeout: 42 });
-				io.stdout("done\n");
 				return execResult.type === "exited" && execResult.signal === null
 					? (execResult.code ?? 1)
 					: 1;
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: { text: "" } });
-		expect(stdout).toEqual(["done\n"]);
+		expect(result).toBe(0);
 		expect(calls).toEqual([{ command: "git", args: ["status"], options: { timeoutMs: 42 } }]);
 	});
 
-	test("returns fallback success message when the runner emits no stdout", async () => {
+	test("returns the operation value produced by run", async () => {
 		const sharedModule = await loadFlowCliRunnerModule();
 		const { api } = createFakeApi([]);
 
-		const result = await sharedModule.runFlowCli({
+		const result = await sharedModule.runFlowCliOperation({
 			ctx: api,
-			successMessage: "completed",
-			failureMessage: "failed",
-			run: async () => 0,
+			run: async () => ({ type: "completed", branches: ["feature/demo"] }),
 		});
 
-		expect(result).toEqual({ status: "success", data: { text: "completed" } });
-	});
-
-	test("returns empty failure result after forwarding emitted stderr", async () => {
-		const sharedModule = await loadFlowCliRunnerModule();
-		const { api, stderr } = createFakeApi([]);
-
-		const result = await sharedModule.runFlowCli({
-			ctx: api,
-			successMessage: "completed",
-			failureMessage: "failed",
-			run: async (io) => {
-				io.stderr("bad\n");
-				return 7;
-			},
-		});
-
-		expect(result).toEqual({
-			status: "failure",
-			errorType: "flow-command-failed",
-			message: "",
-			data: { exitCode: 7 },
-		});
-		expect(stderr).toEqual(["bad\n"]);
-	});
-
-	test("returns fallback failure message when the runner emits no stderr", async () => {
-		const sharedModule = await loadFlowCliRunnerModule();
-		const { api } = createFakeApi([]);
-
-		const result = await sharedModule.runFlowCli({
-			ctx: api,
-			successMessage: "completed",
-			failureMessage: "failed",
-			run: async () => 5,
-		});
-
-		expect(result).toEqual({
-			status: "failure",
-			errorType: "flow-command-failed",
-			message: "failed",
-			data: { exitCode: 5 },
-		});
-	});
-
-	test("maps exit code 1 to negative and other nonzero exits to failure", async () => {
-		const sharedModule = await loadFlowCliRunnerModule();
-
-		expect(sharedModule.exitCodeToFlowCommandExit(1, "declined")).toEqual({
-			status: "negative",
-			message: "declined",
-			data: { exitCode: 1 },
-		});
-		expect(sharedModule.exitCodeToFlowCommandExit(2, "failed")).toEqual({
-			status: "failure",
-			errorType: "flow-command-failed",
-			message: "failed",
-			data: { exitCode: 2 },
-		});
+		expect(result).toEqual({ type: "completed", branches: ["feature/demo"] });
 	});
 
 	test("optionally forwards exec live output through ctx.onOutput", async () => {
@@ -111,11 +47,9 @@ describe("project extension shared Flow CLI runner", () => {
 			makeExecResult({ stdout: "live out\n", stderr: "live err\n" }),
 		]);
 
-		const result = await sharedModule.runFlowCli({
+		const exitCode = await sharedModule.runFlowCliOperation({
 			ctx: api,
 			trustedExec,
-			successMessage: "completed",
-			failureMessage: "failed",
 			shouldForwardLiveOutput: true,
 			run: async (io) => {
 				const execResult = await io.exec("gt", ["status"], { timeout: 9 });
@@ -125,7 +59,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: { text: "completed" } });
+		expect(exitCode).toBe(0);
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.command).toBe("gt");
 		expect(calls[0]?.args).toEqual(["status"]);
@@ -138,72 +72,33 @@ describe("project extension shared Flow CLI runner", () => {
 		]);
 	});
 
-	test("buffers runFlowCli output until after the exit-code hook", async () => {
+	test("does not forward live output when forwarding is not requested", async () => {
 		const sharedModule = await loadFlowCliRunnerModule();
-		const { api, stdout, stderr } = createFakeApi([]);
-		const events: string[] = [];
+		const { api, trustedExec, calls, liveOutput } = createFakeApi([
+			makeExecResult({ stdout: "quiet out\n" }),
+		]);
 
-		const result = await sharedModule.runFlowCli({
+		await sharedModule.runFlowCliOperation({
 			ctx: api,
-			successMessage: "completed",
-			failureMessage: "failed",
-			outputMode: "buffer-until-complete",
-			afterExitCode: (exitCode) => {
-				events.push(`after:${exitCode}:stdout=${stdout.length}:stderr=${stderr.length}`);
-			},
+			trustedExec,
 			run: async (io) => {
-				io.stdout("done\n");
-				io.stderr("warn\n");
+				await io.exec("gt", ["status"]);
 				return 0;
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: { text: "" } });
-		expect(events).toEqual(["after:0:stdout=0:stderr=0"]);
-		expect(stdout).toEqual(["done\n"]);
-		expect(stderr).toEqual(["warn\n"]);
+		expect(calls[0]?.options?.onStdout).toBeUndefined();
+		expect(calls[0]?.options?.onStderr).toBeUndefined();
+		expect(liveOutput).toEqual([]);
 	});
 
-	test("buffers emitted output until the caller flushes after progress settles", async () => {
-		const sharedModule = await loadFlowCliRunnerModule();
-		const { api, stdout, stderr } = createFakeApi([]);
-		const output = sharedModule.createFlowCliOutputCapture({
-			ctx: api,
-			mode: "buffer-until-complete",
-		});
-
-		output.input.stdout("done\n");
-		output.input.stderr("warn\n");
-		expect(stdout).toEqual([]);
-		expect(stderr).toEqual([]);
-		expect(output.stdout).toBe("done\n");
-		expect(output.stderr).toBe("warn\n");
-
-		output.flush();
-
-		expect(stdout).toEqual(["done\n"]);
-		expect(stderr).toEqual(["warn\n"]);
-		expect(output.toResult(0, { successMessage: "completed", failureMessage: "failed" })).toEqual({
-			status: "success",
-			data: { text: "" },
-		});
-		expect(output.toResult(9, { successMessage: "completed", failureMessage: "failed" })).toEqual({
-			status: "failure",
-			errorType: "flow-command-failed",
-			message: "",
-			data: { exitCode: 9 },
-		});
-	});
-
-	test("routes trusted pull-trunk execution to alternate cwd without scoped-cwd refusal", async () => {
+	test("routes trusted execution to alternate cwd without scoped-cwd refusal", async () => {
 		const sharedModule = await loadFlowCliRunnerModule();
 		const { api, trustedExec, calls } = createFakeApi([makeExecResult({ stdout: "updated\n" })]);
 
-		const result = await sharedModule.runFlowCli({
+		const exitCode = await sharedModule.runFlowCliOperation({
 			ctx: api,
 			trustedExec,
-			successMessage: "completed",
-			failureMessage: "failed",
 			run: async (io) => {
 				const execResult = await io.exec("git", ["pull", "--ff-only", "origin", "master"], {
 					cwd: "/trunk",
@@ -215,7 +110,7 @@ describe("project extension shared Flow CLI runner", () => {
 			},
 		});
 
-		expect(result).toEqual({ status: "success", data: { text: "completed" } });
+		expect(exitCode).toBe(0);
 		expect(calls).toEqual([
 			{
 				command: "git",
