@@ -262,7 +262,6 @@ test("snapshots defensively copy generic state without target rows", () => {
 		revisionId: "r",
 		path: "p",
 		classification: { state: "generic" as const },
-		observedCommit: "c",
 		tombstoned: false,
 	};
 	const store = new InMemoryMaterializationStoreGateway({ currentArtifacts: [current] });

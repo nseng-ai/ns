@@ -266,7 +266,6 @@ export function prepareArtifactMaterialization(
 			sourceId: plan.sourceId,
 			artifactId: planned.artifactId,
 			...planned.prior,
-			observedCommit: plan.targetCommit,
 			tombstoned: true,
 		};
 		return {
@@ -305,7 +304,6 @@ export function prepareArtifactMaterialization(
 		revisionId: planned.revision.revisionId,
 		path: planned.path,
 		classification: planned.classification,
-		observedCommit: plan.targetCommit,
 		tombstoned: false,
 	};
 	return {

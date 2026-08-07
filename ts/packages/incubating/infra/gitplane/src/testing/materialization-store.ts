@@ -11,7 +11,6 @@ import type {
 	GatewayError,
 	GatewayResult,
 	InsertResult,
-	LookupResult,
 	MaterializationSnapshot,
 	MaterializationStoreGateway,
 	OperationResult,
@@ -144,12 +143,6 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		if (index >= 0) this.plans.splice(index, 1);
 		return { ok: true };
 	}
-	async readCursor(request: { readonly sourceId: string }): Promise<LookupResult<CursorRecord>> {
-		const failure = this.failure("readCursor");
-		if (failure !== undefined) return { type: "error", error: failure };
-		const found = this.cursors.find((item) => item.sourceId === request.sourceId);
-		return found === undefined ? { type: "missing" } : { type: "found", value: copy(found) };
-	}
 	async compareAndSetCursor(request: {
 		readonly sourceId: string;
 		readonly expectedGeneration: number;
@@ -177,30 +170,6 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 		else this.cursors[index] = copy(request.next);
 		return { type: "updated" };
 	}
-	async readLineage(request: {
-		readonly sourceId: string;
-		readonly artifactId: ArtifactId;
-	}): Promise<LookupResult<ArtifactLineageRecord>> {
-		return this.lookup("readLineage", this.lineage, request);
-	}
-	async readCurrentArtifact(request: {
-		readonly sourceId: string;
-		readonly artifactId: ArtifactId;
-	}): Promise<LookupResult<ArtifactCurrentRecord>> {
-		return this.lookup("readCurrentArtifact", this.current, request);
-	}
-	private lookup<T extends { readonly sourceId: string; readonly artifactId: ArtifactId }>(
-		operation: FailureKey,
-		records: readonly T[],
-		request: { readonly sourceId: string; readonly artifactId: ArtifactId },
-	): LookupResult<T> {
-		const failure = this.failure(operation);
-		if (failure !== undefined) return { type: "error", error: failure };
-		const found = records.find(
-			(item) => item.sourceId === request.sourceId && item.artifactId === request.artifactId,
-		);
-		return found === undefined ? { type: "missing" } : { type: "found", value: copy(found) };
-	}
 	async upsertLineage(record: ArtifactLineageRecord): Promise<OperationResult> {
 		return this.upsert(
 			"upsertLineage",
@@ -208,14 +177,6 @@ export class InMemoryMaterializationStoreGateway implements MaterializationStore
 			record,
 			(item) => `${item.sourceId}:${item.artifactId}`,
 		);
-	}
-	async listCurrentArtifacts(request: {
-		readonly sourceId: string;
-	}): Promise<GatewayResult<readonly ArtifactCurrentRecord[]>> {
-		const failure = this.failure("listCurrentArtifacts");
-		return failure === undefined
-			? { ok: true, value: copy(this.current.filter((item) => item.sourceId === request.sourceId)) }
-			: { ok: false, error: failure };
 	}
 	async insertRevision(record: RevisionRecord): Promise<InsertResult> {
 		const failure = this.failure("insertRevision");

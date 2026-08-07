@@ -21,7 +21,7 @@ The Gateway-ready form of one Planned Artifact Materialization. It is temporary 
 *Avoid*: derived artifact writes, artifact materialization record set, write bundle
 
 **Pending Plan**:
-The sole unresolved Reconciliation Plan for a source. A matching retry reuses it, and conflicting work cannot replace it.
+The sole unresolved Reconciliation Plan for a source. A matching retry reuses it. A request for different work completes the Pending Plan before it reconciles the requested target; it cannot replace the Pending Plan.
 *Avoid*: pending attempt, frozen attempt, active plan
 
 **Resulting Cursor**:

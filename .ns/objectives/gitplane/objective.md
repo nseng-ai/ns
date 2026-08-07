@@ -58,7 +58,7 @@ Each deliberate shortcut preserves a named future path where applicable:
 - The SQLite adapter explicitly initializes and manages control tables, operates against operator-owned target tables, and supports every v1 read-only `doctor` check.
 - The check-only composite GitHub Action ships and is documented, including PR-head/per-domain behavior and a conceptual reconcile-in-CI recipe.
 - The reference consumer exists and demonstrates operator-owned DDL, artifact+revision pinning, mapped JSON, event consumption, and runtime-state separation.
-- Scenario and conformance suites cover recursive artifacts, lifecycle and lineage legality, initial/older/divergent/merge snapshots, partial-write retries, matching/conflicting/post-CAS attempts, generation CAS including `A → B → A → B` ABA, and repeated-target event identity.
+- Scenario and conformance suites cover recursive artifacts, lifecycle and lineage legality, initial/older/divergent/merge snapshots, partial-write retries, matching/different-target/post-CAS attempts, generation CAS including `A → B → A → B` ABA, and repeated-target event identity.
 - The settled README is promoted from `references/README-draft.md` to the shipped package README, the settled spec is promoted from `references/SPEC-draft.md` to the shipped package's reference documentation, and this Objective's canonical references point at the promoted documents.
 
 ## Prompt Guidance
@@ -83,7 +83,7 @@ Assumptions:
 Risks:
 
 - **Non-transactional partial visibility.** A failed reconcile can expose some target rows or control records before retry completes; consumers must treat cursor advancement as the completed-materialization boundary where needed.
-- **Control-state trust requires Pending Plan discipline.** Operator target rows are never planning authorities, and Gitplane control state is authoritative only at a completed cursor generation with no Pending Plan; matching replay, conflict refusal, and cleanup precedence require shared fake/SQLite proof.
+- **Control-state trust requires Pending Plan discipline.** Operator target rows are never planning authorities, and Gitplane control state is authoritative only at a completed cursor generation with no Pending Plan; matching replay, different-target recovery, and cleanup precedence require shared fake/SQLite proof.
 - **Target schemas can reject blind mappings.** Projection writes deliberately rely on operator-owned SQL constraints and fail closed; `doctor` cannot guarantee compatibility where an adapter reports unsupported introspection.
 - **First-observed Git locators depend on retained history.** Raw bytes become unavailable if a revision's referenced commit is removed; object-store replication remains an explicit future upgrade.
 - **Scope gravity toward workflow behavior.** Runtime activation and event delivery must stay outside v1.
