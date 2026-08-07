@@ -1,4 +1,3 @@
-supported_harnesses = ["pi", "codex", "claude-code"]
 extensions = ["./ts/packages/incubating/extensions/skill-exposure"]
 
 [slots]

@@ -3,9 +3,6 @@ import { validateExtensionDescriptor } from "@nseng-ai/sdk";
 import objectivesExtension from "@nseng-ai/objectives/ns-extension";
 import { describe, expect, test } from "vitest";
 
-import packageManifest from "../../package.json" with { type: "json" };
-import { deriveObjectiveBundledArtifacts } from "../../src/ns/publish-artifacts.ts";
-
 const EXPECTED_OBJECTIVES_INSTRUCTIONS = [
 	"## Objectives",
 	"",
@@ -28,13 +25,11 @@ describe("Objectives extension descriptor", () => {
 		if (!result.ok) return;
 		expect(result.descriptor).not.toHaveProperty("group");
 		expect(result.descriptor).not.toHaveProperty("entries");
+		expect(result.descriptor).not.toHaveProperty("bundledArtifacts");
 		expect(result.descriptor.activation).toEqual({
 			instructions: EXPECTED_OBJECTIVES_INSTRUCTIONS,
 			consumerDirs: [".ns/objectives"],
 		});
-		expect(result.descriptor.bundledArtifacts).toEqual(
-			deriveObjectiveBundledArtifacts(packageManifest),
-		);
 		expect(result.descriptor.commandDirectory).toBe(
 			path.join(import.meta.dirname, "../../src/cli"),
 		);

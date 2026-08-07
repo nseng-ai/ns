@@ -104,7 +104,7 @@ export function normalizeHarnessId(input: string): Result<HarnessId, HarnessPath
 	if (harness !== undefined) return resultOk(harness);
 	return resultErr({
 		code: "unknown_harness",
-		message: `Unknown harness ${JSON.stringify(input)}. Supported harnesses: ${ALL_HARNESS_IDS.join(", ")}.`,
+		message: `Unknown harness ${JSON.stringify(input)}. Expected one of: ${ALL_HARNESS_IDS.join(", ")}.`,
 		details: { input },
 	});
 }

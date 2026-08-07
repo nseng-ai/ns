@@ -1,103 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	parseNsTomlExtensions,
-	parseNsTomlSupportedHarnesses,
-	planNsTomlSupportedHarnessesWrite,
-	renderNsTomlSupportedHarnesses,
-} from "../src/harness-artifacts/api.ts";
-
-describe("ns.toml harnesses", () => {
-	it("parses top-level supported_harnesses", () => {
-		expect(
-			parseNsTomlSupportedHarnesses('supported_harnesses = ["codex", "claude-code"]\n'),
-		).toEqual({
-			type: "ok",
-			harnesses: ["codex", "claude-code"],
-		});
-	});
-
-	it("parses harnesses alongside point-system config", () => {
-		expect(
-			parseNsTomlSupportedHarnesses(
-				'supported_harnesses = ["pi"]\n\n[points]\n"flow.submit.pre" = ["just"]\n',
-			),
-		).toEqual({
-			type: "ok",
-			harnesses: ["pi"],
-		});
-	});
-
-	it("ignores table-local harnesses", () => {
-		expect(parseNsTomlSupportedHarnesses('[areg]\nsupported_harnesses = ["codex"]\n')).toEqual({
-			type: "missing",
-		});
-	});
-
-	it("rejects unknown harnesses", () => {
-		const result = parseNsTomlSupportedHarnesses('supported_harnesses = ["cursor"]\n');
-		expect(result.type).toBe("error");
-		if (result.type !== "error") throw new Error("expected error");
-		expect(result.error.code).toBe("invalid-supported-harnesses");
-		expect(result.error.message).toBe(
-			'Unknown harness "cursor". Expected one of claude-code, codex, pi.',
-		);
-	});
-
-	it("rejects invalid harness shapes", () => {
-		const result = parseNsTomlSupportedHarnesses("supported_harnesses = []\n");
-		expect(result.type).toBe("error");
-		if (result.type !== "error") throw new Error("expected error");
-		expect(result.error).toEqual({
-			code: "invalid-supported-harnesses",
-			message: "ns.toml top-level supported_harnesses must be a non-empty string array.",
-		});
-	});
-
-	it("preserves invalid TOML diagnostics", () => {
-		const result = parseNsTomlSupportedHarnesses("supported_harnesses = [\n");
-		expect(result.type).toBe("error");
-		if (result.type !== "error") throw new Error("expected error");
-		expect(result.error.code).toBe("invalid-toml");
-		expect(result.error.message).toContain("Invalid TOML in ns.toml:");
-	});
-
-	it("renders explicit top-level supported_harnesses", () => {
-		expect(renderNsTomlSupportedHarnesses(["codex", "pi"])).toBe(
-			'supported_harnesses = ["codex","pi"]\n',
-		);
-	});
-
-	it("creates, appends, and replaces top-level supported_harnesses", () => {
-		expect(planNsTomlSupportedHarnessesWrite({ content: undefined, harnesses: ["codex"] })).toEqual(
-			{
-				type: "ok",
-				content: 'supported_harnesses = ["codex"]\n',
-				change: "created",
-			},
-		);
-		expect(
-			planNsTomlSupportedHarnessesWrite({
-				content: '[areg]\nagents = ["codex"]\n',
-				harnesses: ["pi"],
-			}),
-		).toEqual({
-			type: "ok",
-			content: 'supported_harnesses = ["pi"]\n\n[areg]\nagents = ["codex"]\n',
-			change: "appended",
-		});
-		expect(
-			planNsTomlSupportedHarnessesWrite({
-				content: 'supported_harnesses = ["codex"]\n[areg]\nagents = ["codex"]\n',
-				harnesses: ["claude-code"],
-			}),
-		).toEqual({
-			type: "ok",
-			content: 'supported_harnesses = ["claude-code"]\n[areg]\nagents = ["codex"]\n',
-			change: "replaced",
-		});
-	});
-});
+import { parseNsTomlExtensions } from "../src/harness-artifacts/api.ts";
 
 describe("ns.toml extensions", () => {
 	it("parses top-level extensions, including an explicitly empty declaration set", () => {
@@ -111,7 +14,7 @@ describe("ns.toml extensions", () => {
 		});
 	});
 
-	it.each(["", 'supported_harnesses = ["pi"]\r\n'])(
+	it.each(["", "# unrelated config\r\n"])(
 		"reports missing extensions for absent empty and non-empty TOML",
 		(content) => {
 			expect(parseNsTomlExtensions(content)).toEqual({ type: "missing" });

@@ -16,7 +16,7 @@ export const preinstalledCommandSources = [
 				"init",
 				{
 					description:
-						"Activate ns in this repository by writing ns.toml, generating agent instructions, creating declared consumer directories, and provisioning declared extension artifacts.",
+						"Activate ns in this repository by writing ns.toml, generating agent instructions, and creating declared consumer directories.",
 					helpGroup: NS_BUILT_IN_HELP_GROUP,
 				},
 				async () => {

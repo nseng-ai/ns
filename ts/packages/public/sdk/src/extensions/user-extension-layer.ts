@@ -1,8 +1,6 @@
 import { readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { z } from "zod";
-
 import {
 	formatErrorMessage,
 	isNodeErrorCode,
@@ -17,13 +15,6 @@ import {
 	type DeclaredExtensionDescriptor,
 } from "./declared-descriptors.ts";
 import {
-	ALL_HARNESS_IDS,
-	NS_HARNESS_ENV_VAR,
-	resolveActiveHarness,
-	validateSupportedHarnesses,
-	type HarnessId,
-} from "../project-config/harness-identity.ts";
-import {
 	managedNpmPackagePaths,
 	userManagedNpmStorage,
 } from "../project-config/managed-extension-paths.ts";
@@ -31,37 +22,15 @@ import {
 	getProjectConfigSetting,
 	nsTomlExtensionsSettingsSchema,
 	parseProjectConfigToml,
-	type SettingsSchema,
 } from "../project-config/points.ts";
 
 /**
- * One effective User extension layer selection (ADR 0055).
+ * One User extension layer (ADR 0055).
  *
- * This module owns the Active-harness gate, user `ns.toml` parsing, and
- * ADR 0053 source-identity suppression for user descriptor contributions.
- * Command and point catalogs both consume this result; neither re-derives
- * the gate, config parsing, or suppression independently.
+ * This module owns user `ns.toml` parsing and ADR 0053 source-identity
+ * suppression for user descriptor contributions. Command and point catalogs
+ * both consume this result; neither re-derives config parsing or suppression.
  */
-
-export type UserExtensionLayerDecision =
-	| {
-			enabled: true;
-			activeHarness: HarnessId;
-			supportedHarnesses: readonly HarnessId[];
-	  }
-	| { enabled: false; reason: UserExtensionLayerDisabledReason };
-
-export type UserExtensionLayerDisabledReason =
-	| { type: "active-harness-unset" }
-	| { type: "active-harness-unknown"; value: string }
-	| { type: "user-config-unavailable" }
-	| { type: "supported-harnesses-missing"; activeHarness: HarnessId }
-	| { type: "supported-harnesses-invalid"; activeHarness: HarnessId }
-	| {
-			type: "active-harness-unsupported";
-			activeHarness: HarnessId;
-			supportedHarnesses: readonly HarnessId[];
-	  };
 
 export interface UserExtensionLayerDiagnostic {
 	code: string;
@@ -69,10 +38,8 @@ export interface UserExtensionLayerDiagnostic {
 	path?: string;
 }
 
-export interface EffectiveUserExtensionLayer {
-	decision: UserExtensionLayerDecision;
+export interface UserExtensionLayer {
 	userConfigPath?: string;
-	/** Loaded user descriptors; empty whenever the layer is disabled. */
 	descriptors: readonly DeclaredExtensionDescriptor[];
 	declaredSourceIdentities: readonly string[];
 	diagnostics: readonly UserExtensionLayerDiagnostic[];
@@ -85,47 +52,19 @@ export interface LoadUserExtensionLayerOptions {
 	projectSourceIdentities: ReadonlySet<string>;
 }
 
-const userSupportedHarnessesSettingsSchema = {
-	path: ["supported_harnesses"] as const,
-	schema: z.array(z.string()),
-	invalidMessage: ({ pathLabel }) =>
-		`${pathLabel} top-level supported_harnesses must be a string array of canonical harness ids (${ALL_HARNESS_IDS.join(", ")}).`,
-} satisfies SettingsSchema<readonly string[]>;
-
 const nsTomlExtensionsSettingsKey = nsTomlExtensionsSettingsSchema.path.join(".");
-const userSupportedHarnessesSettingsKey = userSupportedHarnessesSettingsSchema.path.join(".");
 
-/**
- * Resolve the effective User extension layer for one invocation.
- *
- * The Active-harness gate is evaluated before any filesystem access: a
- * missing or blank `NS_HARNESS` short-circuits silently, and an unknown
- * value short-circuits with one actionable diagnostic. User descriptors are
- * loaded only when the gate enables the layer.
- */
-export async function loadEffectiveUserExtensionLayer(
+/** Load User extension declarations for one invocation. */
+export async function loadUserExtensionLayer(
 	options: LoadUserExtensionLayerOptions,
-): Promise<EffectiveUserExtensionLayer> {
-	const activeHarness = resolveActiveHarness(options.env);
-	if (activeHarness.type === "unset") {
-		return disabledLayer({ type: "active-harness-unset" });
-	}
-	if (activeHarness.type === "unknown") {
-		return disabledLayer({ type: "active-harness-unknown", value: activeHarness.value }, [
-			{
-				code: "user_extension_layer_unknown_harness",
-				message: `User extension configuration: ${NS_HARNESS_ENV_VAR}=${JSON.stringify(activeHarness.value)} is not a known harness. Known harness ids: ${ALL_HARNESS_IDS.join(", ")}.`,
-			},
-		]);
-	}
-
+): Promise<UserExtensionLayer> {
 	const env = mergeXdgHomeEnv({
 		baseEnv: {},
 		...optionalEntries({ env: options.env, xdgHomeDir: options.homeDir }),
 	});
 	const resolvedPath = resolveNsXdgPath({ kind: "config", env, segments: ["ns.toml"] });
 	if (!resolvedPath.ok) {
-		return disabledLayer({ type: "user-config-unavailable" }, [
+		return emptyLayer([
 			{
 				code: "user_ns_toml_path_invalid",
 				message: `User extension configuration: Could not resolve user ns.toml path.\n${resolvedPath.error.message}`,
@@ -136,25 +75,16 @@ export async function loadEffectiveUserExtensionLayer(
 
 	const read = readUserConfigSource(userConfigPath);
 	if (read.type === "missing") {
-		return {
-			...disabledLayer({
-				type: "supported-harnesses-missing",
-				activeHarness: activeHarness.harness,
-			}),
-			userConfigPath,
-		};
+		return { ...emptyLayer(), userConfigPath };
 	}
 	if (read.type === "error") {
-		return {
-			...disabledLayer({ type: "user-config-unavailable" }, [read.diagnostic]),
-			userConfigPath,
-		};
+		return { ...emptyLayer([read.diagnostic]), userConfigPath };
 	}
 
 	const parsed = parseProjectConfigToml(read.source, {
 		pathLabel: userConfigPath,
 		pointsTable: { mode: "skip" },
-		settingsSchemas: [nsTomlExtensionsSettingsSchema, userSupportedHarnessesSettingsSchema],
+		settingsSchemas: [nsTomlExtensionsSettingsSchema],
 	});
 	const configDiagnostics = parsed.diagnostics
 		.filter((diagnostic) => diagnostic.severity === "error")
@@ -162,69 +92,7 @@ export async function loadEffectiveUserExtensionLayer(
 			userConfigDiagnostic(diagnostic.code, diagnostic.message, diagnostic.path, userConfigPath),
 		);
 	if (parsed.config === undefined) {
-		return {
-			...disabledLayer({ type: "user-config-unavailable" }, configDiagnostics),
-			userConfigPath,
-		};
-	}
-
-	const declaredHarnesses = getProjectConfigSetting(
-		parsed.config,
-		userSupportedHarnessesSettingsSchema,
-	);
-	const settingsInvalid = parsed.diagnostics.some(
-		(diagnostic) =>
-			diagnostic.code === "settings_table_invalid" &&
-			diagnostic.path === userSupportedHarnessesSettingsKey,
-	);
-	if (settingsInvalid) {
-		return {
-			...disabledLayer(
-				{ type: "supported-harnesses-invalid", activeHarness: activeHarness.harness },
-				configDiagnostics,
-			),
-			userConfigPath,
-		};
-	}
-	if (declaredHarnesses === undefined) {
-		return {
-			...disabledLayer(
-				{ type: "supported-harnesses-missing", activeHarness: activeHarness.harness },
-				configDiagnostics,
-			),
-			userConfigPath,
-		};
-	}
-	const supportedHarnesses = validateSupportedHarnesses(declaredHarnesses);
-	if (supportedHarnesses.type === "invalid") {
-		return {
-			...disabledLayer(
-				{ type: "supported-harnesses-invalid", activeHarness: activeHarness.harness },
-				[
-					...configDiagnostics,
-					userConfigDiagnostic(
-						"user_supported_harnesses_invalid",
-						`${userConfigPath}: ${supportedHarnesses.message}`,
-						undefined,
-						userConfigPath,
-					),
-				],
-			),
-			userConfigPath,
-		};
-	}
-	if (!supportedHarnesses.harnesses.includes(activeHarness.harness)) {
-		return {
-			...disabledLayer(
-				{
-					type: "active-harness-unsupported",
-					activeHarness: activeHarness.harness,
-					supportedHarnesses: supportedHarnesses.harnesses,
-				},
-				configDiagnostics,
-			),
-			userConfigPath,
-		};
+		return { ...emptyLayer(configDiagnostics), userConfigPath };
 	}
 
 	const declaredSpecs =
@@ -256,11 +124,6 @@ export async function loadEffectiveUserExtensionLayer(
 		resolveNpmPackageRoot,
 	});
 	return {
-		decision: {
-			enabled: true,
-			activeHarness: activeHarness.harness,
-			supportedHarnesses: supportedHarnesses.harnesses,
-		},
 		userConfigPath,
 		descriptors: loaded.descriptors,
 		declaredSourceIdentities: activeSpecs.flatMap((spec) => {
@@ -279,12 +142,8 @@ export async function loadEffectiveUserExtensionLayer(
 	};
 }
 
-function disabledLayer(
-	reason: UserExtensionLayerDisabledReason,
-	diagnostics: readonly UserExtensionLayerDiagnostic[] = [],
-): EffectiveUserExtensionLayer {
+function emptyLayer(diagnostics: readonly UserExtensionLayerDiagnostic[] = []): UserExtensionLayer {
 	return {
-		decision: { enabled: false, reason },
 		descriptors: [],
 		declaredSourceIdentities: [],
 		diagnostics,
@@ -301,9 +160,7 @@ function userConfigDiagnostic(
 		code:
 			code === "settings_table_invalid" && path === nsTomlExtensionsSettingsKey
 				? "ns_toml_extensions_invalid"
-				: code === "settings_table_invalid" && path === userSupportedHarnessesSettingsKey
-					? "user_supported_harnesses_invalid"
-					: code,
+				: code,
 		message: `User extension configuration: ${message}`,
 		path: userConfigPath,
 	};

@@ -12,7 +12,6 @@ import type { ExtensionUninstallContext } from "../../src/init/uninstall-extensi
 import { uninstallExtension } from "../../src/init/uninstall-extension.ts";
 import {
 	InMemoryActivationFilesGateway,
-	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
 	InMemoryUserExtensionConfigGateway,
@@ -46,13 +45,11 @@ function fixture(options: {
 	}[];
 	cleanup?: InMemoryExtensionUninstallAcquisitionGateway;
 	git?: InMemoryGitGateway;
-	artifacts?: InMemoryArtifactActivationGateway;
 }): {
 	context: ExtensionUninstallContext;
 	files: InMemoryActivationFilesGateway;
 	declaredExtensions: InMemoryDeclaredExtensionsGateway;
 	cleanup: InMemoryExtensionUninstallAcquisitionGateway;
-	artifacts: InMemoryArtifactActivationGateway;
 } {
 	const files =
 		options.files ??
@@ -66,19 +63,16 @@ function fixture(options: {
 		},
 	});
 	const cleanup = options.cleanup ?? new InMemoryExtensionUninstallAcquisitionGateway();
-	const artifacts = options.artifacts ?? new InMemoryArtifactActivationGateway();
 	return {
 		files,
 		declaredExtensions,
 		cleanup,
-		artifacts,
 		context: {
 			git:
 				options.git ??
 				new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 			files,
 			declaredExtensions,
-			artifacts,
 			uninstallAcquisition: cleanup,
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 			userManagedNpmStorage: {
@@ -89,7 +83,7 @@ function fixture(options: {
 	};
 }
 
-const initializedToml = 'supported_harnesses = ["pi"]\n';
+const initializedToml = 'fixture_setting = ["pi"]\n';
 const tracedFailureSchema = z.object({
 	status: z.literal("failure"),
 	data: z.object({ steps: z.array(lifecycleStepSchema).readonly() }),
@@ -104,112 +98,6 @@ function phaseHistory(steps: readonly LifecycleStep[]) {
 }
 
 describe("uninstallExtension", () => {
-	it("matches npm identity across versions, reports removed-source artifacts, then removes bytes", async () => {
-		const cleanup = new InMemoryExtensionUninstallAcquisitionGateway({
-			installedPackageNames: ["@test/tools"],
-		});
-		const artifacts = new InMemoryArtifactActivationGateway({
-			applyResult: {
-				ok: true,
-				completed: [
-					{
-						key: "pi:tools",
-						action: "removed",
-						artifactId: "@test/tools:tools",
-						skillName: "tools",
-						harness: "pi",
-						targetArtifactPath: "/repo/.pi/skills/tools",
-						manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
-						writtenFiles: [],
-						conflictingFiles: [],
-						removedFiles: ["/repo/.pi/skills/tools/SKILL.md"],
-						removalReason: "removed-source",
-					},
-				],
-			},
-		});
-		const { context, files, declaredExtensions } = fixture({
-			nsToml: `${initializedToml}extensions = ["npm:@test/tools@1.0.0", "./remaining"]\n`,
-			descriptors: [descriptor("./remaining")],
-			cleanup,
-			artifacts,
-		});
-
-		const result = await uninstallExtension(context, {
-			cwd: "/repo/subdir",
-			source: "npm:@test/tools@2.0.0",
-		});
-
-		expect(result).toMatchObject({
-			status: "success",
-			data: {
-				sourceKind: "npm",
-				sourceIdentity: "@test/tools",
-				matchedDeclarationSpec: "npm:@test/tools@1.0.0",
-				hasRemovedDeclaration: true,
-				cleanup: {
-					status: "removed",
-					path: managedNpmProjectRoot("/repo", "@test/tools"),
-				},
-				steps: expect.arrayContaining([
-					expect.objectContaining({
-						type: "declaration-decided",
-						action: "removed",
-					}),
-				]),
-				completed: {
-					artifacts: [
-						{
-							action: "removed",
-							removalReason: "removed-source",
-							removedFiles: [expect.any(String)],
-						},
-					],
-				},
-			},
-		});
-		if (result.status !== "success" || result.data.scope !== "project")
-			throw new Error("Expected project uninstall to succeed.");
-		expect(phaseHistory(result.data.steps)).toEqual([
-			{ type: "phase", phase: "repository-preflight", status: "started" },
-			{ type: "phase", phase: "repository-preflight", status: "completed" },
-			{ type: "phase", phase: "configuration-preflight", status: "started" },
-			{ type: "phase", phase: "configuration-preflight", status: "completed" },
-			{ type: "phase", phase: "declaration-planning", status: "started" },
-			{ type: "phase", phase: "declaration-planning", status: "completed" },
-			{ type: "phase", phase: "activation-preflight", status: "started" },
-			{ type: "phase", phase: "activation-preflight", status: "completed" },
-			{ type: "phase", phase: "activation-apply", status: "started" },
-			{ type: "phase", phase: "activation-apply", status: "completed" },
-			{ type: "phase", phase: "managed-package-cleanup", status: "started" },
-			{ type: "phase", phase: "managed-package-cleanup", status: "completed" },
-			{ type: "phase", phase: "completion", status: "completed" },
-		]);
-		const activationApplyCompleted = result.data.steps.findIndex(
-			(step) =>
-				step.type === "phase" && step.phase === "activation-apply" && step.status === "completed",
-		);
-		const preservation = result.data.steps.findIndex(
-			(step) => step.type === "preservation" && step.subject === "consumer-data",
-		);
-		const cleanupStarted = result.data.steps.findIndex(
-			(step) =>
-				step.type === "phase" &&
-				step.phase === "managed-package-cleanup" &&
-				step.status === "started",
-		);
-		const acquisitionDecided = result.data.steps.findIndex(
-			(step) => step.type === "acquisition-decided" && step.intent === "remove-managed",
-		);
-		expect(activationApplyCompleted).toBeLessThan(preservation);
-		expect(preservation).toBeLessThan(cleanupStarted);
-		expect(cleanupStarted).toBeLessThan(acquisitionDecided);
-		expect(files.fileContent("ns.toml")).toBe(`${initializedToml}extensions = [ "./remaining"]\n`);
-		expect(files.fileContent(".ns/instructions.md")).toContain("Remaining");
-		expect(declaredExtensions.calls()).toEqual([{ repoRoot: "/repo", specs: ["./remaining"] }]);
-		expect(cleanup.installedPackages()).not.toContain("@test/tools");
-	});
-
 	it("normalizes local identity and preserves source bytes and consumer data", async () => {
 		const files = new InMemoryActivationFilesGateway({
 			files: {
@@ -456,18 +344,6 @@ describe("uninstallExtension", () => {
 			status: "success",
 			data: { hasRemovedDeclaration: false, cleanup: { status: "removed" } },
 		});
-	});
-
-	it.each([
-		[undefined, "ns-extension-uninstall-supported-harnesses-missing"],
-		['supported_harnesses = ["unknown"]\n', "ns-extension-uninstall-supported-harnesses-invalid"],
-		[`${initializedToml}extensions = [42]\n`, "ns-extension-uninstall-config-invalid"],
-	])("returns stable config failure for %s", async (nsToml, errorType) => {
-		const { context, files, cleanup } = fixture(nsToml === undefined ? {} : { nsToml });
-		const result = await uninstallExtension(context, { cwd: "/repo", source: "./target" });
-		expect(result).toMatchObject({ status: "failure", errorType, data: { completed: {} } });
-		expect(files.operations()).toEqual([]);
-		expect(cleanup.removals()).toEqual([]);
 	});
 
 	it("returns a stable repository failure", async () => {

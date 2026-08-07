@@ -131,28 +131,24 @@ An optional prose `## Metaprompt` section in an **Objective**'s `objective.md` â
 *Avoid*: Prompt Guidance (retired name), prompt factory, prompt template schema, frontmatter key
 
 **Harness artifact**:
-An ns-owned resource materialized into an assistant **Harness**; current kinds are `skill`, `agent`, and `extension-bundle`. Handoff artifacts and consumer artifacts are separate domain terms, so qualify this term when ambiguity is possible.
-*Avoid*: bare artifact where ambiguous, managed artifact
+An ns-owned first-party skill that an explicit `ns skills install ... --harness <id>` operation materializes into an assistant **Harness** root. Extension descriptors and extension lifecycle operations do not declare, provision, reconcile, or remove Harness artifacts. Handoff artifacts and consumer artifacts are separate domain terms, so qualify this term when ambiguity is possible.
+*Avoid*: extension artifact, descriptor-bundled artifact, automatically managed artifact, bare artifact where ambiguous
 
 **Harness**:
-A target assistant environment for a **Harness artifact**, currently `claude-code`, `codex`, or `pi`. This is distinct from **Runtime Harness**, which names program boot code that wires the vended API object.
-*Avoid*: platform
-
-**Supported harnesses**:
-The repository-declared set of **Harness** targets in top-level `ns.toml` `supported_harnesses`. ns provisions and reconciles extension-provided skills and other agent-facing artifacts in each target's project directory. The set does not describe every tool contributors personally use, restrict repository access, or assign Objective ownership.
-*Avoid*: project harnesses, configured harnesses, contributor harnesses, Objective owners, access allowlist
+A target assistant environment selected explicitly for one `ns skills` path or install operation, currently `claude-code`, `codex`, or `pi`. Selection is not persisted in `ns.toml` and does not gate command or Point availability. This is distinct from **Runtime Harness**, which names program boot code that wires the vended API object.
+*Avoid*: platform, active harness, supported harness, repository harness policy
 
 **Pi (the harness)**:
 The third-party coding-agent **Harness** built by Earendil and shipped as `@earendil-works/pi-coding-agent`; ns integrates with it deeply but does not own or control it â€” upstream API or behavior changes can only be absorbed, never made. Canonical Pi-domain vocabulary lives in `ts/packages/incubating/hosts/pi/runtime/pi-runtime/CONTEXT.md`.
 *Avoid*: ns-owned harness, first-party Pi
 
 **Provision**:
-The action that materializes a **Harness artifact** into a **Harness** root.
-*Avoid*: install where it means provisioning, deploy
+The explicit action performed by `ns skills install ... --harness <id>` to materialize a first-party skill into the selected **Harness** root. Project activation and extension lifecycle do not provision Harness artifacts.
+*Avoid*: automatic activation, extension install, deploy
 
 **Skills**:
-The user-facing CLI noun for `ns skills ...`, the current steelthread surface over `skill` **Harness artifact** provisioning.
-*Avoid*: artifacts as the user-facing noun
+The user-facing CLI noun for `ns skills ...`, the explicit surface for listing first-party ns skills and selecting a **Harness** for path resolution or provisioning.
+*Avoid*: extension artifacts, automatic artifact activation, artifacts as the user-facing noun
 
 **Skill Exposure Policy**:
 The explicit repo-local declaration of how a skill is surfaced across harnesses. The retained policies are exactly `normal`, `invoke-only`, and `skill-backed-command`; declarations target an explicit skill directory or direct `SKILL.md` path and are reconciled by `ns skill-exposure`.

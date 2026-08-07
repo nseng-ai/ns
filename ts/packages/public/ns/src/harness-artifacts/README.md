@@ -1,53 +1,71 @@
 # harness-artifacts
 
-The `harness-artifacts` feature of `@nseng-ai/ns` owns the shared catalog, path-table, provision-plan, and local materialization logic for ns-owned harness artifacts.
+The `harness-artifacts` feature of `@nseng-ai/ns` owns the catalog, path resolution, and
+local materialization logic used by the explicit `ns skills` command family. Other packages
+consume its retained contracts through the `@nseng-ai/ns/api` door; modules inside
+`@nseng-ai/ns` import the feature directly.
 
-It is the substrate behind the `ns skills` command family and the `init` feature's artifact activation. Other packages consume it through the `@nseng-ai/ns/api` door; modules inside `@nseng-ai/ns` import this feature directly.
+It is not an extension-activation subsystem. Extension descriptors do not declare harness
+artifacts, and `ns init` or `ns extension install|update|uninstall` never provisions,
+reconciles, or removes files in harness roots.
 
 ## Domain vocabulary
 
-- **Harness artifact**: an ns-owned resource that can be materialized into an assistant harness.
-- **Kinds**: the model represents `skill`, `agent`, and `extension-bundle`; the steelthread provisions only `skill` artifacts today.
-- **Harness**: the target assistant environment (`claude-code`, `codex`, or `pi`). Do not use "platform" for this domain.
-- **Provision**: the verb for materializing a harness artifact into a harness root.
-- **Skills**: the user-facing CLI noun for the current steelthread surface (`ns skills ...`).
+- **Harness artifact**: an ns-owned first-party skill selected for an explicit provisioning
+  operation.
+- **Harness**: the destination assistant environment (`claude-code`, `codex`, or `pi`) named
+  by `--harness` for one command. Do not use "platform" for this domain.
+- **Provision**: the explicit act of materializing a selected first-party skill into the
+  selected Harness root.
+- **Skills**: the user-facing CLI noun for `ns skills ...`.
 
-## Supported harness path table
+The underlying model still contains `HarnessId` and broader artifact-kind types for its
+retained API and implementation history. The supported user behavior is narrower: only
+first-party `skill` entries are listed or provisioned, and no Harness selection is persisted.
 
-`src/harness-paths.ts` defines `HARNESS_SPECS`: harness ids, aliases, and user/project skill roots. `normalizeHarnessId` accepts ids and aliases case-insensitively after trimming; `resolveHarnessArtifactPath` resolves only `skill` artifacts and returns the root plus the concrete artifact path.
+## Harness path table
 
-Given `projectRoot`, `homeDir`, optional `env.CLAUDE_CONFIG_DIR`, and artifact name `<skillName>`:
+`src/harness-paths.ts` defines `HARNESS_SPECS`: harness IDs, aliases, and user/project skill
+roots. `normalizeHarnessId` accepts IDs and aliases case-insensitively after trimming;
+`resolveHarnessArtifactPath` resolves skill destinations from the explicit Harness and scope.
 
-| Harness id    | Aliases  | Scope     | Resolved root                                                                                                    | Resolved artifact path                     |
-| ------------- | -------- | --------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `claude-code` | `claude` | `project` | `<projectRoot>/.claude/skills`                                                                                   | `<projectRoot>/.claude/skills/<skillName>` |
-| `claude-code` | `claude` | `user`    | `<CLAUDE_CONFIG_DIR>/skills` when `CLAUDE_CONFIG_DIR` is set and non-blank; otherwise `<homeDir>/.claude/skills` | `<root>/<skillName>`                       |
-| `codex`       | none     | `project` | `<projectRoot>/.agents/skills`                                                                                   | `<projectRoot>/.agents/skills/<skillName>` |
-| `codex`       | none     | `user`    | `<homeDir>/.agents/skills`                                                                                       | `<homeDir>/.agents/skills/<skillName>`     |
-| `pi`          | `pi-dev` | `project` | `<projectRoot>/.pi/skills`                                                                                       | `<projectRoot>/.pi/skills/<skillName>`     |
-| `pi`          | `pi-dev` | `user`    | `<homeDir>/.pi/agent/skills`                                                                                     | `<homeDir>/.pi/agent/skills/<skillName>`   |
+Given `projectRoot`, `homeDir`, optional `env.CLAUDE_CONFIG_DIR`, and skill name
+`<skillName>`:
 
-Adding another harness is intended to be a pure data addition to `HARNESS_SPECS`: add the id, aliases, and scoped root specs, then cover alias normalization and path resolution in tests.
+| Harness id    | Aliases  | Scope     | Resolved root                                                                             | Resolved skill path                        |
+| ------------- | -------- | --------- | ----------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `claude-code` | `claude` | `project` | `<projectRoot>/.claude/skills`                                                            | `<projectRoot>/.claude/skills/<skillName>` |
+| `claude-code` | `claude` | `user`    | `<CLAUDE_CONFIG_DIR>/skills` when set and non-blank; otherwise `<homeDir>/.claude/skills` | `<root>/<skillName>`                       |
+| `codex`       | none     | `project` | `<projectRoot>/.agents/skills`                                                            | `<projectRoot>/.agents/skills/<skillName>` |
+| `codex`       | none     | `user`    | `<homeDir>/.agents/skills`                                                                | `<homeDir>/.agents/skills/<skillName>`     |
+| `pi`          | `pi-dev` | `project` | `<projectRoot>/.pi/skills`                                                                | `<projectRoot>/.pi/skills/<skillName>`     |
+| `pi`          | `pi-dev` | `user`    | `<homeDir>/.pi/agent/skills`                                                              | `<homeDir>/.pi/agent/skills/<skillName>`   |
 
-## Catalog and provision flow
+Adding another Harness remains a data addition to `HARNESS_SPECS`, with alias-normalization
+and path-resolution tests. It does not add a persisted project or user setting.
 
-The first-party catalog lives in `src/first-party-catalog.ts` as `NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG`. The current catalog contains the `objective` skill (`objective-skill`) sourced from `skills/incubating/objectives/objective` in the `@nseng-ai/ns` repository package.
+## Explicit first-party skill provisioning
 
-Provisioning follows one deterministic path:
+The first-party catalog lives in `src/first-party-catalog.ts` as
+`NS_FIRST_PARTY_HARNESS_ARTIFACT_CATALOG`. The current catalog contains the `objective`
+skill (`objective-skill`) sourced from the ns package's first-party skill material.
 
-1. Catalog lookup selects a first-party harness artifact entry.
-2. The harness path table resolves the target root and artifact path for the selected harness and scope.
-3. `buildProvisionPlan` creates a sorted, file-level copy plan from source file hashes. Plan output records the artifact id, kind, provision name, harness, scope, target root, target artifact path, source provenance, and per-file source/target paths with content hashes.
-4. `prepareProvision` retains the exact source bytes, target hash facts, and same-key manifest expectation used by the plan; `previewFromPrepared` projects that prepared provision without writing.
-5. Desired-state reconciliation combines provisions and authorized removals into one ordered aggregate. Immediately before each transition it rereads source, target, and same-key manifest state; unrelated manifest entries are preserved. Drift returns the stable `stale_prepared_reconciliation` error before that transition writes.
-6. Apply writes only prepared bytes, removes only manifest-tracked unchanged files, and updates the latest manifest at `<targetRoot>/.ns-harness-artifacts-manifest.json`. Empty artifact directories may be removed; consumer directories and directories containing untracked files are retained.
-7. Manifest entries are keyed as `<harness>:<scope>:<kind>:<artifactId>` and record per-file content hashes for later LBYL decisions.
+Provisioning follows one deterministic, caller-requested path:
 
-The apply layer refuses to clobber target files classified as `locally-edited-conflict` unless the caller passes `force: true` (`ns skills install --force`). Stale-removal conflicts are never forced by descriptor activation. Before deletion, manifest key, harness, project scope, target root, artifact path, and every tracked file path must be coherent and strictly contained; malformed records return `unsafe_manifest_entry` and grant no deletion authority. Missing tracked files are safe.
+1. Catalog lookup selects the named first-party skill.
+2. The command's explicit `--harness` and `--scope` resolve its target root and path.
+3. `buildProvisionPlan` creates a sorted file-level copy plan from source hashes.
+4. `prepareProvision` retains the exact source bytes and target facts; dry-run projects the
+   prepared operation without writing.
+5. Apply rechecks source and target state immediately before writing.
+6. Apply writes only prepared bytes and records hashes in
+   `<targetRoot>/.ns-harness-artifacts-manifest.json` for later explicit skill operations.
+
+The apply layer refuses to clobber a locally edited target unless the caller passes
+`--force`. Safety checks keep all tracked paths inside the selected root. These manifests
+belong to explicit `ns skills` operations; extension lifecycle does not consult them.
 
 ## `ns skills` surface
-
-The CLI wiring is intentionally thin over this package:
 
 ```text
 ns skills list
@@ -55,10 +73,9 @@ ns skills path <skill> --harness <claude-code|codex|pi> [--scope project|user]
 ns skills install <skill> --harness <claude-code|codex|pi> [--scope project|user] [--dry-run] [--force]
 ```
 
-`list` shows first-party ns skills from the static catalog. `path` prints the resolved target root and artifact path. `install --dry-run` returns the same deterministic plan and decisions as apply, but performs no writes; plain `install` provisions and writes the manifest.
+`list` shows first-party ns skills from the static catalog. `path` prints the destination
+selected by the explicit Harness and scope. `install --dry-run` returns the same plan and
+decisions as apply without writing; plain `install` provisions the selected skill.
 
-## Consumer seam
-
-The `init` feature consumes this feature through `RealArtifactActivationGateway` and `RealArtifactProvisioningStatusGateway`, which call `prepareDeclaredArtifactActivation()` and `applyPreparedDeclaredArtifactActivation()`. Activation prepares the provision once and applies it into project-scope `claude-code`, `codex`, and `pi` harness roots using the shared apply path.
-
-Declared extension activation and `ns update` share the SDK's canonical declared-descriptor loader and feed validated records to artifact discovery. Full activation reads project manifests for every supported harness, including deselected harnesses, and can report `removed` with `removed-source`, `deselected-harness`, `same-target-replacement`, or obsolete-file detail. Targeted reconcile preserves non-target and first-party entries; incomplete acquisition or descriptor discovery does not authorize cleanup of the failed source.
+There is no implicit Harness, caller-identity gate, persisted Harness configuration, or
+automatic extension artifact flow.

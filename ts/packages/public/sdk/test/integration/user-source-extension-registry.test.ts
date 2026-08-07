@@ -33,15 +33,11 @@ describe("user source extension inventory", () => {
 			const packageRoot = fileURLToPath(
 				new URL(`../../../../incubating/extensions/${directoryName}/`, import.meta.url),
 			);
-			writeUserConfig(
-				workspace,
-				`supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(packageRoot)}]\n`,
-			);
+			writeUserConfig(workspace, `extensions = [${JSON.stringify(packageRoot)}]\n`);
 
 			const inventory = await loadNsCommandSourceInventory({
 				cwd: workspace.cwd,
 				homeDir: workspace.homeDir,
-				env: { NS_HARNESS: "pi" },
 			});
 			const userSources = inventory.sources.filter((source) => source.kind === "user");
 
@@ -69,7 +65,10 @@ describe("user source extension inventory", () => {
 			`extensions = [${JSON.stringify(packageRoot)}]\n`,
 		);
 
-		const inventory = await loadNsCommandSourceInventory({ cwd: workspace.cwd });
+		const inventory = await loadNsCommandSourceInventory({
+			cwd: workspace.cwd,
+			homeDir: workspace.homeDir,
+		});
 		const projectSources = inventory.sources.filter((source) => source.kind === "project");
 
 		expect(inventory.diagnostics).toEqual([]);

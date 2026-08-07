@@ -50,26 +50,27 @@ Requires `@nseng-ai/ns` installed and a repository already activated with `ns in
 
 ```bash
 npm install -g @nseng-ai/ns
-ns init --supported-harness claude-code # once per repository
+ns init # once per repository
 ns extension install npm:@nseng-ai/objectives
 ```
 
-A bare-core `ns` install does **not** include `ns objective`. Installing this extension
-(the convenience-rich path, distinct from direct portable skill use):
+A bare-core `ns` install does **not** include `ns objective`. Installing this extension:
 
-1. Records `@nseng-ai/objectives` in `ns.toml` and activates it for the repository's
-   supported harnesses.
+1. Records `@nseng-ai/objectives` in `ns.toml` and activates its repository-neutral effects.
 2. Adds the `ns objective` command surface.
-3. Adds an Objectives instruction block to `AGENTS.md`, teaching agents to check
-   `ns objective list` before non-trivial work and to use the Objective skills.
-4. Provisions the **eight Objective skills** into each supported harness's skill root —
-   for example, `.claude/skills/` for Claude Code: `objective`, `objective-autorun`, `objective-close`,
-   `objective-create`, `objective-critique`, `objective-next`, `objective-refresh`,
-   `objective-update`.
+3. Adds an Objectives instruction block to the generated ns instructions, teaching agents
+   to check `ns objective list` before non-trivial work and to use the Objective skills.
+4. Creates the declared `.ns/objectives` consumer directory.
+
+Extension installation does not copy Objective skills into a harness. Use the explicit
+`ns skills ... --harness <id>` surface for first-party skill provisioning. The standalone
+`objective-runner-step` skill is retired; the first-party Objective skill set contains
+`objective`, `objective-autorun`, `objective-close`, `objective-create`, `objective-critique`,
+`objective-next`, `objective-refresh`, and `objective-update`.
 
 `ns extension install` writes files but never commits — review and commit them yourself.
-After the first install, `ns extension update` refreshes the provisioned artifacts when the
-extension changes.
+After the first install, `ns extension update` refreshes the extension's repository-neutral
+effects when it changes.
 
 ## Lifecycle
 

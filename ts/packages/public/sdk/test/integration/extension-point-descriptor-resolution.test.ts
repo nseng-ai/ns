@@ -66,7 +66,7 @@ describe("extension point descriptor resolution", () => {
 			const catalog = await loadPointCatalogWithDescriptors({
 				repoRoot: root,
 				gateway: nodeProjectConfigGateway,
-				env: {},
+				homeDir: root,
 			});
 			const manifestPath = join(flowPackageRoot, "src", "ns", "extension.ts");
 			const entry = catalog.entries.find((candidate) => candidate.definition.id === pointId);
@@ -125,7 +125,7 @@ describe("extension point descriptor resolution", () => {
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
 			gateway: nodeProjectConfigGateway,
-			env: {},
+			homeDir: root,
 		});
 
 		expect(catalog.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
@@ -144,7 +144,7 @@ describe("extension point descriptor resolution", () => {
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
 			gateway: nodeProjectConfigGateway,
-			env: {},
+			homeDir: root,
 		});
 
 		expect(catalog.entries.map((entry) => entry.definition.id)).not.toContain("legacy.point");
@@ -176,7 +176,7 @@ describe("extension point descriptor resolution", () => {
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
 			gateway: nodeProjectConfigGateway,
-			env: {},
+			homeDir: root,
 		});
 
 		expect(catalog.diagnostics).toContainEqual(
@@ -201,7 +201,7 @@ describe("extension point descriptor resolution", () => {
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
 			gateway: nodeProjectConfigGateway,
-			env: {},
+			homeDir: root,
 		});
 
 		expect(catalog.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
@@ -211,7 +211,7 @@ describe("extension point descriptor resolution", () => {
 		);
 	});
 
-	test("user descriptor point definitions require the enabled Active-harness layer", async () => {
+	test("loads user descriptor point definitions without a harness gate", async () => {
 		const root = await projectRoot();
 		const homeDir = await projectRoot();
 		const userPackageRoot = join(homeDir, "extensions", "tools");
@@ -219,24 +219,17 @@ describe("extension point descriptor resolution", () => {
 		await mkdir(join(homeDir, ".config", "ns"), { recursive: true });
 		await writeFile(
 			join(homeDir, ".config", "ns", "ns.toml"),
-			`supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(userPackageRoot)}]\n`,
+			`extensions = [${JSON.stringify(userPackageRoot)}]\n`,
 		);
 
-		const enabled = await loadPointCatalogWithDescriptors({
-			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
-			env: { NS_HARNESS: "pi", HOME: homeDir },
-		});
-		const disabled = await loadPointCatalogWithDescriptors({
+		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
 			gateway: nodeProjectConfigGateway,
 			env: { HOME: homeDir },
 		});
 
-		expect(enabled.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
-		expect(enabled.entries.map((entry) => entry.definition.id)).toContain("user.point");
-		expect(disabled.entries.map((entry) => entry.definition.id)).not.toContain("user.point");
-		expect(disabled.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+		expect(catalog.diagnostics.filter((item) => item.severity === "error")).toEqual([]);
+		expect(catalog.entries.map((entry) => entry.definition.id)).toContain("user.point");
 	});
 
 	test("a project definition replaces a user definition by full point id", async () => {
@@ -247,7 +240,7 @@ describe("extension point descriptor resolution", () => {
 		await mkdir(join(homeDir, ".config", "ns"), { recursive: true });
 		await writeFile(
 			join(homeDir, ".config", "ns", "ns.toml"),
-			`supported_harnesses = ["pi"]\nextensions = [${JSON.stringify(userPackageRoot)}]\n`,
+			`extensions = [${JSON.stringify(userPackageRoot)}]\n`,
 		);
 		await writeDescriptorPackage(join(root, "extensions", "tools"), "@acme/tools", "shared.point");
 		await writeFile(join(root, "ns.toml"), 'extensions = ["./extensions/tools"]\n');
@@ -255,7 +248,7 @@ describe("extension point descriptor resolution", () => {
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
 			gateway: nodeProjectConfigGateway,
-			env: { NS_HARNESS: "pi", HOME: homeDir },
+			env: { HOME: homeDir },
 		});
 
 		expect(catalog.diagnostics.filter((item) => item.severity === "error")).toEqual([]);

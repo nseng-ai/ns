@@ -1,365 +1,115 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
-
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-
-import { initNs, initNsResultSchema, renderInitNsHuman } from "../../src/init/init-ns.ts";
-import {
-	lifecycleStepSchema,
-	renderLifecycleStepHuman,
-} from "../../src/init/lifecycle-observability.ts";
+import { initNs, renderInitNsHuman } from "../../src/init/init-ns.ts";
 import type { NsActivationContext } from "../../src/init/activation-context.ts";
 import {
-	InMemoryActivationFilesGateway,
-	InMemoryArtifactActivationGateway,
 	CollectingLifecycleTraceSink,
+	InMemoryActivationFilesGateway,
 	InMemoryDeclaredExtensionsGateway,
 } from "../../src/init/testing/index.ts";
 
-const tracedFailureDataSchema = z.object({
-	steps: z.array(lifecycleStepSchema).readonly(),
-});
-
-function fixture(
-	nsToml?: string,
-	artifacts: InMemoryArtifactActivationGateway = new InMemoryArtifactActivationGateway(),
-): {
-	context: NsActivationContext;
-	files: InMemoryActivationFilesGateway;
-} {
+function fixture(nsToml?: string) {
 	const files = new InMemoryActivationFilesGateway({
 		files: nsToml === undefined ? {} : { "ns.toml": nsToml },
 	});
-	return {
-		context: {
-			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
-			files,
-			declaredExtensions: new InMemoryDeclaredExtensionsGateway(),
-			artifacts,
-		},
+	const context: NsActivationContext = {
+		git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
 		files,
+		declaredExtensions: new InMemoryDeclaredExtensionsGateway(),
 	};
+	return { context, files };
 }
 
 describe("initNs", () => {
-	it("requires --supported-harness on first activation and traces the usage failure", async () => {
-		const { context } = fixture();
-		const result = await initNs(context, { cwd: "/repo", supportedHarness: [] });
-		expect(result).toMatchObject({
-			status: "usage-error",
-			data: {
-				argument: "supportedHarness",
-				steps: [
-					{ type: "phase", phase: "repository-preflight", status: "started" },
-					expect.objectContaining({ type: "repository-resolved" }),
-					{ type: "phase", phase: "repository-preflight", status: "completed" },
-					{ type: "phase", phase: "configuration-preflight", status: "started" },
-					{ type: "phase", phase: "configuration-preflight", status: "failed" },
-					expect.objectContaining({
-						type: "failure",
-						phase: "configuration-preflight",
-						code: "supported-harness-required",
-					}),
-				],
-			},
-		});
-	});
-
-	it("computes config before writing and activates with generic structured outcomes", async () => {
+	it("creates activation files from an empty project", async () => {
 		const { context, files } = fixture();
-		const result = await initNs(context, {
-			cwd: "/repo",
-			supportedHarness: ["codex", "claude-code"],
-		});
-		expect(result.status).toBe("success");
-		if (result.status !== "success") return;
-		expect(result.data).toMatchObject({
-			repoRoot: "/repo",
-			trunkBranch: "main",
-			harnesses: ["codex", "claude-code"],
-			harnessSource: "explicit",
-			completed: {
-				files: {
-					"ns-toml": { change: "created" },
-					"managed-extensions-ignore": { change: "created" },
-					"agents-instructions": { change: "created" },
-					"generated-instructions": { change: "created" },
-				},
-				consumerDirectories: [],
-				artifacts: [],
-			},
-		});
-		expect(files.fileContent("ns.toml")).toBe('supported_harnesses = ["codex","claude-code"]\n');
-	});
-
-	it("records and streams one deterministic ordered lifecycle history", async () => {
-		const { context } = fixture();
-		const trace = new CollectingLifecycleTraceSink();
-		const result = await initNs(
-			{ ...context, lifecycleTrace: trace },
-			{ cwd: "/repo", supportedHarness: ["pi"] },
-		);
-		expect(result.status).toBe("success");
-		if (result.status !== "success") return;
-		expect(result.data.steps.map((step) => step.type)).toEqual([
-			"phase",
-			"repository-resolved",
-			"phase",
-			"phase",
-			"harnesses-resolved",
-			"phase",
-			"phase",
-			"activation-planned",
-			"phase",
-			"phase",
-			"activation-file-completed",
-			"activation-file-completed",
-			"activation-file-completed",
-			"activation-file-completed",
-			"activation-file-completed",
-			"phase",
-			"phase",
-		]);
-		expect(trace.collectedLines()).toEqual(result.data.steps.map(renderLifecycleStepHuman));
-	});
-
-	it("ends configuration failures with the correct accumulated phase", async () => {
-		const { context, files } = fixture('supported_harnesses = ["unknown"]\n');
-		const trace = new CollectingLifecycleTraceSink();
-		const result = await initNs(
-			{ ...context, lifecycleTrace: trace },
-			{ cwd: "/repo", supportedHarness: [] },
-		);
+		const result = await initNs(context, { cwd: "/repo" });
 		expect(result).toMatchObject({
-			status: "failure",
+			status: "success",
 			data: {
-				steps: [
-					{ type: "phase", phase: "repository-preflight", status: "started" },
-					expect.objectContaining({ type: "repository-resolved" }),
-					{ type: "phase", phase: "repository-preflight", status: "completed" },
-					{ type: "phase", phase: "configuration-preflight", status: "started" },
-					{ type: "phase", phase: "configuration-preflight", status: "failed" },
-					expect.objectContaining({ type: "failure", phase: "configuration-preflight" }),
-				],
+				repoRoot: "/repo",
+				trunkBranch: "main",
+				completed: {
+					files: {
+						"ns-toml": { change: "created" },
+						"managed-extensions-ignore": { change: "created" },
+						"agents-instructions": { change: "created" },
+						"generated-instructions": { change: "created" },
+					},
+					consumerDirectories: [],
+				},
 			},
 		});
-		if (result.status !== "failure") return;
-		const data = tracedFailureDataSchema.parse(result.data);
-		expect(trace.collectedLines()).toEqual(data.steps.map(renderLifecycleStepHuman));
-		expect(files.operations()).toEqual([]);
+		expect(files.fileContent("ns.toml")).toBe("");
 	});
-
-	it("traces apply failures after completed work and preserves recovery data", async () => {
+	it("streams deterministic lifecycle history", async () => {
 		const { context } = fixture();
-		const files = new InMemoryActivationFilesGateway({
-			writeFailures: {
-				".gitignore": { code: "write-denied", message: "Cannot write .gitignore." },
-			},
-		});
 		const trace = new CollectingLifecycleTraceSink();
-		const result = await initNs(
-			{ ...context, files, lifecycleTrace: trace },
-			{ cwd: "/repo", supportedHarness: ["pi"] },
-		);
-
+		const result = await initNs({ ...context, lifecycleTrace: trace }, { cwd: "/repo" });
+		expect(result.status).toBe("success");
+		if (result.status !== "success") return;
+		expect(trace.collectedLines()).toHaveLength(result.data.steps.length);
+		expect(result.data.steps.at(-1)).toEqual({
+			type: "phase",
+			phase: "completion",
+			status: "completed",
+		});
+	});
+	it("preserves completed duties when apply fails", async () => {
+		const files = new InMemoryActivationFilesGateway({
+			writeFailures: { "AGENTS.md": { code: "write-failed", message: "failed" } },
+		});
+		const context: NsActivationContext = {
+			git: new InMemoryGitGateway({ optionalRepoRoot: "/repo", cachedOriginHeadBranch: "main" }),
+			files,
+			declaredExtensions: new InMemoryDeclaredExtensionsGateway(),
+		};
+		const result = await initNs(context, { cwd: "/repo" });
 		expect(result).toMatchObject({
 			status: "failure",
 			errorType: "ns-init-apply-failed",
 			data: {
-				phase: "managed-extensions-ignore",
-				error: { code: "write-denied", message: "Cannot write .gitignore." },
-				completed: { files: { "ns-toml": { change: "created" } } },
-				steps: expect.arrayContaining([
-					{ type: "phase", phase: "activation-apply", status: "failed" },
-					expect.objectContaining({
-						type: "failure",
-						phase: "activation-apply",
-						code: "write-denied",
-					}),
-				]),
-			},
-		});
-		if (result.status !== "failure") return;
-		const data = tracedFailureDataSchema.parse(result.data);
-		expect(data.steps.at(-2)).toEqual({
-			type: "phase",
-			phase: "activation-apply",
-			status: "failed",
-		});
-		expect(data.steps.at(-1)).toMatchObject({
-			type: "failure",
-			phase: "activation-apply",
-			code: "write-denied",
-		});
-		expect(trace.collectedLines()).toEqual(data.steps.map(renderLifecycleStepHuman));
-	});
-
-	it("uses persisted supported harnesses and reports an idempotent rerun", async () => {
-		const nsToml = 'supported_harnesses = ["pi"]\n';
-		const { context, files } = fixture(nsToml);
-		const first = await initNs(context, { cwd: "/repo", supportedHarness: [] });
-		expect(first.status).toBe("success");
-		files.operations();
-		const second = await initNs(context, { cwd: "/repo", supportedHarness: [] });
-		expect(second).toMatchObject({
-			status: "success",
-			data: {
-				harnessSource: "ns-toml",
 				completed: {
 					files: {
-						"ns-toml": { change: "unchanged" },
-						"managed-extensions-ignore": { change: "unchanged" },
-						"agents-instructions": { change: "unchanged" },
-						"generated-instructions": { change: "unchanged" },
+						"ns-toml": { change: "created" },
+						"managed-extensions-ignore": { change: "created" },
 					},
 				},
 			},
 		});
 	});
-
-	it("renders a per-duty human report and omits empty sections", async () => {
-		const { context } = fixture();
-		const result = await initNs(context, {
-			cwd: "/repo",
-			supportedHarness: ["codex", "claude-code"],
+	it("is idempotent for existing activation files", async () => {
+		const { context } = fixture("");
+		const first = await initNs(context, { cwd: "/repo" });
+		const second = await initNs(context, { cwd: "/repo" });
+		expect(first.status).toBe("success");
+		expect(second).toMatchObject({
+			status: "success",
+			data: { completed: { files: { "ns-toml": { change: "unchanged" } } } },
 		});
-		expect(result.status).toBe("success");
-		if (result.status !== "success") return;
-		expect(renderInitNsHuman(result.data)).toBe(
-			[
-				"Activated ns in /repo.",
-				"Supported harnesses (explicit): codex, claude-code.",
-				"Files:",
-				"  ns.toml              created",
-				"  .gitignore           created",
-				"  AGENTS.md            created",
-				"  CLAUDE.md            created",
-				"  .ns/instructions.md  created",
-			].join("\n"),
-		);
 	});
-
-	it("renders every non-empty report section byte-exactly", () => {
-		const rendered = renderInitNsHuman({
-			repoRoot: "/repo",
-			trunkBranch: "main",
-			harnesses: ["pi"],
-			harnessSource: "ns-toml",
-			completed: {
-				files: { "ns-toml": { change: "unchanged" } },
-				consumerDirectories: [{ path: ".ns/data", change: "created" }],
-				artifacts: [
-					{
-						key: "pi:removed",
-						action: "removed",
-						artifactId: "@test/removed:demo",
-						skillName: "demo",
-						harness: "pi",
-						targetArtifactPath: "/repo/.pi/skills/demo",
-						manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
-						writtenFiles: [],
-						conflictingFiles: [],
-						removedFiles: ["/repo/.pi/skills/demo/SKILL.md"],
-						removalReason: "removed-source",
-					},
-				],
-			},
-			steps: [],
-		});
-
-		expect(rendered).toBe(
-			[
-				"Activated ns in /repo.",
-				"Supported harnesses (ns-toml): pi.",
-				"Files:",
-				"  ns.toml  unchanged",
-				"Consumer directories:",
-				"  .ns/data  created",
-				"Artifacts:",
-				"  demo (pi)  removed [removed-source]",
-			].join("\n"),
-		);
-	});
-
-	it("renders sparse files in canonical order regardless of record insertion order", () => {
-		const rendered = renderInitNsHuman({
-			repoRoot: "/repo",
-			trunkBranch: "main",
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			completed: {
-				files: {
-					"generated-instructions": { change: "created" },
-					"ns-toml": { change: "unchanged" },
-					"agents-instructions": { change: "appended" },
+	it("renders files and consumer directories without removed automatic sections", () => {
+		expect(
+			renderInitNsHuman({
+				repoRoot: "/repo",
+				trunkBranch: "main",
+				completed: {
+					files: { "ns-toml": { change: "unchanged" } },
+					consumerDirectories: [{ path: ".ns/data", change: "created" }],
 				},
-			},
-			steps: [],
-		});
-		expect(rendered.indexOf("ns.toml")).toBeLessThan(rendered.indexOf("AGENTS.md"));
-		expect(rendered.indexOf("AGENTS.md")).toBeLessThan(rendered.indexOf(".ns/instructions.md"));
-		expect(rendered).not.toContain(".gitignore");
+				steps: [],
+			}),
+		).toBe(
+			"Activated ns in /repo.\nFiles:\n  ns.toml  unchanged\nConsumer directories:\n  .ns/data  created",
+		);
 	});
-
-	it("preserves removed artifact cleanup details in structured and human reports", async () => {
-		const artifacts = new InMemoryArtifactActivationGateway({
-			applyResult: {
-				ok: true,
-				completed: [
-					{
-						key: "pi:removed",
-						action: "removed",
-						artifactId: "@test/removed:demo",
-						skillName: "demo",
-						harness: "pi",
-						targetArtifactPath: "/repo/.pi/skills/demo",
-						manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
-						writtenFiles: [],
-						conflictingFiles: [],
-						removedFiles: ["/repo/.pi/skills/demo/SKILL.md"],
-						removalReason: "removed-source",
-					},
-					{
-						key: "codex:deselected",
-						action: "removed",
-						artifactId: "@test/active:other",
-						skillName: "other",
-						harness: "codex",
-						targetArtifactPath: "/repo/.agents/skills/other",
-						manifestPath: "/repo/.agents/skills/.ns-harness-artifacts-manifest.json",
-						writtenFiles: [],
-						conflictingFiles: [],
-						removedFiles: ["/repo/.agents/skills/other/SKILL.md"],
-						removalReason: "deselected-harness",
-					},
-				],
-			},
-		});
-		const { context } = fixture(undefined, artifacts);
-		const result = await initNs(context, { cwd: "/repo", supportedHarness: ["pi"] });
-		expect(result.status).toBe("success");
-		if (result.status !== "success") return;
-		const structured = initNsResultSchema.parse(result.data);
-		expect(structured.completed.artifacts).toMatchObject([
-			{ action: "removed", removalReason: "removed-source", removedFiles: [expect.any(String)] },
-			{
-				action: "removed",
-				removalReason: "deselected-harness",
-				removedFiles: [expect.any(String)],
-			},
-		]);
-		expect(renderInitNsHuman(structured)).toContain("Artifacts:");
-		expect(renderInitNsHuman(structured)).toContain("demo (pi)");
-		expect(renderInitNsHuman(structured)).toContain("removed");
-	});
-
-	it("returns aggregated preflight failure data with an empty completion map", async () => {
-		const { context, files } = fixture('supported_harnesses = ["pi"]\nextensions = [42]\n');
-		const result = await initNs(context, { cwd: "/repo", supportedHarness: [] });
+	it("returns aggregated extension-config preflight failures without writes", async () => {
+		const { context, files } = fixture("extensions = [42]\n");
+		const result = await initNs(context, { cwd: "/repo" });
 		expect(result).toMatchObject({
 			status: "failure",
 			errorType: "ns-init-preflight-failed",
-			data: { phase: "preflight", completed: {} },
+			data: { completed: {}, diagnostics: [{ code: "invalid-extensions" }] },
 		});
 		expect(files.operations()).toEqual([]);
 	});

@@ -12,47 +12,48 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 
 ## Accepted
 
-| ADR  | Title                                                                                                                  |
-| ---- | ---------------------------------------------------------------------------------------------------------------------- |
-| 0001 | [Umbrella Objectives](0001-prose-only-synthesis-objectives.md)                                                         |
-| 0002 | [Singular Handoff Namespace](0002-handoff-namespace-singular.md)                                                       |
-| 0003 | [Plans Are Inert Markdown](0003-remove-typescript-planned-branch-recipes.md)                                           |
-| 0004 | [PR Feedback and GitHub Package Boundary](0004-pr-address-typescript-package-boundary.md)                              |
-| 0006 | [Saved Plans and Branch Context](0006-branch-context.md)                                                               |
-| 0007 | [Shared Diff Parsing with `@pierre/diffs`](0007-roaster-shared-diff-parser.md)                                         |
-| 0008 | [Runtime TypeScript Extension Loading with jiti](0008-jiti-extension-module-loader.md)                                 |
-| 0009 | [Extension Layering and the Extension Dependency Graph](0009-extension-layering-and-peer-dependencies.md)              |
-| 0010 | [Clinkr Rendered Result Contract](0010-clinkr-exit-code-semantics.md)                                                  |
-| 0012 | [Clinkr Output-Volume Discipline](0012-clinkr-output-volume-discipline.md)                                             |
-| 0014 | [Clinkr Confirmation and Danger Tiers](0014-clinkr-confirmation-danger-tiers.md)                                       |
-| 0016 | [Skill Exposure Spends the Ambient Context Budget Deliberately](0016-skill-invocation-context-budget.md)               |
-| 0017 | [Declared Package Tiers](0017-declared-package-tiers.md)                                                               |
-| 0019 | [DI Seam Classification and Gateway Placement](0019-gateway-real-implementation-placement-gate.md)                     |
-| 0021 | [SDK Command I/O and Progress Services](0021-sdk-command-io-and-progress-services.md)                                  |
-| 0023 | [Manifest-Declared Subpackages and Edge-Significance Kinds](0023-subpackage-kinds-and-edge-significance.md)            |
-| 0024 | [Objective Runner Begin/Finish Workflow](0024-objective-runner-begin-finish-decomposition.md)                          |
-| 0025 | [Kind-less Mirrored Objective Edges](0025-zero-kind-mirrored-objective-edges.md)                                       |
-| 0026 | [ns Product Identity](0026-rename-ji-to-ns.md)                                                                         |
-| 0029 | [Public Workspace and Package Identity](0029-public-package-renames.md)                                                |
-| 0031 | [Points for Extension-defined Hooks and Prompts](0031-point-system.md)                                                 |
-| 0032 | [Neutral Infra Admission by External Applicability](0032-neutral-infra-admission-and-api-kind-subpackages.md)          |
-| 0034 | [External-Tool Workflow Ownership Without Accretion](0034-rename-ccc-to-cmux-capability.md)                            |
-| 0035 | [SDK Package and Root Author API](0035-rename-kernel-package-to-sdk.md)                                                |
-| 0037 | [Objective Runner Parent-Only Publication](0037-objective-runner-parent-only-publication.md)                           |
-| 0043 | [Unified Subagent Tool and Runtime Selection](0043-unify-subagent-tool-and-runtime-selection.md)                       |
-| 0045 | [Release Disposition and Owner-Nested Package Ontology](0045-release-disposition-and-owner-nested-package-ontology.md) |
-| 0046 | [Skill Disposition and Owner-Nested Canonical Ontology](0046-skill-disposition-and-owner-nested-ontology.md)           |
-| 0047 | [Propagate Objective Closure Through Connected Records](0047-propagate-objective-closure-through-edges.md)             |
-| 0048 | [Required Skill-Backed Workflows Fail Closed](0048-required-skill-backed-workflows-fail-closed.md)                     |
-| 0049 | [Opt-In, Provider-Neutral Stacking](0049-opt-in-provider-neutral-stacking.md)                                          |
-| 0050 | [Portable Skill-First Objective Autorun](0050-portable-objective-autorun.md)                                           |
-| 0051 | [Layered User and Project Extension Resolution](0051-layered-user-and-project-extension-resolution.md)                 |
-| 0052 | [Objective Autorun PR Title Annotation](0052-objective-autorun-pr-title-annotation.md)                                 |
-| 0053 | [Source-Identity Extension Precedence](0053-source-identity-extension-precedence.md)                                   |
-| 0054 | [Package-Atomic Extension Admission](0054-package-atomic-extension-admission.md)                                       |
-| 0055 | [XDG-Managed User npm Extension Storage](0055-xdg-managed-user-npm-extension-storage.md)                               |
-| 0056 | [Harness-Aware User Extension Layer](0056-harness-aware-user-extension-layer.md)                                       |
-| 0057 | [Retire the Standalone Objective Runner Step Skill](0057-retire-standalone-objective-runner-step-skill.md)             |
+| ADR  | Title                                                                                                                                                |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0001 | [Umbrella Objectives](0001-prose-only-synthesis-objectives.md)                                                                                       |
+| 0002 | [Singular Handoff Namespace](0002-handoff-namespace-singular.md)                                                                                     |
+| 0003 | [Plans Are Inert Markdown](0003-remove-typescript-planned-branch-recipes.md)                                                                         |
+| 0004 | [PR Feedback and GitHub Package Boundary](0004-pr-address-typescript-package-boundary.md)                                                            |
+| 0006 | [Saved Plans and Branch Context](0006-branch-context.md)                                                                                             |
+| 0007 | [Shared Diff Parsing with `@pierre/diffs`](0007-roaster-shared-diff-parser.md)                                                                       |
+| 0008 | [Runtime TypeScript Extension Loading with jiti](0008-jiti-extension-module-loader.md)                                                               |
+| 0009 | [Extension Layering and the Extension Dependency Graph](0009-extension-layering-and-peer-dependencies.md)                                            |
+| 0010 | [Clinkr Rendered Result Contract](0010-clinkr-exit-code-semantics.md)                                                                                |
+| 0012 | [Clinkr Output-Volume Discipline](0012-clinkr-output-volume-discipline.md)                                                                           |
+| 0014 | [Clinkr Confirmation and Danger Tiers](0014-clinkr-confirmation-danger-tiers.md)                                                                     |
+| 0016 | [Skill Exposure Spends the Ambient Context Budget Deliberately](0016-skill-invocation-context-budget.md)                                             |
+| 0017 | [Declared Package Tiers](0017-declared-package-tiers.md)                                                                                             |
+| 0019 | [DI Seam Classification and Gateway Placement](0019-gateway-real-implementation-placement-gate.md)                                                   |
+| 0021 | [SDK Command I/O and Progress Services](0021-sdk-command-io-and-progress-services.md)                                                                |
+| 0023 | [Manifest-Declared Subpackages and Edge-Significance Kinds](0023-subpackage-kinds-and-edge-significance.md)                                          |
+| 0024 | [Objective Runner Begin/Finish Workflow](0024-objective-runner-begin-finish-decomposition.md)                                                        |
+| 0025 | [Kind-less Mirrored Objective Edges](0025-zero-kind-mirrored-objective-edges.md)                                                                     |
+| 0026 | [ns Product Identity](0026-rename-ji-to-ns.md)                                                                                                       |
+| 0029 | [Public Workspace and Package Identity](0029-public-package-renames.md)                                                                              |
+| 0031 | [Points for Extension-defined Hooks and Prompts](0031-point-system.md)                                                                               |
+| 0032 | [Neutral Infra Admission by External Applicability](0032-neutral-infra-admission-and-api-kind-subpackages.md)                                        |
+| 0034 | [External-Tool Workflow Ownership Without Accretion](0034-rename-ccc-to-cmux-capability.md)                                                          |
+| 0035 | [SDK Package and Root Author API](0035-rename-kernel-package-to-sdk.md)                                                                              |
+| 0037 | [Objective Runner Parent-Only Publication](0037-objective-runner-parent-only-publication.md)                                                         |
+| 0043 | [Unified Subagent Tool and Runtime Selection](0043-unify-subagent-tool-and-runtime-selection.md)                                                     |
+| 0045 | [Release Disposition and Owner-Nested Package Ontology](0045-release-disposition-and-owner-nested-package-ontology.md)                               |
+| 0046 | [Skill Disposition and Owner-Nested Canonical Ontology](0046-skill-disposition-and-owner-nested-ontology.md)                                         |
+| 0047 | [Propagate Objective Closure Through Connected Records](0047-propagate-objective-closure-through-edges.md)                                           |
+| 0048 | [Required Skill-Backed Workflows Fail Closed](0048-required-skill-backed-workflows-fail-closed.md)                                                   |
+| 0049 | [Opt-In, Provider-Neutral Stacking](0049-opt-in-provider-neutral-stacking.md)                                                                        |
+| 0050 | [Portable Skill-First Objective Autorun](0050-portable-objective-autorun.md)                                                                         |
+| 0051 | [Layered User and Project Extension Resolution](0051-layered-user-and-project-extension-resolution.md)                                               |
+| 0052 | [Objective Autorun PR Title Annotation](0052-objective-autorun-pr-title-annotation.md)                                                               |
+| 0053 | [Source-Identity Extension Precedence](0053-source-identity-extension-precedence.md)                                                                 |
+| 0054 | [Package-Atomic Extension Admission](0054-package-atomic-extension-admission.md)                                                                     |
+| 0055 | [XDG-Managed User npm Extension Storage](0055-xdg-managed-user-npm-extension-storage.md)                                                             |
+| 0056 | [Harness-Aware User Extension Layer](0056-harness-aware-user-extension-layer.md)                                                                     |
+| 0057 | [Retire the Standalone Objective Runner Step Skill](0057-retire-standalone-objective-runner-step-skill.md)                                           |
+| 0058 | [Repository-Neutral Activation and Caller-Independent User Extensions](0058-repository-neutral-activation-and-caller-independent-user-extensions.md) |
 
 ## Proposed
 

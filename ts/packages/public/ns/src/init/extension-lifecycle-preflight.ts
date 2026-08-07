@@ -1,7 +1,6 @@
 import { join } from "node:path";
 
 import { failure, type CommandOutcome } from "@nseng-ai/clinkr/app";
-import { parseNsTomlSupportedHarnesses } from "../harness-artifacts/api.ts";
 import {
 	classifyExtensionSourceLifecycle,
 	extensionSourceIdentityFromParsed,
@@ -30,7 +29,6 @@ export interface PreparedExtensionLifecycle {
 	readonly repoRoot: string;
 	readonly trunkBranch: string;
 	readonly nsTomlContent: string;
-	readonly harnesses: readonly ("claude-code" | "codex" | "pi")[];
 	readonly source: NonGitExtensionSource;
 	readonly sourceIdentity: ExtensionSourceIdentity;
 }
@@ -48,8 +46,6 @@ export type ExtensionLifecyclePreflightFailure =
 			>;
 			readonly repoRoot: string;
 	  }
-	| { readonly type: "supported-harnesses-missing"; readonly diagnostic: ActivationDiagnostic }
-	| { readonly type: "supported-harnesses-invalid"; readonly diagnostic: ActivationDiagnostic }
 	| { readonly type: "source-invalid"; readonly diagnostic: ActivationDiagnostic }
 	| { readonly type: "source-unsupported"; readonly sourceSpec: string; readonly message: string };
 
@@ -77,31 +73,6 @@ export async function prepareExtensionLifecycle(
 		recorder.fail(preflightFailureDiagnostic(failure));
 		return { type: "failed", failure };
 	}
-	const harnesses = parseNsTomlSupportedHarnesses(config.content);
-	if (harnesses.type !== "ok") {
-		const diagnostic =
-			harnesses.type === "missing"
-				? {
-						code: "supported-harnesses-missing",
-						message: "ns.toml does not configure repository supported harnesses.",
-						path: "ns.toml",
-					}
-				: { ...harnesses.error, path: "ns.toml" };
-		const failure = {
-			type:
-				harnesses.type === "missing"
-					? "supported-harnesses-missing"
-					: "supported-harnesses-invalid",
-			diagnostic,
-		} as const;
-		recorder.fail(diagnostic);
-		return { type: "failed", failure };
-	}
-	recorder.record({
-		type: "harnesses-resolved",
-		source: "ns-toml",
-		harnesses: harnesses.harnesses,
-	});
 	recorder.beginPhase("declaration-planning");
 	const classification = classifyExtensionSourceLifecycle(repoRoot, request.source);
 	switch (classification.type) {
@@ -114,7 +85,6 @@ export async function prepareExtensionLifecycle(
 					repoRoot,
 					trunkBranch,
 					nsTomlContent: config.content,
-					harnesses: harnesses.harnesses,
 					source: classification.source,
 					sourceIdentity: extensionSourceIdentityFromParsed(repoRoot, classification.source),
 				},
@@ -183,26 +153,13 @@ export function extensionLifecycleFailure<TResult>(
 			result.type === "missing"
 				? `ns.toml is missing; initialize ns before ${extensionLifecycleGerund(verb)} extensions.`
 				: "ns.toml exists but is not a file.";
-		return failure(`${prefix}-supported-harnesses-missing`, message, {
+		return failure(`${prefix}-config-missing`, message, {
 			phase: "preflight",
 			diagnostics: [{ code: `ns-toml-${result.type}`, message, path: join(repoRoot, "ns.toml") }],
-			nextCommand: "ns init --supported-harness <claude-code|codex|pi>",
+			nextCommand: "ns init",
 			completed: {},
 			steps: recorder.steps(),
 		});
-	}
-	if (
-		preflightFailure.type === "supported-harnesses-missing" ||
-		preflightFailure.type === "supported-harnesses-invalid"
-	) {
-		return failure(
-			`${prefix}-${preflightFailure.type}`,
-			`${preflightFailure.diagnostic.message} Run ns init with an explicit supported harness before ${extensionLifecycleGerund(verb)} extensions.`,
-			{
-				...extensionLifecyclePreflightEnvelope([preflightFailure.diagnostic], recorder),
-				nextCommand: "ns init --supported-harness <claude-code|codex|pi>",
-			},
-		);
 	}
 	if (preflightFailure.type === "source-invalid") {
 		return failure(
@@ -245,11 +202,6 @@ function preflightFailureDiagnostic(failure: ExtensionLifecyclePreflightFailure)
 			path: join(failure.repoRoot, "ns.toml"),
 		};
 	}
-	if (
-		failure.type === "supported-harnesses-missing" ||
-		failure.type === "supported-harnesses-invalid" ||
-		failure.type === "source-invalid"
-	)
-		return failure.diagnostic;
+	if (failure.type === "source-invalid") return failure.diagnostic;
 	return { code: "source-unsupported", message: failure.message };
 }

@@ -59,12 +59,18 @@ describe("preinstalled command loading host integration", () => {
 
 		expect(run.exit).toBe(0);
 		expect(run.stdout).toContain("Activate ns in this repository by writing ns.toml");
-		expect(run.stdout).toContain(
-			"instructions, creating declared consumer directories, and provisioning declared",
-		);
-		expect(run.stdout).toContain("extension artifacts.");
-		expect(run.stdout).toContain("--supported-harness");
+		expect(run.stdout).toContain("instructions, and creating declared consumer directories.");
+		expect(run.stdout).not.toContain("--supported-harness");
 		expect(run.stderr).toBe("");
+		expect(run.execCalls).toEqual([]);
+	});
+
+	test("rejects the removed init option through ordinary option parsing", async () => {
+		const run = await runNsCliWithFakeContext(["init", "--supported-harness", "pi"]);
+
+		expect(run.exit).toBe(2);
+		expect(run.stderr).toContain("unknown option '--supported-harness'");
+		expect(run.stderr).not.toContain("migration");
 		expect(run.execCalls).toEqual([]);
 	});
 

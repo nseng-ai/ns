@@ -1,10 +1,8 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
 import { z } from "zod";
 
 import {
 	consumerDirectoryOutcomeSchema,
-	declaredArtifactActivationOutcomeShape,
 	fileActivationOutcomeSchema,
 } from "./activation-outcomes.ts";
 import { activationFileSchema } from "./activation-files.ts";
@@ -38,11 +36,6 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 		type: z.literal("repository-resolved"),
 		repoRoot: z.string(),
 		trunkBranch: z.string(),
-	}),
-	z.object({
-		type: z.literal("harnesses-resolved"),
-		source: z.enum(["explicit", "ns-toml"]),
-		harnesses: z.array(z.enum(ALL_HARNESS_IDS)).readonly(),
 	}),
 	z.object({
 		type: z.literal("declaration-decided"),
@@ -80,7 +73,6 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 		descriptorCount: z.number().int().nonnegative(),
 		fileCount: z.number().int().nonnegative(),
 		consumerDirectoryCount: z.number().int().nonnegative(),
-		artifactCount: z.number().int().nonnegative(),
 	}),
 	fileActivationOutcomeSchema.extend({
 		type: z.literal("activation-file-completed"),
@@ -89,10 +81,6 @@ export const lifecycleStepSchema = z.discriminatedUnion("type", [
 	}),
 	consumerDirectoryOutcomeSchema.extend({
 		type: z.literal("consumer-directory-completed"),
-	}),
-	z.object({
-		type: z.literal("artifact-completed"),
-		...declaredArtifactActivationOutcomeShape,
 	}),
 	z.object({
 		type: z.literal("preservation"),
@@ -214,7 +202,6 @@ export function recordActivationPlan(
 		descriptorCount: activation.descriptors.length,
 		fileCount: Object.keys(activation.files).length,
 		consumerDirectoryCount: activation.consumerDirectories.length,
-		artifactCount: activation.artifacts.artifacts.length,
 	});
 }
 
@@ -224,20 +211,16 @@ export function renderLifecycleStepHuman(step: LifecycleStep): string {
 			return `[${step.phase}] ${step.status}`;
 		case "repository-resolved":
 			return `Repository: ${step.repoRoot} (trunk ${step.trunkBranch})`;
-		case "harnesses-resolved":
-			return `Supported harnesses (${step.source}): ${step.harnesses.join(", ")}`;
 		case "declaration-decided":
 			return `Declaration: ${step.action} ${step.nsTomlPath} (${step.sourceSpec})`;
 		case "acquisition-decided":
 			return `Acquisition: ${step.intent} ${step.sourceSpec} -> ${step.outcome}${step.moduleRoot === undefined ? "" : ` at ${step.moduleRoot}`}`;
 		case "activation-planned":
-			return `Activation plan: ${step.descriptorCount} descriptors, ${step.fileCount} files, ${step.consumerDirectoryCount} consumer directories, ${step.artifactCount} artifacts`;
+			return `Activation plan: ${step.descriptorCount} descriptors, ${step.fileCount} files, ${step.consumerDirectoryCount} consumer directories`;
 		case "activation-file-completed":
 			return `File: ${step.path} ${step.change}`;
 		case "consumer-directory-completed":
 			return `Consumer directory: ${step.path} ${step.change}`;
-		case "artifact-completed":
-			return `Artifact: ${step.skillName} (${step.harness}) ${step.action}`;
 		case "preservation":
 			return `Preserved ${step.subject}${step.path === undefined ? "" : ` at ${step.path}`}`;
 		case "effect":

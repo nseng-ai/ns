@@ -11,9 +11,8 @@ export const nsInitNsCommand = nsInitCommand({
 	name: "init",
 	summary: "Activate ns in this repository.",
 	description:
-		"Activate ns in this repository by writing ns.toml, generating agent instructions, creating declared consumer directories, and provisioning declared extension artifacts.",
+		"Activate ns in this repository by writing ns.toml, generating agent instructions, and creating declared consumer directories.",
 	schema: initNsRequestSchema,
-	options: { supportedHarness: { short: "-H" } },
 	resultSchema: initNsResultSchema,
 	handler: (context, request) => initNs(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderInitNsHuman,
