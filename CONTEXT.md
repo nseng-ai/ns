@@ -29,7 +29,7 @@ One parent-judged iteration of Objective autorun. In `ns-bookended` mode it may 
 *Avoid*: Objective Runner step as a mode-neutral term, Runner Checkpoint for a portable commit, unattended iteration
 
 **Objective Runner**:
-The strict ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol used by `ns-bookended` autorun or the advanced invoke-only `objective-runner-step` skill. Its accepted step is runner-attested and runner-finish creates the provenance commit.
+The strict ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol used by `ns-bookended` autorun. Its accepted step is runner-attested and runner-finish creates the provenance commit.
 *Avoid*: Portable autorun, generic autorun loop, parent-verified Git workflow
 
 **Runner Checkpoint**:

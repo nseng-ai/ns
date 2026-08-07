@@ -12,7 +12,7 @@ Two modes have deliberately different trust contracts:
 - **`ns-bookended`** uses `runner-begin` and `runner-finish`; accepted steps end in **runner-attested Runner Checkpoints** and runner-owned provenance commits.
 - **`portable`** uses ordinary Git and parent verification; accepted steps end in **parent-verified ordinary local commits**, never Runner Checkpoints.
 
-Use the `objective` umbrella skill when available for shared vocabulary. This skill is otherwise operationally self-contained and does not require `objective-runner-step`.
+Use the `objective` umbrella skill when available for shared vocabulary. This skill is otherwise operationally self-contained, including the complete one-step procedure for ns-bookended execution.
 
 ## Select and read the Objective
 

@@ -52,6 +52,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0054 | [Package-Atomic Extension Admission](0054-package-atomic-extension-admission.md)                                       |
 | 0055 | [XDG-Managed User npm Extension Storage](0055-xdg-managed-user-npm-extension-storage.md)                               |
 | 0056 | [Harness-Aware User Extension Layer](0056-harness-aware-user-extension-layer.md)                                       |
+| 0057 | [Retire the Standalone Objective Runner Step Skill](0057-retire-standalone-objective-runner-step-skill.md)             |
 
 ## Proposed
 

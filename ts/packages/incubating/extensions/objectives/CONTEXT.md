@@ -57,7 +57,7 @@ The `objective-autorun` mode that uses both `ns objective exec runner-begin` and
 *Avoid*: portable autorun, parent-created implementation commit, automatic publication, relaxed runner protocol
 
 **Objective Runner**:
-The strict ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol used by **ns-bookended Autorun Mode** or the advanced invoke-only `objective-runner-step` skill. Its accepted step is runner-attested, and `runner-finish` creates the provenance commit.
+The strict ADR 0024 `runner-begin` / harness dispatch / `runner-finish` protocol used by **ns-bookended Autorun Mode**. Its accepted step is runner-attested, and `runner-finish` creates the provenance commit.
 *Avoid*: portable autorun, generic autorun loop, parent-verified Git workflow, Pi-only autopilot, hidden runner state, deterministic batch loop, Objective-as-task-database
 
 **Runner Checkpoint**:

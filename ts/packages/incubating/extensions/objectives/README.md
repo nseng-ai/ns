@@ -62,10 +62,10 @@ A bare-core `ns` install does **not** include `ns objective`. Installing this ex
 2. Adds the `ns objective` command surface.
 3. Adds an Objectives instruction block to `AGENTS.md`, teaching agents to check
    `ns objective list` before non-trivial work and to use the Objective skills.
-4. Provisions the **nine Objective skills** into each supported harness's skill root —
+4. Provisions the **eight Objective skills** into each supported harness's skill root —
    for example, `.claude/skills/` for Claude Code: `objective`, `objective-autorun`, `objective-close`,
    `objective-create`, `objective-critique`, `objective-next`, `objective-refresh`,
-   `objective-runner-step`, `objective-update`.
+   `objective-update`.
 
 `ns extension install` writes files but never commits — review and commit them yourself.
 After the first install, `ns extension update` refreshes the provisioned artifacts when the
