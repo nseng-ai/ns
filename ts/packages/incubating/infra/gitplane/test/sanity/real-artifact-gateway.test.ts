@@ -121,6 +121,9 @@ function batchRecord(object: string, bytes: Buffer): Buffer {
 const parsedArtifactId = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dn");
 if (!parsedArtifactId.ok) throw new Error("Test artifact ID must be valid.");
 const artifactId = parsedArtifactId.artifactId;
+const parsedSecondArtifactId = parseArtifactId("01jxyz8y3jqazj7jrx53w9b3dp");
+if (!parsedSecondArtifactId.ok) throw new Error("Second test artifact ID must be valid.");
+const secondArtifactId = parsedSecondArtifactId.artifactId;
 
 function artifactRequest(directory = "artifact") {
 	return { directory, artifactId, marker: '{"gpId":"01jxyz8y3jqazj7jrx53w9b3dn"}\n' };
@@ -149,7 +152,7 @@ describe("Git-backed behavior", () => {
 	test("constructs resolve, facts, ancestry, and diff commands and parses their results", async () => {
 		const { gateway, git } = gatewayFor([
 			{
-				args: ["rev-parse", "--verify", "topic^{commit}"],
+				args: ["rev-parse", "--verify", "--quiet", "topic^{commit}"],
 				stdout: Buffer.from("  abc123\n"),
 			},
 			{
@@ -165,22 +168,28 @@ describe("Git-backed behavior", () => {
 
 		expect(await gateway.resolveCommit({ commitish: "topic" })).toEqual({
 			ok: true,
-			value: "abc123",
+			value: { type: "found", value: "abc123" },
 		});
 		expect(await gateway.readCommitFacts({ commit: "abc123" })).toEqual({
 			ok: true,
-			value: { commit: "abc123", parents: ["parent-a", "parent-b"], isMerge: true },
+			value: {
+				type: "found",
+				value: { commit: "abc123", parents: ["parent-a", "parent-b"], isMerge: true },
+			},
 		});
 		expect(await gateway.isAncestor({ ancestor: "parent-a", descendant: "abc123" })).toEqual({
 			ok: true,
-			value: true,
+			value: { type: "found", value: true },
 		});
 		expect(await gateway.diffCommits({ fromCommit: "parent-a", toCommit: "abc123" })).toEqual({
 			ok: true,
 			value: {
-				fromCommit: "parent-a",
-				toCommit: "abc123",
-				changedPaths: ["a.txt", "nested/b.txt"],
+				type: "found",
+				value: {
+					fromCommit: "parent-a",
+					toCommit: "abc123",
+					changedPaths: ["a.txt", "nested/b.txt"],
+				},
 			},
 		});
 		git.assertComplete();
@@ -200,21 +209,27 @@ describe("Git-backed behavior", () => {
 		]);
 		expect(await gateway.readCommitFacts({ commit: "root" })).toEqual({
 			ok: true,
-			value: { commit: "root", parents: [], isMerge: false },
+			value: { type: "found", value: { commit: "root", parents: [], isMerge: false } },
 		});
 		expect(await gateway.readCommitFacts({ commit: "child" })).toEqual({
 			ok: true,
-			value: { commit: "child", parents: ["root"], isMerge: false },
+			value: {
+				type: "found",
+				value: { commit: "child", parents: ["root"], isMerge: false },
+			},
 		});
 		expect(await gateway.diffCommits({ fromCommit: "root", toCommit: "root" })).toEqual({
 			ok: true,
-			value: { fromCommit: "root", toCommit: "root", changedPaths: [] },
+			value: {
+				type: "found",
+				value: { fromCommit: "root", toCommit: "root", changedPaths: [] },
+			},
 		});
 	});
 
 	test("normalizes git failures including non-Errors and ancestry exit status", async () => {
 		const { gateway } = gatewayFor([
-			{ args: ["rev-parse", "--verify", "bad^{commit}"], error: "not a commit" },
+			{ args: ["rev-parse", "--verify", "--quiet", "bad^{commit}"], error: "not a commit" },
 			{ args: ["merge-base", "--is-ancestor", "new", "old"], error: { code: 1 } },
 			{ args: ["merge-base", "--is-ancestor", "a", "b"], error: { code: "1" } },
 			{ args: ["diff", "--name-only", "-z", "a", "b"], error: new Error("diff failed") },
@@ -225,7 +240,7 @@ describe("Git-backed behavior", () => {
 		});
 		expect(await gateway.isAncestor({ ancestor: "new", descendant: "old" })).toEqual({
 			ok: true,
-			value: false,
+			value: { type: "found", value: false },
 		});
 		expect(await gateway.isAncestor({ ancestor: "a", descendant: "b" })).toEqual({
 			ok: false,
@@ -235,6 +250,88 @@ describe("Git-backed behavior", () => {
 			ok: false,
 			error: { code: "source-error", message: "diff failed" },
 		});
+	});
+
+	test("classifies missing commits by probe exit status without inspecting diagnostics", async () => {
+		const missing = "0".repeat(40);
+		const existing = "a".repeat(40);
+		const primaryFailure = () =>
+			Object.assign(new Error("fatal message may be localized or unrelated"), { code: 128 });
+		const missingProbe = () => Object.assign(new Error("quiet probe"), { code: 1 });
+		const { gateway, git } = gatewayFor([
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: missingProbe(),
+			},
+			{
+				args: ["show", "-s", "--format=%H%x00%P", missing],
+				error: primaryFailure(),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: missingProbe(),
+			},
+			{
+				args: ["merge-base", "--is-ancestor", missing, existing],
+				error: primaryFailure(),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: missingProbe(),
+			},
+			{
+				args: ["ls-tree", "-rz", "-r", "-t", missing, "--", "root"],
+				error: primaryFailure(),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: missingProbe(),
+			},
+			{
+				args: ["diff", "--name-only", "-z", existing, missing],
+				error: primaryFailure(),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${existing}^{commit}`],
+				stdout: Buffer.from(`${existing}\n`),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${missing}^{commit}`],
+				error: missingProbe(),
+			},
+		]);
+		for (const observation of [
+			await gateway.resolveCommit({ commitish: missing }),
+			await gateway.readCommitFacts({ commit: missing }),
+			await gateway.isAncestor({ ancestor: missing, descendant: existing }),
+			await gateway.inventoryCommitTree({ commit: missing, artifactRoot: "root" }),
+			await gateway.diffCommits({ fromCommit: existing, toCommit: missing }),
+		]) {
+			expect(observation).toEqual({
+				ok: true,
+				value: { type: "unavailable", reason: "missing-object" },
+			});
+		}
+		git.assertComplete();
+	});
+
+	test("keeps fatal Git failures operational when commit probes succeed", async () => {
+		const commit = "a".repeat(40);
+		const { gateway, git } = gatewayFor([
+			{
+				args: ["show", "-s", "--format=%H%x00%P", commit],
+				error: Object.assign(new Error("repository access failed"), { code: 128 }),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${commit}^{commit}`],
+				stdout: Buffer.from(`${commit}\n`),
+			},
+		]);
+		expect(await gateway.readCommitFacts({ commit })).toEqual({
+			ok: false,
+			error: { code: "source-error", message: "repository access failed" },
+		});
+		git.assertComplete();
 	});
 
 	test("maps every commit-tree kind and excludes descendants of marker directories", async () => {
@@ -256,15 +353,18 @@ describe("Git-backed behavior", () => {
 		]);
 		expect(await gateway.inventoryCommitTree({ commit: "commit", artifactRoot: "root" })).toEqual({
 			ok: true,
-			value: [
-				{ path: "root/dir", kind: "directory" },
-				{ path: "root/plain", kind: "regular-file" },
-				{ path: "root/executable", kind: "regular-file" },
-				{ path: "root/link", kind: "symlink" },
-				{ path: "root/submodule", kind: "submodule" },
-				{ path: "root/special", kind: "special" },
-				{ path: "root/blocked/gitplane-artifact.json", kind: "directory" },
-			],
+			value: {
+				type: "found",
+				value: [
+					{ path: "root/dir", kind: "directory" },
+					{ path: "root/plain", kind: "regular-file" },
+					{ path: "root/executable", kind: "regular-file" },
+					{ path: "root/link", kind: "symlink" },
+					{ path: "root/submodule", kind: "submodule" },
+					{ path: "root/special", kind: "special" },
+					{ path: "root/blocked/gitplane-artifact.json", kind: "directory" },
+				],
+			},
 		});
 	});
 
@@ -326,13 +426,16 @@ describe("Git-backed behavior", () => {
 		expect(await gateway.readCommitTreeCandidate({ commit: "commit", path: "root" })).toEqual({
 			ok: true,
 			value: {
-				path: "root",
-				entries: [
-					{ path: "dir", kind: "directory" },
-					{ path: "a.bin", kind: "regular-file", bytes: first },
-					{ path: "link", kind: "symlink" },
-					{ path: "dir/empty", kind: "regular-file", bytes: second },
-				],
+				type: "found",
+				value: {
+					path: "root",
+					entries: [
+						{ path: "dir", kind: "directory" },
+						{ path: "a.bin", kind: "regular-file", bytes: first },
+						{ path: "link", kind: "symlink" },
+						{ path: "dir/empty", kind: "regular-file", bytes: second },
+					],
+				},
 			},
 		});
 		git.assertComplete();
@@ -348,7 +451,10 @@ describe("Git-backed behavior", () => {
 		]);
 		expect(await gateway.readCommitTreeCandidate({ commit: "commit", path: "root" })).toEqual({
 			ok: true,
-			value: { path: "root", entries: [{ path: "dir", kind: "directory" }] },
+			value: {
+				type: "found",
+				value: { path: "root", entries: [{ path: "dir", kind: "directory" }] },
+			},
 		});
 		expect(git.invocations).toHaveLength(1);
 	});
@@ -375,11 +481,14 @@ describe("Git-backed behavior", () => {
 		expect(await gateway.readCommitTreeCandidate({ commit: "c", path: "root" })).toEqual({
 			ok: true,
 			value: {
-				path: "root",
-				entries: [
-					{ path: "plain", kind: "regular-file", bytes: ordinary },
-					{ path: "line\nbreak", kind: "regular-file", bytes: newline },
-				],
+				type: "found",
+				value: {
+					path: "root",
+					entries: [
+						{ path: "plain", kind: "regular-file", bytes: ordinary },
+						{ path: "line\nbreak", kind: "regular-file", bytes: newline },
+					],
+				},
 			},
 		});
 		git.assertComplete();
@@ -450,6 +559,97 @@ describe("Git-backed behavior", () => {
 			ok: false,
 			error: { code: "source-error", message: "show failed" },
 		});
+	});
+
+	test("batches provenance history and marker reads with deterministic artifact ordering", async () => {
+		const target = "a".repeat(40);
+		const firstBytes = Buffer.from(`{"gpId":"${artifactId}"}`);
+		const secondBytes = Buffer.from(`{"gpId":"${secondArtifactId}"}`);
+		const tree = [
+			`100644 blob ${"b".repeat(40)}\troot/z/gitplane-artifact.json`,
+			`100644 blob ${"c".repeat(40)}\troot/a/gitplane-artifact.json`,
+		].join("\0");
+		const { gateway, git } = gatewayFor([
+			{ args: ["rev-list", "--parents", target], stdout: Buffer.from(`${target}\n`) },
+			{
+				args: ["ls-tree", "-rz", "-r", "-t", target, "--", "root"],
+				stdout: Buffer.from(`${tree}\0`),
+			},
+			{
+				args: ["cat-file", "--batch"],
+				input: `${target}:root/z/gitplane-artifact.json\n${target}:root/a/gitplane-artifact.json\n`,
+				stdout: Buffer.concat([
+					batchRecord("b".repeat(40), firstBytes),
+					batchRecord("c".repeat(40), secondBytes),
+				]),
+			},
+		]);
+		expect(
+			await gateway.readMarkerProvenance({
+				targetCommit: target,
+				artifactRoot: "root",
+				markers: [
+					{ artifactId: secondArtifactId, path: "root/a", markerBytes: secondBytes },
+					{ artifactId, path: "root/z", markerBytes: firstBytes },
+				],
+			}),
+		).toEqual({
+			ok: true,
+			value: [
+				{ type: "found", artifactId, markerLastChangedCommit: target },
+				{ type: "found", artifactId: secondArtifactId, markerLastChangedCommit: target },
+			],
+		});
+		expect(git.invocations).toHaveLength(3);
+		expect(git.invocations.flatMap((invocation) => invocation.args)).not.toContain("--follow");
+		expect(git.invocations.flatMap((invocation) => invocation.args)).not.toContain(
+			"--first-parent",
+		);
+		git.assertComplete();
+	});
+
+	test("classifies missing provenance separately from operational and malformed protocol failures", async () => {
+		const target = "a".repeat(40);
+		const request = {
+			targetCommit: target,
+			artifactRoot: "root",
+			markers: [{ artifactId, path: "root/a", markerBytes: Buffer.from("marker") }],
+		};
+		const missing = gatewayFor([
+			{
+				args: ["rev-list", "--parents", target],
+				error: Object.assign(new Error("unclassified fatal failure"), { code: 128 }),
+			},
+			{
+				args: ["rev-parse", "--verify", "--quiet", `${target}^{commit}`],
+				error: Object.assign(new Error("quiet probe"), { code: 1 }),
+			},
+		]);
+		expect(await missing.gateway.readMarkerProvenance(request)).toEqual({
+			ok: true,
+			value: [{ type: "unavailable", artifactId, reason: "missing-object" }],
+		});
+
+		const operational = gatewayFor([
+			{ args: ["rev-list", "--parents", target], error: new Error("permission denied") },
+		]);
+		expect(await operational.gateway.readMarkerProvenance(request)).toEqual({
+			ok: false,
+			error: { code: "source-error", message: "permission denied" },
+		});
+
+		for (const output of [Buffer.alloc(0), Buffer.from(`${target} not-a-commit\n`)]) {
+			const malformed = gatewayFor([
+				{
+					args: ["rev-list", "--parents", target],
+					stdout: output,
+				},
+			]);
+			expect(await malformed.gateway.readMarkerProvenance(request)).toEqual({
+				ok: false,
+				error: { code: "source-error", message: "Unexpected git rev-list output." },
+			});
+		}
 	});
 });
 
