@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { isCanonicalUlid } from "./vendored/ulid.ts";
 
+export const ARTIFACT_MARKER_NAME = "gitplane-artifact.json";
+
 export const artifactIdSchema = z.string().refine(isCanonicalUlid).brand<"ArtifactId">();
 export type ArtifactId = z.infer<typeof artifactIdSchema>;
 
