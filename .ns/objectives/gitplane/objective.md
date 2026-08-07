@@ -1,3 +1,9 @@
+---
+edges:
+  - objective: gitplane-reconciliation-stack-rebuild
+    annotation: The cursor-diff reconciliation slice lands through that Objective's verified PR stack rather than prototype PR #4076.
+---
+
 # Gitplane v1: Git-backed artifact control plane
 
 ## Thesis
