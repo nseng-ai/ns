@@ -1,0 +1,18 @@
+# Roadmap
+
+## Work
+
+- [ ] **Record the ownership reversal and contract.** Add a superseding ADR that retires `ns skills` and all ns-owned Harness artifact provisioning, makes `npx skills` the sole skill-management owner, defines Associated Skills as read-only extension metadata, and fixes the `ns extension setup-skills` behavior and trust boundary. Reconcile the SDK and Objectives domain vocabulary after implementation establishes the authoritative terms.
+- [ ] **Add Associated Skills and release provenance to extension packaging.** Define and validate the one-source/many-skills descriptor shape; inject the exact repository commit into prepared public extension packages; preserve descriptor validity when the declaration is absent; and prove packed artifacts retain sufficient provenance to render historical version-matched guidance. Evidence: descriptor type/unit tests and packed-package scenarios cover valid, absent, malformed, and missing-provenance cases.
+- [ ] **Implement pure setup guidance for declared extensions.** Add `ns extension setup-skills <package> [--scope project|user]` over admitted installed/declared descriptor resolution. Build canonical argv first, support explicit repeatable `--agent` and `--global`, render shell-safe human output plus structured JSON, succeed explicitly for no association, and return deterministic provenance/selection failures without subprocess, network, agent detection, or Harness filesystem access. Evidence: scenario tests cover both scopes, escaping, JSON, empty results, rejected arbitrary packages, and a no-side-effects boundary.
+- [ ] **Prove source-installed provenance and install discoverability.** Resolve accepted repository origin plus current commit facts for local extension sources, fail clearly when they are unavailable or ambiguous, and add the concise post-install `setup-skills` hint only for extensions that declare associated skills. Evidence: fake-driven and focused real-Git tests cover accepted and rejected provenance, and lifecycle scenarios prove the hint does not execute `npx` or mutate Harness roots.
+- [ ] **Adopt the Objectives skill family as the real consumer.** Declare one ns repository source and the eight supported skills (`objective`, `objective-create`, `objective-next`, `objective-update`, `objective-close`, `objective-refresh`, `objective-critique`, `objective-autorun`) on `@nseng-ai/objectives`; exclude `objective-runner-step`; and prove both source-installed and packed extension forms render one commit-pinned `npx skills add` command.
+- [ ] **Delete Harness artifact capabilities and reconcile live surfaces.** Remove the `harness-artifacts` feature, `ns skills`, path/catalog/schema/provision/manifest/reconcile code, stale public exports, tests, package declarations, and live documentation. Relocate `ns-toml` parsing, skill-frontmatter handling, or other utilities only when a real production consumer demonstrates a coherent destination; delete test-only residue. Update package READMEs, SDK author/reference docs, skill conventions, context files, and root guidance to direct installation lifecycle to `npx skills`. Evidence: bounded stale-reference scans, command/help inventory tests, package checks, relevant integration lanes, and default repository validation pass.
+
+## Parked
+
+- Multiple Associated Skills source groups for one extension.
+- A checked-in or hosted skills.sh Pack as the authoritative compatibility mechanism.
+- Arbitrary uninstalled-package preview or package acquisition by `setup-skills`.
+- Automatic execution of generated commands or any ns-owned installed-skill lifecycle.
+- General pass-through of arbitrary `npx skills` flags beyond the explicitly supported initial options.
