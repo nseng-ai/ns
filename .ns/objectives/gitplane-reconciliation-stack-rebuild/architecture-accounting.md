@@ -2,10 +2,11 @@
 
 ## Status and immutable anchors
 
-This is local stack accounting, not a landing or publication record. The rebased replacement implementation tip is
-`e7fdc08304e956200c29e1662aaa818e55c2aaec`, captured with `git rev-parse HEAD` at this accounting conflict stop.
-Anchoring the preceding implementation commit avoids the impossible requirement for this document to name its own
-eventual commit SHA. This change contains Objective/accounting changes only.
+This is local stack accounting, not a landing or publication record. The replacement implementation tip immediately
+below the accounting-only commits is `3cf5a42826a421b40e9eb7f110a97076003cef43`, derived as the parent of the first
+accounting-only commit after the accounting branch was restacked directly onto `gitplane-reconcile-cli`. Anchoring the
+preceding implementation commit avoids the impossible requirement for this document to name its own eventual commit
+SHA. This change contains Objective/accounting changes only.
 
 The comparison set is:
 
@@ -18,14 +19,14 @@ The comparison set is:
 - PR #4128: historical shallow-history rationale. Its conservative `incomplete-history` ancestry
   classification was correct for the then-current history-gated design, but is not a present reconciliation
   requirement.
-- `e7fdc08304e956200c29e1662aaa818e55c2aaec`: the current rebased replacement implementation tip accounted here.
+- `3cf5a42826a421b40e9eb7f110a97076003cef43`: the current replacement implementation tip accounted here.
 
 Publication, remote stack/CI verification, closure of superseded PR #4130, closure of prototype PR #4076,
 and Objective closure remain pending external actions.
 
 ## Responsibility comparison
 
-| Responsibility                                | Prototype `09d75c3ae`                                                                                                                                                                                                          | Rebased replacement tip `e7fdc083…`                                                                                                                                                                                                                                                       |
+| Responsibility                                | Prototype `09d75c3ae`                                                                                                                                                                                                          | Replacement tip `3cf5a428…`                                                                                                                                                                                                                                                               |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source facts and gateways                     | `ArtifactGateway` exposed commit resolution, ancestry (`isAncestor`), commit diffs (`diffCommits`), boundary reads at commits, and artifact reads. `RealArtifactGateway` called `merge-base --is-ancestor` and `git diff`.     | `gatherSourceFacts` resolves one immutable target and gathers its complete raw topology/corpus through the narrowed gateway. Reconciliation performs no ancestry, diff, shallow-state, cursor-tree, operator target-row, or working-tree read.                                            |
 | Planning authority                            | Async `reconciliation/plan.ts` mixed gateway reads, cursor-diff selection, baseline persistence, and policy.                                                                                                                   | Pure internal `deriveReconciliationPlan(facts)` is the sole policy authority. It consumes the complete target snapshot, one coherent completed materialization snapshot (cursor, current records including tombstones, lineage, and Pending Plan), and registrations; it has no gateways. |
