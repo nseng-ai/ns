@@ -92,7 +92,7 @@ export function landCommandSuccess(result: FlowLandWorkflowResult): LandCommandS
 		return {
 			type: "dry-run",
 			target: "stack",
-			repoRoot: report.repoRoot ?? "",
+			repoRoot: report.repoRoot,
 			...(report.plan === undefined
 				? {}
 				: {
@@ -110,7 +110,7 @@ export function landCommandSuccess(result: FlowLandWorkflowResult): LandCommandS
 	}
 	return {
 		type: report.completionDisposition.type === "cleanup-only" ? "cleanup-only" : "stack-completed",
-		repoRoot: report.repoRoot ?? "",
+		repoRoot: report.repoRoot,
 		landedChunks: report.landedChunks,
 		warnings: report.warnings.map((warning) => warning.message),
 		cleanup: report.cleanup.postLandingSlotCleanup,

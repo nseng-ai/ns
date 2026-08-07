@@ -91,7 +91,7 @@ describe("Flow presentation of canonical completion dispositions", () => {
 			},
 		});
 
-		expect(outcome.type).toBe("completed");
+		expect(outcome).toMatchObject({ type: "completed", report: { repoRoot: ROOT } });
 		expect(fixture.notifications).toEqual([]);
 		expect(memory.github.squashMergePullRequestCalls).toEqual([]);
 	});
