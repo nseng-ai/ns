@@ -49,7 +49,7 @@ Every reconciliation resolves the requested commit and recursively discovers its
 
 Artifact IDs are unique across generic and classified artifacts in one source. A generic artifact may become classified once. That transition establishes immutable `gpApiVersion`/`gpKind` lineage and uses the ordinary `artifact.revised` event because marker content changes. Classified-to-generic transitions and changes to an established API version or kind are invalid. A tombstoned classified ID remains permanently reserved to its established `gpApiVersion` and `gpKind`; restoring any ID retains its prior classification state and transition rules. Separate sources may reuse an ID because durable identity is `(source_id, artifact_id)`.
 
-The same ID moving to another path preserves artifact lineage. Because the repository-relative artifact path participates in revision identity, the move creates a new revision and produces `artifact.revised` with both paths rather than a separate move event; Gitplane does not reconstruct marker-change provenance. A different ID appearing at a different path while an old ID disappears is delete-plus-create. Replacing an ID at the same path in one commit is invalid; perform deletion and creation in separate commits.
+The same ID moving to another path preserves artifact lineage. Because the repository-relative artifact path participates in revision identity, the move creates a new revision and produces `artifact.revised` with both paths rather than a separate move event; Gitplane does not reconstruct marker-change provenance. When an old ID disappears and a different ID appears, Gitplane plans deletion and creation in the same Reconciliation Plan, including when both IDs use the same path.
 
 ### Kind registration and schema transitions
 
@@ -183,7 +183,7 @@ After the nesting-first phase defined under Artifact discovery, `check` reads ea
 
 `artifactCount` is the number of outer attempted boundaries, including boundaries whose regular-file markers later fail JSON, envelope, ID, kind, or schema checks. Findings use current-working-directory-relative `/`-separated paths. Completed results sort findings by absent artifact path first, then `artifactPath`, `relativePath`, `jsonPointer`, and `code`, each lexically. Completed output contains `sourceId`, normalized `artifactRoot`, `artifactCount`, severity counts, and findings. Exit `0` means clean or warning-only completion; exit `1` means at least one error finding. Operational, usage, configuration, or source failure exits `2` and returns no partial result.
 
-Lineage legality across completed materialization snapshots (immutable `gpApiVersion`/`gpKind`, registered schema transitions, no ID replacement at one path) is not `check`'s job. `reconcile` enforces it while planning from the complete Gitplane control snapshot to the complete target-commit corpus and fails closed. If pre-merge validation of the commit-based process proves necessary, a future `reconcile --dry-run` can plan and validate without writes.
+Lineage legality across completed materialization snapshots (immutable `gpApiVersion`/`gpKind` and registered schema transitions) is not `check`'s job. `reconcile` enforces it while planning from the complete Gitplane control snapshot to the complete target-commit corpus and fails closed. If pre-merge validation of the commit-based process proves necessary, a future `reconcile --dry-run` can plan and validate without writes.
 
 ### `gitplane reconcile <commit>`
 
