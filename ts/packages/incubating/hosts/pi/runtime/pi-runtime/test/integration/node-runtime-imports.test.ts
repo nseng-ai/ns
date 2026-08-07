@@ -48,7 +48,7 @@ const PI_FLOW_EXPORT_IMPORTS = [
 const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
 	"@nseng-ai/pi-ns-branch-context",
 	"@nseng-ai/pi-ns-branch-context/extension",
-	"@nseng-ai/pi-runtime/commands/cli-command-live-progress",
+	"@nseng-ai/pi-runtime/commands/cli-command-status",
 	"@nseng-ai/pi-runtime/core/model-shortcuts/extension",
 	"@nseng-ai/pi-runtime/core/pr/extension",
 	"@nseng-ai/pi-runtime/sessions/harness-session",
