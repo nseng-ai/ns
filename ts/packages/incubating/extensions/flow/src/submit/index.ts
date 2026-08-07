@@ -61,7 +61,7 @@ export {
 	type RunSubmitCommandOptions,
 	type SubmitCommandOutput,
 	type SubmitCommandParams,
-	type SubmitCommandResult,
+	type SubmitResult,
 	type SubmitFailurePresentation,
 	type SubmitFailureTranscript,
 	type SubmitFailureTranscriptCommand,

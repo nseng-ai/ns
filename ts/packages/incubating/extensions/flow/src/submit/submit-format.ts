@@ -3,8 +3,6 @@ import {
 	formatOutputSection,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
-import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
-
 import type { SubmitPrLink } from "./gt-output.ts";
 import type { SubmitPrInventorySummary } from "./submit-pr-inventory-summary.ts";
 import type {
@@ -27,8 +25,6 @@ import type {
 
 const CURRENT_PR_TIMEOUT_MS = 60_000;
 const RESTACK_TIMEOUT_MS = 600_000;
-const SUCCESS_OUTPUT_TAIL_MAX_LINES = 20;
-const SUCCESS_OUTPUT_TAIL_MAX_CHARS = 2_000;
 const SUBMIT_COMMAND_OUTPUT_SECTION_OPTIONS = { maxChars: 4_000, maxLines: 80 };
 
 export function formatItemCount(count: number, singular: string, plural: string): string {
@@ -91,18 +87,6 @@ function formatSubmitInventoryFailureDisposition(
 	}
 }
 
-export function formatSubmitSuccessFallbackText(stdout: string, stderr: string): string {
-	const lines = [
-		"Submit succeeded, but no PR URLs were detected in output.",
-		"PR inventories were not generated. Checkout a branch and run `ns flow generate-pr-inventory` if needed.",
-	];
-	const outputTail = formatSubmitOutputTail(stdout, stderr);
-	if (outputTail) {
-		lines.push("", "Recent output:", outputTail);
-	}
-	return lines.join("\n");
-}
-
 function formatSubmitSuccessStatuses(
 	link: SubmitPrLink,
 	inventories: SubmitPrInventorySummary,
@@ -131,22 +115,6 @@ function findMatchingLink<T>(
 	linkForItem: (item: T) => SubmitPrLink,
 ): T | undefined {
 	return items.find((item) => linkForItem(item).url === target.url);
-}
-
-function formatSubmitOutputTail(stdout: string, stderr: string): string {
-	const output = stripTerminalEscapes(`${stdout}\n${stderr}`).replace(/\r/g, "\n").trimEnd();
-	if (!output) return "";
-
-	const lines = output.split("\n");
-	const tailLines = lines.slice(-SUCCESS_OUTPUT_TAIL_MAX_LINES);
-	let tail = tailLines.join("\n");
-	if (tail.length > SUCCESS_OUTPUT_TAIL_MAX_CHARS) {
-		tail = `…${tail.slice(-SUCCESS_OUTPUT_TAIL_MAX_CHARS)}`;
-	}
-	if (lines.length > tailLines.length) {
-		return `… ${lines.length - tailLines.length} earlier line(s) omitted\n${tail}`;
-	}
-	return tail;
 }
 
 export function formatPreflightFailureOutput(

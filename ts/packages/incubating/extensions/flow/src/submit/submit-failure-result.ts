@@ -1,12 +1,15 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
-	SubmitCommandResult,
 	SubmitFailurePresentation,
 	SubmitFailureTranscript,
 	SubmitFailureTranscriptCommand,
+	SubmitResult,
 	SubmitRunResult,
 } from "./submit-contracts.ts";
+import type { SubmitPrLink } from "./gt-output.ts";
 
 export const POST_METADATA_GRAPHITE_FAILURE_ADVISORY =
 	"Local PR metadata commit messages were prepared before submit; verify the metadata after resolving the Graphite failure.";
@@ -14,23 +17,24 @@ export const POST_METADATA_GRAPHITE_FAILURE_ADVISORY =
 export interface SubmitFailureResultOptions {
 	failurePresentation: SubmitFailurePresentation;
 	rawFailureTranscript?: SubmitFailureTranscript;
+	publishedPrs?: readonly SubmitPrLink[];
+	metadataApplied?: readonly SubmitPrLink[];
+	type?: "refused" | "failed";
 }
 
 export function submitFailureResult(
-	exitCode: number,
-	stderr: string,
-	options?: SubmitFailureResultOptions,
-): SubmitCommandResult {
+	phase: string,
+	message: string,
+	options: SubmitFailureResultOptions,
+): SubmitResult {
 	return {
-		exitCode,
-		stdout: "",
-		stderr: stderr.endsWith("\n") ? stderr : `${stderr}\n`,
-		...(options?.failurePresentation === undefined
-			? {}
-			: { failurePresentation: options.failurePresentation }),
-		...(options?.rawFailureTranscript === undefined
-			? {}
-			: { rawFailureTranscript: options.rawFailureTranscript }),
+		type: options.type ?? "failed",
+		phase,
+		message: message.endsWith("\n") ? message : `${message}\n`,
+		failurePresentation: options.failurePresentation,
+		publishedPrs: options.publishedPrs ?? [],
+		metadataApplied: options.metadataApplied ?? [],
+		...optionalEntry("rawFailureTranscript", options.rawFailureTranscript),
 	};
 }
 
@@ -39,21 +43,18 @@ export function deterministicSubmitCommandFailure(input: {
 	commandDisplay: string;
 	output: SubmitCommandOutput;
 	stderr: string;
-	exitCode?: number;
-}): SubmitCommandResult {
-	return submitFailureResult(
-		input.exitCode ?? normalizedSubmitFailureExitCode(input.output),
-		input.stderr,
-		{
-			failurePresentation: "deterministic",
-			rawFailureTranscript: submitCommandFailureTranscript({
-				phase: input.phase,
-				commandDisplay: input.commandDisplay,
-				output: input.output,
-				summary: input.stderr,
-			}),
-		},
-	);
+	type?: "refused" | "failed";
+}): SubmitResult {
+	return submitFailureResult(input.phase, input.stderr, {
+		failurePresentation: "deterministic",
+		...optionalEntry("type", input.type),
+		rawFailureTranscript: submitCommandFailureTranscript({
+			phase: input.phase,
+			commandDisplay: input.commandDisplay,
+			output: input.output,
+			summary: input.stderr,
+		}),
+	});
 }
 
 export function unknownSubmitCommandFailure(input: {
@@ -61,8 +62,8 @@ export function unknownSubmitCommandFailure(input: {
 	commandDisplay: string;
 	output: SubmitCommandOutput;
 	stderr: string;
-}): SubmitCommandResult {
-	return submitFailureResult(normalizedSubmitFailureExitCode(input.output), input.stderr, {
+}): SubmitResult {
+	return submitFailureResult(input.phase, input.stderr, {
 		failurePresentation: "unknown",
 		rawFailureTranscript: submitCommandFailureTranscript({
 			phase: input.phase,

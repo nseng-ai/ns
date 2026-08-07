@@ -302,7 +302,20 @@ describe("project-local submit extension", () => {
 		const run = runWithFakes();
 
 		expect(await run.exit).toBe(0);
+		const result = await run.result;
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				checkpoint: { type: "clean" },
+				publication: {
+					type: "reconciled",
+					prs: [{ label: "#123", url: PR_URL }],
+					metadataApplied: [],
+				},
+			},
+		});
 		const output = run.stdout.join("");
+		expect(output).toContain("Checkpoint: worktree clean.");
 		expect(output).toContain("Submitted 1 PR:");
 		expect(output).toContain(`✓ #123 ${PR_URL}`);
 		expect(output).not.toContain("description updated");
@@ -502,7 +515,12 @@ describe("project-local submit extension", () => {
 		const result = await run.result;
 		expect(result.status).toBe("failure");
 		if (result.status === "failure") {
-			expect(result.data).toEqual({ exitCode: 7 });
+			expect(result.data).toEqual({
+				type: "failed",
+				phase: "checks",
+				publishedPrs: [],
+				metadataApplied: [],
+			});
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
 		const error = run.stderr.join("");
@@ -544,15 +562,20 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const result = await run.result;
-		expect(result.status).toBe("negative");
-		if (result.status === "negative") {
-			expect(result.data).toEqual({ exitCode: 1 });
+		expect(result.status).toBe("failure");
+		if (result.status === "failure") {
+			expect(result.data).toEqual({
+				type: "failed",
+				phase: "checks",
+				publishedPrs: [],
+				metadataApplied: [],
+			});
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
 		const error = run.stderr.join("");
-		expect(error.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+		expect(error.split("\n")[0]).toBe(`error: ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`);
 		expect(error.split(FLOW_SUBMIT_CHECK_FAILURE_MARKER)).toHaveLength(2);
 		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		expect(formattedExecCalls(run.context)).not.toContain("git symbolic-ref --short HEAD");
@@ -848,7 +871,7 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain("feature/top: no open PR found");
 		expect(error).toContain("No PR metadata was edited");
@@ -963,6 +986,17 @@ describe("project-local submit extension", () => {
 		});
 
 		expect(await run.exit).toBe(0);
+		expect(await run.result).toMatchObject({
+			status: "success",
+			data: {
+				checkpoint: {
+					type: "checkpoint-created",
+					summary: "abc123 [cp] Submit checkpoint",
+					message: "[cp] Submit checkpoint\n\n- Capture dirty work",
+				},
+				publication: { type: "reconciled" },
+			},
+		});
 		expect(run.stdout.join("")).toContain("abc123 [cp] Submit checkpoint");
 		const settled = lastStderrOutput(run.liveOutput);
 		expect(settled).toContain("✓ Inspect");
@@ -1295,7 +1329,7 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain(
 			"A merged PR in this stack is not in trunk master, so Graphite will not submit the stack. Nothing was submitted.",
@@ -1345,7 +1379,7 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain("Graphite failed during dry-run.");
 		expect(error).toContain("Next step: Inspect the raw log");
@@ -1422,7 +1456,7 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain("raw stderr");
 		expect(error).toContain("Raw log:");
@@ -1507,7 +1541,7 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		expect(run.stderr.join("")).toContain(
 			"`gt restack --downstack` hit merge conflicts, so nothing was submitted.",
 		);
@@ -1551,7 +1585,7 @@ describe("project-local submit extension", () => {
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain(
 			"Graphite still needs a restack after `ns flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
@@ -1724,7 +1758,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain("Submit stack contains an empty branch; Graphite will not submit it.");
 		expect(error).toContain("Branch: ns-extension-api-followup-stack");
@@ -1796,7 +1830,7 @@ WARNING: In order to submit, commit some changes to it or delete it and try agai
 			},
 		});
 
-		expect(await run.exit).toBe(1);
+		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain("PRs were submitted; PR metadata replacement failed.");
 		expect(error).toContain(`#123 ${PR_URL}`);

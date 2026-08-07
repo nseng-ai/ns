@@ -5,6 +5,8 @@ import type {
 } from "@nseng-ai/foundation/command";
 
 import type { SubmitPrLink } from "./gt-output.ts";
+import type { SubmitPlan } from "./submit-plan.ts";
+import type { SubmitPrInventoryPreview } from "./submit-pr-inventory-summary.ts";
 export type CurrentPrVerificationFailureCause =
 	| "startup_error"
 	| "timeout"
@@ -114,10 +116,22 @@ export interface SubmitGateway {
 	verifyCurrentPr(params: SubmitCommandParams): Promise<CurrentPrVerificationResult>;
 }
 
-export interface SubmitCommandResult {
-	exitCode: number;
-	stdout: string;
-	stderr: string;
-	failurePresentation?: SubmitFailurePresentation;
+export interface SubmitFailureFacts {
+	phase: string;
+	message: string;
+	failurePresentation: SubmitFailurePresentation;
 	rawFailureTranscript?: SubmitFailureTranscript;
+	publishedPrs: readonly SubmitPrLink[];
+	metadataApplied: readonly SubmitPrLink[];
 }
+
+export type SubmitResult =
+	| {
+			type: "reconciled";
+			plan: SubmitPlan;
+			prs: readonly SubmitPrLink[];
+			metadataApplied: readonly SubmitPrLink[];
+			metadataPreviews: readonly SubmitPrInventoryPreview[];
+	  }
+	| ({ type: "refused" } & SubmitFailureFacts)
+	| ({ type: "failed" } & SubmitFailureFacts);

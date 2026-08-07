@@ -11,13 +11,14 @@ import type {
 import type {
 	SubmitCommandOutput,
 	SubmitCommandParams,
-	SubmitCommandResult,
+	SubmitResult,
 	SubmitGateway,
 	SubmitOutputListener,
+	SubmitRunResult,
+	CurrentPrVerificationResult,
 } from "./submit-contracts.ts";
 import {
 	deterministicSubmitCommandFailure,
-	normalizedSubmitFailureExitCode,
 	postSubmitFailureTranscript,
 	submitCommandFailureTranscript,
 	submitFailureResult,
@@ -36,8 +37,6 @@ import {
 	formatSubmitInventoryFailureOutput,
 	formatItemCount,
 	formatSubmitFailureOutput,
-	formatSubmitSuccessFallbackText,
-	formatSubmitSuccessText,
 } from "./submit-format.ts";
 import type { SubmitStackInspectionGateway } from "./submit-stack-inspection.ts";
 import { buildSubmitPlan, type SubmitPlan } from "./submit-plan.ts";
@@ -50,6 +49,7 @@ import {
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import { formatSubmitCommandDisplays } from "./submit-command-spec.ts";
 import { mergePrLinks } from "./submit-pr-link.ts";
+import type { SubmitPrLink } from "./gt-output.ts";
 import { reconcileSubmitPrInventory } from "./submit-pr-reconciliation.ts";
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { SubmitProgress } from "./submit-progress.ts";
@@ -72,7 +72,7 @@ export type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
 	SubmitCommandParams,
-	SubmitCommandResult,
+	SubmitResult,
 	SubmitFailurePresentation,
 	SubmitFailureTranscript,
 	SubmitFailureTranscriptCommand,
@@ -125,9 +125,7 @@ export interface RunSubmitCommandOptions {
 	titlePrefix?: NormalizedPrTitlePrefix;
 }
 
-export async function runSubmitCommand(
-	options: RunSubmitCommandOptions,
-): Promise<SubmitCommandResult> {
+export async function runSubmitCommand(options: RunSubmitCommandOptions): Promise<SubmitResult> {
 	const normalizedTitlePrefix = options.titlePrefix;
 	const { submitCommandDisplay, submitDryRunCommandDisplay } = formatSubmitCommandDisplays({
 		shouldForce: options.force,
@@ -150,7 +148,7 @@ export async function runSubmitCommand(
 	});
 	if (planned.kind === "failed") {
 		emitPhase(options, { type: "phase-failed", phaseKey: "inventory", detail: "inventory failed" });
-		return failure(1, planned.error, {
+		return failure("submit inventory", planned.error, {
 			failurePresentation: "deterministic",
 			rawFailureTranscript: submitTextFailureTranscript("submit inventory", planned.error, []),
 		});
@@ -167,7 +165,7 @@ export async function runSubmitCommand(
 	async function executeSubmitPlan(
 		planToExecute: SubmitPlan,
 		readyTransport: SubmitTransportReady,
-	): Promise<SubmitCommandResult> {
+	): Promise<SubmitResult> {
 		emitPhase(options, {
 			type: "phase-started",
 			phaseKey: "submit",
@@ -190,7 +188,7 @@ export async function runSubmitCommand(
 			});
 			if (knownFailure !== undefined) return knownFailure;
 			return failure(
-				normalizedSubmitFailureExitCode(submittedTransport.outcome.output),
+				"submit",
 				formatSubmitFailureOutput(submittedTransport.outcome.output, submitCommandDisplay),
 				{
 					failurePresentation: "unknown",
@@ -222,8 +220,9 @@ export async function runSubmitCommand(
 				currentPr,
 				submitCommandDisplay,
 			});
-			return failure(1, stderr, {
+			return failure("post-submit verification", stderr, {
 				failurePresentation: "unknown",
+				publishedPrs: outputPrLinksFor(submitOutcome, currentPr),
 				rawFailureTranscript: postSubmitFailureTranscript({
 					summary: stderr,
 					submitted: submitOutcome,
@@ -262,8 +261,9 @@ export async function runSubmitCommand(
 				detail: "branch PR inventory unresolved",
 			});
 			const stderr = formatSubmitInventoryFailureOutput(reconciliation);
-			return failure(1, stderr, {
+			return failure("post-submit branch PR inventory", stderr, {
 				failurePresentation: "deterministic",
+				publishedPrs: reconciliation.resolvedPrs.map((pr) => ({ label: pr.label, url: pr.url })),
 				rawFailureTranscript: submitTextFailureTranscript(
 					"post-submit branch PR inventory",
 					stderr,
@@ -328,8 +328,10 @@ export async function runSubmitCommand(
 			});
 			const stderr = formatPrInventoryFailureText(prLinks, inventoryResult);
 			const details = formatPrInventoryFailureDiagnostics(inventoryResult.failures);
-			return failure(1, stderr, {
+			return failure("PR inventory", stderr, {
 				failurePresentation: "deterministic",
+				publishedPrs: prLinks,
+				metadataApplied: inventoryResult.applied,
 				rawFailureTranscript: submitTextFailureTranscript("PR inventory", stderr, details),
 			});
 		}
@@ -340,11 +342,16 @@ export async function runSubmitCommand(
 			phaseKey: "inventories",
 			detail: "inventories ready",
 		});
-		const successText =
-			prLinks.length > 0
-				? formatSubmitSuccessText(prLinks, inventoryResult)
-				: formatSubmitSuccessFallbackText(submitOutcome.output.stdout, submitOutcome.output.stderr);
-		return success(successText);
+		if (prLinks.length === 0) {
+			throw new Error("Successful submit reconciliation must include at least one PR.");
+		}
+		return {
+			type: "reconciled",
+			plan: planToExecute,
+			prs: prLinks,
+			metadataApplied: inventoryResult.applied,
+			metadataPreviews: inventoryResult.previews,
+		};
 	}
 }
 
@@ -358,7 +365,7 @@ function knownSubmitFailureFor(input: {
 	output: SubmitCommandOutput;
 	phase: string;
 	transcriptCommandDisplay: string;
-}): SubmitCommandResult | undefined {
+}): SubmitResult | undefined {
 	if (input.cause === undefined) return undefined;
 
 	return deterministicSubmitCommandFailure({
@@ -443,18 +450,19 @@ function submitPhaseProgressListeners<ItemProgressEvent>(
 	};
 }
 
-function success(stdout: string): SubmitCommandResult {
-	return {
-		exitCode: 0,
-		stdout: stdout.endsWith("\n") ? stdout : `${stdout}\n`,
-		stderr: "",
-	};
+function outputPrLinksFor(
+	submitted: Extract<SubmitRunResult, { kind: "success" }>,
+	currentPr: CurrentPrVerificationResult,
+): readonly SubmitPrLink[] {
+	return currentPr.kind === "present"
+		? mergePrLinks(submitted.prLinks, currentPr.prLinks)
+		: mergePrLinks(submitted.prLinks, []);
 }
 
 function failure(
-	exitCode: number,
-	stderr: string,
-	options?: Parameters<typeof submitFailureResult>[2],
-): SubmitCommandResult {
-	return submitFailureResult(exitCode, stderr, options);
+	phase: string,
+	message: string,
+	options: Parameters<typeof submitFailureResult>[2],
+): SubmitResult {
+	return submitFailureResult(phase, message, options);
 }
