@@ -1,4 +1,4 @@
-import { defineCommand, type ContextfulCommandDefinition } from "@nseng-ai/clinkr/app";
+import type { ContextfulCommandDefinition } from "@nseng-ai/clinkr/app";
 import {
 	defineRawCommand,
 	type ContextfulRawCommandDefinition,
@@ -11,7 +11,7 @@ import type { NsExtensionApi } from "./execution.ts";
 export function createContextfulCommand<S extends z.ZodObject, TResultSchema extends z.ZodType>(
 	definition: ContextfulCommandDefinition<NsExtensionApi, S, TResultSchema>,
 ): ContextfulCommandDefinition<NsExtensionApi, S, TResultSchema> {
-	return defineCommand(definition);
+	return definition;
 }
 
 export function createContextfulRawCommand(

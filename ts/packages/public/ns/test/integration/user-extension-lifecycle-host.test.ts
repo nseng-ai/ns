@@ -52,6 +52,7 @@ export async function command() {
   requiresContext: true,
   schema: z.object({}),
   resultSchema: z.object({ proof: z.literal(true) }),
+  renderHuman: (result) => JSON.stringify(result),
   handler: () => ({ status: "success", data: { proof: true } }),
  });
 }
@@ -194,6 +195,7 @@ export async function command() {
   requiresContext: true,
   schema: z.object({}),
   resultSchema: z.object({ proof: z.literal("packed") }),
+  renderHuman: (result) => JSON.stringify(result),
   handler: () => ({ status: "success", data: { proof: "packed" } }),
  });
 }

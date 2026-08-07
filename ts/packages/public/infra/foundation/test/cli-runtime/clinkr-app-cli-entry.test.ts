@@ -152,6 +152,7 @@ describe("defineClinkrAppCli", () => {
 								requiresContext: true,
 								schema: z.object({}),
 								resultSchema: z.string(),
+								renderHuman: (result) => result,
 								handler: async () => {
 									markRunPending?.();
 									await runReleased;
@@ -174,7 +175,7 @@ describe("defineClinkrAppCli", () => {
 		releaseRun();
 		await expect(running).resolves.toBe(0);
 
-		expect(stdout.join("")).toBe('"command output"\n');
+		expect(stdout.join("")).toBe("command output\n");
 		expect(stderr).toEqual([]);
 		expect(process.stdout.write).toBe(originalStdoutWrite);
 		expect(process.stderr.write).toBe(originalStderrWrite);

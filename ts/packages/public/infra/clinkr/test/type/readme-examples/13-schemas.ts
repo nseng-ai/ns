@@ -22,5 +22,6 @@ export async function command() {
 export const completeCommand = defineCommand({
 	schema: z.object({ name: z.string() }),
 	resultSchema: contactSchema,
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: async (request) => ok({ name: request.name }),
 });

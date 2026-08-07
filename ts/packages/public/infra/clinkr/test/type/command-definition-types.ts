@@ -21,6 +21,14 @@ const resultSchema = z.object({ value: z.string() });
 defineCommand({
 	schema: requestSchema,
 	resultSchema,
+	renderHuman: (result, capabilities) => {
+		type ResultIsNarrowed = Assert<IsEqual<typeof result, { value: string }>>;
+		type CapabilitiesAreNarrowed = Assert<
+			IsEqual<typeof capabilities, { readonly canEmitAnsi: boolean }>
+		>;
+		const contractsHold: ResultIsNarrowed & CapabilitiesAreNarrowed = true;
+		return contractsHold ? result.value : "";
+	},
 	handler: async (request) => {
 		type RequestIsNotAny = Assert<Not<IsAny<typeof request>>>;
 		const requestIsNotAny: RequestIsNotAny = true;
@@ -34,10 +42,27 @@ defineCommand({
 
 // @ts-expect-error request is inferred from schema.
 defineCommand({ schema: requestSchema, handler: async (request) => ok(request.missing) });
-// @ts-expect-error result data must match resultSchema.
-defineCommand({ schema: requestSchema, resultSchema, handler: async () => ok({ value: 1 }) });
+// @ts-expect-error resultSchema requires renderHuman.
+defineCommand({ schema: requestSchema, resultSchema, handler: async () => ok({ value: "x" }) });
+defineCommand({
+	schema: requestSchema,
+	resultSchema,
+	renderHuman: (result) => result.value,
+	// @ts-expect-error result data must match resultSchema.
+	handler: async () => ok({ value: 1 }),
+});
 // @ts-expect-error success without resultSchema rejects a data payload.
 defineCommand({ schema: requestSchema, handler: async () => ok("unexpected") });
+// @ts-expect-error bodyless commands cannot declare renderHuman.
+defineCommand({ schema: requestSchema, renderHuman: () => "", handler: async () => ok() });
+// @ts-expect-error bodyless commands cannot declare renderMarkdown.
+defineCommand({ schema: requestSchema, renderMarkdown: () => "", handler: async () => ok() });
+
+// Bodyless ok() inference compiles without an explicit result type.
+defineCommand({
+	schema: requestSchema,
+	handler: async (request) => (request.count === 0 ? ok() : usageError("nonzero")),
+});
 
 // Error outcomes accept any freeform diagnostics without declared schemas.
 defineCommand({
@@ -61,6 +86,7 @@ defineCommand({
 	requiresContext: true,
 	schema: requestSchema,
 	resultSchema,
+	renderHuman: (result) => result.value,
 	handler: async (context: Context, request) => ok({ value: context.prefix + request.count }),
 });
 // @ts-expect-error contextful handlers require the discriminant.

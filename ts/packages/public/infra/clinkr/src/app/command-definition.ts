@@ -137,58 +137,112 @@ export type ResultOf<TResultSchema extends ResultSchema> = TResultSchema extends
 
 type HandlerResult<TOutcome> = TOutcome | Promise<TOutcome>;
 
-interface CommandDefinitionBase<TSchema extends z.ZodObject, TResultSchema extends ResultSchema> {
+interface SharedCommandDefinition<TSchema extends z.ZodObject> {
 	readonly schema: TSchema;
-	readonly resultSchema?: TResultSchema;
-	readonly renderHuman?: (
-		result: ResultOf<TResultSchema>,
-		capabilities: RenderCapabilities,
-	) => string;
-	readonly renderMarkdown?: (
-		result: ResultOf<TResultSchema>,
-		capabilities: RenderCapabilities,
-	) => string;
 }
 
-export interface ContextFreeCommandDefinition<
-	TSchema extends z.ZodObject = z.ZodObject,
-	TResultSchema extends ResultSchema = ResultSchema,
-> extends CommandDefinitionBase<TSchema, TResultSchema> {
+type CommandRenderer<TResult> = {
+	bivarianceHack(result: TResult, capabilities: RenderCapabilities): string;
+}["bivarianceHack"];
+
+interface DataBearingCommandDefinition<
+	TSchema extends z.ZodObject,
+	TResultSchema extends z.ZodType,
+> extends SharedCommandDefinition<TSchema> {
+	readonly resultSchema: TResultSchema;
+	readonly renderHuman: CommandRenderer<ResultOf<TResultSchema>>;
+	readonly renderMarkdown?: CommandRenderer<ResultOf<TResultSchema>>;
+}
+
+interface BodylessCommandDefinition<
+	TSchema extends z.ZodObject,
+> extends SharedCommandDefinition<TSchema> {
+	readonly resultSchema?: never;
+	readonly renderHuman?: never;
+	readonly renderMarkdown?: never;
+}
+
+interface ContextFreeCommandDefinitionAxis<
+	TSchema extends z.ZodObject,
+	TResultSchema extends ResultSchema,
+> {
 	readonly requiresContext?: false;
-	readonly handler: (
-		request: z.output<TSchema>,
-	) => HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
+	readonly handler: {
+		bivarianceHack(
+			request: z.output<TSchema>,
+		): HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
+	}["bivarianceHack"];
 	readonly completionProvider?: (
 		request: ClinkrCompletionProviderRequest,
 	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
 }
 
-export interface ContextfulCommandDefinition<
+export type ContextFreeCommandDefinition<
+	TSchema extends z.ZodObject = z.ZodObject,
+	TResultSchema extends ResultSchema = ResultSchema,
+> =
+	| (DataBearingCommandDefinition<TSchema, TResultSchema & z.ZodType> &
+			ContextFreeCommandDefinitionAxis<TSchema, TResultSchema>)
+	| (BodylessCommandDefinition<TSchema> & ContextFreeCommandDefinitionAxis<TSchema, TResultSchema>);
+
+type ContextFreeCommandDefinitionInput<
+	TSchema extends z.ZodObject,
+	TResultSchema extends ResultSchema,
+> =
+	| (DataBearingCommandDefinition<TSchema, TResultSchema & z.ZodType> &
+			ContextFreeCommandDefinitionAxis<TSchema, TResultSchema>)
+	| (BodylessCommandDefinition<TSchema> & ContextFreeCommandDefinitionAxis<TSchema, undefined>);
+
+interface ContextfulCommandDefinitionAxis<
+	TContext,
+	TSchema extends z.ZodObject,
+	TResultSchema extends ResultSchema,
+> {
+	readonly requiresContext: true;
+	readonly handler: {
+		bivarianceHack(
+			context: TContext,
+			request: z.output<TSchema>,
+		): HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
+	}["bivarianceHack"];
+	readonly completionProvider?: (
+		context: TContext,
+		request: ClinkrCompletionProviderRequest,
+	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
+}
+
+export type ContextfulCommandDefinition<
 	TContext,
 	TSchema extends z.ZodObject = z.ZodObject,
 	TResultSchema extends ResultSchema = ResultSchema,
-> extends CommandDefinitionBase<TSchema, TResultSchema> {
-	readonly requiresContext: true;
-	readonly handler: (
-		context: TContext,
-		request: z.output<TSchema>,
-	) => HandlerResult<CommandOutcome<ResultOf<TResultSchema>>>;
-	readonly completionProvider?: (
-		context: TContext,
-		request: ClinkrCompletionProviderRequest,
-	) => readonly ClinkrCompletionCandidate[] | Promise<readonly ClinkrCompletionCandidate[]>;
-}
+> =
+	| (DataBearingCommandDefinition<TSchema, TResultSchema & z.ZodType> &
+			ContextfulCommandDefinitionAxis<TContext, TSchema, TResultSchema>)
+	| (BodylessCommandDefinition<TSchema> &
+			ContextfulCommandDefinitionAxis<TContext, TSchema, TResultSchema>);
+
+type ContextfulCommandDefinitionInput<
+	TContext,
+	TSchema extends z.ZodObject,
+	TResultSchema extends ResultSchema,
+> =
+	| (DataBearingCommandDefinition<TSchema, TResultSchema & z.ZodType> &
+			ContextfulCommandDefinitionAxis<TContext, TSchema, TResultSchema>)
+	| (BodylessCommandDefinition<TSchema> &
+			ContextfulCommandDefinitionAxis<TContext, TSchema, undefined>);
 
 export type ClinkrCommandDefinition<TContext = never> =
-	| ContextFreeCommandDefinition<z.ZodObject, ResultSchema>
-	| ContextfulCommandDefinition<TContext, z.ZodObject, ResultSchema>;
+	| ContextFreeCommandDefinition<z.ZodObject, z.ZodType>
+	| ContextFreeCommandDefinition<z.ZodObject, undefined>
+	| ContextfulCommandDefinition<TContext, z.ZodObject, z.ZodType>
+	| ContextfulCommandDefinition<TContext, z.ZodObject, undefined>;
 
 export function defineCommand<
 	TSchema extends z.ZodObject,
 	// Omitted resultSchema means the command has a bodyless success outcome.
 	TResultSchema extends ResultSchema = undefined,
 >(
-	definition: ContextFreeCommandDefinition<TSchema, TResultSchema>,
+	definition: ContextFreeCommandDefinitionInput<TSchema, TResultSchema>,
 ): ContextFreeCommandDefinition<TSchema, TResultSchema>;
 export function defineCommand<
 	TContext,
@@ -196,7 +250,7 @@ export function defineCommand<
 	// Omitted resultSchema means the command has a bodyless success outcome.
 	TResultSchema extends ResultSchema = undefined,
 >(
-	definition: ContextfulCommandDefinition<TContext, TSchema, TResultSchema>,
+	definition: ContextfulCommandDefinitionInput<TContext, TSchema, TResultSchema>,
 ): ContextfulCommandDefinition<TContext, TSchema, TResultSchema>;
 export function defineCommand(
 	definition: ClinkrCommandDefinition<unknown>,

@@ -16,5 +16,6 @@ schema: z.object({
 }),
 // README-FENCE-3-END
 	resultSchema: z.object({ repository: z.string() }),
+	renderHuman: (result) => JSON.stringify(result, null, 2),
 	handler: async (request) => ok({ repository: request.repository }),
 });

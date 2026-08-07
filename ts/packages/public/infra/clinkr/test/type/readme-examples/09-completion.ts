@@ -16,6 +16,7 @@ export async function command() {
     requiresContext: true,
 		schema: z.object({ branch: z.string() }),
 		resultSchema: z.object({ branch: z.string() }),
+		renderHuman: (result) => JSON.stringify(result, null, 2),
 		completionProvider: async (context: YourAppContext, request) =>
 			(await context.git.listBranches())
 				.filter((branch) => branch.startsWith(request.current))

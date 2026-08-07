@@ -24,6 +24,7 @@ function recursiveApp() {
 						requiresContext: true,
 						schema: z.object({ value: z.string().default("root") }),
 						resultSchema: z.object({ value: z.string() }),
+						renderHuman: (result) => JSON.stringify(result, null, 2),
 						handler: (context: Context, request) =>
 							ok({ value: `${context.prefix}:${request.value}` }),
 					}),
@@ -37,6 +38,7 @@ function recursiveApp() {
 								requiresContext: true,
 								schema: z.object({}),
 								resultSchema: z.object({ value: z.string() }),
+								renderHuman: (result) => JSON.stringify(result, null, 2),
 								handler: (context: Context) => ok({ value: `${context.prefix}:list` }),
 							}),
 						);
@@ -53,6 +55,7 @@ function recursiveApp() {
 									requiresContext: true,
 									schema: z.object({ name: z.string().default("Ada") }),
 									resultSchema: z.object({ value: z.string() }),
+									renderHuman: (result) => JSON.stringify(result, null, 2),
 									handler: (context: Context, request) =>
 										ok({ value: `${context.prefix}:${request.name}` }),
 								}),
@@ -65,6 +68,7 @@ function recursiveApp() {
 									requiresContext: true,
 									schema: z.object({}),
 									resultSchema: z.object({ value: z.string() }),
+									renderHuman: (result) => JSON.stringify(result, null, 2),
 									handler: (context: Context) => ok({ value: `${context.prefix}:secret` }),
 								}),
 						);
@@ -312,6 +316,7 @@ test("context mismatch and handler or outcome exceptions propagate", async () =>
 				defineCommand({
 					schema: z.object({}),
 					resultSchema: z.object({ value: z.string() }),
+					renderHuman: (result) => JSON.stringify(result, null, 2),
 					handler: () => ok({ value: 1 } as never),
 				}),
 			);
@@ -328,6 +333,7 @@ test("structural topology issues make the entire opened scope unavailable", asyn
 				defineCommand({
 					schema: z.object({}),
 					resultSchema: z.object({ value: z.string() }),
+					renderHuman: (result) => JSON.stringify(result, null, 2),
 					handler: () => ok({ value: "ready" }),
 				}),
 			);

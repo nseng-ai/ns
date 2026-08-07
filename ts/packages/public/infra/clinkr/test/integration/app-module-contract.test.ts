@@ -223,11 +223,11 @@ for (const [label, commandSource] of [
 	],
 	[
 		"structured definitions with invalid schemas",
-		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: {}, handler: async () => ok() }; }\n',
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: {}, renderHuman: () => "", handler: async () => ok() }; }\n',
 	],
 	[
 		"structured definitions with invalid renderers",
-		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), renderHuman: "no", handler: async () => ok() }; }\n',
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: z.object({}), renderHuman: "no", handler: async () => ok() }; }\n',
 	],
 	[
 		"structured definitions with invalid context discriminants",
@@ -269,3 +269,29 @@ for (const [label, commandSource] of [
 		);
 	});
 }
+
+test.each([
+	[
+		"resultSchema without renderHuman",
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), resultSchema: z.object({}), handler: async () => ok({}) }; }\n',
+		/resultSchema declared without renderHuman.*command\.ts/,
+	],
+	[
+		"renderHuman on a bodyless command",
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), renderHuman: () => "", handler: async () => ok() }; }\n',
+		/renderHuman\/renderMarkdown declared on a command without resultSchema.*command\.ts/,
+	],
+	[
+		"renderMarkdown on a bodyless command",
+		'import { ok } from "@nseng-ai/clinkr/app";\nimport { z } from "zod";\nexport async function command() { return { schema: z.object({}), renderMarkdown: () => "", handler: async () => ok() }; }\n',
+		/renderHuman\/renderMarkdown declared on a command without resultSchema.*command\.ts/,
+	],
+] as const)(
+	"selected command() rejects %s with a dedicated coupling error",
+	async (_label, commandSource, error) => {
+		const commandDirectory = await createCommandDirectory({ commandSource });
+		await expect(createClinkrApp({ name: "fixture", commandDirectory }).run([])).rejects.toThrow(
+			error,
+		);
+	},
+);
