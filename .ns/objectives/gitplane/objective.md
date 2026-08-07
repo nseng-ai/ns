@@ -12,6 +12,8 @@ Build Gitplane v1 as an incubating TypeScript platform package: a Git-backed art
 
 This Objective follows the readme-driven-development pattern with two canonical drafts: `references/README-draft.md` is the exclusively user-facing contract until promoted to the package README, and `references/SPEC-draft.md` is the normative reference/spec the implementation follows, tracked and promoted the same way. `references/v1-contract-design-report.md` preserves the grilling rationale and rejected alternatives but is non-normative. Design decisions count as settled only when they appear in the README or the spec; execution state stays in `roadmap.md`.
 
+The reconciliation child completed and landed its five-boundary replacement stack through implementation anchor `3cf5a42826a421b40e9eb7f110a97076003cef43`; its `architecture-accounting.md` reconciles that implementation with prototype `09d75c3ae` and superseded implementation `48a07b6bb`. Prototype PR #4076 and superseded PR #4130 are closed unmerged, and `gitplane-reconciliation-stack-rebuild` is closed completed. The parent Objective now treats level-triggered complete-snapshot reconciliation as delivered while continuing with its remaining reference-consumer, check-only Action, and documentation-promotion rows.
+
 ## Scope
 
 - Two incubating workspace packages under `ts/packages/`: `@nseng-ai/gitplane`, with an exported API-kind `/cli` subpackage, and `@nseng-ai/gitplane-sqlite`. Gitplane depends on Clinkr but not Foundation; its package-local invocation context contains `Clock` plus the absolute selected config directory needed for config-relative adapter paths.
