@@ -21,7 +21,7 @@ The rebuild also reshapes reconciliation internally into Gather → Decide → A
 
 ## Non-Goals
 
-- No redesign of the settled README/SPEC reconciliation contract. This is a restructure, not re-litigation; contract amendments are limited to what the slice-1 proof matrix formalizes or disambiguates.
+- No redesign beyond clarifications required by the slice-1 proof matrix. The deterministic `gpa_` attempt ID and frozen semantic plan, marker-provenance revision identity, initial-full materialization lifecycle events, lineage-free repair events, three event-reconstruction statuses, cursor-CAS completion boundary, structural/operational failure split, and deterministic per-artifact apply order are intentional rebuild amendments rather than silent prototype drift. Later amendments require explicit contract and Objective updates.
 - No new reconciliation capabilities beyond the prototype: no event dispatch, concurrent writers, migrations, or other items on gitplane's Parked list.
 - No byte-for-byte reproduction of the prototype; the internal structure is expected to differ, with behavior accounted for explicitly.
 - No public export of the planner or other internal seams merely for testability.
@@ -30,6 +30,9 @@ The rebuild also reshapes reconciliation internally into Gather → Decide → A
 
 - All six stack slices landed on `master` via reviewed PRs.
 - At stack tip, a behavioral accounting against reference commit `09d75c3ae`: every semantic difference from the prototype is intentional and covered by a new or changed test (not byte-equivalence).
+- The deterministic `gpa_` reconciliation attempt ID and persisted complete frozen semantic plan prevent retries from rereading source artifacts or reinterpreting changed registration. The exact derivation has a literal identity test in the durable-store slice.
+- Every immutable revision carries required `markerLastChangedCommit` provenance and includes it in `gpr_` identity. Source-fact coverage proves marker add/change/move attribution and structural prewrite failure when Git history cannot establish it; a move therefore creates a revision and `artifact.revised` event.
+- Initial full reconciliation rebuilds the materialization lifecycle from scratch and emits one deterministic `artifact.created` event per target artifact without claiming repository-introduction history. Every full reconciliation after initial materialization reapplies every planned artifact and emits a deterministic `artifact.repaired` event for each one regardless of ancestry or cursor-history availability, without asserting Git lineage; target-drift reads that suppress already-matching repairs are deferred as an optimization.
 - The systematic fault-injection matrix exists and passes: for a reference plan, a failure injected before and after every store write boundary, with retry over shared state converging to the uninterrupted outcome with stable revision IDs, event IDs, event sequences, and target values — the central proof the prototype lacks.
 - Prototype PR #4076 closed unmerged with a pointer to the landed stack, and the `gitplane` objective's reconciliation roadmap row carries the stack PRs as evidence instead.
 
@@ -41,18 +44,19 @@ Every prompt produced for this Objective must start with the `/ns:plan:grill-and
 
 Assumptions:
 
-- Prototype behavior at `09d75c3ae` is a correct-enough baseline to rebuild against: its scenario suite passed full repo validation after restack (6,433 tests across 592 files). Slices may falsify individual behaviors where the proof matrix finds gaps; such findings amend the contract slice rather than silently diverging.
-- The pure planner seam (complete fact snapshot in, deterministic plan out, no gateways) can express all current planning behavior, including frozen-baseline retry facts. If mid-planning gateway interleaving turns out to be genuinely required, the seam must be redrawn deliberately — that is a design finding to record, not a workaround to bury.
+- Gitplane is unreleased and its requirements remain provisional. The documented invariants coordinate the rebuild, but implementation-owning slices must re-examine decisions not required by earlier PRs and explicitly amend the contract and Objective when evidence changes them.
+- Prototype behavior at `09d75c3ae` is a correct-enough baseline to rebuild against: its scenario suite passed full repo validation after restack (6,433 tests across 592 files). The contract slice intentionally replaces or clarifies prototype choices where named above, while complete semantic accounting against the prototype remains a stack-tip closure criterion.
+- The pure planner seam (complete fact snapshot in, deterministic plan out, no gateways) can express all current planning behavior, including a complete frozen semantic apply plan. If mid-planning gateway interleaving turns out to be genuinely required, the seam must be redrawn deliberately — that is a design finding to record, not a workaround to bury.
 - Six PRs is justified above the ordinary batch target because contract, source facts, pure policy, durable persistence, effect ordering, and user exposure have distinct review and revert boundaries; combining adjacent slices would force reviewers to reason about multiple independent correctness dimensions at once.
 
 Risks:
 
 - Behavioral drift during the rebuild. Mitigated by the retained reference branch, per-slice comparison against it, and the tip-level behavioral accounting criterion.
-- Scope gravity toward redesign: restructuring invites "improving" contract semantics mid-flight. Contract changes belong in slice 1 or in explicit `gitplane` objective updates, never inside implementation slices.
+- Scope gravity toward redesign: restructuring invites speculative contract decisions. Slice 1 settles only the invariants required to align early rebuild slices; implementation-owned details remain visibly provisional, and later evidence-driven changes require explicit contract and Objective updates.
 - The prototype added reconciliation tables while retaining `SQLITE_SCHEMA_VERSION = 1`. The durable-protocol slice must make expand-in-place versus version bump a conspicuous reviewed decision (see Open Questions); inheriting it silently would bury a compatibility assumption.
 - Deliberate shortcut and its upgrade: keeping PR #4076 open as a reference risks it being mistaken for a landable PR. Upgrade path: mark it as draft/reference in its PR description when the stack starts, and close it unmerged at completion (tracked as the closure roadmap row).
 
 ## Open Questions
 
 - Schema-version handling: expand SQLite v1 in place (defensible for unreleased software) or bump `SQLITE_SCHEMA_VERSION` for the reconciliation tables? Decided in the durable-protocol slice as an explicit reviewed decision.
-- Whether the contract/proof-matrix slice lands as tests plus package reference docs only, or also amends `README-draft.md` / `SPEC-draft.md` wording where the matrix reveals ambiguity.
+- Exact frozen-plan type/schema, attempt lookup precedence, mode-mismatch and stale-attempt recovery, and operator controls remain provisional to the planner, durable-store, and engine slices. They must be re-examined when implementation evidence exists rather than inferred from the prototype.
