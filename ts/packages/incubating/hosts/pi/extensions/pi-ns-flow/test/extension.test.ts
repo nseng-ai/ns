@@ -1,6 +1,8 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import type { AssistantMessage, Usage } from "@earendil-works/pi-ai";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { describe, expect, test } from "vitest";
 
@@ -8,6 +10,8 @@ import {
 	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
 	type CommandContext,
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
+import type { CompleteSimpleFunction } from "@nseng-ai/pi-runtime/models/call";
+import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type {
 	ProjectConfigGateway,
 	ProjectConfigPathExistsResult,
@@ -58,7 +62,19 @@ const FLOW_COMMANDS = [
 ] as const satisfies readonly FlowCommandName[];
 const PACKAGED_RECOVERY_PROMPT = "Packaged recovery prompt\n";
 
+interface RawExecCall {
+	command: string;
+	args: string[];
+	options: RawPiExecOptions | undefined;
+}
+
 class FakePi implements FlowExtensionAPI {
+	readonly execCalls: RawExecCall[] = [];
+	execHandler: (command: string, args: readonly string[]) => RawPiExecResult = () => ({
+		stdout: "",
+		stderr: "",
+		code: 0,
+	});
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly messageRenderers = new Map<string, unknown>();
 	readonly sentMessages: CustomMessage[] = [];
@@ -90,8 +106,13 @@ class FakePi implements FlowExtensionAPI {
 		this.deliveryEvents.push("command-output");
 	};
 
-	async exec(_command: string, _args: string[], _options?: ExecOptions): Promise<ExecResult> {
-		return { type: "exited", stdout: "", stderr: "", code: 0, signal: null };
+	async exec(
+		command: string,
+		args: string[],
+		options?: RawPiExecOptions,
+	): Promise<RawPiExecResult> {
+		this.execCalls.push({ command, args: [...args], options });
+		return this.execHandler(command, args);
 	}
 
 	sendUserMessage(content: string): void {
@@ -184,6 +205,52 @@ describe("ns Pi extension", () => {
 			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${commandName}`);
 		});
 	}
+
+	test("summarizes CLI results through the default host result-summary composition", async () => {
+		const repoRoot = mkdtempSync(join(tmpdir(), "pi-ns-flow-summary-root-"));
+		writeFileSync(
+			join(repoRoot, "ns.toml"),
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+		const commandCwd = join(repoRoot, "nested");
+
+		const pi = new FakePi();
+		pi.execHandler = (command, args) => {
+			if (command === "git" && args[0] === "rev-parse" && args[1] === "--show-toplevel") {
+				return { stdout: `${repoRoot}\n`, stderr: "", code: 0 };
+			}
+			throw new Error(`Unexpected exec invocation: ${command} ${args.join(" ")}`);
+		};
+
+		registerFlowExtension(pi, {
+			runCli: async (_args, deps) => {
+				deps.stdout("raw-flow-changes-output\n");
+				return 0;
+			},
+			resultSummaryCompleteFn: completeWith(
+				makeModelResponse("## Summary\n- Flow changes listed one modified file."),
+			),
+		});
+
+		await commandFor(pi, "ns:flow:changes").handler("", createModelContext(commandCwd, pi));
+
+		expect(pi.sentMessages).toHaveLength(1);
+		const content = String(pi.sentMessages[0]?.content);
+		expect(content).toMatch(/^## Summary\n- /u);
+		expect(content).toContain("- Flow changes listed one modified file.");
+		expect(content).toContain("\n\n## Raw logs\n- stdout: ");
+		expect(content).toContain("\n- stderr: ");
+		expect(content).not.toContain("raw-flow-changes-output");
+
+		const gitCalls = pi.execCalls.filter((call) => call.command === "git");
+		expect(gitCalls).toEqual([
+			{
+				command: "git",
+				args: ["rev-parse", "--show-toplevel"],
+				options: expect.objectContaining({ cwd: commandCwd }),
+			},
+		]);
+	});
 
 	test.each([FLOW_SUBMIT_CHECK_FAILURE_MARKER, `error: ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`])(
 		"sends one descriptor-default recovery turn after marker-bearing submit output: %s",
@@ -377,6 +444,48 @@ describe("ns Pi extension", () => {
 		expect(pi.userMessages[0]?.length).toBeLessThan(6_000);
 	});
 });
+
+const MODEL_TOKEN = { id: "summary-model" };
+
+const ZERO_USAGE: Usage = {
+	input: 0,
+	output: 0,
+	cacheRead: 0,
+	cacheWrite: 0,
+	totalTokens: 0,
+	cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+};
+
+function makeModelResponse(text: string): AssistantMessage {
+	return {
+		role: "assistant",
+		api: "fake-api",
+		provider: "fake-provider",
+		model: "fake-model",
+		usage: ZERO_USAGE,
+		timestamp: 0,
+		stopReason: "stop",
+		content: [{ type: "text", text }],
+	};
+}
+
+function completeWith(response: AssistantMessage): CompleteSimpleFunction {
+	return (() => Promise.resolve(response)) as CompleteSimpleFunction;
+}
+
+function createModelContext(cwd: string, pi: FakePi): CommandContext {
+	return {
+		...createContext(cwd, pi),
+		modelRegistry: {
+			find: (provider, modelId) =>
+				provider === "openai-codex" && modelId === "gpt-5.6-luna" ? MODEL_TOKEN : undefined,
+			getApiKeyAndHeaders: async (model) => {
+				expect(model).toBe(MODEL_TOKEN);
+				return { ok: true, apiKey: "test-key" };
+			},
+		},
+	};
+}
 
 interface RecoveryPromptGatewayState {
 	prompt?: string;
