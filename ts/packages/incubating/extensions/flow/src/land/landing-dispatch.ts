@@ -16,14 +16,16 @@ import {
 } from "./post-landing-slot-cleanup.ts";
 import type {
 	LandingExecutionReport,
+	LandingExecutionResult,
 	LandingFailure,
+	LandingPhase,
 	LandingShape,
 	PostLandingSlotCleanupReport,
 	PullRequestFacts,
 } from "./types.ts";
 
 export type FlowLandWorkflowResult =
-	| { readonly type: "stack"; readonly execution: import("./types.ts").LandingExecutionResult }
+	| { readonly type: "stack"; readonly execution: LandingExecutionResult }
 	| {
 			readonly type: "single-branch-dry-run";
 			readonly repoRoot: string;
@@ -39,7 +41,7 @@ export type FlowLandWorkflowResult =
 	| {
 			readonly type: "failed";
 			readonly failure: LandingFailure;
-			readonly failedPhase: import("./types.ts").LandingPhase;
+			readonly failedPhase: LandingPhase;
 			readonly report?: LandingExecutionReport;
 			readonly landedPullRequest?: PullRequestFacts;
 	  };
@@ -137,13 +139,13 @@ async function runSingleBranchDispatch(input: {
 	};
 }
 
-function failurePhase(failure: LandingFailure): import("./types.ts").LandingPhase {
+function failurePhase(failure: LandingFailure): LandingPhase {
 	return failure.type === "execution" ? "request-validation" : failure.phase;
 }
 
 function singleBranchFailurePhase(
 	stage: "load" | "base-check" | "confirmation" | "merge" | "verification",
-): import("./types.ts").LandingPhase {
+): LandingPhase {
 	switch (stage) {
 		case "load":
 		case "base-check":

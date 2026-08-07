@@ -1,5 +1,6 @@
 import type { Caps } from "@nseng-ai/clinkr";
 import { renderResultBlockFromMessage } from "@nseng-ai/foundation/cli-theme";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
 	buildLandFailurePresentation,
@@ -129,9 +130,7 @@ export function renderLandWorkflowResult(caps: Caps, result: FlowLandWorkflowRes
 							branch: result.landedPullRequest.headRefName,
 							number: result.landedPullRequest.number,
 							title: result.landedPullRequest.title,
-							...(result.landedPullRequest.url === undefined
-								? {}
-								: { url: result.landedPullRequest.url }),
+							...optionalEntry("url", result.landedPullRequest.url),
 						},
 					],
 		);

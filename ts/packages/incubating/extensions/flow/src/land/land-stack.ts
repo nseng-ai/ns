@@ -31,6 +31,7 @@ import type {
 	LandExecutionApi,
 	ParsedArgs,
 } from "./stack/types.ts";
+import type { LandingExecutionResult } from "./types.ts";
 
 export type { LandExecutionApi } from "./stack/types.ts";
 
@@ -57,7 +58,7 @@ export async function executeStackLanding(
 	ctx: LandStackCommandContext,
 	parsedArgs: ParsedArgs,
 	options: ExecuteStackLandingOptions = {},
-): Promise<import("./types.ts").LandingExecutionResult> {
+): Promise<LandingExecutionResult> {
 	const observabilityChannels = executeStackLandingObservabilityChannels(options);
 	const io = observabilityChannels.progressIo ?? createLandCommandIo(pi, ctx);
 	const commandStream = new LandStackCommandStream(io, {

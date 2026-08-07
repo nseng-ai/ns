@@ -1,9 +1,11 @@
 import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import { runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 import { resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
 
 import { runLandWorkflow, type FlowLandWorkflowResult } from "../../land/land.ts";
+import type { LandingFailure } from "../../land/types.ts";
 import { landCommandSuccess, renderLandWorkflowResult } from "../../land/command-result.ts";
 import {
 	BASE_LAND_TITLE,
@@ -121,10 +123,10 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 								exec: io.exec,
 								progressIo: progress.io,
 								liveProgress: progress.liveProgress,
-								...(progress.landMatrix === undefined ? {} : { landMatrix: progress.landMatrix }),
+								...optionalEntry("landMatrix", progress.landMatrix),
 								externalCallTelemetry: telemetry.sink,
-								...(ctx.confirm === undefined ? {} : { confirm: ctx.confirm }),
-								...(ctx.select === undefined ? {} : { select: ctx.select }),
+								...optionalEntry("confirm", ctx.confirm),
+								...optionalEntry("select", ctx.select),
 							}),
 					),
 			});
@@ -167,7 +169,7 @@ function landCommandExit(caps: Caps, result: FlowLandWorkflowResult) {
 	return ok(landSuccessSchema.parse(data));
 }
 
-function isRefusal(failureValue: import("../../land/types.ts").LandingFailure): boolean {
+function isRefusal(failureValue: LandingFailure): boolean {
 	return (
 		(failureValue.type === "execution" && failureValue.outcome === "refusal") ||
 		(failureValue.type === "domain" && failureValue.reason === "nothing-to-land")
@@ -322,7 +324,7 @@ export function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliP
 			liveState.landedPrs += 1;
 			progress.setTitle(formatLandProgressTitle(liveState));
 		},
-		...(landMatrix === undefined ? {} : { landMatrix }),
+		...optionalEntry("landMatrix", landMatrix),
 		finish: async (exitCode) => await progress.finish({ isFailed: exitCode !== 0 }),
 		flushFailureDetails: (exitCode) => {
 			if (exitCode !== 0 && failureDetails.length > 0)

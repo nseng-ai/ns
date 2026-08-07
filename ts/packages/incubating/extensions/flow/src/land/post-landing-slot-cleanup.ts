@@ -15,7 +15,13 @@ import {
 } from "./execution/post-landing-cleanup.ts";
 import { setStatus } from "./land-presentation.ts";
 import type { PrintAwareLandStackCommandContext, ParsedArgs } from "./stack/types.ts";
-import type { LandContext, LandingCleanupPolicy, LandingShape } from "./types.ts";
+import type {
+	LandContext,
+	LandingCleanupPolicy,
+	LandingFailure,
+	LandingShape,
+	PostLandingSlotCleanupReport,
+} from "./types.ts";
 
 export type { PostLandingSlotCleanupPreview };
 
@@ -62,12 +68,12 @@ interface RunPostLandingSlotCleanupOptions {
 export type FlowPostLandingCleanupResult =
 	| {
 			readonly type: "completed";
-			readonly cleanup: import("./types.ts").PostLandingSlotCleanupReport;
+			readonly cleanup: PostLandingSlotCleanupReport;
 	  }
 	| {
 			readonly type: "failure";
-			readonly cleanup: import("./types.ts").PostLandingSlotCleanupReport;
-			readonly failure: import("./types.ts").LandingFailure;
+			readonly cleanup: PostLandingSlotCleanupReport;
+			readonly failure: LandingFailure;
 	  };
 
 export async function runPostLandingSlotCleanup(
