@@ -1,4 +1,5 @@
 import type { Clock } from "@nseng-ai/foundation/clock";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { commandSucceeded, nsCommandSurface } from "@nseng-ai/foundation/command";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import {
@@ -8,6 +9,10 @@ import {
 	type CliCommandRunDeps,
 	type ParsedCliCommandArgs,
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
+import {
+	createRealCliCommandResultSummaryContext,
+	type CliCommandResultSummaryContext,
+} from "@nseng-ai/pi-runtime/commands/cli-command-result-summary-context";
 import { parseMachineEnvelopeData } from "@nseng-ai/pi-runtime/runtime/machine-envelope";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import {
@@ -170,6 +175,7 @@ const OBJECTIVE_LIST_COMMAND = {
 export interface ObjectiveExtensionOptions {
 	clock?: Clock;
 	createObjectiveClient?: (options: ObjectiveClientOptions) => ObjectiveClient;
+	resultSummary?: CliCommandResultSummaryContext;
 }
 
 interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
@@ -588,8 +594,12 @@ export default function objectiveExtension(
 	);
 	const objectiveCommandCompleter = createObjectiveCommandCompleter(pi, commands);
 
+	const resultSummary =
+		options.resultSummary ??
+		createRealCliCommandResultSummaryContext({ git: new RealGitGateway(commands) });
 	registerCliCommandExtension(pi, {
 		cliName: "objective",
+		resultSummary,
 		piNamespace: "ns:objective",
 		commands: [OBJECTIVE_LIST_COMMAND],
 		runCli: async (args, deps) => await runObjectiveCliCommand(args, deps, options),

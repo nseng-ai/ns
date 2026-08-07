@@ -14,6 +14,10 @@ import {
 	type CliCommandExtensionSpec,
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
+import {
+	createRealCliCommandResultSummaryContext,
+	type CliCommandResultSummaryContext,
+} from "@nseng-ai/pi-runtime/commands/cli-command-result-summary-context";
 
 export interface FlowExtensionAPI extends CliCommandExtensionAPI, CommandExecApi {
 	sendUserMessage(content: string): Promise<void> | void;
@@ -40,6 +44,8 @@ export interface FlowExtensionOptions {
 	recoveryContext?: FlowSubmitRecoveryContext;
 	/** Host-composed recovery Git consumer; defaults to Git over the Pi exec channel. */
 	recoveryGit?: FlowSubmitRecoveryGitGateway;
+	/** Host-composed result summarization context; defaults to Pi and Node adapters. */
+	resultSummary?: CliCommandResultSummaryContext;
 }
 
 export default function registerFlowExtension(
@@ -48,8 +54,12 @@ export default function registerFlowExtension(
 ): void {
 	const recoveryGit = options.recoveryGit ?? new RealGitGateway(pi);
 	const recoveryContext = options.recoveryContext ?? nodeFlowSubmitRecoveryContext;
+	const resultSummary =
+		options.resultSummary ??
+		createRealCliCommandResultSummaryContext({ git: new RealGitGateway(pi) });
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
+		resultSummary,
 		piNamespace: "ns:flow",
 		commands: FLOW_COMMAND_SPECS,
 		runCli: options.runCli,
