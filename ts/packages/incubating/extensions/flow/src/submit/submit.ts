@@ -14,6 +14,8 @@ import type {
 	SubmitResult,
 	SubmitGateway,
 	SubmitOutputListener,
+	SubmitRunResult,
+	CurrentPrVerificationResult,
 } from "./submit-contracts.ts";
 import {
 	deterministicSubmitCommandFailure,
@@ -48,6 +50,7 @@ import {
 import type { SubmitProgressListeners } from "./submit-progress-listeners.ts";
 import { formatSubmitCommandDisplays } from "./submit-command-spec.ts";
 import { mergePrLinks } from "./submit-pr-link.ts";
+import type { SubmitPrLink } from "./gt-output.ts";
 import { reconcileSubmitPrInventory } from "./submit-pr-reconciliation.ts";
 import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import type { SubmitProgress } from "./submit-progress.ts";
@@ -456,9 +459,9 @@ function submitPhaseProgressListeners<ItemProgressEvent>(
 }
 
 function outputPrLinksFor(
-	submitted: Extract<import("./submit-contracts.ts").SubmitRunResult, { kind: "success" }>,
-	currentPr: import("./submit-contracts.ts").CurrentPrVerificationResult,
-): readonly import("./gt-output.ts").SubmitPrLink[] {
+	submitted: Extract<SubmitRunResult, { kind: "success" }>,
+	currentPr: CurrentPrVerificationResult,
+): readonly SubmitPrLink[] {
 	return currentPr.kind === "present"
 		? mergePrLinks(submitted.prLinks, currentPr.prLinks)
 		: mergePrLinks(submitted.prLinks, []);

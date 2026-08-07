@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import type {
 	CurrentPrVerificationResult,
 	SubmitCommandOutput,
@@ -32,9 +34,7 @@ export function submitFailureResult(
 		failurePresentation: options.failurePresentation,
 		publishedPrs: options.publishedPrs ?? [],
 		metadataApplied: options.metadataApplied ?? [],
-		...(options.rawFailureTranscript === undefined
-			? {}
-			: { rawFailureTranscript: options.rawFailureTranscript }),
+		...optionalEntry("rawFailureTranscript", options.rawFailureTranscript),
 	};
 }
 
@@ -47,7 +47,7 @@ export function deterministicSubmitCommandFailure(input: {
 }): SubmitResult {
 	return submitFailureResult(input.phase, input.stderr, {
 		failurePresentation: "deterministic",
-		...(input.type === undefined ? {} : { type: input.type }),
+		...optionalEntry("type", input.type),
 		rawFailureTranscript: submitCommandFailureTranscript({
 			phase: input.phase,
 			commandDisplay: input.commandDisplay,
