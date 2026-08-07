@@ -429,7 +429,7 @@ Contract:
 
 ### `objective-autorun`
 
-`objective-autorun` is the normally invocable, self-contained parent orchestration skill for repeated **autorun steps**. Direct use requires Git, checkout-local Objective Markdown records, and harness implementation delegation. The optional `/ns:objective:autorun` Pi command selects an Objective and injects the same skill; it does not own the execution protocol. The advanced `objective-runner-step` skill remains invoke-only and is not an autorun dependency.
+`objective-autorun` is the normally invocable, self-contained parent orchestration skill for one or more **autorun steps**. Direct use requires Git, checkout-local Objective Markdown records, and harness implementation delegation. The optional `/ns:objective:autorun` Pi command selects an Objective and injects the same skill; it does not own the execution protocol.
 
 Autorun selects and previews one of two modes with distinct trust contracts:
 
@@ -452,7 +452,7 @@ ADR 0037 permits a separate conditional action by trusted parent orchestration o
 
 The parent-owned managed section contains the Objective slug, ordered Runner commits and validation outcomes, material tracking commits when present, and parent-judged escalatable decisions. It replaces one slug-bound region while preserving all other PR prose. No permission or publication artifact reaches the implementation child, and this exception does not include PR creation, stack submission/restacking, force-push, merge/land, deployment, or arbitrary external writes.
 
-Core bookended-step design lives in ADR 0024; the conditional parent publication contract lives in ADR 0037. The advanced invoke-only parent-facing contract for one strict step lives in `skills/incubating/objectives/objective-runner-step/SKILL.md`; the self-contained dual-mode loop lives in `skills/incubating/objectives/objective-autorun/SKILL.md`. The former blocking `ns objective exec runner-step` surface has been replaced by the decomposed bookends.
+Core bookended-step design lives in ADR 0024; the conditional parent publication contract lives in ADR 0037. The self-contained dual-mode parent procedure, including a strict single bookended step when run with a one-step ceiling, lives in `skills/incubating/objectives/objective-autorun/SKILL.md`. The former blocking `ns objective exec runner-step` surface has been replaced by the decomposed bookends.
 
 ### `ns objective exec runner-subagent-usage`
 

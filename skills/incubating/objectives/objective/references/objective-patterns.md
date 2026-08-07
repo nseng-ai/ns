@@ -68,9 +68,9 @@ validates the report and worktree before creating a runner-attested Runner Check
 In `portable`, it uses Git plus harness delegation on one parent-managed non-trunk
 feature branch for the run; the parent verifies each accepted slice and creates one
 ordinary local commit per step. Portable commits are parent-verified, not Runner
-Checkpoints, and ADR 0037 publication is unavailable. The `objective-runner-step` skill
-remains the advanced invoke-only parent playbook for one strict ADR 0024 step; autorun
-does not depend on it. Composes with either horizon; a steelthread autoobjective is a
+Checkpoints, and ADR 0037 publication is unavailable. The ns-bookended autorun procedure
+also owns a strict single ADR 0024 step when the run has a one-step ceiling. Composes
+with either horizon; a steelthread autoobjective is a
 common combination. Creation: `objective-create`
 `references/autoobjective-create.md`.
 

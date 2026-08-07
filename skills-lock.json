@@ -244,11 +244,6 @@
       "sourceType": "local",
       "computedHash": "8f787ae6e70b22f1298b9281e8d7293f3825e67f116f09c8863cdf2ec549ebce"
     },
-    "objective-runner-step": {
-      "source": "skills/incubating/objectives/objective-runner-step",
-      "sourceType": "local",
-      "computedHash": "f00f0d671c638a7cb6fe77b33c58fe612ebf83f07839cf78abe9364475cbf1e0"
-    },
     "objective-update": {
       "source": "skills/incubating/objectives/objective-update",
       "sourceType": "local",

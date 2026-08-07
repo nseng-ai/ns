@@ -83,12 +83,6 @@
 			},
 			{
 				"kind": "skill",
-				"name": "objective-runner-step",
-				"sourcePath": "skills/incubating/objectives/objective-runner-step",
-				"publishPath": "skills/objective-runner-step"
-			},
-			{
-				"kind": "skill",
 				"name": "objective-update",
 				"sourcePath": "skills/incubating/objectives/objective-update",
 				"publishPath": "skills/objective-update"
