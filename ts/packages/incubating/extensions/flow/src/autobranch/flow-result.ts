@@ -6,5 +6,5 @@
 export type AutobranchFlowOutcome = "refusal" | "failure";
 
 export type AutobranchFlowResult =
-	| { ok: true; isClean: boolean; summary: string; warnings: string[] }
+	| { ok: true; branchName: string; isClean: boolean; summary: string; warnings: string[] }
 	| { ok: false; outcome: AutobranchFlowOutcome; error: string };

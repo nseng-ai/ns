@@ -331,6 +331,7 @@ export async function runDirtyAutobranchFlow(
 
 	return {
 		ok: true,
+		branchName: prepared.plan.branchName,
 		isClean: completion.isClean,
 		summary: [
 			`New branch: ${prepared.plan.branchName}${completion.suffix}`,

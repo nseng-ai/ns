@@ -15,6 +15,12 @@ describe("flow extension API", () => {
 		expect(FLOW_SUBMIT_CHECK_FAILURE_MARKER).toBe("NS_FLOW_SUBMIT_CHECK_FAILURE");
 	});
 
+	test("removes the obsolete Autoslot CLI adapter from the curated API", async () => {
+		const api = await import("../../src/api/index.ts");
+
+		expect(api).not.toHaveProperty("runAutoslotCli");
+	});
+
 	test("exports cohesive host-independent Flow interfaces", () => {
 		expect(FLOW_COMMAND_SPECS).toHaveLength(11);
 		expect(nsFlowCommandSurface("submit")).toBe("ns:flow:submit");

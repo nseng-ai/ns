@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { afterEach } from "vitest";
 
 import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
-import { flowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
+import { createFlowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
 import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-latest-commit.ts";
 import { flowChangesCommand } from "../../src/ns/commands/changes.ts";
 import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
@@ -20,6 +20,7 @@ import {
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/extension-kit/graphite/testing";
 import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
+import type { SlotClient, SlotCheckoutResult } from "@nseng-ai/slots/api";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
 import { createNsSubmitRuntime } from "../../src/submit/ns-runtime.ts";
@@ -37,7 +38,7 @@ afterEach(() => {
 	for (const root of tempStateRoots.splice(0)) rmSync(root, { recursive: true });
 });
 
-interface RunFlowCommandWithFakesOptions {
+export interface RunFlowCommandWithFakesOptions {
 	request?: unknown;
 	state?: TestState;
 	cwd?: string;
@@ -460,15 +461,29 @@ export function branchLatestCommitChildBranchRefusalExec(): ScriptedExecResponse
 	];
 }
 
-// `ns flow autoslot` wraps Flow autobranch + slot-checkout orchestration through `runFlowCli`.
-// The happy path moves a managed slot via a real `SlotClient` (filesystem/git side effects), which is
-// out of the default fake lane. These flow scenarios exercise the wrapper end-to-end on the outcomes
-// that settle BEFORE slot checkout: extensions resolution, house-style rendering, and stdout/stderr routing
-// via `runFlowCli`.
-export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
-	return runFlowCommandWithFakes({
+export interface RunFlowAutoslotCommandWithFakesOptions extends RunFlowCommandWithFakesOptions {
+	slotResult?: SlotCheckoutResult;
+}
+
+export function runFlowAutoslotCommandWithFakes(
+	options: RunFlowAutoslotCommandWithFakesOptions = {},
+) {
+	const slotClient = new FakeSlotClient(
+		options.slotResult ?? {
+			ok: true,
+			target: {
+				slotName: "slot-03",
+				branchName: "move-work",
+				worktreePath: "/slots/slot-03",
+				isAlreadyAssigned: false,
+				hasCreatedBranch: false,
+				currentWorktreeNote: null,
+			},
+		},
+	);
+	const run = runFlowCommandWithFakes({
 		requiresModelPolicy: true,
-		command: flowAutoslotCommand,
+		command: createFlowAutoslotCommand({ createSlotClient: () => slotClient }),
 		request: options.request ?? { slug: "move-work" },
 		options,
 		defaults: options.defaults ?? {
@@ -476,10 +491,44 @@ export function runFlowAutoslotCommandWithFakes(options: RunFlowCommandWithFakes
 			textGenerationResults: () => [],
 		},
 	});
+	return {
+		...run,
+		slotClient,
+		machineEnvelope: run.result.then(commandMachineEnvelope),
+	};
+}
+
+class FakeSlotClient implements SlotClient {
+	readonly checkoutCurrentCalls: number[] = [];
+	private readonly result: SlotCheckoutResult;
+
+	constructor(result: SlotCheckoutResult) {
+		this.result = result;
+	}
+
+	async checkoutCurrent(): Promise<SlotCheckoutResult> {
+		this.checkoutCurrentCalls.push(this.checkoutCurrentCalls.length + 1);
+		return this.result;
+	}
+
+	async checkoutBranch(): Promise<SlotCheckoutResult> {
+		throw new Error("Autoslot must check out the current branch.");
+	}
 }
 
 // Snapshot probe failure: `git status` fails while loading the pending-worktree snapshot, so the
 // autobranch step fails before any branch is created or slot checkout is attempted.
+export function autoslotBranchCreatedExec(
+	options: { isClean?: boolean } = {},
+): ScriptedExecResponse[] {
+	const responses = autobranchDirtyHappyExec();
+	const finalStatus = responses.at(-1);
+	if (options.isClean === false && finalStatus !== undefined) {
+		finalStatus.result = { stdout: " M generated.txt\n" };
+	}
+	return responses;
+}
+
 export function autoslotStatusProbeFailExec(): ScriptedExecResponse[] {
 	return [
 		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
@@ -623,6 +672,13 @@ async function runFlowCommand(input: {
 	const result = await input.command.handler(input.context, request);
 	writeCommandExitOutput(result, input.command, input);
 	return { exitCode: exitCodeForCommandExit(result), result };
+}
+
+function commandMachineEnvelope(result: CommandExit<unknown>): Record<string, unknown> {
+	return {
+		...result,
+		exitCode: exitCodeForCommandExit(result),
+	};
 }
 
 function exitCodeForCommandExit(result: CommandExit<unknown>): number {

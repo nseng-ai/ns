@@ -10,8 +10,8 @@ export type {
 } from "../autobranch/checkpoint-flow.ts";
 export { createFlowAutobranchCheckpointFlow } from "../autobranch/checkpoint-flow.ts";
 
-export type { AutoslotCliInput, AutoslotFlowInput } from "../autoslot/autoslot.ts";
-export { createAutoslotFlow, runAutoslotCli } from "../autoslot/autoslot.ts";
+export type { AutoslotFlowInput, AutoslotWorkflowResult } from "../autoslot/autoslot.ts";
+export { createAutoslotFlow } from "../autoslot/autoslot.ts";
 
 export type {
 	ExecResult,
