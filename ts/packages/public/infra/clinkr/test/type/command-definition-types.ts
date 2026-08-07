@@ -4,6 +4,9 @@ import {
 	failure,
 	negative,
 	ok,
+	type ClinkrCommandDefinition,
+	type ContextFreeCommandDefinition,
+	type ContextfulCommandDefinition,
 	usageError,
 } from "@nseng-ai/clinkr/app";
 import { defineRawCommand, type ContextfulRawCommandInvocation } from "@nseng-ai/clinkr/raw";
@@ -89,10 +92,56 @@ defineCommand({
 	renderHuman: (result) => result.value,
 	handler: async (context: Context, request) => ok({ value: context.prefix + request.count }),
 });
+// @ts-expect-error context-free definitions require requiresContext to be omitted.
+defineCommand({ requiresContext: false, schema: requestSchema, handler: async () => ok() });
 // @ts-expect-error contextful handlers require the discriminant.
 defineCommand({ schema: requestSchema, handler: async (_context: Context, _request) => ok() });
 // @ts-expect-error context-free handlers receive only request.
 defineCommand({ schema: requestSchema, handler: async (_context, _request) => ok() });
+
+const contextFreeDataDefinition: ContextFreeCommandDefinition<
+	typeof requestSchema,
+	typeof resultSchema
+> = {
+	schema: requestSchema,
+	resultSchema,
+	renderHuman: (result) => result.value,
+	handler: async (request) => ok({ value: String(request.count) }),
+};
+const contextFreeBodylessDefinition: ContextFreeCommandDefinition<typeof requestSchema, undefined> =
+	{
+		schema: requestSchema,
+		handler: async () => ok(),
+	};
+const contextfulDataDefinition: ContextfulCommandDefinition<
+	Context,
+	typeof requestSchema,
+	typeof resultSchema
+> = {
+	requiresContext: true,
+	schema: requestSchema,
+	resultSchema,
+	renderHuman: (result) => result.value,
+	handler: async (context, request) => ok({ value: context.prefix + request.count }),
+};
+const contextfulBodylessDefinition: ContextfulCommandDefinition<
+	Context,
+	typeof requestSchema,
+	undefined
+> = {
+	requiresContext: true,
+	schema: requestSchema,
+	handler: async () => ok(),
+};
+const broadContextFreeDataDefinition: ClinkrCommandDefinition = contextFreeDataDefinition;
+const broadContextFreeBodylessDefinition: ClinkrCommandDefinition = contextFreeBodylessDefinition;
+const broadContextfulDataDefinition: ClinkrCommandDefinition<Context> = contextfulDataDefinition;
+const broadContextfulBodylessDefinition: ClinkrCommandDefinition<Context> =
+	contextfulBodylessDefinition;
+void broadContextFreeDataDefinition;
+void broadContextFreeBodylessDefinition;
+void broadContextfulDataDefinition;
+void broadContextfulBodylessDefinition;
 
 defineCommand({
 	schema: requestSchema,
