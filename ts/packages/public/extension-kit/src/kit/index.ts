@@ -21,7 +21,6 @@ export { createNsDomainCommand, type NsDomainCommandOptions } from "./ns-command
 export {
 	createNsClinkrInteraction,
 	createNsCwdEnvJsonInputContext,
-	readEmptyJsonInput,
 	type NsClinkrInteractionOptions,
 	type NsCwdEnvJsonInputContext,
 } from "./ns-context.ts";

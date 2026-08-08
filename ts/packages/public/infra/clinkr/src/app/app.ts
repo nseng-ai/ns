@@ -50,10 +50,8 @@ export interface ClinkrOutput {
 }
 
 interface ClinkrRunAdapterOptions {
-	/** Finite JSON text for `--input-json`. */
-	readonly jsonInput?: string;
-	/** Deferred finite JSON acquisition for standalone adapters. Embedded hosts should supply `jsonInput`. */
-	readonly readJsonInput?: () => Promise<string>;
+	/** Read one finite structured request for `--input-json`. */
+	readonly readStructuredRequest?: () => Promise<string>;
 	/** ANSI capability override; defaults to process stdout for terminal output and false for custom output. */
 	readonly canEmitAnsi?: boolean;
 	/** Invocation-scoped framework and structured text output. */
@@ -162,6 +160,7 @@ function requireRunContext<TContext>(
 		| ClinkrRunOptions<TContext>
 		| ClinkrContextFreeRunOptions
 		| ClinkrCompleteOptions<TContext>
+		| ClinkrContextFreeCompleteOptions
 		| Record<string, never>,
 ): TContext {
 	if (
@@ -175,6 +174,10 @@ function requireRunContext<TContext>(
 	return options.context;
 }
 
+async function rejectUnsupportedStructuredRequest(): Promise<string> {
+	throw new Error("clinkr: invocation host does not support structured request input");
+}
+
 const SUCCESS_EXIT_CODE = exitCodeFor("success");
 const USAGE_ERROR_EXIT_CODE = exitCodeFor("usage-error");
 
@@ -182,6 +185,7 @@ type ClinkrInvocationOptions<TContext> =
 	| ClinkrRunOptions<TContext>
 	| ClinkrContextFreeRunOptions
 	| ClinkrCompleteOptions<TContext>
+	| ClinkrContextFreeCompleteOptions
 	| Record<string, never>;
 
 interface TopologyClinkrAppBaseOptions<TContext> {
@@ -308,6 +312,9 @@ class TopologyClinkrApp<TContext> {
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
+		if (this.requiresContext) requireRunContext(options);
+		const readStructuredRequest =
+			options.readStructuredRequest ?? rejectUnsupportedStructuredRequest;
 		const output = resolveOutput(options.output);
 		const rawOutput = options.rawOutput ?? processRawOutput;
 		const navigation = await this.navigator.navigate(argv);
@@ -420,8 +427,7 @@ class TopologyClinkrApp<TContext> {
 					"invalid-request",
 				);
 			}
-			const jsonInput = options.jsonInput ?? (await options.readJsonInput?.()) ?? "";
-			const parsedJson = parseJsonInput(jsonInput, definition.schema);
+			const parsedJson = parseJsonInput(await readStructuredRequest(), definition.schema);
 			if (!parsedJson.success) {
 				return emitUsageError(parsedJson.message, parsedJson.errorType, parsedJson.data);
 			}
@@ -479,6 +485,7 @@ class TopologyClinkrApp<TContext> {
 			| ClinkrRunOptions<TContext>
 			| ClinkrContextFreeRunOptions
 			| ClinkrCompleteOptions<TContext>
+			| ClinkrContextFreeCompleteOptions
 			| Record<string, never>,
 	): Promise<CommandOutcome<unknown>> {
 		const handlerResult: unknown =

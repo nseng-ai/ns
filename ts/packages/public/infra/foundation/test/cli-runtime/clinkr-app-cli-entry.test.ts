@@ -117,7 +117,7 @@ describe("defineClinkrAppCli", () => {
 		const cli = defineTestCli(root, { ansi: true });
 		await expect(
 			cli.run(["--input-json"], {
-				readJsonInput: async () => '{"value":"stdin"}',
+				readStructuredRequest: async () => '{"value":"stdin"}',
 				canEmitAnsi: true,
 				stdout: (text) => output.push(text),
 			}),

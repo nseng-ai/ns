@@ -2,7 +2,7 @@
 
 ## Summary
 
-The bounded modern structured-command path now represents whole-payload input as finite JSON-specific input. Clinkr accepts supplied `jsonInput` and has no embedded ambient process-stdin fallback; its standalone adapter owns deferred process acquisition through `readJsonInput`. Foundation and the ns SDK use JSON-specific naming, and extension-kit, PR Feedback, and Reviews have migrated their command-owned finite JSON payloads.
+The bounded modern structured-command path now represents whole-payload input as one finite structured-request read. Clinkr exposes only `readStructuredRequest` and has no embedded ambient process-stdin fallback; its standalone adapter binds that operation to process stdin. Foundation and the ns SDK use the same request-specific naming, and extension-kit, PR Feedback, and Reviews have migrated their command-owned finite JSON payloads.
 
 Parsing, schema validation, source-conflict checks, and command-specific errors remain with Clinkr or the owning commands. Interactive confirmation remains a separate line-oriented semantic adapter and was not folded into request input.
 

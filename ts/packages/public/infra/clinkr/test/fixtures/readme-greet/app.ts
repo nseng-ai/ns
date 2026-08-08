@@ -1,5 +1,6 @@
 // src/cli/app.ts
 import { createClinkrApp } from "@nseng-ai/clinkr/app";
+import { readStructuredRequest } from "@nseng-ai/foundation/cli-runtime";
 
 export async function app() {
   return createClinkrApp({
@@ -10,5 +11,5 @@ export async function app() {
 
 if (import.meta.main) {
   const clinkr = await app();
-  process.exitCode = await clinkr.run(process.argv.slice(2));
+  process.exitCode = await clinkr.run(process.argv.slice(2), { readStructuredRequest });
 }
