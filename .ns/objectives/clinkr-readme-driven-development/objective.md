@@ -3,14 +3,14 @@ edges:
   - objective: foundation-readme-driven-pass
     annotation: Parent umbrella; this Subobjective owns its Clinkr gate dry-run and returns process amendments before the Foundation package pass begins.
   - objective: clinkr-output-and-interaction-model
-    annotation: Supplies the settled output/interaction channel vocabulary (ClinkrResponse, invocation services) that this rebuild's presentation seam and host adapters must conform to.
+    annotation: Supplies the minimal finite-JSON input, invocation-scoped output, and semantic-interaction contract that this rebuild's modern path and Pi host adapter must conform to.
 ---
 
 # Clinkr README-Driven Development
 
 ## Thesis
 
-Establish Clinkr's cold-audience package contract in `references/README-draft.md`, then rebuild `@nseng-ai/clinkr` and enough representative production code to vet it before promoting the draft to the canonical package README. Completion requires the settled output and interaction model to be implemented, promoted, and closed; it does not require repository-wide migration or deletion of compatibility APIs. The completed filesystem-oriented steelthread is evidence for the authoring contract and acceptance behavior, not production architecture to preserve.
+Establish Clinkr's cold-audience package contract in `references/README-draft.md`, then rebuild `@nseng-ai/clinkr` and enough representative production code to vet it before promoting the draft to the canonical package README. Completion requires the minimal invocation I/O and semantic-interaction contract to be implemented, documented, and closed; it does not require repository-wide migration or deletion of compatibility APIs. The completed filesystem-oriented steelthread is evidence for the authoring contract and acceptance behavior, not production architecture to preserve.
 
 ## Scope
 
@@ -18,8 +18,8 @@ Establish Clinkr's cold-audience package contract in `references/README-draft.md
 - Preserve implementation detail intentionally omitted from the cold-audience narrative in `references/implementation-contract-notes.md`, steelthread contract provenance in `references/steelthread-contract-changes.md`, and rebuild constraints in `references/steelthread-implementation-lessons.md`.
 - Rebuild one deep `ClinkrApp` module around one command model, one recursively lazy private topology, one traversal for execution/help/schema/completion, and one owner for outcome validation and rendering. Filesystem discovery and the narrow programmatic builder adapt into that topology; Commander is fresh per-invocation materialization, not a second router.
 - Compose Foundation and SDK sources without pre-dispatch, flattened-tree reconstruction, legacy lowering, permissive descriptor detection, source precedence, or compatible-group merging. Each source owns a disjoint subtree; duplicate commands, command/group collisions, and every cross-source shared group path fail with canonical-path and two-source diagnostics.
-- Prove the public contract through synchronized README fixtures and a bounded production-vetting set: Brmem as one complete standalone filesystem CLI; a substantial Objectives command subtree through the embedded `ns` host; and one selected output- or interaction-heavy workflow through the final model. The selected embedded and output/interaction slices must return the documented model directly rather than relying on legacy exits, rendering overrides, confirmation gates, or legacy-to-modern conversion within those slices. The observable outcomes on `colocate-brmem-commands-remove-operations` and `colocate-objectives-cli-remove-operations` remain golden evidence; their shared prototype machinery is not.
-- Consume the model settled by `clinkr-output-and-interaction-model`. Do not promote this Objective's README or close this Objective until that model is implemented in the vetted production slices, its chosen documentation is promoted, and that Objective is closed.
+- Prove the public contract through synchronized README fixtures and a bounded production-vetting set: Brmem as one complete standalone filesystem CLI and a substantial Objectives command subtree through the embedded `ns` host. The embedded slice must use the modern command model directly rather than relying on legacy exits, rendering overrides, confirmation gates, or legacy-to-modern conversion. The observable outcomes on `colocate-brmem-commands-remove-operations` and `colocate-objectives-cli-remove-operations` remain golden evidence; their shared prototype machinery is not.
+- Consume the contract settled by `clinkr-output-and-interaction-model`: finite JSON request input rather than general stdin virtualization, invocation-scoped output, semantic confirmation/selection, and explicit Pi host adaptation. Do not promote this Objective's README or close this Objective until that narrow contract is implemented, documented, and that Objective is closed.
 - Deliver the bounded rebuild and vetting work in dependency order: command contracts, topology and runtime, Foundation/Brmem acceptance, SDK composition/Objectives acceptance, final output/interaction implementation and production vetting, package qualification, and README promotion. Keep compatibility surfaces for unselected callers where needed; do not require repository-wide migration or legacy deletion for this Objective.
 - Return the steelthread/rebuild process lesson to `foundation-readme-driven-pass` before this Subobjective closes.
 
@@ -40,8 +40,8 @@ Establish Clinkr's cold-audience package contract in `references/README-draft.md
 - The rebuilt package has one runtime/traversal, recursively lazy immediate-child discovery, truthful context-free/contextful types, exact descriptor decoding, topology-preserving source composition, and explicit raw/completion ownership.
 - The documented modern path has one owner for routing, outcomes, rendering, completion, raw execution, and interaction translation. Compatibility owners may remain for unselected legacy consumers, but no vetted production slice lowers through them or uses a legacy-to-modern conversion.
 - Package contract tests cover the requirements in `implementation-contract-notes.md`, including malformed topology, absolute-directory validation, transactional loading, bodyless and framework usage outcomes, exception propagation, `--input-json`, the exact `human | json | md` format domain, completion fallback, and progressive-output policy.
-- The production-vetting set is complete: Brmem proves one complete standalone filesystem CLI and packed inventory/execution; a substantial Objectives subtree proves recursive SDK mounting, context adaptation, malformed-neighbor isolation, nested import laziness, and direct final-model outcomes through the real `ns` host; and one selected output- or interaction-heavy workflow proves the settled Response and invocation-service model through a supported production host. Selection is based on behavioral breadth and architectural depth, not package or file count.
-- `clinkr-output-and-interaction-model` is closed after its blessed vocabulary and ownership model are implemented and promoted. The vetted output/interaction workflow conforms to it end to end.
+- The production-vetting set is complete: Brmem proves one complete standalone filesystem CLI and packed inventory/execution, while a substantial Objectives subtree proves recursive SDK mounting, context adaptation, malformed-neighbor isolation, nested import laziness, and direct modern outcomes through the real `ns` host.
+- `clinkr-output-and-interaction-model` is closed after its reduced finite-JSON input, invocation-scoped output, semantic-interaction, and Pi embedding contract is implemented and documented. The modern host path conforms to it end to end.
 - Packed-package evidence confirms runtime-discovered command/group files ship intact, and relevant package, type, test, and repository checks pass.
 - The canonical README accurately names the supported modern entrypoint; promotion does not require moving that API to the package root if `/app` remains the truthful public entrypoint. The draft is then promoted to Clinkr's canonical package README, the Objective draft becomes a provenance pointer, and reusable gate amendments are recorded in `foundation-readme-driven-pass`.
 
@@ -73,5 +73,4 @@ Risks:
 
 ## Open Questions
 
-- Which production workflow should supply the output- or interaction-heavy vetting slice after `clinkr-output-and-interaction-model` settles the final contract? Choose a coherent workflow that exercises meaningful Response plus Progress, Notice, or Elicitation behavior through a supported host; do not choose by raw file count.
 - What exact process amendment should `foundation-readme-driven-pass` adopt when a steelthread validates a README interface but falsifies the implementation architecture?
