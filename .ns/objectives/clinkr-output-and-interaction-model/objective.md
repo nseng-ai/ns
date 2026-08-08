@@ -97,3 +97,11 @@ Risks:
 - Which captured-output policies still require compatibility metadata during migration—especially usage-error detection, Flow submit recovery, trace previews, and completion hooks—and which should move to structured outcome data?
 - Which optional terminal interaction library, if any, provides the smallest concrete adapter proof? A documented adapter contract may be sufficient if adding a dependency would not improve production behavior.
 - Should raw commands be rejected by the Pi bridge or supported through their existing explicit byte sinks? Decide from current Pi-exposed raw-command inventory; do not broaden raw input virtualization.
+
+## Closure
+
+Outcome: completed. The shared structured-command invocation contract is now deliberately narrow: finite JSON request text with command-owned parsing and validation, host-owned semantic confirmation and selection, and invocation-scoped structured output, raw byte sinks, and rendering capability. Standalone adapters own process streams; embedded and test hosts provide explicit capabilities. Pi supplies an invocation-owned empty finite JSON source, capture sinks, `canEmitAnsi: false`, native `ctx.ui` interaction, fail-closed headless behavior, and terminal-control sanitization at presentation.
+
+The portable `enriched-plan exec save` path and `enriched-plan-save` skill/exposure are deleted; Pi `/ns:plan:save`, `/ns:plan:grill-and-save`, `write_saved_plan_file`, `writeSavedPlanFile()`, and Saved Plan read/selection/attachment behavior remain. The production inventory, implementation checkpoints, focused qualification, synchronized package/SDK/Pi documentation, and immutable Semantic Updates under this record provide detailed evidence.
+
+Final validation passed through default `just`: dprint, dependency checks, 23 sanity tests, TypeScript formatting/lint/typecheck, 592 test files with 6,371 tests, and the 187-record Objective sweep. Broader semantic Response/events, richer terminal adapters, streamed progress/notices, raw-command or PTY virtualization, and additional hosts such as MCP remain explicitly deferred behind the evidence thresholds in `docs/follow-ups/2026-08-08-clinkr-invocation-future-directions.md`; they are not residual closure work.
