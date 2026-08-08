@@ -128,7 +128,9 @@ describe("listExtensions", () => {
 		});
 	});
 	it("keeps missing and unsupported declarations as diagnostic rows", async () => {
-		const specs = ["./missing", "https://example.test/ext.tgz"];
+		const missingSpec = "./missing";
+		const unsupportedSpec = "https://example.test/ext.tgz";
+		const specs = [missingSpec, unsupportedSpec];
 		const result = await listExtensions(
 			fixture({
 				nsToml: `extensions = ${JSON.stringify(specs)}\n`,
@@ -137,7 +139,7 @@ describe("listExtensions", () => {
 						severity: "error",
 						code: "extension_descriptor_package_missing",
 						message: "missing",
-						spec: specs[0]!,
+						spec: missingSpec,
 					},
 				],
 			}).context,
@@ -147,8 +149,12 @@ describe("listExtensions", () => {
 			status: "success",
 			data: {
 				extensions: [
-					{ sourceSpec: specs[0], acquisitionStatus: "missing" },
-					{ sourceSpec: specs[1], sourceKind: "unsupported", acquisitionStatus: "invalid" },
+					{ sourceSpec: missingSpec, acquisitionStatus: "missing" },
+					{
+						sourceSpec: unsupportedSpec,
+						sourceKind: "unsupported",
+						acquisitionStatus: "invalid",
+					},
 				],
 			},
 		});
