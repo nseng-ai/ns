@@ -178,12 +178,6 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("GitHub issues/PRs");
 		expect(prompt).toContain("Do not merely link to external resources");
 		expect(prompt).toContain("Do not include secrets");
-		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
-		expect(prompt).toContain("Refactor execution strategy");
-		expect(prompt).toContain("docs/conventions/refactor-execution-strategy.md");
-		expect(prompt).toContain("same-shape edits across multiple files");
-		expect(prompt).toContain("stale-terminology grep/equivalent check");
-		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
 		expect(prompt).toContain("Recommended saved plan sections");
 		expect(prompt).toContain("External/off-repo research context");
 		expect(prompt).toContain("Validation guidance and expected results");
@@ -219,17 +213,6 @@ describe("buildWritePlanPrompt", () => {
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Harness-neutral command guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Implementation checkpoint guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("ns flow cp");
-		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("Refactor execution strategy:");
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain(
-			"docs/conventions/refactor-execution-strategy.md",
-		);
-		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).toContain("same-shape edits across multiple files");
-		expect(checkedInContent).toContain("Refactor execution strategy:");
-		expect(checkedInContent).toContain("docs/conventions/refactor-execution-strategy.md");
-		expect(checkedInContent).toContain("same-shape edits across multiple files");
-		expect(checkedInContent).toContain("stale-terminology grep/equivalent check");
-		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
 		expect(checkedInContent).toContain("Subagent orchestration opportunities:");
 		expect(checkedInContent).toContain(
 			"`Subagent orchestration opportunities: none` with a one-sentence rationale",
@@ -306,11 +289,6 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).not.toContain("validation scope");
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
-		// PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance
-		expect(prompt).toContain("docs/conventions/refactor-execution-strategy.md");
-		expect(prompt).toContain("same-shape edits across multiple files");
-		expect(prompt).toContain("explicitly choose an execution strategy");
-		// PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance
 		expect(prompt).toContain("Do not create a branch or write Branch Memory");
 		expect(prompt).not.toContain("GRILL_UI_CONTRACT");
 	});
