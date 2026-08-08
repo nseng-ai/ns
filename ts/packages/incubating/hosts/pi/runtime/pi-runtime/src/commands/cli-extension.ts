@@ -14,7 +14,12 @@ import {
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
-import type { NsConfirmOptions, NsProgressPhaseEvent } from "@nseng-ai/sdk";
+import type {
+	NsConfirmOptions,
+	NsConfirmPrompt,
+	NsProgressPhaseEvent,
+	NsSelectPrompt,
+} from "@nseng-ai/sdk";
 
 export { cliCommandTracePath } from "./cli-command-trace.ts";
 
@@ -62,16 +67,9 @@ export interface CliCommandInfo {
 	mapParsedArgs?: CliCommandArgumentMapper;
 }
 
-export type CliCommandConfirmPrompt = (
-	title: string,
-	message: string,
-	options?: NsConfirmOptions,
-) => Promise<boolean> | boolean;
+export type CliCommandConfirmPrompt = NsConfirmPrompt;
 
-export type CliCommandSelectPrompt = (
-	title: string,
-	options: readonly string[],
-) => Promise<string | undefined> | string | undefined;
+export type CliCommandSelectPrompt = NsSelectPrompt;
 
 export interface CliCommandRunDeps {
 	cwd: string;
@@ -84,9 +82,9 @@ export interface CliCommandRunDeps {
 	 * stdout/stderr for output that should remain visible after the command ends.
 	 */
 	onProgress?: (event: NsProgressPhaseEvent) => void;
-	/** Semantic confirmation owned by the Pi host. Returns false when no confirmation UI exists. */
+	/** Semantic confirmation owned by the Pi host. Throws when no confirmation UI exists. */
 	confirm: CliCommandConfirmPrompt;
-	/** Semantic selection owned by the Pi host. Returns undefined when no selection UI exists. */
+	/** Semantic selection owned by the Pi host. Throws when no selection UI exists. */
 	select: CliCommandSelectPrompt;
 }
 
@@ -279,19 +277,26 @@ function createPiCliCommandInteraction(
 	const select = ctx.hasUI === true ? ctx.ui.select : undefined;
 	return {
 		confirm: async (title, message, options) => {
-			if (confirm === undefined) return false;
+			if (confirm === undefined) {
+				throw new Error("Pi confirmation UI is unavailable.");
+			}
 			activity.setPhase("waiting for confirmation");
 			try {
-				return await confirm(title, message, options);
+				return (await confirm(title, message, options))
+					? { type: "confirmed" }
+					: { type: "declined" };
 			} finally {
 				activity.setPhase("running CLI command");
 			}
 		},
 		select: async (title, selectOptions) => {
-			if (select === undefined) return undefined;
+			if (select === undefined) {
+				throw new Error("Pi selection UI is unavailable.");
+			}
 			activity.setPhase("waiting for selection");
 			try {
-				return await select(title, [...selectOptions]);
+				const value = await select(title, [...selectOptions]);
+				return value === undefined ? { type: "cancelled" } : { type: "selected", value };
 			} finally {
 				activity.setPhase("running CLI command");
 			}

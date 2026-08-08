@@ -19,8 +19,10 @@ export type {
 } from "./command.ts";
 export type {
 	ExecResult,
+	NsConfirmationResult,
 	NsConfirmOptions,
 	NsConfirmPrompt,
+	NsSelectionResult,
 	NsSelectPrompt,
 	NsExecOptions,
 	NsExtensionApi,

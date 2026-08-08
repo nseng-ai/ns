@@ -85,6 +85,12 @@ export async function runNsCliWithFakeContext(
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		confirm: () => {
+			throw new Error("Default host contract unexpectedly requested confirmation.");
+		},
+		select: () => {
+			throw new Error("Default host contract unexpectedly requested selection.");
+		},
 		exec: async (command, commandArgs) => {
 			const display = [command, ...commandArgs].join(" ");
 			execCalls.push(display);

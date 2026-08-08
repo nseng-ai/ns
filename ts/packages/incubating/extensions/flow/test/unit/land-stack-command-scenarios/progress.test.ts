@@ -47,6 +47,12 @@ describe("flow land matrix progress forwarding", () => {
 			progress,
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,
+			confirm: () => {
+				throw new Error("Unexpected confirmation prompt in test.");
+			},
+			select: () => {
+				throw new Error("Unexpected selection prompt in test.");
+			},
 			exec: async () => ({ code: 0, stdout: "", stderr: "", type: "exited", signal: null }),
 			textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		};

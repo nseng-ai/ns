@@ -155,10 +155,10 @@ const entryOptions = {
 			readJsonInput: base.readJsonInput ?? readJsonInput,
 			...optionalEntries({
 				onOutput: deps.onOutput ?? base.onOutput,
-				confirm: deps.confirm ?? base.confirm,
-				select: deps.select ?? base.select,
 				extensions: base.extensions,
 			}),
+			confirm: deps.confirm ?? base.confirm,
+			select: deps.select ?? base.select,
 		};
 		return {
 			type: "run" as const,

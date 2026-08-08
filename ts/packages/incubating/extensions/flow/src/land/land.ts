@@ -1,4 +1,4 @@
-import type { NsCommandIo, NsConfirmOptions, NsSelectPrompt } from "@nseng-ai/sdk";
+import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/sdk";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import {
@@ -37,12 +37,17 @@ export type LandConfirmPrompt = (
 	options?: NsConfirmOptions,
 ) => Promise<boolean> | boolean;
 
+export type LandSelectPrompt = (
+	title: string,
+	options: readonly string[],
+) => Promise<string | undefined> | string | undefined;
+
 export interface RunLandWorkflowInput extends FlowLandObservabilityChannels {
 	readonly cwd: string;
 	readonly request: ParsedArgs;
 	readonly exec: LandExecutionApi["exec"];
 	readonly confirm?: LandConfirmPrompt;
-	readonly select?: NsSelectPrompt;
+	readonly select?: LandSelectPrompt;
 	readonly progressIo?: NsCommandIo;
 	readonly liveProgress?: LandLiveProgressSink;
 	readonly landMatrix?: LandMatrixProgressSink;

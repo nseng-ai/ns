@@ -376,15 +376,11 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("non-interactive --generate-pr-inventory without --yes fails fast naming --yes", async () => {
+	test("missing confirmation UI fails loudly before submit work", async () => {
 		const run = runWithFakes({ request: { generatePrInventory: true } });
 
-		expect(await run.exit).toBe(2);
-		expect(await run.result).toMatchObject({
-			status: "usage-error",
-			data: { missingFlag: "--yes" },
-		});
-		expect(run.stderr.join("")).toContain("--yes");
+		await expect(run.exit).rejects.toThrow("Unexpected confirmation prompt in Flow test.");
+		await expect(run.result).rejects.toThrow("Unexpected confirmation prompt in Flow test.");
 		expect(formattedExecCalls(run.context)).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
@@ -392,7 +388,7 @@ describe("project-local submit extension", () => {
 	test("declined --generate-pr-inventory confirmation cancels before any command or model call", async () => {
 		const run = runWithFakes({
 			request: { generatePrInventory: true },
-			state: { confirm: () => false },
+			state: { confirm: () => ({ type: "declined" }) },
 		});
 
 		expect(await run.exit).toBe(1);
@@ -410,7 +406,7 @@ describe("project-local submit extension", () => {
 				confirm: (title, message) => {
 					confirmTitle = title;
 					confirmMessage = message;
-					return true;
+					return { type: "confirmed" };
 				},
 			},
 		});
@@ -430,7 +426,7 @@ describe("project-local submit extension", () => {
 			state: {
 				confirm: () => {
 					confirmCalls += 1;
-					return false;
+					return { type: "declined" };
 				},
 			},
 		});
@@ -1485,7 +1481,7 @@ describe("project-local submit extension", () => {
 				],
 				confirm: (title, message) => {
 					confirmations.push({ title, message });
-					return true;
+					return { type: "confirmed" };
 				},
 			},
 		});

@@ -1,4 +1,4 @@
-import { failure, ok, usageError } from "@nseng-ai/sdk";
+import { failure, ok } from "@nseng-ai/sdk";
 import {
 	installMarkerBlock,
 	markerSurfaceInstallRequestSchema,
@@ -46,17 +46,11 @@ async function runNsShellInstall(
 	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
 	const rcPath = rcPathForShell(selected.shell, ctx.env);
 	if (!request.yes) {
-		if (ctx.confirm === undefined) {
-			return usageError("Installing ns shell integration requires --yes when non-interactive.", {
-				missingFlag: "--yes",
-				howToSupply: "Pass --yes (or -y) to update the shell rc file without prompting.",
-			});
-		}
-		const confirmed = await ctx.confirm?.(
+		const confirmation = await ctx.confirm(
 			"Install ns shell integration?",
 			`Install ns shell integration for ${selected.shell} in ${rcPath}?`,
 		);
-		if (confirmed !== true) {
+		if (confirmation.type !== "confirmed") {
 			return ok({
 				shell: selected.shell,
 				rcPath,

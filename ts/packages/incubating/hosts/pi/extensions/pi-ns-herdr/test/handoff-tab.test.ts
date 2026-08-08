@@ -554,6 +554,12 @@ class FakeHerdrNsApi implements NsExtensionApi {
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
+	readonly confirm = () => {
+		throw new Error("Unexpected confirmation prompt in Herdr test.");
+	};
+	readonly select = () => {
+		throw new Error("Unexpected selection prompt in Herdr test.");
+	};
 	readonly extensions: Readonly<Record<string, unknown>>;
 
 	constructor(options: { brmem?: unknown; herdr?: FakeHerdrGateway } = {}) {
