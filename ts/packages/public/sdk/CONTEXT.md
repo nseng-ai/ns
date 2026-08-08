@@ -8,7 +8,7 @@ The SDK discovers **ns command sources**, not command routes. A source has one s
 
 ## Extension descriptor
 
-An **Extension Descriptor** describes an extension package without executing its command modules. Its command contribution is the optional absolute `commandDirectory`; its other optional declarations are points, activation, and bundled artifacts. Descriptors do not recursively describe commands or carry loader callbacks.
+An **Extension Descriptor** describes an extension package without executing its command modules. Its command contribution is the optional absolute `commandDirectory`; its other optional declarations are points and activation. Descriptors do not recursively describe commands or carry loader callbacks.
 
 ## ns extension API
 

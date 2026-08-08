@@ -33,8 +33,8 @@ mode uses the strict **Objective Runner** protocol: `runner-finish` verifies and
 slice, producing a **runner-attested Runner Checkpoint**. Only a real committed Runner
 Checkpoint can be eligible for the separate, parent-only ADR 0037 publication path.
 
-Installing this package remains useful when you want the `ns objective` CLI, provisioned
-Objective skills, agent instructions, and Pi slash-command conveniences. In particular,
+Installing this package remains useful when you want the `ns objective` CLI, agent
+instructions, and Pi slash-command conveniences. In particular,
 `/ns:objective:autorun` is a thin picker/injector: it selects an active Objective and invokes
 the same `objective-autorun` skill; it does not own a separate execution protocol.
 
@@ -50,26 +50,35 @@ Requires `@nseng-ai/ns` installed and a repository already activated with `ns in
 
 ```bash
 npm install -g @nseng-ai/ns
-ns init --supported-harness claude-code # once per repository
+ns init # once per repository
 ns extension install npm:@nseng-ai/objectives
 ```
 
-A bare-core `ns` install does **not** include `ns objective`. Installing this extension
-(the convenience-rich path, distinct from direct portable skill use):
+A bare-core `ns` install does **not** include `ns objective`. Installing this extension:
 
-1. Records `@nseng-ai/objectives` in `ns.toml` and activates it for the repository's
-   supported harnesses.
+1. Records `@nseng-ai/objectives` in `ns.toml` and activates its repository-neutral effects.
 2. Adds the `ns objective` command surface.
-3. Adds an Objectives instruction block to `AGENTS.md`, teaching agents to check
-   `ns objective list` before non-trivial work and to use the Objective skills.
-4. Provisions the **eight Objective skills** into each supported harness's skill root —
-   for example, `.claude/skills/` for Claude Code: `objective`, `objective-autorun`, `objective-close`,
-   `objective-create`, `objective-critique`, `objective-next`, `objective-refresh`,
-   `objective-update`.
+3. Adds an Objectives instruction block to the generated ns instructions, teaching agents
+   to check `ns objective list` before non-trivial work and to use the Objective skills.
+4. Creates the declared `.ns/objectives` consumer directory.
+
+Extension installation does not copy Objective skills into a harness. Install them through
+the direct `npx skills` workflow, which owns acquisition, lifecycle, and `skills-lock.json`:
+
+```bash
+npx skills add nseng-ai/ns --skill objective --full-depth
+```
+
+Repository files own first-party sources and topology, checked-in Harness Overlays, and
+invocation metadata. ns may invoke installed skills but does not manage them; there is no
+`ns skills`, top-level `ns update`, or `ns skill-exposure` command. The standalone
+`objective-runner-step` skill is retired; the first-party Objective skill set contains
+`objective`, `objective-autorun`, `objective-close`, `objective-create`, `objective-critique`,
+`objective-next`, `objective-refresh`, and `objective-update`.
 
 `ns extension install` writes files but never commits — review and commit them yourself.
-After the first install, `ns extension update` refreshes the provisioned artifacts when the
-extension changes.
+After the first install, `ns extension update` refreshes the extension's repository-neutral
+effects when it changes.
 
 ## Lifecycle
 

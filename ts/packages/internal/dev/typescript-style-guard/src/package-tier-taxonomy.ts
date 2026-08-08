@@ -110,12 +110,6 @@ export const packageTierDebtEdgeDefinitions = [
 		reason:
 			"SDK-to-extension-kit CLI shell-support debt: @nseng-ai/sdk still reuses Extension Kit shell wrappers for the ns shell operation.",
 	},
-	{
-		from: "@nseng-ai/skill-exposure",
-		to: "@nseng-ai/ns",
-		reason:
-			"Skill Exposure reads the skill-frontmatter transform from @nseng-ai/ns/api, where the harness-artifacts fold placed it. The edge predates the disposition cutover; it only became guard-visible when the package moved out of .ns/extensions/ into incubating/extensions/ and came under tier governance. Retire by moving the transform to a neutral surface below the host.",
-	},
 ] as const satisfies readonly AllowedPackageTierDebtEdge[];
 
 export function packageEdgeKey(from: string, to: string): string {

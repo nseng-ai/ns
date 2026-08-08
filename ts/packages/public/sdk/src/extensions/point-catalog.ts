@@ -4,10 +4,7 @@ import {
 	declaredExtensionSourceIdentity,
 	type DeclaredExtensionDescriptor,
 } from "./declared-descriptors.ts";
-import {
-	loadEffectiveUserExtensionLayer,
-	type EffectiveUserExtensionLayer,
-} from "./user-extension-layer.ts";
+import { loadUserExtensionLayer, type UserExtensionLayer } from "./user-extension-layer.ts";
 import {
 	declaredExtensionSpecsErrorInfo,
 	parseDeclaredExtensionSpecsToml,
@@ -41,9 +38,9 @@ import { makeSdkDiagnostic } from "../runtime/diagnostics.ts";
 /**
  * Descriptor-aware point catalog coordinator (ADR 0055).
  *
- * Point definitions layer as built-in fallback < enabled User descriptors <
- * Project descriptors, gated by the same effective User extension layer the
- * command catalog consumes. Point installations remain Project-owned: only
+ * Point definitions layer as built-in fallback < User descriptors < Project
+ * descriptors, using the same User extension layer the command catalog
+ * consumes. Point installations remain Project-owned: only
  * the project `ns.toml` `[points]` table, repo prompt conventions, and env
  * overrides install anything.
  */
@@ -90,7 +87,7 @@ async function discoverLayeredPointDefinitions(request: {
 		request.repoRoot,
 		request.gateway,
 	);
-	const userLayer = await loadEffectiveUserExtensionLayer({
+	const userLayer = await loadUserExtensionLayer({
 		...optionalEntries({ env: request.env, homeDir: request.homeDir }),
 		projectSourceIdentities: new Set(project.declaredSourceIdentities),
 	});
@@ -115,10 +112,7 @@ async function discoverLayeredPointDefinitions(request: {
 	};
 }
 
-function userLayerPointDefinitions(
-	layer: EffectiveUserExtensionLayer,
-): readonly ScopedPointDefinition[] {
-	if (!layer.decision.enabled) return [];
+function userLayerPointDefinitions(layer: UserExtensionLayer): readonly ScopedPointDefinition[] {
 	return layer.descriptors.flatMap((record) => scopedDescriptorPointDefinitions(record));
 }
 

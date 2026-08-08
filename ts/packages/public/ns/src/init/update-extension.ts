@@ -1,6 +1,6 @@
 import type { CommandOutcome } from "@nseng-ai/clinkr/app";
 import { failure, ok } from "@nseng-ai/clinkr/app";
-import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions } from "./ns-toml.ts";
 import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/sdk/extensions/acquisition";
 import { planDeclaredExtensionTarget } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
@@ -65,7 +65,6 @@ export const updateExtensionResultSchema = z.discriminatedUnion("scope", [
 		prospectiveEffects: z.enum(["available", "unavailable"]),
 		repoRoot: z.string(),
 		trunkBranch: z.string(),
-		harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
 		completed: activationCompletedSchema,
 		steps: z.array(lifecycleStepSchema).readonly(),
 	}),
@@ -109,7 +108,7 @@ export async function updateExtension(
 	const preflight = await prepareExtensionLifecycle(context, request, recorder);
 	if (preflight.type === "failed")
 		return extensionLifecycleFailure("update", preflight.failure, recorder);
-	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses } = preflight.prepared;
+	const { repository, repoRoot, trunkBranch, nsTomlContent } = preflight.prepared;
 	const target = planDeclaredExtensionTarget({
 		projectRoot: repoRoot,
 		nsTomlContent,
@@ -153,8 +152,6 @@ export async function updateExtension(
 				context,
 				{
 					repository,
-					harnesses,
-					harnessSource: "ns-toml",
 					nsTomlContent,
 					nsTomlChange: "unchanged",
 					nsTomlExpected: { type: "file", content: nsTomlContent },
@@ -184,7 +181,6 @@ export async function updateExtension(
 			...facts,
 			repoRoot,
 			trunkBranch,
-			harnesses: [...harnesses],
 			completed: { files: {} },
 			steps: recorder.steps(),
 		});
@@ -205,8 +201,6 @@ export async function updateExtension(
 		context,
 		{
 			repository,
-			harnesses,
-			harnessSource: "ns-toml",
 			nsTomlContent,
 			nsTomlChange: "unchanged",
 			nsTomlExpected: { type: "file", content: nsTomlContent },
@@ -239,7 +233,6 @@ export async function updateExtension(
 		...facts,
 		repoRoot,
 		trunkBranch,
-		harnesses: [...harnesses],
 		completed: applied.completed,
 		steps: recorder.steps(),
 	});

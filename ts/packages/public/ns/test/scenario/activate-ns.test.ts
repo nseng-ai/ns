@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { createEmptyPreparedProjectHarnessArtifactTransitions } from "../../src/harness-artifacts/api.ts";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 
 import {
@@ -13,7 +12,6 @@ import type { NsActivationContext } from "../../src/init/activation-context.ts";
 import { createLifecycleRecorder } from "../../src/init/lifecycle-observability.ts";
 import {
 	InMemoryActivationFilesGateway,
-	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 } from "../../src/init/testing/index.ts";
 
@@ -44,7 +42,6 @@ function context(
 		files?: InMemoryActivationFilesGateway;
 		descriptors?: readonly DeclaredExtensionDescriptor[];
 		declaredExtensions?: InMemoryDeclaredExtensionsGateway;
-		artifacts?: InMemoryArtifactActivationGateway;
 	} = {},
 ): NsActivationContext {
 	return {
@@ -55,7 +52,6 @@ function context(
 			new InMemoryDeclaredExtensionsGateway({
 				result: { descriptors: options.descriptors ?? [], diagnostics: [] },
 			}),
-		artifacts: options.artifacts ?? new InMemoryArtifactActivationGateway(),
 	};
 }
 
@@ -117,9 +113,7 @@ describe("ns activation planning and apply", () => {
 		const ctx = context({ files, declaredExtensions });
 		const prepared = await prepareActivation(ctx, {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\nextensions = ["one","two"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\nextensions = ["one","two"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -160,9 +154,7 @@ describe("ns activation planning and apply", () => {
 		const ctx = context({ files });
 		const prepared = await prepareActivation(ctx, {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -173,11 +165,9 @@ describe("ns activation planning and apply", () => {
 
 		const rerun = await prepareActivation(ctx, {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "ns-toml",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "unchanged",
-			nsTomlExpected: { type: "file", content: 'supported_harnesses = ["pi"]\n' },
+			nsTomlExpected: { type: "file", content: 'fixture_setting = ["pi"]\n' },
 		});
 		if (rerun.type !== "prepared") throw new Error("expected prepared rerun");
 		expect(rerun.activation.files["managed-extensions-ignore"].change).toBe("unchanged");
@@ -189,9 +179,7 @@ describe("ns activation planning and apply", () => {
 		});
 		const prepared = await prepareActivation(context({ files }), {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -205,9 +193,7 @@ describe("ns activation planning and apply", () => {
 		const files = new InMemoryActivationFilesGateway({ nonFilePaths: [".gitignore"] });
 		const result = await prepareActivation(context({ files }), {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -224,9 +210,7 @@ describe("ns activation planning and apply", () => {
 		});
 		const result = await prepareActivation(context({ files }), {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -245,9 +229,7 @@ describe("ns activation planning and apply", () => {
 		const ctx = context({ files });
 		const prepared = await prepareActivation(ctx, {
 			repository,
-			harnesses: ["codex"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["codex"]\n',
+			nsTomlContent: 'fixture_setting = ["codex"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -257,61 +239,6 @@ describe("ns activation planning and apply", () => {
 		expect(files.fileContent(".ns/instructions.md")).toContain("# ns instructions");
 	});
 
-	it("aggregates descriptor, file, directory, and artifact diagnostics without mutating fake state", async () => {
-		const files = new InMemoryActivationFilesGateway({
-			files: { "AGENTS.md": "<!-- ns:begin v1 -->\nmissing end\n" },
-			nonDirectoryPaths: [".ns/data"],
-		});
-		const artifacts = new InMemoryArtifactActivationGateway({
-			prepareResult: {
-				ok: true,
-				prepared: {
-					modules: [],
-					selectedHarnesses: ["pi"],
-					skippedCollisions: [],
-					artifacts: [],
-					reconciliation: createEmptyPreparedProjectHarnessArtifactTransitions({
-						type: "strict",
-						shouldForce: false,
-					}),
-					diagnostics: [
-						{ code: "module_artifact_skill_entry_missing", message: "missing artifact" },
-					],
-				},
-			},
-		});
-		const ctx: NsActivationContext = {
-			...context({ files, descriptors: [descriptor("bad", undefined, [".ns/data"])], artifacts }),
-			declaredExtensions: new InMemoryDeclaredExtensionsGateway({
-				result: {
-					descriptors: [descriptor("bad", undefined, [".ns/data"])],
-					diagnostics: [
-						{ severity: "error", code: "descriptor-bad", message: "bad descriptor", spec: "bad" },
-					],
-				},
-			}),
-		};
-		const result = await prepareActivation(ctx, {
-			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\nextensions = ["bad"]\n',
-			nsTomlChange: "created",
-			nsTomlExpected: { type: "missing" },
-		});
-		expect(result).toMatchObject({ type: "preflight-failed" });
-		if (result.type !== "preflight-failed") return;
-		expect(result.diagnostics.map((item) => item.code)).toEqual(
-			expect.arrayContaining([
-				"descriptor-bad",
-				"agents-pointer-malformed",
-				"consumer-path-not-directory",
-				"module_artifact_skill_entry_missing",
-			]),
-		);
-		expect(files.operations()).toEqual([]);
-	});
-
 	it.each([
 		["ns-toml", "ns.toml"],
 		["managed-extensions-ignore", ".gitignore"],
@@ -319,7 +246,7 @@ describe("ns activation planning and apply", () => {
 		["claude-instructions", "CLAUDE.md"],
 		["generated-instructions", ".ns/instructions.md"],
 	] as const)("preserves an externally mutated %s activation file", async (file, path) => {
-		const originalNsToml = 'supported_harnesses = ["pi"]\n';
+		const originalNsToml = 'fixture_setting = ["pi"]\n';
 		const files = new InMemoryActivationFilesGateway({
 			files: {
 				"ns.toml": originalNsToml,
@@ -331,9 +258,7 @@ describe("ns activation planning and apply", () => {
 		});
 		const prepared = await prepareActivation(context({ files }), {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n# activation update\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n# activation update\n',
 			nsTomlChange: "appended",
 			nsTomlExpected: { type: "file", content: originalNsToml },
 		});
@@ -356,9 +281,7 @@ describe("ns activation planning and apply", () => {
 		const files = new InMemoryActivationFilesGateway();
 		const prepared = await prepareActivation(context({ files }), {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -382,9 +305,7 @@ describe("ns activation planning and apply", () => {
 		const files = new InMemoryActivationFilesGateway({ files: { "AGENTS.md": original } });
 		const prepared = await prepareActivation(context({ files }), {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});
@@ -430,9 +351,7 @@ describe("ns activation planning and apply", () => {
 			context({ files, descriptors: [descriptor("one", undefined, [".ns/data"])] }),
 			{
 				repository,
-				harnesses: ["pi"],
-				harnessSource: "explicit",
-				nsTomlContent: 'supported_harnesses = ["pi"]\n',
+				nsTomlContent: 'fixture_setting = ["pi"]\n',
 				nsTomlChange: "created",
 				nsTomlExpected: { type: "missing" },
 			},
@@ -461,9 +380,7 @@ describe("ns activation planning and apply", () => {
 		const ctx = context({ files });
 		const prepared = await prepareActivation(ctx, {
 			repository,
-			harnesses: ["pi"],
-			harnessSource: "explicit",
-			nsTomlContent: 'supported_harnesses = ["pi"]\n',
+			nsTomlContent: 'fixture_setting = ["pi"]\n',
 			nsTomlChange: "created",
 			nsTomlExpected: { type: "missing" },
 		});

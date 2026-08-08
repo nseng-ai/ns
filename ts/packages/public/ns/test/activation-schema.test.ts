@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import {
-	activationCompletedSchema,
-	declaredArtifactActivationOutcomeSchema,
-} from "../src/init/activation-outcomes.ts";
+import { activationCompletedSchema } from "../src/init/activation-outcomes.ts";
 import { initNsResultSchema } from "../src/init/init-ns.ts";
 import { installExtensionResultSchema } from "../src/init/install-extension.ts";
 import { lifecycleStepSchema } from "../src/init/lifecycle-observability.ts";
@@ -12,21 +9,14 @@ import { uninstallExtensionResultSchema } from "../src/init/uninstall-extension.
 import { updateExtensionResultSchema } from "../src/init/update-extension.ts";
 
 describe("activation completion schema", () => {
-	it("is the shared command-result schema and remains JSON-schema compatible", () => {
+	it("is shared by command results and remains JSON-schema compatible", () => {
 		expect(initNsResultSchema.shape.completed).toBe(activationCompletedSchema);
-		expect(installExtensionResultSchema.options[0]?.shape.completed).toBe(
-			activationCompletedSchema,
-		);
-		expect(updateExtensionResultSchema.options[0]?.shape.completed).toBe(activationCompletedSchema);
-		expect(uninstallExtensionResultSchema.options[0]?.shape.completed).toBe(
-			activationCompletedSchema,
-		);
-		expect(initNsResultSchema.shape.steps.unwrap().element).toBe(lifecycleStepSchema);
 		for (const schema of [
 			installExtensionResultSchema,
 			updateExtensionResultSchema,
 			uninstallExtensionResultSchema,
 		]) {
+			expect(schema.options[0]?.shape.completed).toBe(activationCompletedSchema);
 			expect(schema.options[0]?.shape.steps.unwrap().element).toBe(lifecycleStepSchema);
 		}
 		for (const schema of [
@@ -39,68 +29,12 @@ describe("activation completion schema", () => {
 		}
 	});
 
-	it("omits unattempted file outcomes and absent artifact keys", () => {
+	it("omits unattempted file and consumer-directory outcomes", () => {
 		const completed = activationCompletedSchema.parse({
 			files: { "agents-instructions": { change: "created" } },
 		});
 		expect(completed).toEqual({ files: { "agents-instructions": { change: "created" } } });
 		expect("ns-toml" in completed.files).toBe(false);
-
-		expect(
-			declaredArtifactActivationOutcomeSchema.parse({
-				key: "pi:demo",
-				action: "unchanged",
-				artifactId: "@test/demo:demo",
-				skillName: "demo",
-				harness: "pi",
-				targetArtifactPath: "/repo/.pi/skills/demo",
-				manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
-				writtenFiles: [],
-				conflictingFiles: [],
-			}),
-		).toEqual({
-			key: "pi:demo",
-			action: "unchanged",
-			artifactId: "@test/demo:demo",
-			skillName: "demo",
-			harness: "pi",
-			targetArtifactPath: "/repo/.pi/skills/demo",
-			manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
-			writtenFiles: [],
-			conflictingFiles: [],
-		});
-	});
-
-	it("shares the canonical artifact removal-reason domain with lifecycle events", () => {
-		const artifact = {
-			key: "pi:demo",
-			action: "removed",
-			artifactId: "@test/demo:demo",
-			skillName: "demo",
-			harness: "pi",
-			targetArtifactPath: "/repo/.pi/skills/demo",
-			manifestPath: "/repo/.pi/skills/.ns-harness-artifacts-manifest.json",
-			writtenFiles: [],
-			conflictingFiles: [],
-			removalReason: "removed-source",
-		} as const;
-
-		expect(() => declaredArtifactActivationOutcomeSchema.parse(artifact)).not.toThrow();
-		expect(() =>
-			lifecycleStepSchema.parse({ type: "artifact-completed", ...artifact }),
-		).not.toThrow();
-		expect(() =>
-			declaredArtifactActivationOutcomeSchema.parse({
-				...artifact,
-				removalReason: "arbitrary-reason",
-			}),
-		).toThrow();
-		expect(() =>
-			lifecycleStepSchema.parse({
-				type: "artifact-completed",
-				...artifact,
-				removalReason: "arbitrary-reason",
-			}),
-		).toThrow();
+		expect(completed).not.toHaveProperty("consumerDirectories");
 	});
 });

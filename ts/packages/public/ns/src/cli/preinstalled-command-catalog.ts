@@ -1,4 +1,3 @@
-import harnessArtifactsExtension from "../harness-artifacts/ns/extension.ts";
 import {
 	composeNsExtensionPointCommands,
 	NS_BUILT_IN_HELP_GROUP,
@@ -16,7 +15,7 @@ export const preinstalledCommandSources = [
 				"init",
 				{
 					description:
-						"Activate ns in this repository by writing ns.toml, generating agent instructions, creating declared consumer directories, and provisioning declared extension artifacts.",
+						"Activate ns in this repository by writing ns.toml, generating agent instructions, and creating declared consumer directories.",
 					helpGroup: NS_BUILT_IN_HELP_GROUP,
 				},
 				async () => {
@@ -71,18 +70,6 @@ export const preinstalledCommandSources = [
 			name: "@nseng-ai/ns",
 			version: "0.1.4",
 			descriptorPath: "@nseng-ai/ns/init/ns-extension",
-		},
-	},
-	{
-		label: "host:@nseng-ai/ns:harness-artifacts",
-		kind: "built-in",
-		origin: "host",
-		helpClassification: "built-in",
-		commandDirectory: harnessArtifactsExtension.commandDirectory,
-		package: {
-			name: "@nseng-ai/ns",
-			version: "0.1.4",
-			descriptorPath: "@nseng-ai/ns/harness-artifacts/ns-extension",
 		},
 	},
 ] as const satisfies readonly PreinstalledNsCommandSource[];

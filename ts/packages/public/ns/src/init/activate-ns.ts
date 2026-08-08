@@ -1,11 +1,4 @@
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import {
-	parseNsTomlExtensions,
-	preparedDeclaredArtifactActivationItemArtifactId,
-	type HarnessId,
-	type NsTomlChange,
-	type PreparedDeclaredArtifactActivation,
-} from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions, type NsTomlChange } from "./ns-toml.ts";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import type { NsActivationContext } from "./activation-context.ts";
 import type {
@@ -62,12 +55,9 @@ interface PreparedConsumerDirectory {
 
 export interface PreparedNsActivation {
 	readonly repository: ResolvedActivationRepository;
-	readonly harnesses: readonly HarnessId[];
-	readonly harnessSource: "explicit" | "ns-toml";
 	readonly files: Readonly<Record<ActivationFile, PreparedFileWrite>>;
 	readonly consumerDirectories: readonly PreparedConsumerDirectory[];
 	readonly expectedState: PreparedActivationExpectedState;
-	readonly artifacts: PreparedDeclaredArtifactActivation;
 	readonly descriptors: readonly DeclaredExtensionDescriptor[];
 }
 
@@ -89,8 +79,6 @@ export type ApplyNsActivationResult =
 
 export interface PrepareNsActivationOptions {
 	readonly repository: ResolvedActivationRepository;
-	readonly harnesses: readonly HarnessId[];
-	readonly harnessSource: "explicit" | "ns-toml";
 	readonly nsTomlContent: string;
 	readonly nsTomlChange: NsTomlChange;
 	readonly nsTomlExpected: ExpectedActivationTextFileState;
@@ -197,41 +185,11 @@ export async function prepareNsActivation(
 		}
 	}
 
-	const artifactPreparation = await context.artifacts.prepare({
-		repoRoot: options.repository.repoRoot,
-		descriptors: loaded.descriptors,
-		harnesses: options.harnesses,
-	});
-	if (!artifactPreparation.ok) {
-		diagnostics.push(toActivationDiagnostic(artifactPreparation.error));
-	} else {
-		for (const diagnostic of artifactPreparation.prepared.diagnostics) {
-			diagnostics.push(toActivationDiagnostic(diagnostic));
-		}
-		for (const collision of artifactPreparation.prepared.skippedCollisions) {
-			diagnostics.push({
-				code: "artifact-collision",
-				message: `Artifact ${collision.kind} collision for ${collision.value}: ${collision.packages.join(", ")}.`,
-			});
-		}
-		for (const item of artifactPreparation.prepared.artifacts) {
-			if (item.action !== "conflicted") continue;
-			diagnostics.push(
-				artifactConflictDiagnostic(
-					preparedDeclaredArtifactActivationItemArtifactId(item),
-					item.harness,
-				),
-			);
-		}
-	}
-
-	if (diagnostics.length > 0 || agentsApplied.type === "malformed" || !artifactPreparation.ok) {
+	if (diagnostics.length > 0 || agentsApplied.type === "malformed") {
 		return { type: "preflight-failed", diagnostics };
 	}
 	const activation: PreparedNsActivation = {
 		repository: options.repository,
-		harnesses: [...options.harnesses],
-		harnessSource: options.harnessSource,
 		files: {
 			"ns-toml": {
 				file: "ns-toml",
@@ -266,7 +224,6 @@ export async function prepareNsActivation(
 			},
 			consumerDirectories: expectedConsumerDirectories,
 		},
-		artifacts: artifactPreparation.prepared,
 		descriptors: loaded.descriptors,
 	};
 	recordActivationPlan(recorder, activation);
@@ -335,46 +292,12 @@ export async function applyNsActivation(
 	}
 	completed.consumerDirectories = consumerOutcomes;
 
-	const artifacts = await context.artifacts.apply(prepared.artifacts);
-	completed.artifacts = structuredClone(artifacts.completed);
-	for (const outcome of artifacts.completed) {
-		recorder.record({
-			type: "artifact-completed",
-			key: outcome.key,
-			action: outcome.action,
-			artifactId: outcome.artifactId,
-			skillName: outcome.skillName,
-			harness: outcome.harness,
-			targetArtifactPath: outcome.targetArtifactPath,
-			manifestPath: outcome.manifestPath,
-			writtenFiles: outcome.writtenFiles,
-			conflictingFiles: outcome.conflictingFiles,
-			...optionalEntry("removedFiles", outcome.removedFiles),
-			...optionalEntry("removalReason", outcome.removalReason),
-		});
-	}
-	if (!artifacts.ok) {
-		return { type: "apply-failed", phase: "artifacts", error: artifacts.error, completed };
-	}
-	const conflict = artifacts.completed.find((outcome) => outcome.action === "conflicted");
-	if (conflict !== undefined) {
-		return {
-			type: "apply-failed",
-			phase: "artifacts",
-			error: {
-				...artifactConflictDiagnostic(conflict.artifactId, conflict.harness),
-				details: { conflictingFiles: [...conflict.conflictingFiles] },
-			},
-			completed,
-		};
-	}
 	return { type: "activated", completed };
 }
 
 interface MutableActivationCompleted {
 	files: Partial<Record<ActivationFile, FileActivationOutcome>>;
 	consumerDirectories?: readonly ConsumerDirectoryOutcome[];
-	artifacts?: ActivationCompleted["artifacts"];
 }
 
 function expectedTextFileState(
@@ -509,13 +432,6 @@ function toActivationDiagnostic(
 		code: diagnostic.code,
 		message: diagnostic.message,
 		...(path === undefined ? {} : { path }),
-	};
-}
-
-function artifactConflictDiagnostic(artifactId: string, harness: HarnessId): ActivationDiagnostic {
-	return {
-		code: "artifact-local-conflict",
-		message: `Artifact ${artifactId} conflicts with local files for ${harness}.`,
 	};
 }
 

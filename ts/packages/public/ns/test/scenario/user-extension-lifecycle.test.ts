@@ -19,8 +19,6 @@ import type { ExtensionUpdateContext } from "../../src/init/update-extension.ts"
 import { updateExtension } from "../../src/init/update-extension.ts";
 import {
 	InMemoryActivationFilesGateway,
-	InMemoryArtifactActivationGateway,
-	InMemoryArtifactProvisioningStatusGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
@@ -92,7 +90,6 @@ function contexts(
 			type: "available" as const,
 			storage: userManagedNpmStorage("/home/test/.local/share/ns/extensions"),
 		},
-		artifacts: new InMemoryArtifactActivationGateway(),
 	};
 	return {
 		install: {
@@ -116,7 +113,6 @@ function contexts(
 		} satisfies ExtensionInstallContext,
 		list: {
 			...shared,
-			artifactProvisioningStatus: new InMemoryArtifactProvisioningStatusGateway(),
 			installedExtensionPackages: { list: () => [] },
 		} satisfies ExtensionListContext,
 		update: {
@@ -349,8 +345,6 @@ describe("user extension lifecycle", () => {
 			expect(config.fileContent()).toBe(content);
 			expect(config.writes).toEqual([]);
 			expect(context.update.files.operations()).toEqual([]);
-			expect(context.update.artifacts.prepareCalls()).toEqual([]);
-			expect(context.update.artifacts.applyCalls()).toEqual([]);
 		},
 	);
 
@@ -574,8 +568,6 @@ describe("user extension lifecycle", () => {
 		expect(malformedConfig.writes).toEqual([]);
 		expect(malformedContext.install.declaredExtensions.calls()).toEqual([]);
 		expect(malformedContext.install.files.operations()).toEqual([]);
-		expect(malformedContext.install.artifacts.prepareCalls()).toEqual([]);
-		expect(malformedContext.install.artifacts.applyCalls()).toEqual([]);
 		expect(malformedContext.install.installAcquisition.calls()).toEqual([]);
 
 		const wrongDescriptor = { ...descriptor, spec: "/work/extensions/other" };
@@ -593,8 +585,6 @@ describe("user extension lifecycle", () => {
 		expect(descriptorConfig.fileContent()).toBeUndefined();
 		expect(descriptorConfig.writes).toEqual([]);
 		expect(descriptorContext.install.files.operations()).toEqual([]);
-		expect(descriptorContext.install.artifacts.prepareCalls()).toEqual([]);
-		expect(descriptorContext.install.artifacts.applyCalls()).toEqual([]);
 		expect(descriptorContext.install.installAcquisition.calls()).toEqual([]);
 	});
 
@@ -713,8 +703,6 @@ describe("user extension lifecycle", () => {
 		});
 		expect(dryRunConfig.writes).toEqual([]);
 		expect(dryRunContext.update.files.operations()).toEqual([]);
-		expect(dryRunContext.update.artifacts.prepareCalls()).toEqual([]);
-		expect(dryRunContext.update.artifacts.applyCalls()).toEqual([]);
 		expect(dryRunContext.update.updateAcquisition.operations()).toEqual([]);
 	});
 
@@ -817,8 +805,6 @@ describe("user extension lifecycle", () => {
 			{ repoRoot: "/home/test/.config/ns", specs: [] },
 		]);
 		expect(context.list.files.operations()).toEqual([]);
-		expect(context.list.artifacts.prepareCalls()).toEqual([]);
-		expect(context.list.artifacts.applyCalls()).toEqual([]);
 	});
 
 	it("reports malformed user list config as a scope-specific user failure", async () => {
@@ -914,8 +900,6 @@ describe("user extension lifecycle", () => {
 		});
 		expect(uninstallConfig.fileContent()).toBe("# concurrent uninstall\n");
 		expect(uninstallContext.uninstall.files.operations()).toEqual([]);
-		expect(uninstallContext.uninstall.artifacts.prepareCalls()).toEqual([]);
-		expect(uninstallContext.uninstall.artifacts.applyCalls()).toEqual([]);
 		expect(uninstallContext.uninstall.uninstallAcquisition.removals()).toEqual([]);
 	});
 });

@@ -14,13 +14,6 @@ export interface ExtensionPointDefinition {
 	readonly default?: string;
 }
 
-export interface BundledArtifactDefinition {
-	readonly kind: "skill";
-	readonly name: string;
-	readonly path: string;
-	readonly description?: string;
-}
-
 export interface ExtensionActivation {
 	readonly instructions?: string;
 	readonly consumerDirs?: readonly string[];
@@ -32,7 +25,6 @@ export interface ExtensionDescriptor {
 	readonly commandDirectory?: string;
 	readonly points?: readonly ExtensionPointDefinition[];
 	readonly activation?: ExtensionActivation;
-	readonly bundledArtifacts?: readonly BundledArtifactDefinition[];
 }
 
 export function nsExtensionExportTarget(exportsField: unknown): string | undefined {
@@ -67,20 +59,6 @@ export const extensionPointDefinitionSchema: z.ZodType<ExtensionPointDefinition>
 		...optionalEntries({ description: point.description, default: point.default }),
 	}));
 
-export const bundledArtifactDefinitionSchema: z.ZodType<BundledArtifactDefinition> = z
-	.strictObject({
-		kind: z.literal("skill"),
-		name: z.string().min(1),
-		path: z.string().min(1),
-		description: z.string().optional(),
-	})
-	.transform((artifact) => ({
-		kind: artifact.kind,
-		name: artifact.name,
-		path: artifact.path,
-		...optionalEntries({ description: artifact.description }),
-	}));
-
 const activationInstructionsSchema = z.string().refine(isSingleLevelTwoMarkdownSection, {
 	message:
 		"must begin with a non-empty level-2 Markdown heading and contain exactly one level-2 section",
@@ -104,7 +82,6 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 			.optional(),
 		points: z.array(extensionPointDefinitionSchema).optional(),
 		activation: extensionActivationSchema.optional(),
-		bundledArtifacts: z.array(bundledArtifactDefinitionSchema).optional(),
 	})
 	.transform((descriptor) => ({
 		description: descriptor.description,
@@ -112,7 +89,6 @@ export const extensionDescriptorSchema: z.ZodType<ExtensionDescriptor> = z
 			commandDirectory: descriptor.commandDirectory,
 			points: descriptor.points,
 			activation: descriptor.activation,
-			bundledArtifacts: descriptor.bundledArtifacts,
 		}),
 	}));
 

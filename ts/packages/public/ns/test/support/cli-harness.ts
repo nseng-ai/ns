@@ -34,7 +34,6 @@ export async function createEmptyProject(): Promise<string> {
 
 export async function writeModuleExtension(projectRoot: string): Promise<void> {
 	const moduleRoot = join(projectRoot, "extensions", "acme-module");
-	await mkdir(join(moduleRoot, "skills", "module-skill"), { recursive: true });
 	await mkdir(join(moduleRoot, "src", "ns"), { recursive: true });
 	await writeFile(
 		join(moduleRoot, "package.json"),
@@ -55,18 +54,12 @@ export async function writeModuleExtension(projectRoot: string): Promise<void> {
 		`import { defineExtension } from "@nseng-ai/sdk";
 export default defineExtension({
 	description: "ACME module.",
-	bundledArtifacts: [{ kind: "skill", name: "module-skill", path: "skills/module-skill" }],
 	activation: {
 		instructions: "## ACME module instructions\\n",
 		consumerDirs: [".ns/acme-data"],
 	},
 });
 `,
-		"utf8",
-	);
-	await writeFile(
-		join(moduleRoot, "skills", "module-skill", "SKILL.md"),
-		"# module skill\n",
 		"utf8",
 	);
 }

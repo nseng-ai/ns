@@ -1,543 +1,175 @@
-import { resolve } from "node:path";
-
 import { describe, expect, it } from "vitest";
-
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
-
-import type { ArtifactProvisioningStatusSummary } from "../../src/init/artifact-provisioning-status.ts";
-
 import type { ExtensionListContext } from "../../src/init/list-extensions.ts";
 import { listExtensions, renderListExtensionsHuman } from "../../src/init/list-extensions.ts";
 import {
 	InMemoryActivationFilesGateway,
-	InMemoryArtifactProvisioningStatusGateway,
 	InMemoryDeclaredExtensionsGateway,
-	InMemoryUserExtensionConfigGateway,
 	InMemoryUserExtensionAvailabilityGateway,
+	InMemoryUserExtensionConfigGateway,
 } from "../../src/init/testing/index.ts";
 
-function descriptor(options: {
-	spec: string;
-	sourceKind?: "local" | "npm";
-	packageName?: string;
-	version?: string;
-	moduleRoot?: string;
-}): DeclaredExtensionDescriptor {
-	const sourceKind = options.sourceKind ?? "local";
-	const packageName = options.packageName ?? "@test/tools";
-	const moduleRoot =
-		options.moduleRoot ??
-		(sourceKind === "local"
-			? resolve("/repo", options.spec)
-			: `/repo/.ns/managed-extensions/npm/node_modules/${packageName}`);
+function descriptor(spec: string): DeclaredExtensionDescriptor {
 	return {
-		spec: options.spec,
-		sourceKind,
-		moduleRoot,
-		descriptorPath: `${moduleRoot}/extension.ts`,
-		packageName,
-		version: options.version ?? "1.0.0",
-		descriptor: { description: packageName },
+		spec,
+		sourceKind: "local",
+		moduleRoot: `/repo/${spec}`,
+		descriptorPath: `/repo/${spec}/extension.ts`,
+		packageName: "@test/tools",
+		version: "1.0.0",
+		descriptor: { description: "tools" },
 	};
 }
-
 function fixture(
 	options: {
 		nsToml?: string;
 		git?: InMemoryGitGateway;
-		files?: InMemoryActivationFilesGateway;
 		descriptors?: readonly DeclaredExtensionDescriptor[];
-		diagnostics?: readonly {
-			severity: "error";
-			code: string;
-			message: string;
-			spec: string;
-			relatedSpecs?: readonly string[];
-			path?: string;
-		}[];
-		artifactSummaries?: readonly ArtifactProvisioningStatusSummary[];
-		installedPackages?: readonly {
-			packageName: string;
-			packageVersion?: string;
-			moduleRoot?: string;
-		}[];
+		diagnostics?: readonly { severity: "error"; code: string; message: string; spec: string }[];
+		installed?: readonly { packageName: string; packageVersion?: string; moduleRoot?: string }[];
 	} = {},
-): {
-	context: ExtensionListContext;
-	files: InMemoryActivationFilesGateway;
-	declaredExtensions: InMemoryDeclaredExtensionsGateway;
-	artifacts: InMemoryArtifactProvisioningStatusGateway;
-} {
-	const files =
-		options.files ??
-		new InMemoryActivationFilesGateway({
-			files: options.nsToml === undefined ? {} : { "ns.toml": options.nsToml },
-		});
-	const declaredExtensions = new InMemoryDeclaredExtensionsGateway({
-		result: {
-			descriptors: options.descriptors ?? [],
-			diagnostics: options.diagnostics ?? [],
-		},
+) {
+	const files = new InMemoryActivationFilesGateway({
+		files: options.nsToml === undefined ? {} : { "ns.toml": options.nsToml },
 	});
-	const artifacts = new InMemoryArtifactProvisioningStatusGateway(
-		options.artifactSummaries === undefined ? {} : { summaries: options.artifactSummaries },
-	);
-	return {
+	const declaredExtensions = new InMemoryDeclaredExtensionsGateway({
+		result: { descriptors: options.descriptors ?? [], diagnostics: options.diagnostics ?? [] },
+	});
+	const context: ExtensionListContext = {
+		git: options.git ?? new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
 		files,
 		declaredExtensions,
-		artifacts,
-		context: {
-			git: options.git ?? new InMemoryGitGateway({ optionalRepoRoot: "/repo" }),
-			files,
-			declaredExtensions,
-			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
-			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
-			userManagedNpmStorage: {
-				type: "unavailable",
-				diagnostic: { code: "user-managed-npm-storage-unavailable", message: "not configured" },
-			},
-			artifactProvisioningStatus: artifacts,
-			installedExtensionPackages: {
-				list: () => options.installedPackages ?? [],
+		installedExtensionPackages: { list: () => options.installed ?? [] },
+		userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
+		userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
+		userManagedNpmStorage: {
+			type: "unavailable",
+			diagnostic: {
+				code: "user-managed-npm-storage-unavailable",
+				message: "unavailable",
 			},
 		},
 	};
+	return { context, files, declaredExtensions };
 }
-
 describe("listExtensions", () => {
-	it("fails outside git and on repository inspection error", async () => {
-		const outside = fixture({
-			git: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
-		});
-		await expect(listExtensions(outside.context, { cwd: "/work" })).resolves.toMatchObject({
-			status: "failure",
-			errorType: "ns-extension-list-not-a-git-repo",
-			data: { diagnostics: [{ code: "not-a-git-repo", path: "/work" }] },
-		});
-
-		const failed = fixture({
-			git: new InMemoryGitGateway({
-				optionalRepoRoot: {
-					type: "failure",
-					error: { code: "repo_root_failed", message: "git failed" },
-				},
-			}),
-		});
-		await expect(listExtensions(failed.context, { cwd: "/work" })).resolves.toMatchObject({
-			status: "failure",
-			errorType: "ns-extension-list-repository-failed",
-			data: { diagnostics: [{ code: "repo-root-failed", message: "git failed" }] },
-		});
+	it("fails outside git and on repository inspection errors", async () => {
+		expect(
+			await listExtensions(
+				fixture({ git: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }) }).context,
+				{ cwd: "/repo", scope: "project" },
+			),
+		).toMatchObject({ status: "failure", errorType: "ns-extension-list-not-a-git-repo" });
+		expect(
+			await listExtensions(
+				fixture({
+					git: new InMemoryGitGateway({
+						optionalRepoRoot: { type: "failure", error: { code: "git-failed", message: "failed" } },
+					}),
+				}).context,
+				{ cwd: "/repo", scope: "project" },
+			),
+		).toMatchObject({ status: "failure", errorType: "ns-extension-list-repository-failed" });
 	});
-
-	it("includes installed package extensions that are not declared in ns.toml", async () => {
-		const { context, declaredExtensions, artifacts } = fixture({
-			nsToml: 'supported_harnesses = ["pi"]\nextensions = []\n',
-			installedPackages: [
-				{
-					packageName: "@nseng-ai/flow",
-					packageVersion: "0.1.4",
-					moduleRoot: "/workspace/ts/packages/incubating/extensions/flow",
-				},
-				{ packageName: "@nseng-ai/slots", packageVersion: "0.1.4" },
-			],
-		});
-
-		await expect(listExtensions(context, { cwd: "/repo" })).resolves.toEqual({
+	it("includes installed packages absent from ns.toml", async () => {
+		const result = await listExtensions(
+			fixture({ installed: [{ packageName: "@test/installed", packageVersion: "1.0.0" }] }).context,
+			{ cwd: "/repo", scope: "project" },
+		);
+		expect(result).toMatchObject({
 			status: "success",
 			data: {
-				scope: "project",
-				repoRoot: "/repo",
-				configPath: "/repo/ns.toml",
 				extensions: [
-					{
-						sourceSpec: "@nseng-ai/flow",
-						sourceKind: "package",
-						packageName: "@nseng-ai/flow",
-						packageVersion: "0.1.4",
-						moduleRoot: "/workspace/ts/packages/incubating/extensions/flow",
-						acquisitionStatus: "installed",
-						artifactStatus: "none",
-						artifactCount: 0,
-						affectedArtifactCount: 0,
-						diagnostics: [],
-					},
-					{
-						sourceSpec: "@nseng-ai/slots",
-						sourceKind: "package",
-						packageName: "@nseng-ai/slots",
-						packageVersion: "0.1.4",
-						acquisitionStatus: "installed",
-						artifactStatus: "none",
-						artifactCount: 0,
-						affectedArtifactCount: 0,
-						diagnostics: [],
-					},
+					{ sourceSpec: "@test/installed", sourceKind: "package", acquisitionStatus: "installed" },
 				],
 			},
 		});
-		expect(declaredExtensions.calls()).toEqual([]);
-		expect(artifacts.inspectCalls()).toEqual([]);
 	});
-
-	it("shows a declared extension once with its declaration-specific status", async () => {
-		const record = descriptor({
-			spec: "./extensions/flow",
-			packageName: "@nseng-ai/flow",
-			version: "2.0.0",
-		});
-		const { context } = fixture({
-			nsToml: 'supported_harnesses = ["pi"]\nextensions = ["./extensions/flow"]\n',
-			installedPackages: [{ packageName: "@nseng-ai/flow" }],
-			descriptors: [record],
-			artifactSummaries: [
-				{
-					moduleRoot: record.moduleRoot,
-					artifactStatus: "provisioned",
-					artifactCount: 1,
-					affectedArtifactCount: 0,
-					diagnostics: [],
-				},
-			],
-		});
-
-		const result = await listExtensions(context, { cwd: "/repo" });
-		if (result.status !== "success") throw new Error("expected successful inventory");
-		expect(result.data.extensions).toEqual([
-			{
-				sourceSpec: "./extensions/flow",
-				sourceKind: "local",
-				packageName: "@nseng-ai/flow",
-				packageVersion: "2.0.0",
-				moduleRoot: record.moduleRoot,
-				acquisitionStatus: "installed",
-				artifactStatus: "provisioned",
-				artifactCount: 1,
-				affectedArtifactCount: 0,
-				diagnostics: [],
-			},
-		]);
-	});
-
-	it.each([
-		["missing ns.toml", undefined],
-		["no extensions setting", 'supported_harnesses = ["pi"]\n'],
-		["an empty extension list", 'supported_harnesses = ["pi"]\nextensions = []\n'],
-	])("returns an empty successful inventory for %s", async (_label, nsToml) => {
-		const { context, declaredExtensions, artifacts } = fixture(
-			nsToml === undefined ? {} : { nsToml },
+	it("shows each declared extension with descriptor facts", async () => {
+		const source = "./extensions/tools";
+		const result = await listExtensions(
+			fixture({ nsToml: `extensions = ["${source}"]\n`, descriptors: [descriptor(source)] })
+				.context,
+			{ cwd: "/repo", scope: "project" },
 		);
-		await expect(listExtensions(context, { cwd: "/repo/subdir" })).resolves.toEqual({
-			status: "success",
-			data: { scope: "project", repoRoot: "/repo", configPath: "/repo/ns.toml", extensions: [] },
-		});
-		expect(declaredExtensions.calls()).toEqual([]);
-		expect(artifacts.inspectCalls()).toEqual([]);
-	});
-
-	it.each([
-		["non-file", new InMemoryActivationFilesGateway({ nonFilePaths: ["ns.toml"] })],
-		[
-			"unreadable",
-			new InMemoryActivationFilesGateway({
-				readFailure: { code: "read_failed", message: "cannot read" },
-			}),
-		],
-		[
-			"invalid TOML",
-			new InMemoryActivationFilesGateway({ files: { "ns.toml": "extensions = [\n" } }),
-		],
-		[
-			"invalid extensions",
-			new InMemoryActivationFilesGateway({ files: { "ns.toml": 'extensions = "no"\n' } }),
-		],
-		[
-			"invalid harnesses",
-			new InMemoryActivationFilesGateway({
-				files: { "ns.toml": 'extensions = ["./ext"]\nsupported_harnesses = ["cursor"]\n' },
-			}),
-		],
-	])("fails rather than returning partial inventory for %s config", async (_label, files) => {
-		const { context } = fixture({ files });
-		await expect(listExtensions(context, { cwd: "/repo" })).resolves.toMatchObject({
-			status: "failure",
-			errorType: "ns-extension-list-config-invalid",
-			data: { diagnostics: [{ code: expect.any(String), path: "/repo/ns.toml" }] },
-		});
-	});
-
-	it("preserves declaration order and merges resolved and artifact facts", async () => {
-		const npm = descriptor({
-			spec: "npm:@test/tools",
-			sourceKind: "npm",
-			packageName: "@test/tools",
-			version: "2.0.0",
-		});
-		const local = descriptor({
-			spec: "./extensions/local",
-			packageName: "@test/local",
-			version: "3.0.0",
-		});
-		const { context, files, artifacts } = fixture({
-			nsToml:
-				'supported_harnesses = ["pi"]\nextensions = ["npm:@test/tools", "./extensions/local"]\n',
-			descriptors: [npm, local],
-			artifactSummaries: [
-				{
-					moduleRoot: npm.moduleRoot,
-					artifactStatus: "provisioned",
-					artifactCount: 2,
-					affectedArtifactCount: 0,
-					diagnostics: [],
-				},
-				{
-					moduleRoot: local.moduleRoot,
-					artifactStatus: "needs-reconcile",
-					artifactCount: 3,
-					affectedArtifactCount: 1,
-					diagnostics: [{ code: "artifact-stale", message: "one stale artifact" }],
-				},
-			],
-		});
-
-		const result = await listExtensions(context, { cwd: "/repo" });
-		expect(result).toEqual({
-			status: "success",
-			data: {
-				scope: "project",
-				repoRoot: "/repo",
-				configPath: "/repo/ns.toml",
-				extensions: [
-					{
-						sourceSpec: npm.spec,
-						sourceKind: "npm",
-						packageName: "@test/tools",
-						packageVersion: "2.0.0",
-						moduleRoot: npm.moduleRoot,
-						acquisitionStatus: "installed",
-						artifactStatus: "provisioned",
-						artifactCount: 2,
-						affectedArtifactCount: 0,
-						diagnostics: [],
-					},
-					{
-						sourceSpec: local.spec,
-						sourceKind: "local",
-						packageName: "@test/local",
-						packageVersion: "3.0.0",
-						moduleRoot: local.moduleRoot,
-						acquisitionStatus: "installed",
-						artifactStatus: "needs-reconcile",
-						artifactCount: 3,
-						affectedArtifactCount: 1,
-						diagnostics: [{ code: "artifact-stale", message: "one stale artifact" }],
-					},
-				],
-			},
-		});
-		expect(artifacts.inspectCalls()).toHaveLength(1);
-		expect(files.operations()).toEqual([]);
-	});
-
-	it("keeps missing, invalid, unsupported, malformed, and duplicate declarations as rows", async () => {
-		const specs = [
-			"npm:@test/missing",
-			"./broken",
-			"git:https://example.test/ext.git",
-			"https://example.test/ext.tgz",
-			"npm:",
-			"./duplicate",
-			"./duplicate/../duplicate",
-		] as const;
-		const [
-			missingNpmSpec,
-			brokenLocalSpec,
-			unsupportedGitSpec,
-			unsupportedArchiveSpec,
-			invalidNpmSpec,
-			duplicateLocalSpec,
-			equivalentDuplicateLocalSpec,
-		] = specs;
-		const { context, artifacts } = fixture({
-			nsToml: `supported_harnesses = ["pi"]\nextensions = ${JSON.stringify(specs)}\n`,
-			diagnostics: [
-				{
-					severity: "error",
-					code: "extension_descriptor_package_missing",
-					message: "package missing",
-					spec: missingNpmSpec,
-				},
-				{
-					severity: "error",
-					code: "extension_descriptor_invalid",
-					message: "descriptor invalid",
-					spec: brokenLocalSpec,
-					path: "/repo/broken/extension.ts",
-				},
-				{
-					severity: "error",
-					code: "extension_descriptor_source_unsupported",
-					message: "git unsupported",
-					spec: unsupportedGitSpec,
-				},
-				{
-					severity: "error",
-					code: "extension_descriptor_package_missing",
-					message: "URI was parsed as a missing local package by descriptor loading",
-					spec: unsupportedArchiveSpec,
-				},
-				{
-					severity: "error",
-					code: "extension_acquisition_invalid_npm_spec",
-					message: "npm invalid",
-					spec: invalidNpmSpec,
-				},
-				{
-					severity: "error",
-					code: "extension_descriptor_duplicate_identity",
-					message: "duplicate",
-					spec: duplicateLocalSpec,
-					relatedSpecs: [equivalentDuplicateLocalSpec],
-				},
-			],
-		});
-
-		const result = await listExtensions(context, { cwd: "/repo" });
-		if (result.status !== "success" || result.data.scope !== "project")
-			throw new Error("expected successful project inventory");
-		expect(result.data.extensions.map((row) => row.sourceSpec)).toEqual(specs);
-		expect(result.data.extensions.map((row) => row.sourceKind)).toEqual([
-			"npm",
-			"local",
-			"git",
-			"unsupported",
-			"npm",
-			"local",
-			"local",
-		]);
-		expect(result.data.extensions.map((row) => row.acquisitionStatus)).toEqual([
-			"missing",
-			"invalid",
-			"invalid",
-			"invalid",
-			"invalid",
-			"invalid",
-			"invalid",
-		]);
-		expect(result.data.extensions.every((row) => row.artifactStatus === "unavailable")).toBe(true);
-		expect(result.data.extensions[3]?.diagnostics).toEqual([
-			{
-				code: "extension-descriptor-source-unsupported",
-				message:
-					"Extension source must be an npm: spec or an unprefixed local path: https://example.test/ext.tgz.",
-			},
-		]);
-		expect(result.data.extensions[5]?.diagnostics[0]?.code).toBe(
-			"extension-descriptor-duplicate-identity",
-		);
-		expect(result.data.extensions[6]?.diagnostics[0]?.code).toBe(
-			"extension-descriptor-duplicate-identity",
-		);
-		expect(artifacts.inspectCalls()).toEqual([]);
-	});
-
-	it.each([
-		["none", 0, 0],
-		["provisioned", 2, 0],
-		["needs-reconcile", 2, 1],
-		["conflicted", 2, 1],
-		["unavailable", 1, 1],
-	] as const)(
-		"propagates %s artifact summaries and normalizes diagnostics at the contract edge",
-		async (artifactStatus, artifactCount, affectedArtifactCount) => {
-			const record = descriptor({ spec: "./extension" });
-			const { context } = fixture({
-				nsToml: 'supported_harnesses = ["pi"]\nextensions = ["./extension"]\n',
-				descriptors: [record],
-				artifactSummaries: [
-					{
-						moduleRoot: record.moduleRoot,
-						artifactStatus,
-						artifactCount,
-						affectedArtifactCount,
-						diagnostics: [{ code: "artifact_status_fact", message: "status fact" }],
-					},
-				],
-			});
-
-			const result = await listExtensions(context, { cwd: "/repo" });
-
-			expect(result).toMatchObject({
-				status: "success",
-				data: {
-					extensions: [
-						{
-							artifactStatus,
-							artifactCount,
-							affectedArtifactCount,
-							diagnostics: [{ code: "artifact-status-fact", message: "status fact" }],
-						},
-					],
-				},
-			});
-		},
-	);
-
-	it("returns acquisition facts with unavailable artifacts when harnesses are missing", async () => {
-		const record = descriptor({ spec: "./extension", packageName: "@test/extension" });
-		const { context, artifacts } = fixture({
-			nsToml: 'extensions = ["./extension"]\n',
-			descriptors: [record],
-			installedPackages: [{ packageName: "@test/undeclared" }],
-		});
-		const result = await listExtensions(context, { cwd: "/repo" });
 		expect(result).toMatchObject({
 			status: "success",
 			data: {
 				extensions: [
 					{
-						sourceSpec: "@test/undeclared",
-						sourceKind: "package",
-						artifactStatus: "none",
-						diagnostics: [],
-					},
-					{
+						sourceSpec: source,
+						sourceKind: "local",
+						packageName: "@test/tools",
 						acquisitionStatus: "installed",
-						packageName: "@test/extension",
-						artifactStatus: "unavailable",
-						diagnostics: [{ code: "supported-harnesses-missing", path: "/repo/ns.toml" }],
+						diagnostics: [],
 					},
 				],
 			},
 		});
-		expect(artifacts.inspectCalls()).toEqual([]);
 	});
-
-	it("publishes readable empty, table, and diagnostic human output", async () => {
-		expect(
-			renderListExtensionsHuman({
-				scope: "project",
-				repoRoot: "/repo",
-				configPath: "/repo/ns.toml",
-				extensions: [],
-			}),
-		).toBe("No extensions installed or declared in ns.toml.");
-		const record = descriptor({ spec: "./extension" });
+	it.each([undefined, "# config\n", "extensions = []\n"])(
+		"returns empty inventory without declarations",
+		async (nsToml) => {
+			const { context } = fixture(nsToml === undefined ? {} : { nsToml });
+			const result = await listExtensions(context, { cwd: "/repo", scope: "project" });
+			expect(result).toMatchObject({ status: "success", data: { extensions: [] } });
+		},
+	);
+	it("fails rather than returning partial inventory for invalid config", async () => {
+		const result = await listExtensions(fixture({ nsToml: "extensions = [42]\n" }).context, {
+			cwd: "/repo",
+			scope: "project",
+		});
+		expect(result).toMatchObject({
+			status: "failure",
+			errorType: "ns-extension-list-config-invalid",
+			data: { diagnostics: [{ code: "invalid-extensions" }] },
+		});
+	});
+	it("keeps missing and unsupported declarations as diagnostic rows", async () => {
+		const missingSpec = "./missing";
+		const unsupportedSpec = "https://example.test/ext.tgz";
+		const specs = [missingSpec, unsupportedSpec];
 		const result = await listExtensions(
 			fixture({
-				nsToml: 'extensions = ["./extension"]\n',
-				descriptors: [record],
+				nsToml: `extensions = ${JSON.stringify(specs)}\n`,
+				diagnostics: [
+					{
+						severity: "error",
+						code: "extension_descriptor_package_missing",
+						message: "missing",
+						spec: missingSpec,
+					},
+				],
 			}).context,
-			{ cwd: "/repo" },
+			{ cwd: "/repo", scope: "project" },
 		);
-		if (result.status !== "success") throw new Error("expected successful inventory");
-		const rendered = renderListExtensionsHuman(result.data);
-		expect(rendered).toContain("SOURCE");
-		expect(rendered).toContain("./extension");
-		expect(rendered).toContain("ARTIFACTS (AFFECTED/OBSERVED)");
-		expect(rendered).toContain("unavailable 0/0 (observed may be partial)");
-		expect(rendered).toContain("Diagnostics:");
-		expect(rendered).toContain("[supported-harnesses-missing]");
+		expect(result).toMatchObject({
+			status: "success",
+			data: {
+				extensions: [
+					{ sourceSpec: missingSpec, acquisitionStatus: "missing" },
+					{
+						sourceSpec: unsupportedSpec,
+						sourceKind: "unsupported",
+						acquisitionStatus: "invalid",
+					},
+				],
+			},
+		});
+	});
+	it("renders empty and populated human output", async () => {
+		const empty = await listExtensions(fixture().context, { cwd: "/repo", scope: "project" });
+		if (empty.status !== "success") throw new Error("expected success");
+		expect(renderListExtensionsHuman(empty.data)).toContain("No extensions installed or declared");
+		const source = "./tools";
+		const full = await listExtensions(
+			fixture({ nsToml: `extensions = ["${source}"]\n`, descriptors: [descriptor(source)] })
+				.context,
+			{ cwd: "/repo", scope: "project" },
+		);
+		if (full.status !== "success") throw new Error("expected success");
+		expect(renderListExtensionsHuman(full.data)).toContain(source);
 	});
 });

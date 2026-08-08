@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { CommandOutcome } from "@nseng-ai/clinkr/app";
 import { failure, ok } from "@nseng-ai/clinkr/app";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { ALL_HARNESS_IDS, parseNsTomlExtensions } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions } from "./ns-toml.ts";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
@@ -67,7 +67,6 @@ export const installExtensionResultSchema = z.discriminatedUnion("scope", [
 		isRecorded: z.boolean(),
 		repoRoot: z.string(),
 		trunkBranch: z.string(),
-		harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
 		completed: activationCompletedSchema,
 		steps: z.array(lifecycleStepSchema).readonly(),
 	}),
@@ -108,7 +107,7 @@ export async function installExtension(
 	const preflight = await prepareExtensionLifecycle(context, request, recorder);
 	if (preflight.type === "failed")
 		return extensionLifecycleFailure("install", preflight.failure, recorder);
-	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses } = preflight.prepared;
+	const { repository, repoRoot, trunkBranch, nsTomlContent } = preflight.prepared;
 
 	const declaration = planDeclaredExtensionInstallToml({
 		projectRoot: repoRoot,
@@ -188,8 +187,6 @@ export async function installExtension(
 		context,
 		{
 			repository,
-			harnesses,
-			harnessSource: "ns-toml",
 			nsTomlContent: declaration.text,
 			nsTomlChange: declaration.isAdded ? "appended" : "unchanged",
 			nsTomlExpected: { type: "file", content: nsTomlContent },
@@ -258,7 +255,6 @@ export async function installExtension(
 		isRecorded: declaration.isAdded,
 		repoRoot,
 		trunkBranch,
-		harnesses: [...harnesses],
 		completed: applied.completed,
 		steps: recorder.steps(),
 	});
@@ -417,12 +413,10 @@ export function renderInstallExtensionHuman(result: InstallExtensionResult): str
 	if (result.scope === "user")
 		return `Installed ${result.packageName}@${result.packageVersion} for user command availability from ${result.sourceSpec}.\nAcquisition: ${result.acquisitionOutcome}.\nDeclaration: ${result.declarationAction} in ${result.configPath}.\nNo project activation was performed.`;
 	const declaration = result.isRecorded ? "recorded in" : "already present in";
-	const artifactCount = result.completed.artifacts?.length ?? 0;
 	const outcome = result.isRecorded ? "Installed" : "Ensured already-present";
 	return [
 		`${outcome} ${result.packageName}@${result.packageVersion} from ${result.sourceSpec}.`,
 		`Module root: ${result.moduleRoot}`,
 		`Declaration: ${declaration} ${result.nsTomlPath}`,
-		`Activated ${artifactCount} artifact${artifactCount === 1 ? "" : "s"} for ${result.harnesses.join(", ")}.`,
 	].join("\n");
 }

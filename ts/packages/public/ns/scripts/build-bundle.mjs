@@ -48,7 +48,6 @@ await build({
 await build({
 	entryPoints: {
 		...sdkExportEntries,
-		"api/index": resolve(packageRoot, "src", "api", "index.ts"),
 		"cli/index": resolve(packageRoot, "src", "cli", "index.ts"),
 	},
 	outdir: bundleRoot,

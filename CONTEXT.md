@@ -130,33 +130,17 @@ Objective state vocabulary clusters as: open vs. closed is the lifecycle state (
 An optional prose `## Metaprompt` section in an **Objective**'s `objective.md` — with row-level `Metaprompt:` prose overriding it per roadmap row — carrying durable instructions for how prompts produced for that Objective are serialized; `objective-next` is the metaprompt in action, applying it when it emits a proposed prompt. It shapes serialization only, never step selection, and grants no execution permission; semantics live in the `objective` skill's `references/metaprompt.md`.
 *Avoid*: Prompt Guidance (retired name), prompt factory, prompt template schema, frontmatter key
 
-**Harness artifact**:
-An ns-owned resource materialized into an assistant **Harness**; current kinds are `skill`, `agent`, and `extension-bundle`. Handoff artifacts and consumer artifacts are separate domain terms, so qualify this term when ambiguity is possible.
-*Avoid*: bare artifact where ambiguous, managed artifact
-
 **Harness**:
-A target assistant environment for a **Harness artifact**, currently `claude-code`, `codex`, or `pi`. This is distinct from **Runtime Harness**, which names program boot code that wires the vended API object.
-*Avoid*: platform
-
-**Supported harnesses**:
-The repository-declared set of **Harness** targets in top-level `ns.toml` `supported_harnesses`. ns provisions and reconciles extension-provided skills and other agent-facing artifacts in each target's project directory. The set does not describe every tool contributors personally use, restrict repository access, or assign Objective ownership.
-*Avoid*: project harnesses, configured harnesses, contributor harnesses, Objective owners, access allowlist
+An assistant environment in which repository skills can be invoked, currently Claude Code, Codex, or Pi. Skill lifecycle is managed through `npx skills`; checked-in repository files directly define each harness's local topology and invocation metadata. This is distinct from **Runtime Harness**, which names program boot code that wires the vended API object.
+*Avoid*: platform, active harness, ns-managed harness, repository harness policy
 
 **Pi (the harness)**:
 The third-party coding-agent **Harness** built by Earendil and shipped as `@earendil-works/pi-coding-agent`; ns integrates with it deeply but does not own or control it — upstream API or behavior changes can only be absorbed, never made. Canonical Pi-domain vocabulary lives in `ts/packages/incubating/hosts/pi/runtime/pi-runtime/CONTEXT.md`.
 *Avoid*: ns-owned harness, first-party Pi
 
-**Provision**:
-The action that materializes a **Harness artifact** into a **Harness** root.
-*Avoid*: install where it means provisioning, deploy
-
-**Skills**:
-The user-facing CLI noun for `ns skills ...`, the current steelthread surface over `skill` **Harness artifact** provisioning.
-*Avoid*: artifacts as the user-facing noun
-
-**Skill Exposure Policy**:
-The explicit repo-local declaration of how a skill is surfaced across harnesses. The retained policies are exactly `normal`, `invoke-only`, and `skill-backed-command`; declarations target an explicit skill directory or direct `SKILL.md` path and are reconciled by `ns skill-exposure`.
-*Avoid*: invocation kind, ambient-only, unlisted, inferred exposure, command-backed
+**Skill Invocation Mode**:
+The repository-owned convention for how a skill is invoked across harnesses. The modes are exactly `normal`, `invoke-only`, and `skill-backed-command`. They are expressed directly in checked-in skill frontmatter, Codex sidecars, Pi exclusions, and any required **Skill-Backed Command Registration**; no ns command or package manages or reconciles them.
+*Avoid*: Skill Exposure Policy, invocation kind, ambient-only, unlisted, inferred exposure, command-backed
 
 **Skill-Backed Command**:
 A namespaced Pi command whose workflow instructions come from a required skill loaded directly from its managed source. The command owns invocation and any specialized interaction; the skill remains the workflow authority and fails closed when it cannot be loaded.
@@ -167,8 +151,8 @@ The explicit association of a **Skill-Backed Command** surface with its required
 *Avoid*: command-backed skill registration, command-backed registration, inferred replacement, ambient skill lookup
 
 **Harness Overlay**:
-The per-harness integration files derived from **Skill Exposure Policy**, such as frontmatter flags, Codex sidecars, and Pi settings exclusions. Harness Overlay ownership is limited to cross-harness exposure and the skill-backed command invariant; acquisition, layout, hashes, mirrors, and install health belong to `npx skills` or `ns skills` / `ns update` as appropriate.
-*Avoid*: registry, managed artifact, install record, skill health check
+The flat, checked-in per-harness integration surface for a globally named skill, such as `.agents/skills/<identity>`, `.claude/skills/<identity>`, Codex sidecars, and Pi settings exclusions. The repository owns canonical topology, these overlays, and invocation metadata directly; `npx skills` owns acquisition, installed-state lifecycle, and `skills-lock.json`. ns owns no skill-management command, package, manifest, or reconciliation interface.
+*Avoid*: registry, managed artifact, install record, ns-managed overlay, skill health check
 
 **Commit Run**:
 A linear, merge-free commit sequence on one feature branch off trunk — the branch is the run, `trunk..tip`, with no run identity beyond it. Packageable when its tip validates and its commit messages narrate intent well enough for **Packaging** to judge slice boundaries; there are no structured decision markers — narrative prose is the signal.

@@ -52,10 +52,10 @@ Do not conflate these independent concerns:
 - **support disposition**: the repository's external support warrant or intent;
 - **family ownership**: the stable navigation and maintenance owner;
 - **skill identity**: the globally flat harness-visible name;
-- **Skill Exposure Policy**: invocation behavior (`normal`, `invoke-only`, or `skill-backed-command`); and
+- **invocation mode**: checked-in invocation behavior (`normal`, `invoke-only`, or `skill-backed-command`); and
 - **`metadata.internal`**: repository-private visibility evidence.
 
-A public skill can have any Skill Exposure Policy. An internal skill can be ambient. `metadata.internal: true` strongly informs an internal disposition but substitutes for neither disposition nor exposure policy.
+A public skill can have any invocation mode. An internal skill can be ambient. `metadata.internal: true` strongly informs an internal disposition but substitutes for neither disposition nor invocation mode.
 
 ## Dependency closure
 
@@ -71,6 +71,6 @@ A required operational dependency is any command, package, skill, checked-in pro
 
 ## Moves and compatibility
 
-Promotion or demotion is a deliberate support-intent decision and canonical path move. It does not by itself rename the skill, change family, alter Skill Exposure Policy or `metadata.internal`, publish content, or change an owning package. Review and update all explicit canonical-path consumers and required dependencies as part of the move.
+Promotion or demotion is a deliberate support-intent decision and canonical path move. It does not by itself rename the skill, change family, alter invocation mode or `metadata.internal`, publish content, or change an owning package. Review and update all explicit canonical-path consumers and required dependencies as part of the move.
 
 The canonical tree has no mixed-layout compatibility: no first-party skill may live directly at `skills/<identity>/`, and old canonical-path aliases or fallback copies are not allowed. Flat Harness Overlays and real vendored `.agents/skills/` directories are separate supported surfaces, not compatibility copies.

@@ -17,7 +17,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 
 - [ADR maintenance policy](adr/README.md): how to preserve accepted ADRs while keeping mutable guidance current.
 - [Points guide](guides/points.md): user-facing guide to the point system — installing hooks and prompts via `ns.toml`/`.ns/prompts/`, and defining points in extension descriptors.
-- [Writing an ns extension](../ts/packages/public/sdk/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, bundled artifacts, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.
+- [Writing an ns extension](../ts/packages/public/sdk/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.
 - [Objective system](objective-system.md): how checked-in Objectives structure durable project work.
 - [Follow-ups](follow-ups/README.md): point-in-time candidate ideas that need revalidation and further formation before becoming Objectives.
 - [Pi docs](pi/README.md): Pi-specific notes used by this repo.
@@ -26,7 +26,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 - [Internal PR stack address workflow retrospective](retros/internal-pr-stack-address-retrospective.md): analysis of the stack-wide feedback workflow, with evidence and CLI push-down recommendations.
 - [refactor-swarm-workflow](patterns/refactor-swarm-workflow.md): the multi-agent `Workflow`-tool engine for applying a file-local change across many files (distinct from the `refactor-swarm` skill).
 - [Subagent pushdown](patterns/subagent-pushdown.md): guidelines for using subagents as bounded semantic subroutines while keeping deterministic JSON contracts at CLI/tool boundaries.
-- [Harness skill/command/prompt invocation mechanics](research/harness-skill-invocation.md): dated research on how Claude Code, Codex, and Pi discover, surface, and gate skills/commands, plus current implications for Skill Exposure Policy.
+- [Harness skill/command/prompt invocation mechanics](research/harness-skill-invocation.md): dated research on how Claude Code, Codex, and Pi discover, surface, and gate skills/commands, plus current implications for repository-owned invocation metadata.
 - [Matt Pocock Skills upstream adaptation](agents/matt-pocock-skills.md): imported Matt-sourced skills, ns-owned overlays, invocation semantics, and future update checklist.
 - [Conflict resolution by thesis reapplication](patterns/thesis-reapplication.md): how to land a branch whose history can no longer be replayed by re-applying its intent against the current baseline, instead of rebasing or resolving conflicts.
 - [Package extraction refactors](patterns/package-extraction-refactors.md): checklist for moving code into a new package while preserving dependency direction, public import boundaries, tests, docs, and validation evidence.

@@ -15,7 +15,6 @@ allowed-tools:
   - "Bash(cat .claude/skills/*)"
   - "Bash(rg *)"
   - "Bash(npx skills check)"
-  - "Bash(ns skill-exposure check *)"
   - "Bash(git add *)"
   - "Bash(git mv *)"
   - "Bash(git rm -r -- skills/public/*)"
@@ -30,14 +29,16 @@ Manage project skills with `npx skills`. This skill covers repo-local first-part
 skills, third-party GitHub-sourced vendored skills, their flat harness overlays,
 and `skills-lock.json`.
 
-`npx skills` owns acquisition, listing, update, removal, and lock state. It does
-not own first-party npm-module-bundled provisioning (`ns skills` / `ns update`)
-or Skill Exposure Policy. Manage exposure only with `ns skill-exposure` on
-explicit paths; do not hand-edit its frontmatter or harness sidecars.
+`npx skills` owns acquisition, installation, listing, checking, update, removal,
+and `skills-lock.json`. Repository files own canonical topology, flat overlays,
+frontmatter, Codex sidecars, and Pi exclusions. Maintain and review checked-in
+invocation metadata directly; `npx skills` does not create Pi exclusions or all
+metadata. There is no ns skill-management, provisioning, reconciliation, or
+catalog command surface.
 
 The authoritative topology contract lives in `skills/README.md`. Use its
 approved destination rules; never infer a first-party destination from its
-identity, current package owner, or exposure policy.
+identity, current package owner, or invocation mode.
 
 ## Required operation inputs
 
@@ -79,9 +80,9 @@ Use the literal approved path in actual commands; do not leave placeholders.
   `.agents/skills/<identity>/`; they have no first-party canonical directory.
 - Always install with `--agent codex claude-code -y`. Do not use `--copy` and
   do not omit the explicit agents.
-- Disposition is not exposure, `metadata.internal`, or npm provisioning.
-  Preserve those boundaries and use `ns skill-exposure` only when policy work
-  is separately intended.
+- Disposition is not invocation mode or `metadata.internal`. Preserve those
+  boundaries and edit invocation metadata only when that policy work is
+  separately intended.
 
 ## Mental model
 
@@ -111,7 +112,7 @@ When designing an umbrella family, read `references/umbrella-families.md`.
 4. Replace only the bootstrap copy for this identity with the flat symlink.
    Do not use a glob and do not touch another overlay entry.
 5. Normalize only this lock entry's source to the exact canonical destination.
-6. Verify both symlink targets, lock entry, listing, and exposure if declared.
+6. Verify both symlink targets, lock entry, listing, and checked-in invocation metadata.
 
 ```bash
 mkdir -p "$DEST/references"
@@ -203,8 +204,8 @@ rg -n '<old-identity-or-old-canonical-path>' skills .agents .claude .pi docs ski
 ```
 
 Classify every remaining match as live (fix it), package-local/upstream, or
-historical. If exposure policy is declared, check its old and new explicit
-paths. Do not claim completion with unexplained matches.
+historical. Inspect invocation frontmatter, Codex sidecars, and Pi exclusions
+for the old and new identities. Do not claim completion with unexplained matches.
 
 ## Inspect and troubleshoot
 

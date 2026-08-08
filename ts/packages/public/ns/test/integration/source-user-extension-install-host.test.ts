@@ -4,8 +4,9 @@ import { join, relative } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { installExtensionResultSchema, listExtensionsResultSchema } from "../../src/init/index.ts";
 import { runNsCli } from "../../src/cli/index.ts";
+import { installExtensionResultSchema } from "../../src/init/install-extension.ts";
+import { listExtensionsResultSchema } from "../../src/init/list-extensions.ts";
 import { createEmptyProject, parseJsonOutput } from "../support/cli-harness.ts";
 
 interface SourceExtensionCase {
@@ -37,8 +38,6 @@ const SOURCE_EXTENSIONS = [
 	{ directoryName: "reviews", packageName: "@nseng-ai/reviews" },
 	{ directoryName: "slots", packageName: "@nseng-ai/slots" },
 ] as const satisfies readonly SourceExtensionCase[];
-
-const SKILL_EXPOSURE_PACKAGE = "@nseng-ai/skill-exposure";
 
 describe("source user extension install host", () => {
 	test.each(SOURCE_EXTENSIONS)(
@@ -83,7 +82,6 @@ describe("source user extension install host", () => {
 
 			const configBytes = await readFile(join(xdgConfigHome, "ns", "ns.toml"), "utf8");
 			expect(configBytes).toBe(`extensions = [${JSON.stringify(packageRoot)}]\n`);
-			expect(configBytes).not.toContain(SKILL_EXPOSURE_PACKAGE);
 
 			const listed = await runJson(
 				["extension", "list", "--scope", "user"],
@@ -111,7 +109,6 @@ describe("source user extension install host", () => {
 					},
 				],
 			});
-			expect(JSON.stringify(listedResult)).not.toContain(SKILL_EXPOSURE_PACKAGE);
 			expect(await snapshotTree(invocation)).toEqual(beforeInvocation);
 		},
 	);

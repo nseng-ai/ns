@@ -14,7 +14,7 @@ import {
 } from "./declared-descriptors.ts";
 import type { ExtensionPackageAdmissionDiagnostic } from "./package-admission.ts";
 import { loadSourceDevNsCommandSources } from "./source-dev-sources.ts";
-import { loadEffectiveUserExtensionLayer } from "./user-extension-layer.ts";
+import { loadUserExtensionLayer } from "./user-extension-layer.ts";
 import {
 	declaredExtensionSpecsErrorInfo,
 	parseDeclaredExtensionSpecsToml,
@@ -214,7 +214,7 @@ async function loadUserSources(
 	readonly sources: readonly NsCommandSource[];
 	readonly diagnostics: readonly NsCommandSourceDiagnostic[];
 }> {
-	const layer = await loadEffectiveUserExtensionLayer({
+	const layer = await loadUserExtensionLayer({
 		...options,
 		projectSourceIdentities,
 	});

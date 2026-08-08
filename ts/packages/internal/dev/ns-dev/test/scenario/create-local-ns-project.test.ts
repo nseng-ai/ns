@@ -145,12 +145,13 @@ describe("create-local-ns-project", () => {
 		expect(run.calls.slice(-4)).toEqual([
 			{ command: "npx", args: ["ns", "--help"], cwd: "/tmp/projects/demo" },
 			{ command: "npx", args: ["ns", "init", "--help"], cwd: "/tmp/projects/demo" },
-			{ command: "npx", args: ["ns", "skills", "list"], cwd: "/tmp/projects/demo" },
+			{ command: "npx", args: ["ns", "extension", "--help"], cwd: "/tmp/projects/demo" },
 			{ command: "npx", args: ["ns", "extension", "points"], cwd: "/tmp/projects/demo" },
 		]);
 		const stdout = run.stdout.join("");
 		expect(stdout).toContain("Ready: /tmp/projects/demo");
-		expect(stdout).toContain("npx ns init --supported-harness claude-code");
+		expect(stdout).toContain("npx ns init");
+		expect(stdout).not.toContain("--supported-harness");
 	});
 
 	it("reports the failed verification command", async () => {

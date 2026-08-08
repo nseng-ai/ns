@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import { z as zod } from "zod";
 
 import {
-	bundledArtifactDefinitionSchema,
 	defineCommand,
 	defineExtension,
 	defineRawCommand,
@@ -26,7 +25,6 @@ import {
 } from "@nseng-ai/sdk";
 
 const runtimeExports = {
-	bundledArtifactDefinitionSchema,
 	defineCommand,
 	defineExtension,
 	defineRawCommand,
@@ -50,7 +48,6 @@ const runtimeExports = {
 } satisfies Record<string, unknown>;
 
 const EXPECTED_RUNTIME_EXPORTS = [
-	"bundledArtifactDefinitionSchema",
 	"defineCommand",
 	"defineExtension",
 	"defineRawCommand",

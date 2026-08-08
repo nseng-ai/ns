@@ -2,7 +2,6 @@ import { join } from "node:path";
 
 import type { CommandOutcome } from "@nseng-ai/clinkr/app";
 import { failure, ok } from "@nseng-ai/clinkr/app";
-import { ALL_HARNESS_IDS } from "../harness-artifacts/api.ts";
 import {
 	managedNpmPackagePaths,
 	planDeclaredExtensionUninstallToml,
@@ -66,7 +65,6 @@ export const uninstallExtensionResultSchema = z.discriminatedUnion("scope", [
 		cleanup: uninstallCleanupSchema,
 		repoRoot: z.string(),
 		trunkBranch: z.string(),
-		harnesses: z.array(z.enum(ALL_HARNESS_IDS)),
 		completed: activationCompletedSchema,
 		steps: z.array(lifecycleStepSchema).readonly(),
 	}),
@@ -104,7 +102,7 @@ export async function uninstallExtension(
 	const preflight = await prepareExtensionLifecycle(context, request, recorder);
 	if (preflight.type === "failed")
 		return extensionLifecycleFailure("uninstall", preflight.failure, recorder);
-	const { repository, repoRoot, trunkBranch, nsTomlContent, harnesses, source, sourceIdentity } =
+	const { repository, repoRoot, trunkBranch, nsTomlContent, source, sourceIdentity } =
 		preflight.prepared;
 	const declaration = planDeclaredExtensionUninstallToml({
 		projectRoot: repoRoot,
@@ -153,8 +151,6 @@ export async function uninstallExtension(
 		context,
 		{
 			repository,
-			harnesses,
-			harnessSource: "ns-toml",
 			nsTomlContent: declaration.text,
 			nsTomlChange: declaration.isRemoved ? "replaced" : "unchanged",
 			nsTomlExpected: { type: "file", content: nsTomlContent },
@@ -252,7 +248,6 @@ export async function uninstallExtension(
 		configPath: join(repoRoot, "ns.toml"),
 		repoRoot,
 		trunkBranch,
-		harnesses: [...harnesses],
 		completed: applied.completed,
 		cleanup,
 		steps: recorder.steps(),
@@ -357,8 +352,6 @@ export function renderUninstallExtensionHuman(result: UninstallExtensionResult):
 	const declaration = result.hasRemovedDeclaration
 		? `removed ${result.matchedDeclarationSpec ?? result.sourceSpec} from ${result.nsTomlPath}`
 		: `no matching declaration was present in ${result.nsTomlPath}`;
-	const artifactCount =
-		result.completed.artifacts?.filter((item) => item.action === "removed").length ?? 0;
 	const cleanup =
 		result.cleanup.status === "not-applicable"
 			? "Local extension bytes were left untouched."
@@ -366,7 +359,6 @@ export function renderUninstallExtensionHuman(result: UninstallExtensionResult):
 	return [
 		`Uninstalled identity ${result.sourceKind}:${result.sourceIdentity}.`,
 		`Declaration: ${declaration}.`,
-		`Deactivated ${artifactCount} artifact${artifactCount === 1 ? "" : "s"} for ${result.harnesses.join(", ")}.`,
 		cleanup,
 		"Extension consumer data was preserved.",
 	].join("\n");

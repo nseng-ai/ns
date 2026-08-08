@@ -132,7 +132,7 @@ Repo-owned project surface:
 
 External or personal surface:
 
-- Real directories under `.agents/skills/<name>/` are vendored or GitHub-sourced skills. They are not repo products. Keep them as-shipped and exclude them from deep audits unless a task explicitly updates that vendored skill. Runtime policy: Harness Overlays for vendored skills are managed by `ns skill-exposure` with explicit skill-directory or `SKILL.md` paths; change them only through explicit exposure-policy work.
+- Real directories under `.agents/skills/<name>/` are vendored or GitHub-sourced skills. They are not repo products. Keep them as-shipped and exclude them from deep audits unless a task explicitly updates that vendored skill. Deliberate repository-owned invocation metadata for vendored skills is maintained and reviewed directly; change it only through explicit invocation-policy work.
 - User-local resources under `~/.pi/agent/...` may appear in a developer's Pi RPC inventory. Treat `gh-pr`, `stack-latest`, and similar local workflow commands as advisory personal-resource findings, not closure-critical repo cleanup.
 
 Rules:
@@ -144,7 +144,7 @@ Rules:
 - Avoid duplicate public slash-command names. If a wrapper and prompt share a name, choose one public entrypoint and make the other an internal asset, rename it, convert it to a skill, or document the intentional duplication.
 - Mutating commands that touch git or GitHub state need either engineered tests/adapters or explicit docs saying why the vibecoded command is retained and what safety checks it owns.
 - Command descriptions should distinguish adjacent commands in autocomplete. If two command names intentionally share behavior, say which one is the alias or focused entrypoint.
-- For a skill whose preferred surface is a Skill-Backed Command, use `ns skill-exposure apply skill-backed-command <explicit-path>` after its Skill-Backed Command Registration exists; do not hand-edit descriptions or Harness Overlay artifacts. The command mechanism may exist independently, while the policy controls cross-harness exposure.
+- For a skill whose preferred surface is a Skill-Backed Command, retain the Skill-Backed Command mechanism and registration. After registration exists, maintain the skill's invoke-only frontmatter, Codex sidecar, and `.pi/settings.json` exclusion directly as reviewed repository files. The command mechanism may exist independently, while invocation metadata controls cross-harness exposure. `npx skills` does not create the Pi exclusion or all of this metadata.
 
 ### Command namespace conventions
 

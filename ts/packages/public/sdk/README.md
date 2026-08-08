@@ -16,7 +16,7 @@ export default defineExtension({
 });
 ```
 
-The directory follows Clinkr's route-local layout: commands provide `metadata.ts` and `command.ts`; groups provide `group.ts`; nesting in the directory is nesting in the CLI. Descriptors may additionally declare `points`, `activation`, and `bundledArtifacts`.
+The directory follows Clinkr's route-local layout: commands provide `metadata.ts` and `command.ts`; groups provide `group.ts`; nesting in the directory is nesting in the CLI. Descriptors may additionally declare `points` and `activation`.
 
 ## Commands
 

@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { createEmptyPreparedProjectHarnessArtifactTransitions } from "../../src/harness-artifacts/api.ts";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import { npmPackageRoot } from "@nseng-ai/sdk/extensions/acquisition";
 
@@ -13,7 +12,6 @@ import { createLifecycleRecorder } from "../../src/init/lifecycle-observability.
 import { installExtension } from "../../src/init/install-extension.ts";
 import {
 	InMemoryActivationFilesGateway,
-	InMemoryArtifactActivationGateway,
 	InMemoryDeclaredExtensionsGateway,
 	InMemoryExtensionInstallAcquisitionGateway,
 	InMemoryExtensionUninstallAcquisitionGateway,
@@ -53,7 +51,6 @@ function fixture(options: {
 	}[];
 	files?: InMemoryActivationFilesGateway;
 	acquisition?: InMemoryExtensionInstallAcquisitionGateway;
-	artifacts?: InMemoryArtifactActivationGateway;
 }): {
 	context: ExtensionInstallContext;
 	files: InMemoryActivationFilesGateway;
@@ -83,14 +80,13 @@ function fixture(options: {
 					diagnostics: options.diagnostics ?? [],
 				},
 			}),
-			artifacts: options.artifacts ?? new InMemoryArtifactActivationGateway(),
 			userExtensionConfig: new InMemoryUserExtensionConfigGateway(),
 			userExtensionAvailability: new InMemoryUserExtensionAvailabilityGateway(),
 		},
 	};
 }
 
-const initializedToml = 'supported_harnesses = ["pi"]\n';
+const initializedToml = 'fixture_setting = ["pi"]\n';
 
 describe("extension lifecycle source classification", () => {
 	it.each([
@@ -212,11 +208,10 @@ describe("installExtension", () => {
 				isRecorded: true,
 				repoRoot: "/repo",
 				trunkBranch: "main",
-				harnesses: ["pi"],
 			},
 		});
 		expect(files.fileContent("ns.toml")).toBe(
-			'supported_harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
+			'fixture_setting = ["pi"]\nextensions = ["./extensions/tools"]\n',
 		);
 		if (result.status !== "success" || result.data.scope !== "project")
 			throw new Error("Expected project install success.");
@@ -225,7 +220,6 @@ describe("installExtension", () => {
 			{ type: "repository-resolved", repoRoot: "/repo", trunkBranch: "main" },
 			{ type: "phase", phase: "repository-preflight", status: "completed" },
 			{ type: "phase", phase: "configuration-preflight", status: "started" },
-			{ type: "harnesses-resolved", source: "ns-toml", harnesses: ["pi"] },
 			{ type: "phase", phase: "configuration-preflight", status: "completed" },
 			{ type: "phase", phase: "declaration-planning", status: "started" },
 			{
@@ -251,7 +245,6 @@ describe("installExtension", () => {
 				descriptorCount: 1,
 				fileCount: 5,
 				consumerDirectoryCount: 0,
-				artifactCount: 0,
 			},
 			{ type: "phase", phase: "activation-preflight", status: "completed" },
 			{ type: "phase", phase: "activation-apply", status: "started" },
@@ -332,35 +325,6 @@ describe("installExtension", () => {
 		expect(acquisition.installedRoots()).toContain(root);
 		expect(acquisition.calls()).toEqual([{ repoRoot: "/repo", sourceSpec: source }]);
 	});
-
-	it.each([
-		[undefined, "ns-extension-install-supported-harnesses-missing"],
-		['extensions = ["./old"]\n', "ns-extension-install-supported-harnesses-missing"],
-		['supported_harnesses = ["unknown"]\n', "ns-extension-install-supported-harnesses-invalid"],
-	])(
-		"rejects missing or invalid persisted harness config before acquisition",
-		async (nsToml, errorType) => {
-			const { context, files, acquisition } = fixture(nsToml === undefined ? {} : { nsToml });
-			const result = await installExtension(context, { cwd: "/repo", source: "npm:@test/tools" });
-			expect(result).toMatchObject({
-				status: "failure",
-				errorType,
-				data: {
-					completed: {},
-					steps: [
-						{ type: "phase", phase: "repository-preflight", status: "started" },
-						expect.objectContaining({ type: "repository-resolved" }),
-						{ type: "phase", phase: "repository-preflight", status: "completed" },
-						{ type: "phase", phase: "configuration-preflight", status: "started" },
-						{ type: "phase", phase: "configuration-preflight", status: "failed" },
-						expect.objectContaining({ type: "failure", phase: "configuration-preflight" }),
-					],
-				},
-			});
-			expect(acquisition.calls()).toEqual([]);
-			expect(files.operations()).toEqual([]);
-		},
-	);
 
 	it("uses one canonical diagnostic code in invalid-source responses and lifecycle steps", async () => {
 		const { context, files, acquisition } = fixture({ nsToml: initializedToml });
@@ -488,43 +452,6 @@ describe("installExtension", () => {
 			expect(files.fileContent("ns.toml")).toBe(initializedToml);
 		},
 	);
-
-	it("rejects artifact identity collisions during preflight without recording the source", async () => {
-		const source = "./extensions/tools";
-		const artifacts = new InMemoryArtifactActivationGateway({
-			prepareResult: {
-				ok: true,
-				prepared: {
-					modules: [],
-					selectedHarnesses: ["pi"],
-					diagnostics: [],
-					skippedCollisions: [
-						{ kind: "target-name", value: "tools", packages: ["@acme/a", "@acme/b"] },
-					],
-					artifacts: [],
-					reconciliation: createEmptyPreparedProjectHarnessArtifactTransitions({
-						type: "strict",
-						shouldForce: false,
-					}),
-				},
-			},
-		});
-		const { context, files } = fixture({
-			nsToml: initializedToml,
-			descriptors: [descriptor({ spec: source })],
-			artifacts,
-		});
-
-		const result = await installExtension(context, { cwd: "/repo", source });
-
-		expect(result).toMatchObject({
-			status: "failure",
-			errorType: "ns-extension-install-preflight-failed",
-			data: { diagnostics: [{ code: "artifact-collision" }], completed: {} },
-		});
-		expect(files.operations()).toEqual([]);
-		expect(files.fileContent("ns.toml")).toBe(initializedToml);
-	});
 
 	it("reports completed duties on apply failure and a rerun converges", async () => {
 		const source = "./extensions/tools";
