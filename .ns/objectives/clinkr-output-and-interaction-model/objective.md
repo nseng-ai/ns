@@ -37,7 +37,7 @@ The immediate evidence for the need of a settled model is the prototype on `clin
   - whether ADRs are warranted, and for which decisions;
   - which CONTEXT.md/README surfaces receive the vocabulary (the Clinkr package docs, the SDK docs, the repo conventions);
   - the timing — CONTEXT.md must trail the implementation, because the repo rule requires it.
-- Execute that promotion after `clinkr-readme-driven-development` lands the changes that implement the model.
+- Execute that promotion after `clinkr-readme-driven-development` lands the changes that implement the model in its bounded production-vetting set. This Objective must close before that Objective promotes the canonical Clinkr README and declares the README-driven API complete.
 - Document the complete output-ownership chain across the standalone and embedded hosts:
   1. Clinkr routes output through invocation-scoped structured-text and raw-byte sinks. Its standalone terminal adapter defaults those sinks to the process streams.
   2. Foundation adapts sink shapes. When its text callback interface receives Clinkr raw bytes, the adapter performs streaming UTF-8 decoding so split multibyte sequences remain intact.
@@ -47,7 +47,8 @@ The immediate evidence for the need of a settled model is the prototype on `clin
 
 ## Non-Goals
 
-- The implementation of the model. The `ClinkrResponse` reshape of the prototype branch, the Pi adapter fix, and all service-reconciliation code changes belong to `clinkr-readme-driven-development` and its rebuild stack.
+- The implementation of the model. The `ClinkrResponse` reshape of the prototype branch, the Pi adapter fix, service-reconciliation code changes, and migration of the selected output/interaction-heavy workflow belong to `clinkr-readme-driven-development` and its bounded rebuild/vetting work.
+- Repository-wide migration off legacy Clinkr outcomes, rendering, confirmation, or command construction. This Objective requires enough direct production use to validate the model, not wholesale caller conversion.
 - Edits to CONTEXT.md or the package READMEs before the implementation. The proposed vocabulary stays in the references of this Objective until the ground truth exists.
 - New interaction machinery. No prompt/select/menu framework, no third invocation service, and no speculative host beyond the two production hosts (terminal, Pi).
 - A reopen of the shipped confirmation seam from the closed `clinkr-user-interaction` Objective. `ClinkrInteraction` is provenance and raw material here, not a redesign target.
@@ -58,12 +59,14 @@ The immediate evidence for the need of a settled model is the prototype on `clin
 - The three carried open questions have recorded decisions, whatever their implementation status.
 - The Click research findings exist as a Semantic Update and reference notes. The ontology doc contains each model amendment that the findings forced.
 - `clinkr-readme-driven-development` consumes the settled vocabulary. Its reshape work matches the blessed model. The reshape work includes the rename map (`ClinkrFinalPresentation` → `ClinkrResponse`, `presentFinal` → `onResponse`), the private terminal adapter, and the Pi de-streaming.
+- The settled model is vetted by meaningful production code, not examples alone: one coherent output- or interaction-heavy workflow selected by `clinkr-readme-driven-development` uses the final Response and invocation-service model directly through a supported host, without a legacy output/interaction conversion inside that slice. Together with the already selected standalone Brmem and embedded-host Objectives evidence, this establishes representative breadth without requiring repository-wide migration.
 - The documentation-promotion decision is recorded. After the implementation lands, the decision is executed:
   - each decided ADR is written;
   - the relevant CONTEXT.md/README surfaces are updated in sync with the ground truth;
   - the output-ownership chain names the Clinkr, Foundation, and Pi responsibilities, including Foundation's streaming UTF-8 decoding and Pi's terminal-control sanitization boundary;
   - the concrete clear-screen failure explains that an embedded terminal control can desynchronize Pi's differential renderer from the physical screen and corrupt later TUI presentation;
   - the ontology reference is reduced to a provenance pointer if the model is fully promoted.
+- This Objective is closed before `clinkr-readme-driven-development` promotes the canonical package README or declares the README-driven API complete.
 
 ## Assumptions and Risks
 
