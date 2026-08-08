@@ -3,10 +3,9 @@
 import { resolve } from "node:path";
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
-import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import {
 	defineCli,
-	readStdin,
 	runOperationCommand,
 	type CliEntrypointDeps,
 } from "@nseng-ai/foundation/cli-runtime";
@@ -17,26 +16,19 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { z } from "zod";
 
-import {
-	normalizePlanFilePath,
-	resolvePlanSourceFile,
-	validatePlanSlug,
-} from "./plan-persistence.ts";
+import { normalizePlanFilePath, resolvePlanSourceFile } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import {
 	buildPlanStoreOptions,
 	findLatestSavedPlanFile,
-	formatSavedPlanFileEvidence,
 	NoSavedPlanAvailableError,
 	listSavedPlans,
-	writeSavedPlanFile,
 	type LatestSavedPlanFileEvidence,
 	type PlanStoreOptions,
-	type SavedPlanFileEvidence,
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
 
-type PlansOperation = "list" | "save" | "resolve";
+type PlansOperation = "list" | "resolve";
 
 const listRequestSchema = z.object({
 	planStoreRoot: z
@@ -45,19 +37,11 @@ const listRequestSchema = z.object({
 		.describe("Plan store root directory (relative paths resolve against cwd)."),
 });
 
-const saveRequestSchema = z.object({
-	slug: z.string().describe("Saved plan slug."),
-	summary: z.string().optional().describe("Optional saved-plan summary."),
-	stdin: z.boolean().optional().describe("Read plan content from stdin."),
-	contentFile: z.string().optional().describe("Read plan content from this file path."),
-});
-
 const resolveRequestSchema = z.object({
 	path: z.string().optional().describe("Absolute, @-prefixed, or home-relative plan file path."),
 });
 
 type ListRequest = z.infer<typeof listRequestSchema>;
-type SaveRequest = z.infer<typeof saveRequestSchema>;
 type ResolveRequest = z.infer<typeof resolveRequestSchema>;
 
 interface ExplicitResolvePlanEvidence {
@@ -70,7 +54,6 @@ type LatestResolvePlanEvidence = LatestSavedPlanFileEvidence & { source: "latest
 type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
 
 type SavedPlanListData = ReturnType<typeof savedPlanListJson>;
-type SavedPlanFileData = ReturnType<typeof savedPlanFileJson>;
 interface NoSavedPlanData {
 	code: NoSavedPlanAvailableError["reason"];
 	directoryPath: string;
@@ -81,7 +64,6 @@ type ResolvePlanData = ReturnType<typeof resolvePlanJson> | NoSavedPlanData;
 export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	commands?: CommandExecApi;
 	git?: GitGateway;
-	stdin?: () => Promise<string>;
 	planStoreRoot?: string;
 	planStoreGateway?: PlanStoreGateway;
 }
@@ -90,7 +72,6 @@ export interface PlansCliContext {
 	commands: CommandExecApi;
 	git: GitGateway;
 	cwd: string;
-	stdin: () => Promise<string>;
 	planStoreRoot?: string;
 	planStoreGateway: PlanStoreGateway;
 }
@@ -105,7 +86,6 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			commands,
 			git: deps.git ?? new RealGitGateway(commands),
 			cwd,
-			stdin: deps.stdin ?? readStdin,
 			planStoreGateway: deps.planStoreGateway ?? createRealPlanStoreGateway(),
 			...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 		};
@@ -124,12 +104,6 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			name: "exec",
 			description: "Run hidden deterministic saved-plan operations for agents.",
 			isHidden: true,
-		});
-		execGroup.command({
-			name: "save",
-			description: "Save a source-branch plan file in the local store.",
-			schema: saveRequestSchema,
-			handler: handleSave,
 		});
 		execGroup.command({
 			name: "resolve",
@@ -167,53 +141,6 @@ async function handleList(
 			const planStoreRoot = cliPlanStoreRoot ?? ctx.planStoreRoot;
 			const plans = await listSavedPlans(ctx.commands, planStoreOptions(ctx, planStoreRoot));
 			return ok(savedPlanListJson(plans));
-		},
-		failureFromError: plansFailureFromError,
-	});
-}
-
-async function handleSave(
-	ctx: PlansCliContext,
-	request: SaveRequest,
-): Promise<ClinkrExit<SavedPlanFileData>> {
-	return await runOperationCommand({
-		operation: "save",
-		action: async () => {
-			const slugError = validatePlanSlug(request.slug);
-			if (slugError !== undefined) {
-				return usageError(`Invalid saved plan slug: ${slugError}`, {
-					code: "invalid-slug",
-					argument: "slug",
-					reason: slugError,
-				});
-			}
-			if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
-				return usageError("Pass exactly one of --stdin or --content-file <path>.", {
-					code: "invalid-save-input",
-					requiredExactlyOneOf: ["--stdin", "--content-file"],
-				});
-			}
-
-			const contentFile = request.contentFile;
-			let content: string;
-			if (request.stdin === true) {
-				content = await ctx.stdin();
-			} else {
-				if (contentFile === undefined) {
-					throw new Error("Save input validation invariant failed.");
-				}
-				content = await ctx.planStoreGateway.readTextFile(normalizePlanFilePath(contentFile));
-			}
-			const evidence = await writeSavedPlanFile(
-				ctx.commands,
-				{
-					slug: request.slug,
-					content,
-					...(request.summary === undefined ? {} : { summary: request.summary }),
-				},
-				planStoreOptions(ctx),
-			);
-			return ok(savedPlanFileJson(evidence), { human: formatSavedPlanFileEvidence(evidence) });
 		},
 		failureFromError: plansFailureFromError,
 	});
@@ -263,8 +190,6 @@ function plansErrorType(operation: PlansOperation): string {
 	switch (operation) {
 		case "list":
 			return "saved-plan-list-failed";
-		case "save":
-			return "saved-plan-write-failed";
 		case "resolve":
 			return "saved-plan-resolution-failed";
 	}
@@ -362,28 +287,6 @@ function savedPlanListItemJson(plan: SavedPlanListItem): {
 			identitySource: plan.repoIdentitySource,
 			planStorePath: plan.repoDirectoryPath,
 		},
-	};
-}
-
-function savedPlanFileJson(evidence: SavedPlanFileEvidence): {
-	slug: string;
-	filePath: string;
-	repoRoot: string;
-	repoKey: string;
-	repoIdentitySource: SavedPlanFileEvidence["repoIdentitySource"];
-	sourceBranch: string;
-	branchKey: string;
-	summary?: string;
-} {
-	return {
-		slug: evidence.slug,
-		filePath: evidence.filePath,
-		repoRoot: evidence.repoRoot,
-		repoKey: evidence.repoKey,
-		repoIdentitySource: evidence.repoIdentitySource,
-		sourceBranch: evidence.sourceBranch,
-		branchKey: evidence.branchKey,
-		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
 	};
 }
 

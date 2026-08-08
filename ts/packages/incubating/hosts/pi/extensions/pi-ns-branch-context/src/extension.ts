@@ -5,8 +5,8 @@ import {
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-	registerEnrichedPlanCommandsAndTools,
-} from "./enriched-plan-save.ts";
+	registerSavedPlanCommandsAndTools,
+} from "./saved-plan-commands.ts";
 import {
 	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
 	GT_UPSTACK_IMPL_COMMAND_NAME,
@@ -21,14 +21,13 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		kind: "command",
 		surface: WRITE_PLAN_COMMAND_NAME,
 		workflow: "Write and save a reviewed implementation plan in the local plan store",
-		parity: "FULL",
-		cli: "enriched-plan exec save",
-		skill: "enriched-plan-save",
+		parity: "WAIVED",
+		fallback: "Saved Plan authoring is available through Pi /ns:plan:save.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
 		notes:
-			"Pi command expands the saved-plan prompt policy and drives the same typed saved-plan file tool.",
+			"The portable Saved Plan save command and skill were deleted; Pi drives the retained typed saved-plan file tool.",
 	},
 	{
 		kind: "command",
@@ -36,7 +35,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		workflow: "Write and save a grilled implementation plan using structured requirements UI",
 		parity: "WAIVED",
 		fallback:
-			"Use grill-me or grill-with-docs to settle requirements, then use the enriched-plan-save workflow to write the reviewed plan.",
+			"Use grill-me or grill-with-docs to settle requirements, then use /ns:plan:save to write the reviewed plan.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
@@ -107,7 +106,7 @@ export {
 	buildWriteSavedPlanFileTool,
 	handleWriteGrilledPlanCommand,
 	handleWritePlanCommand,
-} from "./enriched-plan-save.ts";
+} from "./saved-plan-commands.ts";
 export {
 	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
 	CREATE_BRANCH_CONTEXT_USAGE,
@@ -152,6 +151,6 @@ export default function registerBranchContextExtension(
 	options: BranchContextExtensionOptions = {},
 ): void {
 	const commandPi = createBranchContextPiCommandApi(pi);
-	registerEnrichedPlanCommandsAndTools(commandPi, options);
+	registerSavedPlanCommandsAndTools(commandPi, options);
 	registerBranchContextCommands(commandPi, options);
 }

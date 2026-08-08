@@ -54,26 +54,8 @@ const EXEC_HELP = [
 	"  -h, --help                display help for command",
 	"",
 	"Commands:",
-	"  save [options]            Save a source-branch plan file in the local store.",
 	"  resolve [options] [path]  Resolve an explicit or latest source-branch plan",
 	"                            file.",
-	"",
-].join("\n");
-const SAVE_HELP = [
-	"Usage: enriched-plan exec save [options]",
-	"",
-	"Save a source-branch plan file in the local store.",
-	"",
-	"Options:",
-	"  --slug <value>          Saved plan slug.",
-	"  --summary <value>       Optional saved-plan summary.",
-	"  --stdin                 Read plan content from stdin.",
-	"  --content-file <value>  Read plan content from this file path.",
-	'  --format <format>       Output format. (choices: "human", "json", "markdown",',
-	'                          "md", default: "human")',
-	"  --json-schema           Print the JSON Schema for this command's input/output",
-	"                          and exit.",
-	"  -h, --help              display help for command",
 	"",
 ].join("\n");
 const RESOLVE_HELP = [
@@ -111,7 +93,6 @@ interface Fixture {
 interface RunWithFakesOptions {
 	cwd?: string;
 	planStoreRoot?: string;
-	stdin?: () => Promise<string>;
 	git?: GitGateway;
 	planStoreGateway?: InMemoryPlanStoreGateway;
 }
@@ -132,7 +113,6 @@ async function runWithFakes(
 				options.git ??
 				new InMemoryGitGateway({ repoRoot: cwd, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
 			commands: unusedCommands,
-			...optionalEntry("stdin", options.stdin),
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 			planStoreGateway: options.planStoreGateway ?? new InMemoryPlanStoreGateway(),
@@ -195,14 +175,6 @@ function jsonNegative(message: string, data?: Record<string, unknown>): string {
 	)}\n`;
 }
 
-function jsonUsageError(message: string, data: Record<string, unknown>): string {
-	return `${JSON.stringify(
-		{ status: "usageError", exitCode: 2, errorType: "usageError", message, data },
-		null,
-		2,
-	)}\n`;
-}
-
 function jsonSuccess(data: Record<string, unknown>): string {
 	return `${JSON.stringify({ status: "ok", exitCode: 0, data }, null, 2)}\n`;
 }
@@ -260,8 +232,6 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		[["exec"], EXEC_HELP],
 		[["exec", "--help"], EXEC_HELP],
 		[["exec", "-h"], EXEC_HELP],
-		[["exec", "save", "--help"], SAVE_HELP],
-		[["exec", "save", "-h"], SAVE_HELP],
 		[["exec", "resolve", "--help"], RESOLVE_HELP],
 		[["exec", "resolve", "-h"], RESOLVE_HELP],
 	])("prints exact help for %j", async (args, help) => {
@@ -413,266 +383,6 @@ describe("plans list CLI pins", () => {
 					},
 				],
 			},
-		});
-	});
-});
-
-describe("plans exec save pins", () => {
-	test("pins missing slug usage errors, input exclusivity, and JSON failure bytes", async () => {
-		const missingHuman = await runWithFakes(["exec", "save", "--stdin"]);
-		expect(await missingHuman.exit).toBe(2);
-		expect(missingHuman.stdout.join("")).toBe("");
-		expect(missingHuman.stderr.join("")).toBe(
-			"error: --slug: Invalid input: expected string, received undefined\n",
-		);
-
-		const missingJson = await runWithFakes(["exec", "save", "--stdin", "--format", "json"]);
-		expect(await missingJson.exit).toBe(2);
-		expect(parseJson(missingJson)).toMatchObject({
-			status: "usageError",
-			exitCode: 2,
-			errorType: "usageError",
-			message: "error: --slug: Invalid input: expected string, received undefined",
-		});
-		expect(missingJson.stderr.join("")).toBe("");
-
-		const both = await runWithFakes([
-			"exec",
-			"save",
-			"--slug",
-			"specific-branch-saved-plan",
-			"--stdin",
-			"--content-file",
-			"plan.md",
-		]);
-		expect(await both.exit).toBe(2);
-		expect(both.stderr.join("")).toBe(
-			"error: Pass exactly one of --stdin or --content-file <path>.\n",
-		);
-
-		const neither = await runWithFakes(["exec", "save", "--slug", "specific-branch-saved-plan"]);
-		expect(await neither.exit).toBe(2);
-		expect(neither.stderr.join("")).toBe(
-			"error: Pass exactly one of --stdin or --content-file <path>.\n",
-		);
-
-		const neitherJson = await runWithFakes([
-			"exec",
-			"save",
-			"--slug",
-			"specific-branch-saved-plan",
-			"--format",
-			"json",
-		]);
-		expect(await neitherJson.exit).toBe(2);
-		expect(neitherJson.stdout.join("")).toBe(
-			jsonUsageError("Pass exactly one of --stdin or --content-file <path>.", {
-				code: "invalid-save-input",
-				requiredExactlyOneOf: ["--stdin", "--content-file"],
-			}),
-		);
-	});
-
-	test.each([
-		["specific-plan-name.md", "Pass the slug without the .md suffix."],
-		[
-			"Not-Kebab-Case",
-			"Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
-		],
-		["two-words", "Slug must contain at least 3 words."],
-		["one-two-three-four-five-six-seven-eight", "Slug must contain at most 7 words."],
-		["2026-06-10", "Slug must not be a date."],
-		["specific-2026-plan", "Slug must not contain date-like year tokens."],
-		["plan-task-work", "Slug must include at least one specific, non-generic word."],
-	])("rejects invalid saved plan slug %s", async (slug, message) => {
-		const run = await runWithFakes(["exec", "save", "--slug", slug, "--stdin", "--format", "json"]);
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(
-			jsonUsageError(`Invalid saved plan slug: ${message}`, {
-				code: "invalid-slug",
-				argument: "slug",
-				reason: message,
-			}),
-		);
-	});
-
-	test("accepts single-dash flag value before slug validation fails", async () => {
-		const run = await runWithFakes([
-			"exec",
-			"save",
-			"--slug",
-			"-leading-dash",
-			"--stdin",
-			"--format",
-			"json",
-		]);
-
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(
-			jsonUsageError(
-				"Invalid saved plan slug: Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
-				{
-					code: "invalid-slug",
-					argument: "slug",
-					reason: "Slug must be lowercase kebab-case using only a-z, 0-9, and single hyphens.",
-				},
-			),
-		);
-		// PINNED QUIRK (clinkr-migration): parseFlagValue rejects --values but accepts single-dash values.
-	});
-
-	test("writes stdin content with exact JSON and human bytes", async () => {
-		const fixture = await makeFixture();
-		const slug = "specific-branch-saved-plan";
-		const expectedPath = join(
-			fixture.planStoreRoot,
-			fixture.repoKey,
-			fixture.branchKey,
-			`${slug}.md`,
-		);
-		const json = await runWithFakes(
-			["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin", "--format", "json"],
-			{
-				cwd: fixture.repoRoot,
-				git: fixture.git,
-				planStoreRoot: fixture.planStoreRoot,
-				planStoreGateway: fixture.planStoreGateway,
-				stdin: async () => "# Plan\n\nDo it.\n",
-			},
-		);
-
-		expect(await json.exit).toBe(0);
-		expect(json.stdout.join("")).toBe(
-			jsonSuccess({
-				slug,
-				filePath: expectedPath,
-				repoRoot: fixture.repoRoot,
-				repoKey: fixture.repoKey,
-				repoIdentitySource: "origin-url",
-				sourceBranch: SOURCE_BRANCH,
-				branchKey: fixture.branchKey,
-				summary: "Save it",
-			}),
-		);
-		expect(fixture.planStoreGateway.readFile(expectedPath)).toBe("# Plan\n\nDo it.\n");
-
-		const noSummaryFixture = await makeFixture();
-		const noSummary = await runWithFakes(
-			["exec", "save", "--slug", "specific-branch-other-plan", "--stdin", "--format", "json"],
-			{
-				cwd: noSummaryFixture.repoRoot,
-				git: noSummaryFixture.git,
-				planStoreRoot: noSummaryFixture.planStoreRoot,
-				planStoreGateway: noSummaryFixture.planStoreGateway,
-				stdin: async () => "# Plan\n",
-			},
-		);
-		expect(await noSummary.exit).toBe(0);
-		expect(parseJson(noSummary)).toMatchObject({ status: "ok", exitCode: 0, data: {} });
-
-		const humanFixture = await makeFixture();
-		const humanPath = join(
-			humanFixture.planStoreRoot,
-			humanFixture.repoKey,
-			humanFixture.branchKey,
-			`${slug}.md`,
-		);
-		const human = await runWithFakes(
-			["exec", "save", "--slug", slug, "--summary", "Save it", "--stdin"],
-			{
-				cwd: humanFixture.repoRoot,
-				git: humanFixture.git,
-				planStoreRoot: humanFixture.planStoreRoot,
-				stdin: async () => "# Plan\n",
-			},
-		);
-		expect(await human.exit).toBe(0);
-		expect(human.stdout.join("")).toBe(
-			[
-				"Saved plan file in local plan store.",
-				`Path: ${humanPath}`,
-				`Repo key: ${humanFixture.repoKey}`,
-				`Repo root: ${humanFixture.repoRoot}`,
-				"Repo identity source: origin-url",
-				`Source branch: ${SOURCE_BRANCH}`,
-				`Branch path segment: ${humanFixture.branchKey}`,
-				`Slug: ${slug}`,
-				"Summary: Save it",
-				"",
-			].join("\n"),
-		);
-	});
-
-	test("writes content-file input and reports missing files", async () => {
-		const fixture = await makeFixture();
-		const contentFile = join(await makeTempDir(), "input.md");
-		fixture.planStoreGateway.writeFile(contentFile, "# From file\n");
-		const run = await runWithFakes(
-			[
-				"exec",
-				"save",
-				"--slug",
-				"specific-file-saved-plan",
-				"--content-file",
-				contentFile,
-				"--format",
-				"json",
-			],
-			{
-				cwd: fixture.repoRoot,
-				git: fixture.git,
-				planStoreRoot: fixture.planStoreRoot,
-				planStoreGateway: fixture.planStoreGateway,
-			},
-		);
-		expect(await run.exit).toBe(0);
-		const data = parseJson(run).data as Record<string, unknown>;
-		expect(fixture.planStoreGateway.readFile(String(data.filePath))).toBe("# From file\n");
-
-		const missingHuman = await runWithFakes(
-			[
-				"exec",
-				"save",
-				"--slug",
-				"specific-file-saved-plan",
-				"--content-file",
-				join(fixture.repoRoot, "missing.md"),
-			],
-			{
-				cwd: fixture.repoRoot,
-				git: fixture.git,
-				planStoreRoot: fixture.planStoreRoot,
-				planStoreGateway: fixture.planStoreGateway,
-			},
-		);
-		expect(await missingHuman.exit).toBe(2);
-		expect(missingHuman.stderr.join("")).toContain("ENOENT");
-
-		const missingJson = await runWithFakes(
-			[
-				"exec",
-				"save",
-				"--slug",
-				"specific-file-saved-plan",
-				"--content-file",
-				join(fixture.repoRoot, "missing.md"),
-				"--format",
-				"json",
-			],
-			{
-				cwd: fixture.repoRoot,
-				git: fixture.git,
-				planStoreRoot: fixture.planStoreRoot,
-				planStoreGateway: fixture.planStoreGateway,
-			},
-		);
-		expect(await missingJson.exit).toBe(2);
-		expect(parseJson(missingJson)).toMatchObject({
-			exitCode: 2,
-			errorType: "saved-plan-write-failed",
-			message: expect.stringContaining("ENOENT"),
-			data: { code: "unexpected-error" },
 		});
 	});
 });

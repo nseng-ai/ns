@@ -13,11 +13,11 @@ This inventory is the migration baseline for replacing general whole-stream inpu
 
 `@nseng-ai/extension-kit/json-input` is a command helper, not a second transport: it accepts inline option text, file text, or a supplied stdin callback and leaves JSON parsing/schema errors with the owning command.
 
-## Planned portable Saved Plan deletion
+## Deleted portable Saved Plan path
 
-`ts/packages/incubating/extensions/plans/src/cli.ts` is the one shared-style arbitrary-text consumer: `enriched-plan exec save` reads complete Markdown through `ctx.stdin()` (or `--content-file`) and writes a Saved Plan. The Objective separately deletes this portable command and the `enriched-plan-save` exposure. It must not be used to justify a general stdin contract.
+The former `enriched-plan exec save` command and `enriched-plan-save` skill were the only shared-style arbitrary-text consumer and have been deleted. The retained `enriched-plan` CLI supports Saved Plan listing and resolution only.
 
-Pi `/ns:plan:save`, `/ns:plan:grill-and-save`, `write_saved_plan_file`, and `writeSavedPlanFile()` already receive complete content as command/tool/domain arguments and are not stdin consumers.
+Pi `/ns:plan:save`, `/ns:plan:grill-and-save`, `write_saved_plan_file`, and `writeSavedPlanFile()` receive complete content as command/tool/domain arguments and are not stdin consumers.
 
 ## Command-owned non-JSON payloads outside the shared seam
 
@@ -38,4 +38,4 @@ Clinkr raw commands receive verbatim argv plus invocation-scoped byte output (`t
 
 ## Conclusion
 
-After portable Saved Plan save is deleted, every production consumer of the **shared** Clinkr/SDK whole-payload surface is a finite JSON request. No shared non-JSON whole-payload consumer remains. Retained arbitrary Brmem/Handoff content is command-owned behind `BrmemSourceReader`, interactive input is line-oriented semantic interaction, and raw commands have no shared input transport.
+After portable Saved Plan save was deleted, every production consumer of the **shared** Clinkr/SDK whole-payload surface is a finite JSON request. No shared non-JSON whole-payload consumer remains. Retained arbitrary Brmem/Handoff content is command-owned behind `BrmemSourceReader`, interactive input is line-oriented semantic interaction, and raw commands have no shared input transport.

@@ -11,7 +11,6 @@ Shared lifecycle, terminology, safety posture, diagnostics, and administration f
 
 Step entrypoints carry their own command and recovery and are runnable standalone:
 
-- `enriched-plan-save` — save a source-branch plan.
 - `branch-context-from-plan` — create a branch and attach a named plan key as branch context from a saved plan.
 - `branch-context-impl` — load and implement an attached plan.
 
@@ -28,7 +27,7 @@ Use this skill for the shared model the step skills assume, and for diagnostics,
 
 - Inspect before mutating.
 - Refuse collisions, existing files, existing branches, and existing Branch Memory entries unless the user gives explicit replacement/destructive intent.
-- Prefer deterministic `enriched-plan exec` commands for Saved plans and `ns branch-context exec` commands for branch/attachment operations when available.
+- Prefer deterministic `enriched-plan` read commands for Saved plans and `ns branch-context exec` commands for branch/attachment operations when available.
 - Use read-only Branch Memory inspection only for diagnostics.
 
 ## References
