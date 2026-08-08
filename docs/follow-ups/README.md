@@ -15,6 +15,7 @@ Follow-ups are historical planning inputs, not commitments, canonical system spe
 
 ## Notes
 
+- [Clinkr invocation future directions](2026-08-08-clinkr-invocation-future-directions.md) — evidence gates and current boundaries for semantic responses/events, rich terminal adapters, streamed progress/notices, raw-command or PTY virtualization, and additional hosts such as MCP.
 - [Flow after the repository reorganization](2026-07-25-flow-after-reorganization.md) — consolidated product direction, optional-Slots design, agent-workflow and Pi-tier candidates, stack-repair primitives, README contract, and restart gates preserved while Flow work is deferred behind professional repo curation.
 - [Delegation-first parent orchestration](delegation-first-parent-orchestration.md) — keep parent orchestrator sessions inside their context budget by delegating diff/log/status inspection to subagents and injecting a compact contract into multi-subagent plans.
 - [Objective context management and compaction](objective-context-management-and-compaction.md) — reduce routine context consumption by large, long-lived Objectives while preserving provenance and routing.
