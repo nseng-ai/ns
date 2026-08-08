@@ -1,9 +1,9 @@
 ---
-name: ste-rewrite
+name: simplify-technical-writing
 description: Rewrite the previous response, a file, or supplied text into ASD-STE100 Simplified Technical English without losing information.
 ---
 
-# ste-rewrite
+# simplify-technical-writing
 
 Rewrite the source in ASD-STE100 Simplified Technical English (STE). Fidelity
 outranks form: the rewrite must carry every piece of meaningful information
