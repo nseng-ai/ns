@@ -21,6 +21,17 @@ Command identity and route metadata are intentionally absent from the executable
 
 Creates a contextful Clinkr raw definition over `NsExtensionApi`. Its runner receives `{ context, argv, output }`, writes raw bytes through `output.writeStdout()` and `output.writeStderr()`, and returns a numeric exit status. The invocation-scoped output adapter replaces ambient process output.
 
+## `NsExtensionApi` invocation capabilities
+
+The host constructs `NsExtensionApi` for each invocation. Its command-facing I/O is capability-based:
+
+- `readJsonInput()` optionally supplies one finite JSON request text for commands whose explicit source policy selects JSON input. The owning command parses and validates it. It is not a general stdin or interactive-line API.
+- `confirm()` and `select()` express semantic user intent. A standalone host may adapt these operations to terminal prompting; embedded hosts use native UI and fail closed when no applicable UI exists.
+- `stdout`, `stderr`, `commandIo`, `progress`, and `onOutput` are invocation-owned output services. Commands must not write ambient process output.
+- `renderCapabilities` tells command renderers what the host can safely present. An embedded non-terminal host can set `canEmitAnsi: false` regardless of the physical process terminal.
+
+Raw commands use the separate invocation-scoped byte output described above. These capabilities intentionally do not model terminal streams, raw mode, key events, a PTY, or a general response/event protocol.
+
 ## Outcomes
 
 The SDK re-exports modern Clinkr `ok`, `negative`, `failure`, and `usageError` constructors. Their discriminant is `status` with values `success | negative | failure | usage-error`.

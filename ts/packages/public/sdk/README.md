@@ -38,6 +38,14 @@ export function command() {
 
 Route identity, aliases, descriptions, visibility, and help grouping belong to route-local metadata, not command definitions.
 
+## Command invocation I/O
+
+Structured request input is finite JSON, separate from interaction. Commands that support an inline/file/stdin JSON source use the optional `NsExtensionApi.readJsonInput()` capability only for the JSON-source case, then retain ownership of parsing, schema validation, source-conflict checks, and command-specific errors. Standalone composition may acquire that value from process stdin; embedded hosts must supply invocation-owned finite text and must not inherit ambient process input.
+
+Confirmation and selection are semantic, host-owned operations exposed as `confirm` and `select`. Command code should request those operations rather than reading terminal lines or depending on raw mode, key events, cursor state, or another terminal-session API. Hosts that cannot provide an applicable interaction must fail closed rather than infer one from the physical process terminal.
+
+Human output and rendering are also invocation-scoped. Use the context's output and progress services, `stdout`/`stderr` sinks where durable streamed chunks are required, and `renderCapabilities` rather than ambient process writers or TTY detection. Embedded hosts choose the sinks and rendering capability; non-terminal hosts can require non-ANSI output and sanitize captured text at their presentation boundary.
+
 ## Host behavior
 
 The ns CLI loads source inventory, builds one contextful Clinkr app, mounts separately labelled filesystem and programmatic sources, and delegates execution and completion to that app. The SDK does not enumerate command routes, select argv, apply source precedence, or adapt nested legacy runtimes.

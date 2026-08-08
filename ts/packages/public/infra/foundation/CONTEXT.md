@@ -20,6 +20,10 @@ The concrete, reviewable prose scenario in which a consumer outside ns would use
 A declared foundation subpackage with supported cross-package runtime exports (`exec`, `time`, `cli-runtime`, …) — one of several precise public doors, each anchoring its own inbound edge class. Private implementation layers live as folders inside the owning subpackage, never as a `@nseng-ai/foundation/api` barrel.
 *Avoid*: sole public door, façade barrel, extension package API.
 
+**CLI Runtime Adapter**:
+The `@nseng-ai/foundation/cli-runtime` Foundation subpackage that adapts Clinkr applications to standalone process execution. It owns process-backed finite JSON acquisition, output and raw-byte sink adaptation, and terminal capability wiring; embedded hosts override those capabilities per invocation rather than inheriting ambient process streams or terminal facts.
+*Avoid*: command request parser, command interaction policy, Pi presentation owner, general stdin abstraction.
+
 **Harness Session**:
 A prospective foundation surface for consuming a coding harness (Claude Code, Codex) through a bounded session lifecycle — start, exchange turns, observe events, terminate. It qualifies as Foundation Infrastructure only while its contract stays free of ns-specific routing or review policy; no implementation exists in this package yet.
 *Avoid*: text-generation routing policy, Reviews integration, ns extension surface.

@@ -76,6 +76,14 @@ export function command() {
 }
 ```
 
+## Structured request input and interaction
+
+When a command explicitly accepts a JSON document from stdin, call `context.readJsonInput()` only after its source-selection checks choose that path. Treat the returned string as one finite request value and keep parsing, schema validation, source conflicts, and errors in the command. Do not use it as a general text stream or interactive input mechanism.
+
+Use `context.confirm()` and `context.select()` for demonstrated interactive decisions. These are semantic host capabilities, not terminal readers: the standalone host may prompt in a terminal, while an embedded host can map them to native UI. Handle an unavailable capability explicitly and fail closed when the operation is required.
+
+Use `context.commandIo`, `context.progress`, `context.stdout`/`stderr`, and `context.renderCapabilities` for host-owned presentation. Do not write to ambient process output or infer ANSI support from `process.stdout`; embedded hosts provide invocation-local sinks and may require non-ANSI rendering.
+
 ## Ownership
 
 - Route files own names, aliases, descriptions, visibility, and help grouping.
