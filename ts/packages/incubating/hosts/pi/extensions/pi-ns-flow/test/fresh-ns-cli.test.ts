@@ -23,6 +23,8 @@ describe("fresh ns CLI runner", () => {
 			env: {},
 			stdout() {},
 			stderr() {},
+			confirm: () => false,
+			select: () => undefined,
 		};
 
 		expect(await runCli(["flow", "changes"], deps)).toBe(1);

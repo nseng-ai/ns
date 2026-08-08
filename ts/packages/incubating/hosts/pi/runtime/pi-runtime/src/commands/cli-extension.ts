@@ -84,8 +84,10 @@ export interface CliCommandRunDeps {
 	 * stdout/stderr for output that should remain visible after the command ends.
 	 */
 	onProgress?: (event: NsProgressPhaseEvent) => void;
-	confirm?: CliCommandConfirmPrompt;
-	select?: CliCommandSelectPrompt;
+	/** Semantic confirmation owned by the Pi host. Returns false when no confirmation UI exists. */
+	confirm: CliCommandConfirmPrompt;
+	/** Semantic selection owned by the Pi host. Returns undefined when no selection UI exists. */
+	select: CliCommandSelectPrompt;
 }
 
 export interface CliCommandExtensionSpec {
@@ -264,6 +266,39 @@ export function renderCliCommandOutputMessage(
 	};
 }
 
+interface PiCliCommandInteraction {
+	confirm: CliCommandConfirmPrompt;
+	select: CliCommandSelectPrompt;
+}
+
+function createPiCliCommandInteraction(
+	ctx: CommandContext,
+	activity: CliCommandStatusActivity,
+): PiCliCommandInteraction {
+	const confirm = ctx.hasUI === true ? ctx.ui.confirm : undefined;
+	const select = ctx.hasUI === true ? ctx.ui.select : undefined;
+	return {
+		confirm: async (title, message, options) => {
+			if (confirm === undefined) return false;
+			activity.setPhase("waiting for confirmation");
+			try {
+				return await confirm(title, message, options);
+			} finally {
+				activity.setPhase("running CLI command");
+			}
+		},
+		select: async (title, selectOptions) => {
+			if (select === undefined) return undefined;
+			activity.setPhase("waiting for selection");
+			try {
+				return await select(title, [...selectOptions]);
+			} finally {
+				activity.setPhase("running CLI command");
+			}
+		},
+	};
+}
+
 interface RunRegisteredCliCommandOptions {
 	pi: CliCommandExtensionAPI;
 	spec: CliCommandExtensionSpec;
@@ -417,6 +452,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		activity.setPhase("running CLI command");
 		const runnerStartedAt = Date.now();
 		traceCliCommand("runner_start", { argv, commandName: command.name, piCommandName });
+		const interaction = createPiCliCommandInteraction(ctx, activity);
 		const runDeps: CliCommandRunDeps = {
 			cwd: ctx.cwd,
 			stdout: (text) => {
@@ -430,29 +466,9 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			onProgress: (event) => {
 				activity.applyPhaseEvent(event);
 			},
+			confirm: interaction.confirm,
+			select: interaction.select,
 		};
-		if (ctx.hasUI && ctx.ui.confirm !== undefined) {
-			const confirm = ctx.ui.confirm;
-			runDeps.confirm = async (title, message, options) => {
-				activity.setPhase("waiting for confirmation");
-				try {
-					return await confirm(title, message, options);
-				} finally {
-					activity.setPhase("running CLI command");
-				}
-			};
-		}
-		if (ctx.hasUI && ctx.ui.select !== undefined) {
-			const select = ctx.ui.select;
-			runDeps.select = async (title, selectOptions) => {
-				activity.setPhase("waiting for selection");
-				try {
-					return await select(title, [...selectOptions]);
-				} finally {
-					activity.setPhase("running CLI command");
-				}
-			};
-		}
 		try {
 			exitCode = await spec.runCli(argv, runDeps);
 		} catch (error) {
