@@ -65,11 +65,12 @@ export const runnerStepFactsSchema = runnerBeginResultSchema.pick({
 
 /**
  * Accepts the saved runner-begin machine envelope or its bare data object. A
- * saved non-ok envelope fails both branches: facts must record a successful
- * begin.
+ * saved nonzero envelope fails both branches: facts must record a successful
+ * begin. The status spelling belongs to the emitting Clinkr generation; the
+ * process exit code is the stable success contract across envelope versions.
  */
 const factsInputSchema = z.union([
-	z.object({ status: z.literal("ok"), data: runnerStepFactsSchema }),
+	z.object({ exitCode: z.literal(0), data: runnerStepFactsSchema }),
 	runnerStepFactsSchema,
 ]);
 
