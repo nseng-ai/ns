@@ -119,11 +119,6 @@
       "skillPath": "skills/engineering/domain-modeling/SKILL.md",
       "computedHash": "363cb0f53b0b431e7c00086ad1f823500b7e1b70b5616ee969c979f0934e9e6e"
     },
-    "enriched-plan-save": {
-      "source": "skills/incubating/branch-context/enriched-plan-save",
-      "sourceType": "local",
-      "computedHash": "f7d2f6ba59f4f755d45df00e432121030b76de3146687bec4341ddc67dec9102"
-    },
     "fdt-refactor-mock-to-fake": {
       "source": "dagster-io/fake-driven-testing",
       "sourceType": "github",

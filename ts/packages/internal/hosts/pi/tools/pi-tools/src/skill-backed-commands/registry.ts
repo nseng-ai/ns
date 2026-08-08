@@ -1,7 +1,6 @@
 import {
 	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
-	WRITE_PLAN_COMMAND_NAME,
 } from "@nseng-ai/branch-context/api";
 import { flowSkillBackedCommandRegistrations } from "@nseng-ai/flow/api";
 import { handoffSkillBackedCommandRegistrations } from "@nseng-ai/handoffs/api";
@@ -63,11 +62,6 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 		skillName: "context-bundle-analysis",
 		surface: "context:bundle-analysis",
 		kind: "generic-backing-skill",
-	},
-	{
-		skillName: "enriched-plan-save",
-		surface: WRITE_PLAN_COMMAND_NAME,
-		kind: "specialized-command",
 	},
 	{
 		skillName: "fdt-refactor-mock-to-fake",

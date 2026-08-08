@@ -246,55 +246,6 @@ describe("plans list CLI", () => {
 });
 
 describe("plans exec CLI", () => {
-	test("write stores stdin content under the local plan store", async () => {
-		const fixture = await makeFixture();
-		const output = createOutputCapture();
-
-		const exitCode = await runCli(
-			[
-				"exec",
-				"save",
-				"--slug",
-				"branch-scoped-plan",
-				"--summary",
-				"Save it",
-				"--stdin",
-				"--format",
-				"json",
-			],
-			{
-				cwd: fixture.repoRoot,
-				git: fixture.git,
-				commands: unusedCommands,
-				stdin: () => Promise.resolve("# Plan\n\nDo it.\n"),
-				stdout: output.stdout,
-				stderr: output.stderr,
-				planStoreRoot: fixture.planStoreRoot,
-				planStoreGateway: fixture.planStoreGateway,
-			},
-		);
-
-		expect(exitCode).toBe(0);
-		expect(output.stderrText()).toBe("");
-		const payload = JSON.parse(output.stdoutText());
-		expect(payload).toMatchObject({
-			exitCode: 0,
-			data: {
-				slug: "branch-scoped-plan",
-				repoKey: "gh--owner--repo",
-				sourceBranch: "feature/source-plan",
-				branchKey: encodeBranchForPlanPath("feature/source-plan"),
-				summary: "Save it",
-			},
-		});
-		expect(String(payload.data.filePath)).toContain(
-			`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`,
-		);
-		expect(fixture.planStoreGateway.readFile(String(payload.data.filePath))).toBe(
-			"# Plan\n\nDo it.\n",
-		);
-	});
-
 	test("resolve returns explicit paths and the latest saved source-branch plan", async () => {
 		const fixture = await makeFixture();
 		const outsideDir = makeTempDir();

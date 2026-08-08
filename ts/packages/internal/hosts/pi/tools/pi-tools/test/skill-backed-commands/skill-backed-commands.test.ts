@@ -137,7 +137,6 @@ describe("skill-backed command registry", () => {
 			expect.arrayContaining([
 				"branch-context-from-plan",
 				"branch-context-impl",
-				"enriched-plan-save",
 				"handoff-create",
 				"handoff-pickup",
 				"objective-create",
