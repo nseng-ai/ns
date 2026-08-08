@@ -1,59 +1,50 @@
 # Test-Boundary Refactorings
 
-A catalog of named refactoring techniques for moving test cost across this repository's test
-boundaries while preserving behavior confidence. The techniques are distilled from applied,
-evidenced slices recorded in `.ns/objectives/standing-test-performance-boundaries/updates/`; each
-entry names a transformation that has already been used there. Entry names are imperative verb
-phrases naming the transformation, in the style of Fowler's *Refactoring*.
+This catalog contains named refactoring techniques specifically related to testability.
 
-Entries cite their governing documents rather than restating them. Where an entry touches gateway
-shape, `docs/conventions/consumer-gateways-and-command-shape.md` is authoritative; where it touches
-lanes and coverage doctrine, `ts/TESTING.md` is authoritative; vocabulary is defined in root
-`CONTEXT.md` § Architecture Boundaries and the `typescript-fake-driven-testing` skill.
+Each entry name is an imperative verb phrase that names the transformation, in the style of Fowler's *Refactoring*.
+
+The entries cite their source documents. They do not repeat those documents.
+
+- For the shape of a gateway, `docs/conventions/consumer-gateways-and-command-shape.md` is authoritative.
+- For the doctrine about lanes and coverage, `ts/TESTING.md` is authoritative.
+- Root `CONTEXT.md` § Architecture Boundaries and the `typescript-fake-driven-testing` skill define the vocabulary.
+
+## Testing Anti-Patterns
+
+Excessive mocking. Left to their own devices, agents instructed to build unit tests will do so with excessive mocking. They end up creating tests that are tautological. These tests prove only that the implementation has its current structure.
+
+Excessive DI. The other extreme is full-stack dependency injection, which is very common in the Java ecosystem. This pattern causes an explosion of classes and types in a codebase—evocatively described as the "Kingdom of Nouns" (https://steve-yegge.blogspot.com/2006/03/execution-in-kingdom-of-nouns.html)—and requires word soup where a function would suffice.
+
+The "smell" that cuts across both of these anti-patterns is that the cost of refactoring is too high. Excessive mocking and tautological tests effectively implement code twice—once in an awkward form with invasive mocking APIs—so every refactor requires a more complex refactoring of the corresponding tests. Similarly, complete full-stack DI introduces testability seams in such a fine-grained manner that any change in structure, rather than behavior, requires invasive test changes.
+
+Since refactoring, by definition, does not change externalized behavior, the ideal is for a refactoring to change as few tests as possible.
+
+Are we saying that mocking and DI have *no* place in this new world? No. They are essential techniques. Fast, side-effect-free tests are critical to the inner loop of software development. Accomplishing this requires the tasteful introduction of testing seams.
 
 ## Seam introduction
 
-Seam-introduction transformations create or route a test-substitutable boundary. They form a
-decision ladder — take the lowest rung that fits, and climb only on evidence:
+Transformations for seam introduction introduce a layer of indirection that tests can leverage. These transformations form a decision ladder. Use the lowest rung that fits. Move to a higher rung only when evidence supports that move:
 
-1. **Inject Dependency** while the boundary is a single narrow collaborator with local scope.
-2. **Inject Gateway** when a suitable gateway contract already exists — receive it, do not rebuild
-   it.
+1. Use **Inject Dependency** while the boundary is one narrow collaborator with local scope.
+2. Use **Inject Gateway** when a suitable gateway contract already exists. Receive the gateway; do not rebuild it.
 
 ### Inject Dependency
 
-*Replace a hard-bound collaborator with a single injected parameter that defaults to the real
-implementation.*
+*Replace a hard-bound collaborator with a single injected parameter that defaults to the real implementation.*
 
-- **Mechanics:** add one narrow parameter — a function, a single-method collaborator, or a small
-  value — with a default-to-real binding. Tests pass a fake or manual substitute; production call
-  sites change nothing. No interface type is minted, no fake/adapter pairing is created, no
-  composition-root wiring changes.
-- **Constraints:** singular by design. Inject *a* dependency, never a
-  `Dependencies`/`Deps`/`Services` bag, and never through a DI container or framework override
-  (banned by the `typescript-fake-driven-testing` skill and root `CONTEXT.md` *Avoid* lists). The
-  name deliberately reclaims dependency injection in its disciplined singular form; "just use DI"
-  as design guidance is the smell, not injection itself.
-- **Precedent:** `registerSdlExtension(pi, { runCli })` in
-  `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-24T122002Z-repeated-integration-setup-for-localized-logic.md`;
-  `createFreshNsCliRunner(loader)` in
-  `ts/packages/incubating/hosts/pi/extensions/pi-ns-flow/src/fresh-ns-cli.ts`, where a single
-  module-loader parameter defaults to the real dynamic import and tests inject a fake loader.
+- **Mechanics:** Add one narrow parameter with a default that binds to the real implementation. The parameter can be a function, a single-method collaborator, or a small value. Tests pass a fake or a manual substitute. Production call sites do not change. Do not create an interface type. Do not create a fake and adapter pair. Do not change the wiring of the composition root.
+- **Constraints:** This technique is singular by design. Inject one dependency. Never inject a `Dependencies`/`Deps`/`Services` bag. Never use a DI container or a framework override. The `typescript-fake-driven-testing` skill and the *Avoid* lists in root `CONTEXT.md` ban these mechanisms. The name deliberately gives dependency injection its disciplined singular meaning. The design advice "just use DI" is the smell; injection itself is not the smell.
+- **Precedent:** One precedent is `registerSdlExtension(pi, { runCli })` in `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-24T122002Z-repeated-integration-setup-for-localized-logic.md`. Another precedent is `createFreshNsCliRunner(loader)` in `ts/packages/incubating/hosts/pi/extensions/pi-ns-flow/src/fresh-ns-cli.ts`. In the second precedent, one module-loader parameter defaults to the real dynamic import. Tests inject a fake loader.
 
 ### Inject Gateway
 
-*Receive an existing provider gateway through context instead of constructing it inline or reaching
-for ambient state.*
+*Receive an existing provider gateway through context instead of constructing it inline or reaching for ambient state.*
 
-- **Mechanics:** the operation's context carries the gateway; entrypoints bind it to the correct
-  exec channel, cwd, telemetry, and environment. Type against a **named Consumer Gateway** — one
-  narrowed identity per consumer scope, reused across that scope's helpers.
-- **Constraints:** governed by `docs/conventions/consumer-gateways-and-command-shape.md`: the
-  inversion rule (no `Real*Gateway` construction mid-flow), gateway clumps become named `*Context`
-  types rather than `*Options` fields. An
-  ad-hoc anonymous `Pick<…Gateway, …>` in a signature does not earn its keep: name the identity,
-  take the full provider contract (fakes are canonical, so tests lose nothing), or drop to
-  **Inject Dependency** for a single operation.
-- **Precedent:** `HandoffGitGateway`, `LandGitGateway`, and `GraphiteStackGitGateway` — the named
-  Consumer Gateways cited with the inversion rule's live examples in
-  `docs/conventions/consumer-gateways-and-command-shape.md`.
+- **Mechanics:** The context of the operation carries the gateway. Entry points create the context and the appropriate gateway implementation. Use a **named Consumer Gateway** as the type.
+- **Constraints:** `docs/conventions/consumer-gateways-and-command-shape.md` governs this technique. Follow the inversion rule: do not construct a `Real*Gateway` in the middle of a flow. Convert gateway clumps to named `*Context` types, not `*Options` fields. An ad-hoc anonymous `Pick<…Gateway, …>` in a signature does not justify its cost. Instead, if a scope-specific narrower gateway type is appropriate, name the narrowed type. Fakes are canonical, so tests lose nothing when you use the full contract. For one operation, you can instead use **Inject Dependency**.
+- **Precedent:** The precedents are `HandoffGitGateway`, `LandGitGateway`, and `GraphiteStackGitGateway`. These named Consumer Gateways appear with the live examples for the inversion rule in `docs/conventions/consumer-gateways-and-command-shape.md`.
+
+---
+
+Deviations: none.
