@@ -66,28 +66,36 @@ export type {
 	RunReviewRequest,
 };
 
-export interface ReviewsClientOptions {
+interface ReviewsClientBaseOptions {
 	readonly cwd: string;
 	readonly env?: ExplicitUndefined<
 		"env-map",
 		NodeJS.ProcessEnv | Record<string, string | undefined>
 	>;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	readonly stdin?: () => Promise<string>;
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
-	/** Inject a prebuilt gateway-injected runtime instead of constructing real adapters. */
-	readonly runtime?: ReviewsRuntime;
 }
+
+export type ReviewsClientOptions =
+	| (ReviewsClientBaseOptions & {
+			readonly readStructuredRequest: () => Promise<string>;
+			readonly runtime?: never;
+	  })
+	| (ReviewsClientBaseOptions & {
+			/** Inject a prebuilt gateway-injected runtime instead of constructing real adapters. */
+			readonly runtime: ReviewsRuntime;
+			readonly readStructuredRequest?: never;
+	  });
 
 export interface ReviewsClient {
 	listReviews(request?: Partial<ReviewListRequest>): Promise<ReviewResult<ReviewListResult>>;
 	listReviewLogs(request?: Partial<ReviewLogRequest>): Promise<ReviewResult<ReviewLogResult>>;
 	/** Runs a review and writes a Reviews review log through the configured review log gateway. */
 	runReview(request: RunReviewRequest): Promise<RunReviewOutcome>;
-	/** Records same-session findings from stdin and writes a Reviews review log. */
+	/** Records same-session findings from finite JSON request input and writes a Reviews review log. */
 	recordFindings(request: RecordFindingsRequest): Promise<RecordFindingsOutcome>;
-	/** Publishes a Reviews review-run envelope from stdin to GitHub. */
+	/** Publishes a Reviews review-run envelope from finite JSON request input to GitHub. */
 	publishFindings(request: PublishFindingsRequest): Promise<PublishFindingsResult>;
 }
 
@@ -123,12 +131,19 @@ function createRealRuntime(options: ReviewsClientOptions): ReviewsRuntime {
 		createRealReviewsContext({
 			cwd: options.cwd,
 			env: normalizedEnv(options.env),
-			stdin: options.stdin ?? (async () => ""),
+			readStructuredRequest: requireStructuredRequestReader(options),
 			stdout: options.stdout ?? (() => undefined),
 			stderr: options.stderr ?? (() => undefined),
 			...(options.signal === undefined ? {} : { signal: options.signal }),
 		}),
 	);
+}
+
+function requireStructuredRequestReader(options: ReviewsClientOptions): () => Promise<string> {
+	if ("readStructuredRequest" in options && options.readStructuredRequest !== undefined) {
+		return options.readStructuredRequest;
+	}
+	throw new Error("ReviewsClient real runtime requires readStructuredRequest");
 }
 
 function normalizedEnv(

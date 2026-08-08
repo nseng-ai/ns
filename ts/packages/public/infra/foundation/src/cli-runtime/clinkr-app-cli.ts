@@ -11,7 +11,7 @@ import {
 } from "@nseng-ai/foundation/primitives";
 
 import { isDirectCliInvocation } from "./direct-invocation.ts";
-import { readStdin } from "./stdin.ts";
+import { readStructuredRequest } from "./stdin.ts";
 import {
 	createCliRuntimeInfo,
 	readCliPackageMetadata,
@@ -24,7 +24,7 @@ export interface ClinkrAppCliEntrypointDeps {
 	readonly env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
-	readonly readStdin?: () => Promise<string>;
+	readonly readStructuredRequest?: () => Promise<string>;
 	readonly canEmitAnsi?: boolean;
 }
 
@@ -146,7 +146,7 @@ export function defineClinkrAppCli<
 			try {
 				return await buildApp(prepareResult.buildState).run(prepareResult.args ?? args, {
 					context: prepareResult.context,
-					readStdin: deps.readStdin ?? readStdin,
+					readStructuredRequest: deps.readStructuredRequest ?? readStructuredRequest,
 					rawOutput: rawBridge.output,
 					...optionalEntries({
 						output:

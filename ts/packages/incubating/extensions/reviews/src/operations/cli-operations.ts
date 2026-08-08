@@ -399,10 +399,10 @@ async function readFindingsPayload(
 	ctx: ReviewsRuntime,
 ): Promise<ReviewResult<ReviewFindingsPayload>> {
 	const result = parseJsonInputText({
-		text: await ctx.stdin(),
+		text: await ctx.readStructuredRequest(),
 		schema: reviewFindingsPayloadSchema,
-		jsonDescription: "record-findings stdin",
-		schemaDescription: "record-findings stdin { findings: [...] }",
+		jsonDescription: "record-findings readStructuredRequest",
+		schemaDescription: "record-findings readStructuredRequest { findings: [...] }",
 	});
 	if (result.type === "ok") return { ok: true, value: result.value };
 	return {
@@ -505,7 +505,7 @@ export async function publishFindingsFromRequest(
 	ctx: ReviewsRuntime,
 	request: PublishFindingsRequest,
 ): Promise<PublishFindingsResult> {
-	const envelope = await ctx.stdin();
+	const envelope = await ctx.readStructuredRequest();
 	return await publishFindings(ctx, {
 		prNumber: request.prNumber,
 		envelope,

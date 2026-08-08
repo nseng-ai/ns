@@ -5,7 +5,7 @@ import { loadJsonInput, parseJsonInputText } from "@nseng-ai/extension-kit/json-
 import { withTemporaryFile } from "@nseng-ai/extension-kit/temp-files";
 
 describe("JSON input source helpers", () => {
-	test("loads stdin, inline JSON, and file JSON", async () => {
+	test("loads readStructuredRequest, inline JSON, and file JSON", async () => {
 		const payloadSchema = z.object({ value: z.string() });
 		const stdinResult = await loadJsonInput({
 			optionValue: undefined,
@@ -13,9 +13,9 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => '{"value":"stdin"}',
+			readStructuredRequest: async () => '{"value":"readStructuredRequest"}',
 		});
-		expect(stdinResult).toEqual({ type: "ok", value: { value: "stdin" } });
+		expect(stdinResult).toEqual({ type: "ok", value: { value: "readStructuredRequest" } });
 
 		const inlineResult = await loadJsonInput({
 			optionValue: '{"value":"inline"}',
@@ -23,7 +23,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readStructuredRequest: async () => "",
 		});
 		expect(inlineResult).toEqual({ type: "ok", value: { value: "inline" } });
 
@@ -38,7 +38,7 @@ describe("JSON input source helpers", () => {
 					optionName: "--payload-json",
 					fileOptionName: "--payload-file",
 					schema: payloadSchema,
-					stdin: async () => "",
+					readStructuredRequest: async () => "",
 				});
 				expect(fileResult).toEqual({ type: "ok", value: { value: "file" } });
 			},
@@ -55,7 +55,7 @@ describe("JSON input source helpers", () => {
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readStructuredRequest: async () => "",
 		});
 		expect(conflict).toEqual({
 			type: "error",
@@ -72,7 +72,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "unused",
+			readStructuredRequest: async () => "unused",
 		});
 		expect(empty.type).toBe("error");
 		if (empty.type === "error") expect(empty.error.errorType).toBe("invalid-request");
@@ -83,7 +83,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readStructuredRequest: async () => "",
 		});
 		expect(invalidJson.type).toBe("error");
 		if (invalidJson.type === "error") expect(invalidJson.error.errorType).toBe("invalid-json");
@@ -96,7 +96,7 @@ describe("JSON input source helpers", () => {
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readStructuredRequest: async () => "",
 		});
 		expect(missingFile.type).toBe("error");
 		if (missingFile.type === "error") expect(missingFile.error.errorType).toBe("invalid-request");
@@ -107,7 +107,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readStructuredRequest: async () => "",
 		});
 		expect(schemaError.type).toBe("error");
 		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid-request");

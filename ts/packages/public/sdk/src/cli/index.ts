@@ -11,7 +11,7 @@ import {
 } from "@nseng-ai/clinkr/app";
 import {
 	defineClinkrAppCli,
-	readStdin,
+	readStructuredRequest,
 	type ClinkrAppCliBuildInput,
 	type ClinkrAppCliPrepareRunInput,
 } from "@nseng-ai/foundation/cli-runtime";
@@ -77,7 +77,7 @@ export interface NsCliDeps {
 	readonly env?: NodeJS.ProcessEnv;
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
-	readonly readStdin?: () => Promise<string>;
+	readonly readStructuredRequest?: () => Promise<string>;
 	readonly canEmitAnsi?: boolean;
 	readonly entryMetaUrl?: string;
 	readonly homeDir?: string;
@@ -152,7 +152,7 @@ const entryOptions = {
 				.sort(),
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
-			stdin: base.stdin ?? readStdin,
+			readStructuredRequest: base.readStructuredRequest ?? readStructuredRequest,
 			...optionalEntries({
 				onOutput: deps.onOutput ?? base.onOutput,
 				confirm: deps.confirm ?? base.confirm,
