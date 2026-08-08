@@ -449,15 +449,25 @@ describe("Descendant reconciliation", () => {
 	});
 
 	test.each([
-		{ policy: "preserve", shouldDeferLandedBranchDeletion: true, expectedDeletedBranches: [] },
+		{
+			policy: "preserve",
+			shouldDeferLandedBranchDeletion: true,
+			expectedDeletedBranches: [],
+			expectedReparentedBranches: ["feature-c"],
+		},
 		{
 			policy: "free",
 			shouldDeferLandedBranchDeletion: false,
 			expectedDeletedBranches: ["feature-a"],
+			expectedReparentedBranches: [],
 		},
 	] as const)(
 		"$policy reconciles descendants while applying branch cleanup policy",
-		async ({ shouldDeferLandedBranchDeletion, expectedDeletedBranches }) => {
+		async ({
+			shouldDeferLandedBranchDeletion,
+			expectedDeletedBranches,
+			expectedReparentedBranches,
+		}) => {
 			const postRestackSha = "dddddddddddddddddddddddddddddddddddddddd";
 			const fakes = createInMemoryLandContext({
 				git: {
@@ -518,6 +528,9 @@ describe("Descendant reconciliation", () => {
 			expect(fakes.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
 				expectedDeletedBranches,
 			);
+			expect(fakes.graphite.reparentBranchCalls.map((call) => call.branch)).toEqual(
+				expectedReparentedBranches,
+			);
 			expect(fakes.graphite.restackCalls).toEqual([
 				{ repoRoot: REPO_ROOT, branch: "feature-c", scope: "upstack" },
 			]);
@@ -531,6 +544,85 @@ describe("Descendant reconciliation", () => {
 			expect(state.expectedShas.get("feature-c")).toBe(postRestackSha);
 		},
 	);
+
+	test("repairs every deferred descendant root before restacking or publishing", async () => {
+		const fakes = createTwoRootReconciliationContext({
+			graphite: {
+				branchParents: { "feature-c": "feature-a", "feature-d": "feature-a" },
+			},
+		});
+		const outcome = await runTwoRootMaintenance(fakes, {
+			shouldDeferLandedBranchDeletion: true,
+		});
+
+		expect(outcome).toEqual({ kind: "proceed" });
+		expect(
+			fakes.callEvents.flatMap((event) => {
+				switch (event.operation) {
+					case "graphite.refreshBranchFromRemote":
+					case "graphite.reparentBranch":
+					case "graphite.restack":
+					case "graphite.submitUpdate":
+						return [`${event.operation}:${event.request.branch}`];
+					default:
+						return [];
+				}
+			}),
+		).toEqual([
+			"graphite.refreshBranchFromRemote:feature-c",
+			"graphite.refreshBranchFromRemote:feature-d",
+			"graphite.reparentBranch:feature-c",
+			"graphite.reparentBranch:feature-d",
+			"graphite.restack:feature-c",
+			"graphite.restack:feature-d",
+			"graphite.submitUpdate:feature-c",
+			"graphite.submitUpdate:feature-d",
+		]);
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+	});
+
+	test("stops deferred descendant preparation when a later topology repair fails", async () => {
+		const commandDisplay = "gt track feature-d --parent main --no-interactive";
+		const fakes = createTwoRootReconciliationContext({
+			graphite: {
+				branchParents: { "feature-c": "feature-a", "feature-d": "feature-a" },
+				reparentBranchResults: {
+					"feature-d": {
+						type: "failure",
+						commandDisplay,
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "track failed",
+							code: 1,
+							signal: null,
+						},
+					},
+				},
+			},
+		});
+		const outcome = await runTwoRootMaintenance(fakes, {
+			shouldDeferLandedBranchDeletion: true,
+		});
+
+		expect(outcome).toMatchObject({
+			kind: "halt",
+			phase: "descendant-maintenance",
+			failure: {
+				failedBranch: "feature-d",
+				displayCommand: commandDisplay,
+				message: "PR #1 merged, but Graphite topology repair failed for descendant root feature-d.",
+				suggestedAction: expect.stringContaining(commandDisplay),
+			},
+		});
+		expect(fakes.graphite.reparentBranchCalls.map((call) => call.branch)).toEqual([
+			"feature-c",
+			"feature-d",
+		]);
+		expect(fakes.graphite.restackCalls).toEqual([]);
+		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+	});
 
 	test("guards every descendant root before mutating any root", async () => {
 		const fakes = createTwoRootReconciliationContext();
@@ -697,7 +789,10 @@ function createTwoRootReconciliationContext(
 
 async function runTwoRootMaintenance(
 	fakes: ReturnType<typeof createTwoRootReconciliationContext>,
-	options: { readonly expectedFeatureDSha?: string } = {},
+	options: {
+		readonly expectedFeatureDSha?: string;
+		readonly shouldDeferLandedBranchDeletion?: boolean;
+	} = {},
 ): Promise<Awaited<ReturnType<typeof performGraphiteMaintenance>>> {
 	return performGraphiteMaintenance(
 		{ land: fakes.context, progress: createProgressRecorder().progress },
@@ -721,6 +816,7 @@ async function runTwoRootMaintenance(
 					["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
 				]),
 			},
+			shouldDeferLandedBranchDeletion: options.shouldDeferLandedBranchDeletion ?? false,
 		},
 	);
 }

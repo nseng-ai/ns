@@ -20,6 +20,7 @@ export type LandGraphiteOperation =
 	| { kind: "trunk" }
 	| { kind: "submit-update"; branch: string; shouldForce?: boolean }
 	| { kind: "restack"; branch: string; scope: GraphiteRestackScope }
+	| { kind: "track-branch-parent"; branch: string; parent: string }
 	| {
 			kind: "get-downstack-no-checkout";
 			branch: string;
@@ -63,6 +64,13 @@ export function restackOperation(input: {
 	readonly scope: GraphiteRestackScope;
 }): Extract<LandGraphiteOperation, { kind: "restack" }> {
 	return { kind: "restack", branch: input.branch, scope: input.scope };
+}
+
+export function trackBranchParentOperation(input: {
+	readonly branch: string;
+	readonly parent: string;
+}): Extract<LandGraphiteOperation, { kind: "track-branch-parent" }> {
+	return { kind: "track-branch-parent", branch: input.branch, parent: input.parent };
 }
 
 export function getDownstackNoCheckoutOperation(input: {
@@ -165,6 +173,16 @@ const GRAPHITE_OPERATION_SPECS = {
 			"--no-interactive",
 		],
 	},
+	"track-branch-parent": {
+		kind: "track-branch-parent",
+		buildArgs: (operation) => [
+			"track",
+			operation.branch,
+			"--parent",
+			operation.parent,
+			"--no-interactive",
+		],
+	},
 	"get-downstack-no-checkout": {
 		kind: "get-downstack-no-checkout",
 		buildArgs: (operation) => [
@@ -195,6 +213,8 @@ export function buildGraphiteOperationArgs(operation: LandGraphiteOperation): st
 			return GRAPHITE_OPERATION_SPECS["submit-update"].buildArgs(operation);
 		case "restack":
 			return GRAPHITE_OPERATION_SPECS.restack.buildArgs(operation);
+		case "track-branch-parent":
+			return GRAPHITE_OPERATION_SPECS["track-branch-parent"].buildArgs(operation);
 		case "get-downstack-no-checkout":
 			return GRAPHITE_OPERATION_SPECS["get-downstack-no-checkout"].buildArgs(operation);
 		case "delete-local-branch":

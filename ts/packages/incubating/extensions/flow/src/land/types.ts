@@ -463,6 +463,11 @@ export interface LandGraphiteGateway {
 		readonly branch: string;
 		readonly scope: LandGraphiteRestackScope;
 	}): Promise<LandGraphiteCommandResult>;
+	reparentBranch(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly parent: string;
+	}): Promise<LandGraphiteCommandResult>;
 	submitUpdate(request: {
 		readonly repoRoot: string;
 		readonly branch: string;

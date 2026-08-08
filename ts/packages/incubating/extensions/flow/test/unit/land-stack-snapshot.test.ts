@@ -173,6 +173,45 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		).toBe(true);
 	});
 
+	test("does not maintain a live branch from a stale child link", async () => {
+		const dbRows = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a", "separate"], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+			{ branch: "feature-b", parent: "feature-a", children: ["separate"] },
+			{ branch: "separate", parent: TRUNK, children: [] },
+		]);
+
+		const snapshot = expectSuccess(
+			await loadSnapshot(dbRows, [TRUNK, "feature-a", "feature-b", "separate"]),
+		);
+
+		expect(snapshot.landingBranches).toEqual(["feature-a", "feature-b"]);
+		expect(snapshot.descendantBranches).toEqual([]);
+		expect(snapshot.descendantRootBranches).toEqual([]);
+		expect(
+			snapshot.warnings.some((warning) => warning.message.includes("feature-b -> separate")),
+		).toBe(true);
+	});
+
+	test("bounds stale metadata cleanup guidance", async () => {
+		const staleBranches = Array.from({ length: 12 }, (_, index) => `stale-${index + 1}`);
+		const dbRows = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a", ...staleBranches], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+			{ branch: "feature-b", parent: "feature-a", children: [] },
+			...staleBranches.map((branch) => ({ branch, parent: TRUNK, children: [] })),
+		]);
+
+		const snapshot = expectSuccess(await loadSnapshot(dbRows, [TRUNK, "feature-a", "feature-b"]));
+		const warning = snapshot.warnings.find((candidate) =>
+			candidate.message.includes("Ignored 12 stale Graphite metadata branch(es)"),
+		);
+
+		expect(warning?.message).toContain("stale-1");
+		expect(warning?.message).toContain("and 2 more");
+		expect(warning?.message).not.toContain("gt untrack");
+	});
+
 	test("does not fire the fork gate on a phantom sibling", async () => {
 		const dbRows = metadataDbJson([
 			{ branch: TRUNK, children: ["feature-a"], trunk: true },

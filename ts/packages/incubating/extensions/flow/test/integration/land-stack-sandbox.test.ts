@@ -38,8 +38,9 @@ import { describe, expect, test } from "vitest";
 
 import { runCommand } from "@nseng-ai/foundation/exec";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
 import { renderLandWorkflowResult } from "../../src/land/command-result.ts";
+import { executeStackLanding, parseArgs } from "../../src/land/land-stack.ts";
+import { loadStackSnapshot } from "../../src/land/stack/stack-facts.ts";
 import type {
 	LandStackCommandContext,
 	LandExecutionApi,
@@ -223,6 +224,62 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
+		"preserve reconciliation repairs topology without selecting separate stacks later",
+		async () => {
+			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
+				const initialTopology = (await readState(sandbox.statePath)).topology;
+				expect(initialTopology).toEqual([
+					{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
+					{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
+					{ branch: FEATURE_B, parent: FEATURE_A, children: [FEATURE_C, FEATURE_D] },
+					{ branch: FEATURE_C, parent: FEATURE_B, children: [] },
+					{ branch: FEATURE_D, parent: FEATURE_B, children: [] },
+				]);
+
+				const result = await executeSandboxLanding(sandbox, "--yes");
+
+				expect(result.outcome.type).toBe("completed");
+				expect(await localBranches(sandbox)).toEqual(
+					expect.arrayContaining([FEATURE_A, FEATURE_B, FEATURE_C, FEATURE_D]),
+				);
+				const repairedTopology = (await readState(sandbox.statePath)).topology;
+				expect(repairedTopology.find((row) => row.branch === FEATURE_A)?.children).toEqual([]);
+				expect(repairedTopology.find((row) => row.branch === FEATURE_B)).toMatchObject({
+					parent: TRUNK,
+					children: [],
+				});
+				expect(repairedTopology.find((row) => row.branch === FEATURE_C)?.parent).toBe(TRUNK);
+				expect(repairedTopology.find((row) => row.branch === FEATURE_D)?.parent).toBe(TRUNK);
+
+				const log = await readCommandLog(sandbox);
+				for (const branch of [FEATURE_B, FEATURE_C, FEATURE_D]) {
+					const getIndex = commandIndex(log, "gt", ["get", branch]);
+					const trackIndex = commandIndex(log, "gt", ["track", branch, "--parent", TRUNK]);
+					const restackIndex = commandIndex(log, "gt", ["restack", "--branch", branch]);
+					expect(trackIndex).toBeGreaterThan(getIndex);
+					expect(restackIndex).toBeGreaterThan(trackIndex);
+				}
+				expect(commandArgs(log, "gt", "delete")).toEqual([]);
+
+				const snapshot = await loadStackSnapshot({
+					pi: createSandboxExecutionApi(sandbox),
+					repoRoot: sandbox.git.repoRoot,
+					metadataDbPath: join(sandbox.git.repoRoot, ".git", "graphite.db"),
+					current: FEATURE_B,
+					trunk: TRUNK,
+				});
+				expect(snapshot.type).toBe("success");
+				if (snapshot.type !== "success") throw new Error(snapshot.failure.message);
+				expect(snapshot.value.landingBranches).toEqual([FEATURE_B]);
+				expect(snapshot.value.descendantBranches).toEqual([]);
+				expect(snapshot.value.descendantRootBranches).toEqual([]);
+				expect(snapshot.value.warnings).toEqual([]);
+			});
+		},
+		TEST_TIMEOUT_MS,
+	);
+
+	test(
 		"fails fast and keeps landed and descendant refs when one required descendant refresh fails",
 		async () => {
 			await withSandbox(
@@ -372,13 +429,14 @@ describe("land stack sandbox integration", () => {
 	);
 });
 
-async function executeSandboxLanding(sandbox: Sandbox): Promise<{
+async function executeSandboxLanding(
+	sandbox: Sandbox,
+	args = "--yes --free",
+): Promise<{
 	outcome: Awaited<ReturnType<typeof executeStackLanding>>;
 	notifications: Notification[];
 }> {
-	// These sandbox scenarios exercise destructive Graphite cleanup; preserve/free policy behavior
-	// is covered directly by the execution and maintenance unit suites.
-	const parsed = parseArgs("--yes --free");
+	const parsed = parseArgs(args);
 	expect(parsed.type).toBe("success");
 	if (parsed.type !== "success") throw new Error(parsed.failure.message);
 	const notifications: Notification[] = [];
@@ -396,15 +454,7 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 		},
 		async waitForIdle() {},
 	};
-	const pi: LandExecutionApi = {
-		async exec(command, args, execOptions = {}) {
-			return await runCommand(command, args, {
-				cwd: execOptions.cwd ?? sandbox.git.repoRoot,
-				env: sandbox.git.env,
-				...(execOptions.timeout === undefined ? {} : { timeout: execOptions.timeout }),
-			});
-		},
-	};
+	const pi = createSandboxExecutionApi(sandbox);
 	const outcome = await executeStackLanding(pi, ctx, parsed.value);
 	notifications.push({
 		message: renderLandWorkflowResult(
@@ -414,6 +464,18 @@ async function executeSandboxLanding(sandbox: Sandbox): Promise<{
 		level: outcome.type === "failed" ? "error" : "success",
 	});
 	return { outcome, notifications };
+}
+
+function createSandboxExecutionApi(sandbox: Sandbox): LandExecutionApi {
+	return {
+		async exec(command, args, execOptions = {}) {
+			return await runCommand(command, args, {
+				cwd: execOptions.cwd ?? sandbox.git.repoRoot,
+				env: sandbox.git.env,
+				...(execOptions.timeout === undefined ? {} : { timeout: execOptions.timeout }),
+			});
+		},
+	};
 }
 
 function notificationText(result: { readonly notifications: readonly Notification[] }): string {
@@ -712,6 +774,18 @@ function graphqlPrConnections() {
     }),
   );
 }
+function reparentBranch(branch, parent) {
+  const rows = state.topology ?? [];
+  const row = rows.find((entry) => entry.branch === branch);
+  if (!row) return;
+  const oldParent = rows.find((entry) => entry.branch === row.parent);
+  if (oldParent) oldParent.children = (oldParent.children ?? []).filter((child) => child !== branch);
+  const newParent = rows.find((entry) => entry.branch === parent);
+  if (newParent && !(newParent.children ?? []).includes(branch)) {
+    newParent.children = [...(newParent.children ?? []), branch];
+  }
+  row.parent = parent;
+}
 function reparentChildrenOnDelete(branch) {
   // Mirror documented gt behavior: deleting a tracked branch reparents its
   // children onto the deleted branch's parent in Graphite metadata.
@@ -816,6 +890,12 @@ if (command === "gt") {
     const result = git(["branch", "-D", branch]);
     if ((result.status ?? 0) === 0) reparentChildrenOnDelete(branch);
     finish(result.status || 0, result.stdout || "", result.stderr || "");
+  }
+  if (args[0] === "track") {
+    const branch = args[1];
+    const parent = args[args.indexOf("--parent") + 1];
+    reparentBranch(branch, parent);
+    finish(0, "");
   }
   if (args[0] === "restack") {
     const branch = args[args.indexOf("--branch") + 1];

@@ -209,6 +209,10 @@ describe("@nseng-ai/flow/land API boundary", () => {
 						type: "success",
 						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
 					}),
+					reparentBranch: async () => ({
+						type: "success",
+						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },
+					}),
 					submitUpdate: async () => ({
 						type: "success",
 						result: { stdout: "", stderr: "", code: 0, type: "exited", signal: null },

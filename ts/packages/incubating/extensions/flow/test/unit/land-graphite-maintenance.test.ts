@@ -281,15 +281,25 @@ describe("Graphite maintenance over LandContext", () => {
 	});
 
 	test.each([
-		{ policy: "preserve", shouldDeferLandedBranchDeletion: true, expectedDeletedBranches: [] },
+		{
+			policy: "preserve",
+			shouldDeferLandedBranchDeletion: true,
+			expectedDeletedBranches: [],
+			expectedReparentedBranches: ["feature-b"],
+		},
 		{
 			policy: "free",
 			shouldDeferLandedBranchDeletion: false,
 			expectedDeletedBranches: ["feature-a"],
+			expectedReparentedBranches: [],
 		},
 	] as const)(
 		"$policy keeps required next-landing maintenance while applying branch cleanup policy",
-		async ({ shouldDeferLandedBranchDeletion, expectedDeletedBranches }) => {
+		async ({
+			shouldDeferLandedBranchDeletion,
+			expectedDeletedBranches,
+			expectedReparentedBranches,
+		}) => {
 			const fakes = createInMemoryLandContext({
 				git: {
 					localBranches: [
@@ -330,10 +340,71 @@ describe("Graphite maintenance over LandContext", () => {
 				expectedDeletedBranches,
 			);
 			expect(fakes.graphite.refreshBranchFromRemoteCalls).toHaveLength(1);
+			expect(fakes.graphite.reparentBranchCalls.map((call) => call.branch)).toEqual(
+				expectedReparentedBranches,
+			);
 			expect(fakes.graphite.restackCalls).toHaveLength(1);
 			expect(fakes.graphite.submitUpdateCalls).toHaveLength(1);
 		},
 	);
+
+	test("halts deferred required-next maintenance when topology repair fails", async () => {
+		const commandDisplay = "gt track feature-b --parent main --no-interactive";
+		const fakes = createInMemoryLandContext({
+			git: {
+				localBranches: [
+					{ name: "feature-a", sha: FEATURE_A_SHA },
+					{ name: "feature-b", sha: FEATURE_B_SHA },
+				],
+			},
+			graphite: {
+				reparentBranchResults: {
+					"feature-b": {
+						type: "failure",
+						commandDisplay,
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "track failed",
+							code: 1,
+							signal: null,
+						},
+					},
+				},
+			},
+		});
+
+		const outcome = await performGraphiteMaintenance(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
+				step: {
+					index: 0,
+					branch: "feature-a",
+					prNumber: 1,
+					state: createMergeLoopState([
+						["feature-a", FEATURE_A_SHA],
+						["feature-b", FEATURE_B_SHA],
+					]),
+				},
+				shouldDeferLandedBranchDeletion: true,
+			},
+		);
+
+		expect(outcome).toMatchObject({
+			kind: "halt",
+			phase: "merge-maintenance-cleanup",
+			failure: {
+				failedBranch: "feature-b",
+				displayCommand: commandDisplay,
+				message: "PR #1 merged, but Graphite topology repair failed for feature-b.",
+				suggestedAction: `Run ${commandDisplay} manually, inspect the stack, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+			},
+		});
+		expect(fakes.graphite.restackCalls).toEqual([]);
+		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+	});
 
 	test("reports unexpected children directly during best-effort cleanup", async () => {
 		const fakes = createInMemoryLandContext({

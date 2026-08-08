@@ -36,6 +36,7 @@ import {
 	getDownstackNoCheckoutOperation,
 	restackOperation,
 	submitUpdateOperation,
+	trackBranchParentOperation,
 	type LandGraphiteOperation,
 } from "../graphite-operations.ts";
 import type { LandGraphiteCommandChannel } from "./graphite-command-channel.ts";
@@ -131,6 +132,12 @@ export function createLandContext(
 					graphite,
 					repoRoot,
 					operation: restackOperation({ branch, scope }),
+				}),
+			reparentBranch: async ({ repoRoot, branch, parent }) =>
+				runGraphiteMutation({
+					graphite,
+					repoRoot,
+					operation: trackBranchParentOperation({ branch, parent }),
 				}),
 			submitUpdate: async ({ repoRoot, branch, force }) =>
 				runGraphiteMutation({
@@ -305,7 +312,7 @@ async function runGraphiteMutation(options: {
 	readonly repoRoot: string;
 	readonly operation: Extract<
 		LandGraphiteOperation,
-		{ readonly kind: "submit-update" | "restack" }
+		{ readonly kind: "submit-update" | "restack" | "track-branch-parent" }
 	>;
 }): Promise<LandGraphiteCommandResult> {
 	const result = await options.graphite.run({

@@ -65,6 +65,7 @@ export type InMemoryLandCallEvent =
 			readonly request: LandDeleteLocalBranchCall;
 	  }
 	| { readonly operation: "graphite.restack"; readonly request: LandRestackCall }
+	| { readonly operation: "graphite.reparentBranch"; readonly request: LandReparentBranchCall }
 	| { readonly operation: "graphite.submitUpdate"; readonly request: LandSubmitUpdateCall }
 	| { readonly operation: "graphite.branchChildren"; readonly request: LandBranchChildrenCall }
 	| { readonly operation: "graphite.branchParent"; readonly request: LandBranchParentCall };
@@ -390,6 +391,7 @@ export interface InMemoryLandGraphiteGatewayState {
 	readonly submitUpdateResults?: Readonly<Record<string, OperationState>>;
 	readonly restackForSubmitResults?: Readonly<Record<string, OperationState>>;
 	readonly restackResults?: Readonly<Record<string, OperationState>>;
+	readonly reparentBranchResults?: Readonly<Record<string, OperationState>>;
 	readonly refreshBranchFromRemoteResults?: Readonly<
 		Record<string, LandGraphiteRefreshBranchResult>
 	>;
@@ -429,6 +431,10 @@ export interface LandRestackCall extends LandBranchCall {
 	readonly scope: LandGraphiteRestackScope;
 }
 
+export interface LandReparentBranchCall extends LandBranchCall {
+	readonly parent: string;
+}
+
 export interface LandBranchChildrenCall extends LandBranchCall {
 	readonly metadataDbPath: string;
 }
@@ -444,6 +450,7 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly submitUpdateResults: ReadonlyMap<string, OperationState>;
 	private readonly restackForSubmitResults: ReadonlyMap<string, OperationState>;
 	private readonly restackResults: ReadonlyMap<string, OperationState>;
+	private readonly reparentBranchResults: ReadonlyMap<string, OperationState>;
 	private readonly refreshBranchFromRemoteResults: ReadonlyMap<
 		string,
 		LandGraphiteRefreshBranchResult
@@ -465,6 +472,7 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 	private readonly refreshBranchFromRemoteLog: LandRefreshBranchFromRemoteCall[] = [];
 	private readonly deleteLocalBranchLog: LandDeleteLocalBranchCall[] = [];
 	private readonly restackLog: LandRestackCall[] = [];
+	private readonly reparentBranchLog: LandReparentBranchCall[] = [];
 	private readonly submitUpdateLog: LandSubmitUpdateCall[] = [];
 	private readonly branchChildrenLog: LandBranchChildrenCall[] = [];
 	private readonly branchParentLog: LandBranchParentCall[] = [];
@@ -494,6 +502,12 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		);
 		this.restackResults = new Map(
 			Object.entries(state.restackResults ?? {}).map(([key, result]) => [key, cloneData(result)]),
+		);
+		this.reparentBranchResults = new Map(
+			Object.entries(state.reparentBranchResults ?? {}).map(([branch, result]) => [
+				branch,
+				cloneData(result),
+			]),
 		);
 		this.refreshBranchFromRemoteResults = new Map(
 			Object.entries(state.refreshBranchFromRemoteResults ?? {}).map(([branch, result]) => [
@@ -553,6 +567,10 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 
 	get restackCalls(): readonly LandRestackCall[] {
 		return cloneData(this.restackLog);
+	}
+
+	get reparentBranchCalls(): readonly LandReparentBranchCall[] {
+		return cloneData(this.reparentBranchLog);
 	}
 
 	get submitUpdateCalls(): readonly LandSubmitUpdateCall[] {
@@ -698,6 +716,23 @@ export class InMemoryLandGraphiteGateway implements LandGraphiteGateway {
 		if (result.type === "success") {
 			this.hooks.onRestackSuccess?.(request.branch, request.scope);
 		}
+		return result;
+	}
+
+	async reparentBranch(request: {
+		readonly repoRoot: string;
+		readonly branch: string;
+		readonly parent: string;
+	}): Promise<LandGraphiteCommandResult> {
+		const call = {
+			repoRoot: request.repoRoot,
+			branch: request.branch,
+			parent: request.parent,
+		};
+		this.reparentBranchLog.push(call);
+		this.recordCall({ operation: "graphite.reparentBranch", request: call });
+		const result = commandResult(this.reparentBranchResults.get(request.branch));
+		if (result.type === "success") this.branchParents.set(request.branch, request.parent);
 		return result;
 	}
 

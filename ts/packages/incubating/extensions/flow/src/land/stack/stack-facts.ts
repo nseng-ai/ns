@@ -9,7 +9,10 @@ import {
 	type GitWorktreeStateFs,
 	type GitWorktreeStateOptions,
 } from "@nseng-ai/foundation/git";
-import { reconcileTopologyToLiveBranches } from "@nseng-ai/extension-kit/graphite/metadata";
+import {
+	reconcileTopologyToLiveBranches,
+	type DroppedGraphiteChildLink,
+} from "@nseng-ai/extension-kit/graphite/metadata";
 import { GIT_TIMEOUT_MS, GT_TIMEOUT_MS } from "./constants.ts";
 import { exec, formatCommandDetails } from "./command-exec.ts";
 import {
@@ -145,10 +148,11 @@ export async function loadStackSnapshot(
 			: { liveLocalBranches: options.liveLocalBranches }),
 	});
 	if (liveBranches.type === "failure") return liveBranches;
-	const { topology: reconciled, droppedBranches } = reconcileTopologyToLiveBranches(
-		topology.value,
-		liveBranches.value,
-	);
+	const {
+		topology: reconciled,
+		droppedBranches,
+		droppedChildLinks,
+	} = reconcileTopologyToLiveBranches(topology.value, liveBranches.value);
 
 	const landingBranches = derivePathToTrunk({
 		topology: reconciled,
@@ -179,6 +183,7 @@ export async function loadStackSnapshot(
 		warnings: [
 			...trunkMarkerWarnings(reconciled, trunk),
 			...staleMetadataBranchWarnings(droppedBranches),
+			...staleMetadataChildLinkWarnings(droppedChildLinks),
 		],
 	});
 }
@@ -224,12 +229,29 @@ function loadLiveLocalBranchNames(options: {
 // surfaces a single non-fatal warning so the user can clean it up.
 function staleMetadataBranchWarnings(droppedBranches: readonly string[]): LandingWarning[] {
 	if (droppedBranches.length === 0) return [];
-	const cleanup = droppedBranches
-		.map((branch) => formatGraphiteOperation(untrackLocalBranchOperation(branch)))
-		.join("\n");
+	const listedBranches = droppedBranches.slice(0, 10);
+	const omittedCount = droppedBranches.length - listedBranches.length;
+	const branchSummary = `${listedBranches.join(", ")}${omittedCount === 0 ? "" : `, and ${omittedCount} more`}`;
+	const cleanup =
+		droppedBranches.length <= 5
+			? ` Run:\n${droppedBranches
+					.map((branch) => formatGraphiteOperation(untrackLocalBranchOperation(branch)))
+					.join("\n")}`
+			: " Inspect Graphite metadata and untrack stale entries when convenient.";
 	return [
 		landingWarning({
-			message: `Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${droppedBranches.join(", ")}. Run:\n${cleanup}`,
+			message: `Ignored ${droppedBranches.length} stale Graphite metadata branch(es) with no local ref: ${branchSummary}.${cleanup}`,
+		}),
+	];
+}
+
+function staleMetadataChildLinkWarnings(
+	droppedChildLinks: readonly DroppedGraphiteChildLink[],
+): LandingWarning[] {
+	if (droppedChildLinks.length === 0) return [];
+	return [
+		landingWarning({
+			message: `Ignored ${droppedChildLinks.length} stale Graphite child link(s) that disagreed with the child branch's parent metadata: ${droppedChildLinks.map(({ parent, child }) => `${parent} -> ${child}`).join(", ")}.`,
 		}),
 	];
 }

@@ -32,10 +32,83 @@ const runRequiredCommand = createRequiredCommandRunner({
 
 describe("land stack real Graphite CLI integration", () => {
 	test(
+		"gt track reparents both metadata directions without changing the branch commit",
+		async () => {
+			await withTempGraphiteRepo(async ({ repoRoot, env }) => {
+				const dbPath = join(repoRoot, ".git", ".graphite_metadata.db");
+				const beforeSha = (
+					await runRequiredCommand({
+						cwd: repoRoot,
+						env,
+						command: "git",
+						args: ["rev-parse", "feature-b"],
+					})
+				).stdout.trim();
+
+				await runRequiredCommand({
+					cwd: repoRoot,
+					env,
+					command: "gt",
+					args: ["track", "feature-b", "--parent", "master", "--no-interactive"],
+				});
+
+				const rows = await sqliteJson({
+					cwd: repoRoot,
+					env,
+					dbPath,
+					sql: [
+						"select branch_name, parent_branch_name, children",
+						"from branch_metadata order by branch_name",
+					].join(" "),
+				});
+				expect(rows).toEqual([
+					{
+						branch_name: "feature-a",
+						parent_branch_name: "master",
+						children: "[]",
+					},
+					{
+						branch_name: "feature-b",
+						parent_branch_name: "master",
+						children: "[]",
+					},
+					{
+						branch_name: "master",
+						parent_branch_name: null,
+						children: '["feature-a","feature-b"]',
+					},
+				]);
+				const afterSha = (
+					await runRequiredCommand({
+						cwd: repoRoot,
+						env,
+						command: "git",
+						args: ["rev-parse", "feature-b"],
+					})
+				).stdout.trim();
+				expect(afterSha).toBe(beforeSha);
+			});
+		},
+		REAL_GT_TEST_TIMEOUT_MS,
+	);
+
+	test(
 		"reconciles dangling Graphite metadata to the live-ref view shown by gt ls",
 		async () => {
 			await withTempGraphiteRepo(async ({ repoRoot, env }) => {
 				const dbPath = join(repoRoot, ".git", ".graphite_metadata.db");
+				await runRequiredCommand({
+					cwd: repoRoot,
+					env,
+					command: "git",
+					args: ["checkout", "feature-a"],
+				});
+				await runRequiredCommand({
+					cwd: repoRoot,
+					env,
+					command: "git",
+					args: ["update-ref", "-d", "refs/heads/feature-b"],
+				});
 
 				const rawRows = await sqliteJson({
 					cwd: repoRoot,
@@ -163,14 +236,6 @@ async function initializeGraphiteStack(repoRoot: string, env: NodeJS.ProcessEnv)
 		env,
 		command: "gt",
 		args: ["create", "feature-b", "-m", "feature b", "--no-interactive", "--no-ai"],
-	});
-
-	await runRequiredCommand({ cwd: repoRoot, env, command: "git", args: ["checkout", "feature-a"] });
-	await runRequiredCommand({
-		cwd: repoRoot,
-		env,
-		command: "git",
-		args: ["update-ref", "-d", "refs/heads/feature-b"],
 	});
 }
 

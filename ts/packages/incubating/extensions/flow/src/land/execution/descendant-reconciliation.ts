@@ -14,6 +14,7 @@ import {
 	checkBranchBeforeDelete,
 	guardForcedRefresh,
 	localBranchDeletionFailure,
+	repairGraphiteBranchParent,
 } from "./maintenance-safety.ts";
 
 export type DescendantReconciliationOutcome =
@@ -72,7 +73,18 @@ export async function reconcileDescendantRoots(
 		if (refreshFailure !== undefined) return reconciliationHalt(refreshFailure);
 	}
 
-	if (!options.shouldDeferLandedBranchDeletion) {
+	if (options.shouldDeferLandedBranchDeletion) {
+		for (const maintenanceBranch of maintenance.branches) {
+			const reparentFailure = await repairGraphiteBranchParent(executionContext, {
+				repoRoot: options.plan.repoRoot,
+				prNumber: options.prNumber,
+				branch: maintenanceBranch,
+				parent: options.plan.stack.trunk,
+				failureSubject: `descendant root ${maintenanceBranch}`,
+			});
+			if (reparentFailure !== undefined) return reconciliationHalt(reparentFailure);
+		}
+	} else {
 		const deleteCheckFailure = await checkLandedBranchBeforeDelete(executionContext, options);
 		if (deleteCheckFailure !== undefined) return reconciliationHalt(deleteCheckFailure);
 		const deletionFailure = await deleteLandedBranch(executionContext, options);

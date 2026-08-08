@@ -99,6 +99,7 @@ function eventLabel(event: InMemoryLandCallEvent): string {
 		case "graphite.refreshBranchFromRemote":
 		case "graphite.deleteLocalBranch":
 		case "graphite.restack":
+		case "graphite.reparentBranch":
 		case "graphite.submitUpdate":
 		case "graphite.branchChildren":
 		case "graphite.branchParent":
