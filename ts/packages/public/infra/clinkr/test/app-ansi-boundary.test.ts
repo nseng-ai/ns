@@ -48,7 +48,7 @@ test("JSON envelopes are untouched by the output-boundary strip", async () => {
 test("handler-supplied outcome messages are stripped for plain sinks", async () => {
 	const message = "\x1b[31mno\x1b[0m";
 	const run = await runForCliTest(echoOutcomeApp, ["--input-json"], {
-		jsonInput: JSON.stringify({ outcome: { status: "negative", message } }),
+		readStructuredRequest: async () => JSON.stringify({ outcome: { status: "negative", message } }),
 	});
 	expect(run).toEqual({ exitCode: 1, stdout: "no\n", stderr: "" });
 });
@@ -56,7 +56,7 @@ test("handler-supplied outcome messages are stripped for plain sinks", async () 
 test("handler-supplied outcome messages are preserved for ANSI-enabled sinks", async () => {
 	const message = "\x1b[31mno\x1b[0m";
 	const run = await runForCliTest(echoOutcomeApp, ["--input-json"], {
-		jsonInput: JSON.stringify({ outcome: { status: "negative", message } }),
+		readStructuredRequest: async () => JSON.stringify({ outcome: { status: "negative", message } }),
 		canEmitAnsi: true,
 	});
 	expect(run).toEqual({ exitCode: 1, stdout: `${message}\n`, stderr: "" });

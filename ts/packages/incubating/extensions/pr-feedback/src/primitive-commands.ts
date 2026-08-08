@@ -330,7 +330,7 @@ async function runCloseReviewThreads(
 		inputDescription: "review-thread IDs JSON payload",
 		optionName: "--thread-ids-json",
 		schema: closeReviewThreadsInputSchema,
-		readJsonInput: ctx.readJsonInput,
+		readStructuredRequest: ctx.readStructuredRequest,
 	});
 	if (payloadResult.type === "error")
 		return failure(payloadResult.error.errorType, payloadResult.error.message);
