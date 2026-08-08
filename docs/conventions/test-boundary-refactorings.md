@@ -28,6 +28,9 @@ Transformations for seam introduction introduce a layer of indirection that test
 
 1. Use **Inject Dependency** while the boundary is one narrow collaborator with local scope.
 2. Use **Inject Gateway** when a suitable gateway contract already exists. Receive the gateway; do not rebuild it.
+3. Use **Introduce Gateway** only when no existing contract fits and the boundary has earned the weight: multiple domain operations, a durable fake needed across many tests, or a second consumer.
+
+Each rung produces an artifact already named in root `CONTEXT.md`: a plain **DI Seam**, a **Consumer Gateway**, and a **Gateway**, respectively.
 
 ### Inject Dependency
 
@@ -44,6 +47,15 @@ Transformations for seam introduction introduce a layer of indirection that test
 - **Mechanics:** The context of the operation carries the gateway. Entry points create the context and the appropriate gateway implementation. Use a **named Consumer Gateway** as the type.
 - **Constraints:** `docs/conventions/consumer-gateways-and-command-shape.md` governs this technique. Follow the inversion rule: do not construct a `Real*Gateway` in the middle of a flow. Convert gateway clumps to named `*Context` types, not `*Options` fields. An ad-hoc anonymous `Pick<…Gateway, …>` in a signature does not justify its cost. Instead, if a scope-specific narrower gateway type is appropriate, name the narrowed type. Fakes are canonical, so tests lose nothing when you use the full contract. For one operation, you can instead use **Inject Dependency**.
 - **Precedent:** The precedents are `HandoffGitGateway`, `LandGitGateway`, and `GraphiteStackGitGateway`. These named Consumer Gateways appear with the live examples for the inversion rule in `docs/conventions/consumer-gateways-and-command-shape.md`.
+
+### Introduce Gateway
+
+*Create a new gateway with domain semantics and a capability-based shape. Pair it with a real adapter and a true in-memory fake.*
+
+- **Mechanics:** Define the contract in domain terms. Expose operations on domain objects, not raw substrate primitives. For example, expose `loadPlanStoreEntry` instead of `readOptionalTextFile`, `listDirectory`, `statPath`, or `writeFile`. Do not return raw subprocess output for domain logic to parse. Let the real adapter perform filesystem, subprocess, HTTP, environment, and wire-format operations. Construct the adapter at an application entry point, a composition root, or a named `createReal*Context` factory. Then pass the gateway through the context to domain operations. Give each consumer a named Consumer Gateway when it needs only part of the provider contract. Do not use an anonymous inline `Pick<…Gateway, …>`.
+- **Placement and fake:** Put an ns-independent gateway in Neutral Infra only when a credible external consumer could use the contract substantially unchanged. Otherwise, put an ns-specific external-tool gateway in the applicable Extension Kit subpackage. Preserve downward dependency direction and one canonical import path. See ADR 0019 and ADR 0032 for the full placement rules. Make the in-memory fake implement the same contract as the real adapter. Give the fake its initial external-system state through its constructor, and make it perform no I/O. Use semantic state for expected failures and missing data. Do not use scripted calls or setup mutators as the primary fake interface. See `docs/conventions/consumer-gateways-and-command-shape.md` and the `typescript-fake-driven-testing` skill for the full rules.
+- **Constraints:** This technique adds a contract, a real adapter, a canonical in-memory fake, composition wiring, and adapter integration coverage. Add these components only when the boundary has multiple domain operations, needs one durable fake across many tests, or has a second consumer. Provide one canonical fake for each gateway. Consumers do not create fakes for individual tests. The word *Introduce* means that you create a new gateway contract. Use **Inject Gateway** when a suitable contract already exists.
+- **Precedent:** One precedent is `PlanStoreGateway` with `InMemoryPlanStoreGateway`. It includes a real-adapter integration smoke in `.ns/objectives/standing-test-performance-boundaries/updates/2026-06-28T201757Z-plans-plan-store-gateway.md`. It also models a domain-specific storage gateway that replaces raw filesystem operations.
 
 ---
 
