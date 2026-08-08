@@ -46,4 +46,5 @@ Transformations for seam introduction introduce a layer of indirection that test
 - **Precedent:** The precedents are `HandoffGitGateway`, `LandGitGateway`, and `GraphiteStackGitGateway`. These named Consumer Gateways appear with the live examples for the inversion rule in `docs/conventions/consumer-gateways-and-command-shape.md`.
 
 ---
+
 Deviations: none.
