@@ -38,6 +38,7 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 	const execEnv = options.execEnv ?? env;
 	const homeDir = resolveHomeDir(options.homeDir, env);
 	const confirm = createTerminalConfirmPrompt();
+	const select = createUnsupportedTerminalSelectPrompt();
 	const stdout = (text: string) => process.stdout.write(text);
 	const stderr = (text: string) => process.stderr.write(text);
 	const commandIo = createCliCommandIo({ stdout, stderr });
@@ -62,7 +63,8 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 				...(execOptions.onStderr === undefined ? {} : { onStderr: execOptions.onStderr }),
 			});
 		},
-		...(confirm === undefined ? {} : { confirm }),
+		confirm,
+		select,
 	};
 }
 
@@ -72,9 +74,11 @@ export function createNsCliInteraction(options: {
 	return createClinkrInteraction(createBaseCliInteractionOptions(options.stderr));
 }
 
-export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
-	if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) return undefined;
+export function createTerminalConfirmPrompt(): NsConfirmPrompt {
 	return async (title, message, options) => {
+		if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) {
+			throw new Error("Standalone confirmation UI is unavailable.");
+		}
 		const interaction = createClinkrInteraction({
 			...createBaseCliInteractionOptions((text) => {
 				process.stderr.write(text);
@@ -86,7 +90,20 @@ export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
 			message,
 			defaultAnswer: options?.defaultAnswer ?? "no",
 		});
-		return result.type === "confirmed";
+		switch (result.type) {
+			case "confirmed":
+				return { type: "confirmed" };
+			case "declined":
+				return { type: "declined" };
+			case "aborted":
+				return { type: "cancelled" };
+		}
+	};
+}
+
+function createUnsupportedTerminalSelectPrompt(): NsExtensionApi["select"] {
+	return () => {
+		throw new Error("Standalone selection UI is unavailable.");
 	};
 }
 

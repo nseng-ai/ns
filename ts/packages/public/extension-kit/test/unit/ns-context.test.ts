@@ -10,22 +10,13 @@ import {
 } from "@nseng-ai/extension-kit/ns-context";
 
 describe("ns context adapters", () => {
-	test("creates a non-interactive aborting Clinkr interaction when confirm is unavailable", async () => {
-		const interaction = createNsClinkrInteraction(fakeApi(), { title: "Confirm" });
-
-		expect(interaction.isInteractive()).toBe(false);
-		await expect(
-			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
-		).resolves.toEqual({ type: "aborted" });
-	});
-
 	test("maps ns confirm approval to confirmed", async () => {
 		const prompts: Array<{ title: string; message: string; defaultAnswer: "yes" | "no" }> = [];
 		const interaction = createNsClinkrInteraction(
 			fakeApi({
 				confirm: async (title, message, options) => {
 					prompts.push({ title, message, defaultAnswer: options?.defaultAnswer ?? "no" });
-					return true;
+					return { type: "confirmed" };
 				},
 			}),
 			{ title: "Deploy", formatMessage: (request) => `Formatted: ${request.message}` },
@@ -41,13 +32,27 @@ describe("ns context adapters", () => {
 	});
 
 	test("maps ns confirm rejection to declined", async () => {
-		const interaction = createNsClinkrInteraction(fakeApi({ confirm: async () => false }), {
-			title: "Confirm",
-		});
+		const interaction = createNsClinkrInteraction(
+			fakeApi({ confirm: async () => ({ type: "declined" }) }),
+			{
+				title: "Confirm",
+			},
+		);
 
 		await expect(
 			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
 		).resolves.toEqual({ type: "declined" });
+	});
+
+	test("maps ns confirmation cancellation to Clinkr abort", async () => {
+		const interaction = createNsClinkrInteraction(
+			fakeApi({ confirm: async () => ({ type: "cancelled" }) }),
+			{ title: "Confirm" },
+		);
+
+		await expect(
+			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
+		).resolves.toEqual({ type: "aborted" });
 	});
 
 	test("uses the request message when no formatter is supplied", async () => {
@@ -56,7 +61,7 @@ describe("ns context adapters", () => {
 			fakeApi({
 				confirm: (_title, message) => {
 					capturedMessage = message;
-					return true;
+					return { type: "confirmed" };
 				},
 			}),
 			{ title: "Confirm" },
@@ -93,6 +98,12 @@ function fakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,
+		confirm: () => {
+			throw new Error("Unexpected confirmation prompt in Extension Kit test.");
+		},
+		select: () => {
+			throw new Error("Unexpected selection prompt in Extension Kit test.");
+		},
 		textGenerator: {
 			async generateText() {
 				return { ok: false, error: "unexpected model call" };

@@ -650,8 +650,8 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				const confirmed = await deps.confirm?.("Confirm title", "Confirm body");
-				deps.stdout(`confirmed=${String(confirmed)}\n`);
+				const confirmation = await deps.confirm("Confirm title", "Confirm body");
+				deps.stdout(`confirmed=${String(confirmation.type === "confirmed")}\n`);
 				return 0;
 			},
 		});
@@ -667,8 +667,8 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				const selected = await deps.select?.("Choose a target", ["one", "two"]);
-				deps.stdout(`selected=${String(selected)}\n`);
+				const selection = await deps.select("Choose a target", ["one", "two"]);
+				deps.stdout(`selected=${selection.type === "selected" ? selection.value : "undefined"}\n`);
 				return 0;
 			},
 		});
@@ -680,46 +680,49 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "selected=two\n");
 	});
 
-	test("fails confirmation and selection closed when Pi has no applicable UI", async () => {
+	test("reports an error when Pi has no applicable confirmation UI", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				const confirmed = await deps.confirm("Confirm title", "Confirm body");
-				const selected = await deps.select("Choose a target", ["one", "two"]);
-				deps.stdout(`confirmed=${String(confirmed)} selected=${String(selected)}\n`);
+				await deps.confirm("Confirm title", "Confirm body");
 				return 0;
 			},
 		});
-		const { ctx, confirmations, selections } = createContext([], {
+		const { ctx, confirmations } = createContext([], {
 			hasUI: false,
 			confirm: () => true,
-			select: () => "two",
 		});
 
 		const writes = await captureProcessWrites(async () => {
 			await commandFor(pi, "dev:preview-status").handler("", ctx);
 		});
 
-		expect(writes).toEqual({ stdout: "confirmed=false selected=undefined\n", stderr: "" });
+		expect(writes).toEqual({
+			stdout: "",
+			stderr:
+				"fake-cli preview-status exited with code 1.\n\nstderr:\nUnhandled fake-cli command error: Pi confirmation UI is unavailable.\n",
+		});
 		expect(confirmations).toEqual([]);
-		expect(selections).toEqual([]);
 	});
 
-	test("fails individual interactions closed when Pi omits that UI operation", async () => {
+	test("reports an error when Pi omits the requested selection operation", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				const confirmed = await deps.confirm("Confirm title", "Confirm body");
-				const selected = await deps.select("Choose a target", ["one", "two"]);
-				deps.stdout(`confirmed=${String(confirmed)} selected=${String(selected)}\n`);
+				await deps.select("Choose a target", ["one", "two"]);
 				return 0;
 			},
 		});
-		const { ctx } = createContext();
+		const { ctx, selections } = createContext([], { confirm: () => true });
 
 		await commandFor(pi, "dev:preview-status").handler("", ctx);
 
-		expectSingleCliOutputMessage(pi, "confirmed=false selected=undefined\n");
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 1.\n\nstderr:\nUnhandled fake-cli command error: Pi selection UI is unavailable.\n",
+			"error",
+		);
+		expect(selections).toEqual([]);
 	});
 
 	test("does not intercept ambient process output while selection is pending", async () => {
@@ -735,8 +738,8 @@ describe("cli command extension helper", () => {
 		let afterDetails: CliCommandOutputDetails | undefined;
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				const selected = await deps.select?.("Choose a target", ["one", "two"]);
-				deps.stdout(`selected=${String(selected)}\n`);
+				const selection = await deps.select("Choose a target", ["one", "two"]);
+				deps.stdout(`selected=${selection.type === "selected" ? selection.value : "undefined"}\n`);
 				deps.stderr("command warning\n");
 				return 0;
 			},
@@ -778,8 +781,8 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				const confirmed = await deps.confirm?.("Confirm title", "Confirm body");
-				deps.stdout(`confirmed=${String(confirmed)}\n`);
+				const confirmation = await deps.confirm("Confirm title", "Confirm body");
+				deps.stdout(`confirmed=${String(confirmation.type === "confirmed")}\n`);
 				return 0;
 			},
 		});

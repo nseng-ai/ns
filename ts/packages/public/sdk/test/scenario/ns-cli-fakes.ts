@@ -84,8 +84,8 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
-	confirm?: NsConfirmPrompt;
-	select?: NsSelectPrompt;
+	confirm: NsConfirmPrompt;
+	select: NsSelectPrompt;
 	readJsonInput?: () => Promise<string>;
 	extensions?: Readonly<Record<string, unknown>>;
 	private readonly execResponses: ScriptedExecResponse[];
@@ -101,8 +101,16 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
-		if (state.confirm !== undefined) this.confirm = state.confirm;
-		if (state.select !== undefined) this.select = state.select;
+		this.confirm =
+			state.confirm ??
+			(() => {
+				throw new Error("Unexpected confirmation prompt in SDK test.");
+			});
+		this.select =
+			state.select ??
+			(() => {
+				throw new Error("Unexpected selection prompt in SDK test.");
+			});
 		this.readJsonInput = async () => state.stdin ?? "";
 		if (state.extensions !== undefined) this.extensions = state.extensions;
 	}

@@ -13,6 +13,7 @@ import type {
 	NsConfirmPrompt,
 	NsExtensionApi,
 	NsProgress,
+	NsSelectPrompt,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@nseng-ai/sdk";
@@ -51,6 +52,7 @@ export interface TestState {
 	exec?: readonly ScriptedExecResponse[];
 	textGeneration?: readonly ScriptedTextGenerationResult[];
 	confirm?: NsConfirmPrompt;
+	select?: NsSelectPrompt;
 }
 
 export interface RunWithFakesOptions {
@@ -90,7 +92,8 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
-	confirm?: NsConfirmPrompt;
+	confirm: NsConfirmPrompt;
+	select: NsSelectPrompt;
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
 	private readonly missingTextGenerationResult: (() => TextGenerationResult) | undefined;
@@ -105,7 +108,16 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
-		if (state.confirm !== undefined) this.confirm = state.confirm;
+		this.confirm =
+			state.confirm ??
+			(() => {
+				throw new Error("Unexpected confirmation prompt in Flow test.");
+			});
+		this.select =
+			state.select ??
+			(() => {
+				throw new Error("Unexpected selection prompt in Flow test.");
+			});
 	}
 
 	async exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult> {
@@ -224,6 +236,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 				liveOutput.push({ stream, text });
 			},
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
+			...(options.state?.select === undefined ? {} : { select: options.state.select }),
 		}),
 	};
 }

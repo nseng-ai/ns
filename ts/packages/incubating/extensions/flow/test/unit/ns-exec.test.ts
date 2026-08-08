@@ -54,6 +54,12 @@ function createFakeApi(results: readonly ExecResult[]): {
 			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,
+			confirm: () => {
+				throw new Error("Unexpected confirmation prompt in test.");
+			},
+			select: () => {
+				throw new Error("Unexpected selection prompt in test.");
+			},
 			textGenerator: {
 				async generateText() {
 					return { ok: false, error: "unexpected model call" };

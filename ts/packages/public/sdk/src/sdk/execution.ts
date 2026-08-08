@@ -22,16 +22,25 @@ export interface NsConfirmOptions {
 	defaultAnswer?: "yes" | "no";
 }
 
+export type NsConfirmationResult =
+	| { readonly type: "confirmed" }
+	| { readonly type: "declined" }
+	| { readonly type: "cancelled" };
+
 export type NsConfirmPrompt = (
 	title: string,
 	message: string,
 	options?: NsConfirmOptions,
-) => Promise<boolean> | boolean;
+) => Promise<NsConfirmationResult> | NsConfirmationResult;
+
+export type NsSelectionResult =
+	| { readonly type: "selected"; readonly value: string }
+	| { readonly type: "cancelled" };
 
 export type NsSelectPrompt = (
 	title: string,
 	options: readonly string[],
-) => Promise<string | undefined> | string | undefined;
+) => Promise<NsSelectionResult> | NsSelectionResult;
 
 export interface NsExtensionApi {
 	/** Current repository working directory for command-entry execution. */
@@ -71,10 +80,10 @@ export interface NsExtensionApi {
 		"public-api-compatibility",
 		(stream: NsOutputStream, text: string) => void
 	>;
-	/** Optional UI confirmation hook for interactive ns commands. */
-	confirm?: ExplicitUndefined<"public-api-compatibility", NsConfirmPrompt>;
-	/** Optional UI selection hook for interactive ns commands. */
-	select?: ExplicitUndefined<"public-api-compatibility", NsSelectPrompt>;
+	/** Required semantic confirmation capability supplied by every host. */
+	confirm: NsConfirmPrompt;
+	/** Required semantic selection capability supplied by every host. */
+	select: NsSelectPrompt;
 	/** Project-local extension bag. ns commands own any values they read from it. */
 	extensions?: ExplicitUndefined<"public-api-compatibility", Readonly<Record<string, unknown>>>;
 }

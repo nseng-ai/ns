@@ -47,17 +47,15 @@ describe("handoff ns command objects", () => {
 		});
 	});
 
-	test("delete requires confirmation when non-interactive and deletes with yes", async () => {
+	test("delete reports unavailable confirmation and deletes with yes", async () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "alpha" });
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
 		const api = createFakeHandoffNsApi({ brmem, git });
 
-		const missingYes = await runHandoffCommand(handoffDeleteNsCommand, { slug: "alpha" }, { api });
-		expect(missingYes).toMatchObject({
-			type: "usageError",
-			data: { missingFlag: "--yes" },
-		});
+		await expect(
+			runHandoffCommand(handoffDeleteNsCommand, { slug: "alpha" }, { api }),
+		).rejects.toThrow("Unexpected confirmation prompt in handoff test.");
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
 
 		const confirmed = await runHandoffCommand(
@@ -444,11 +442,9 @@ describe("handoff ns command objects", () => {
 		const git = new InMemoryGitGateway({ currentBranch: "main", existingBranches: ["main"] });
 		const api = createFakeHandoffNsApi({ brmem, git });
 
-		const forceRequired = await runHandoffCommand(handoffGcNsCommand, {}, { api });
-		expect(forceRequired).toMatchObject({
-			type: "usageError",
-			data: { missingFlag: "--force" },
-		});
+		await expect(runHandoffCommand(handoffGcNsCommand, {}, { api })).rejects.toThrow(
+			"Unexpected confirmation prompt in handoff test.",
+		);
 
 		const dryRun = await runHandoffCommand(handoffGcNsCommand, { dryRun: true }, { api });
 		expect(dryRun).toMatchObject({
