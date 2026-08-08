@@ -100,11 +100,12 @@ describe("renderObjectiveListPretty layout", () => {
 		expect(out).not.toContain("feat/beta");
 	});
 
-	test("truncates the slug column against a narrow terminal", () => {
+	test("never truncates objective slugs in narrow terminals", () => {
+		const slug = "a-very-long-objective-slug-that-overflows-a-narrow-terminal";
 		const wide = result({
 			records: [
 				{
-					slug: "a-very-long-objective-slug-that-overflows-a-narrow-terminal",
+					slug,
 					status: "open",
 					latestUpdateIso: null,
 					hasOutstandingChanges: false,
@@ -112,7 +113,8 @@ describe("renderObjectiveListPretty layout", () => {
 			],
 		});
 		const out = renderObjectiveListPretty(wide, caps({ colorDepth: "none", columns: 40 }), NOW);
-		expect(out).toContain("…");
+		expect(out).toContain(slug);
+		expect(out).not.toContain("…");
 	});
 
 	test("ns renderHuman uses settled caps instead of process TTY state", () => {
