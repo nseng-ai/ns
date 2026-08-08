@@ -50,7 +50,7 @@ async function runBranchPrChecksOperation(
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",
 		schema: branchPrChecksInputSchema,
-		readJsonInput: ctx.readJsonInput,
+		readStructuredRequest: ctx.readStructuredRequest,
 	});
 	if (payloadResult.type === "error")
 		return failure(payloadResult.error.errorType, payloadResult.error.message);

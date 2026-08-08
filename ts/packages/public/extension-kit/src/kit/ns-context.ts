@@ -9,7 +9,7 @@ export interface NsClinkrInteractionOptions {
 export interface NsCwdEnvJsonInputContext {
 	cwd: string;
 	env: Record<string, string | undefined>;
-	readJsonInput(): Promise<string>;
+	readStructuredRequest(): Promise<string>;
 }
 
 /**
@@ -49,15 +49,14 @@ export function createNsClinkrInteraction(
  * receives cwd/env and finite JSON request input from `NsExtensionApi`.
  */
 export function createNsCwdEnvJsonInputContext(ctx: NsExtensionApi): NsCwdEnvJsonInputContext {
+	if (ctx.readStructuredRequest === undefined) {
+		throw new Error("ns JSON input context requires readStructuredRequest");
+	}
 	return {
 		cwd: ctx.cwd,
 		env: ctx.env,
-		readJsonInput: ctx.readJsonInput ?? readEmptyJsonInput,
+		readStructuredRequest: ctx.readStructuredRequest,
 	};
-}
-
-export async function readEmptyJsonInput(): Promise<string> {
-	return "";
 }
 
 function formatNsConfirmationMessage(
