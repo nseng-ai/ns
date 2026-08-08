@@ -19,7 +19,6 @@
 		"jiti": "catalog:"
 	},
 	"devDependencies": {
-		"@earendil-works/pi-ai": "catalog:",
 		"@nseng-ai/sdk": "workspace:*",
 		"vitest": "catalog:"
 	},

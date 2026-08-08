@@ -11,7 +11,6 @@ import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 describe("model policy", () => {
 	test("publishes stable operation identifiers", () => {
 		expect(MODEL_OPERATION_IDS.flowPrInventory).toBe("flow.pr-inventory");
-		expect(MODEL_OPERATION_IDS.piCliCommandResultSummary).toBe("pi.cli-command-result-summary");
 		expect(MODEL_OPERATION_IDS.contextProfilerSegmentation).toBe("context-profiler.segmentation");
 		expect(MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis).toBe(
 			"context-profiler.episode-analysis",
@@ -57,7 +56,6 @@ thinking = "high"
 		if (!policy.ok) return;
 
 		for (const operationId of [
-			MODEL_OPERATION_IDS.piCliCommandResultSummary,
 			MODEL_OPERATION_IDS.contextProfilerSegmentation,
 			MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
 		]) {
