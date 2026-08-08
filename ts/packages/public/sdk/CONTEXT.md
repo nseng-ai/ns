@@ -14,6 +14,10 @@ An **Extension Descriptor** describes an extension package without executing its
 
 `@nseng-ai/sdk` is the public ns author surface. `defineCommand()` and `defineRawCommand()` return contextful modern Clinkr definitions over `NsExtensionApi`. Command identity and presentation metadata belong to the route-local `metadata.ts`/`group.ts` files or the host's programmatic source, not the executable definition.
 
+## Invocation capabilities
+
+An **ns command invocation** receives host-owned finite JSON request input, semantic confirmation/selection, rendering capability, and invocation-scoped output through `NsExtensionApi`. JSON request input is a single optional text value whose parsing and validation remain command-owned; it is not general stdin or interactive input. Standalone composition may adapt these capabilities to process streams and terminal prompts, while embedded hosts provide explicit values, sinks, and native UI and must not inherit ambient process I/O.
+
 ## Host composition
 
 The ns host prepares source inventory and invocation context, constructs exactly one contextful `ClinkrApp`, mounts each source under its own label, and calls only `app.run()`. Clinkr owns recursive navigation, selected loading, help, schema handling, and completion. The standalone SDK host owns the extension-point subtree; a distribution host that owns extension lifecycle composes those SDK commands into its single host-internal `extension` subtree and disables the standalone SDK subtree. Host-owned shell commands remain a separate programmatic built-in subtree; all sources own disjoint top-level routes.
@@ -24,4 +28,5 @@ The ns host prepares source inventory and invocation context, constructs exactly
 - descriptor-owned command topology or loader callbacks
 - SDK route enumeration, argv selection, completion interception, or render adaptation
 - compatibility descriptors or legacy Clinkr command objects
+- general stdin, terminal-session, or ambient process-I/O capabilities on `NsExtensionApi`
 - the unqualified phrase “extension API”; use **ns extension API** here

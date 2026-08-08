@@ -8,6 +8,8 @@ It combines the Pi runtime extension API with this repo's command-registration p
 - Pi extension commands are registered with `pi.registerCommand(name, { description, handler, ... })`; `name` is the command without the leading `/`.
 - Project-local discovery adapters live under `.pi/extensions/`; durable tested implementation belongs in its owning engineered destination: `@nseng-ai/pi-runtime`, a separate `pi-ns-<domain>` host-adapter package, an extension `pi` subpackage where extraction has not yet occurred, or an Internal Pi-tool package under `ts/packages/internal/hosts/pi/tools/pi-tools/`.
 - Command handlers receive Pi's `ExtensionCommandContext`. Use command-only methods such as `ctx.waitForIdle()` only inside command handlers.
+- In-process structured CLI bridges must provide invocation-owned finite JSON input and output sinks, set `canEmitAnsi: false`, sanitize captured terminal controls before TUI presentation, and never inherit ambient process stdin/stdout/stderr.
+- Map required confirmation and selection to semantic `ctx.ui` operations. Do not emulate terminal line input inside Pi; fail closed when no applicable UI is available.
 - `ctx.ui.setStatus(...)` is footer/status UI. It is not transcript progress.
 - Above-fold transcript progress is explicit: use `sendCommandProgressOrNotify(...)` or `sendCommandProgressMessage(...)` at selected milestones.
 - `pi.getCommands()` / RPC `get_commands` `sourceInfo` is the canonical command provenance. Do not infer ownership from a command name alone.
@@ -90,6 +92,7 @@ While editing:
 - [ ] Do not add `withImmediateCommandAck`, `Proxy`, wrapped command hosts, hidden command-context state, or `ctx.ui.setStatus` interception.
 - [ ] Preserve command-definition fields such as `description`, `argumentHint`, and `getArgumentCompletions`.
 - [ ] Keep host interfaces narrow: declare only the Pi capabilities the module uses.
+- [ ] For embedded structured commands, keep finite JSON request input separate from semantic interaction, provide invocation-scoped output, disable ANSI, and sanitize at the Pi presentation boundary.
 - [ ] Use injected `pi.exec` or narrow injected functions for process work; do not import `node:child_process` in ordinary extension modules.
 - [ ] Use `ctx.waitForIdle()` only after immediate acknowledgement is already registered by the helper.
 - [ ] Keep `ctx.ui.setStatus` as footer/status state; add `sendCommandProgressOrNotify` only for user-visible milestones that belong in the transcript.
