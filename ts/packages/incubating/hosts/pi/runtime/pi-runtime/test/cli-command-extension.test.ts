@@ -680,6 +680,48 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "selected=two\n");
 	});
 
+	test("fails confirmation and selection closed when Pi has no applicable UI", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const confirmed = await deps.confirm("Confirm title", "Confirm body");
+				const selected = await deps.select("Choose a target", ["one", "two"]);
+				deps.stdout(`confirmed=${String(confirmed)} selected=${String(selected)}\n`);
+				return 0;
+			},
+		});
+		const { ctx, confirmations, selections } = createContext([], {
+			hasUI: false,
+			confirm: () => true,
+			select: () => "two",
+		});
+
+		const writes = await captureProcessWrites(async () => {
+			await commandFor(pi, "dev:preview-status").handler("", ctx);
+		});
+
+		expect(writes).toEqual({ stdout: "confirmed=false selected=undefined\n", stderr: "" });
+		expect(confirmations).toEqual([]);
+		expect(selections).toEqual([]);
+	});
+
+	test("fails individual interactions closed when Pi omits that UI operation", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const confirmed = await deps.confirm("Confirm title", "Confirm body");
+				const selected = await deps.select("Choose a target", ["one", "two"]);
+				deps.stdout(`confirmed=${String(confirmed)} selected=${String(selected)}\n`);
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(pi, "confirmed=false selected=undefined\n");
+	});
+
 	test("does not intercept ambient process output while selection is pending", async () => {
 		let finishSelect: (() => void) | undefined;
 		const selectFinished = new Promise<void>((resolve) => {
