@@ -488,6 +488,7 @@ describe("cli command extension helper", () => {
 			runCli: async (args, deps) => {
 				order.push("run");
 				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
+				expect(deps.canEmitAnsi).toBe(false);
 				deps.stdout("https://preview.example\n");
 				deps.stderr("warning from cli\n");
 				return 0;
@@ -510,6 +511,45 @@ describe("cli command extension helper", () => {
 			pi,
 			"stdout:\nhttps://preview.example\n\nstderr:\nwarning from cli\n",
 		);
+	});
+
+	test("captures structured output without ambient process writes", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stdout("captured output\n");
+				deps.stderr("captured warning\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		const writes = await captureProcessWrites(async () => {
+			await commandFor(pi, "dev:preview-status").handler("", ctx);
+		});
+
+		expect(writes).toEqual({ stdout: "", stderr: "" });
+		expectSingleCliOutputMessage(pi, "stdout:\ncaptured output\n\nstderr:\ncaptured warning\n");
+	});
+
+	test("sanitizes terminal controls only at the Pi presentation seam", async () => {
+		const pi = new FakePi();
+		let capturedDetails: CliCommandOutputDetails | undefined;
+		registerFakeCli(pi, {
+			afterCommandComplete: (details) => {
+				capturedDetails = details;
+			},
+			runCli: (_args, deps) => {
+				deps.stdout("\u001b[31mred\u001b[0m\u001b]0;unsafe title\u0007\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(pi, "red\n");
+		expect(capturedDetails?.stdout).toBe("\u001b[31mred\u001b[0m\u001b]0;unsafe title\u0007\n");
 	});
 
 	test("emits command-finished event after the CLI runner completes", async () => {

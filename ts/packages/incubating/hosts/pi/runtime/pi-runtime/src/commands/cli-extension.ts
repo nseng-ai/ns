@@ -10,6 +10,7 @@ import { emitPiExtensionCommandFinished, type PiExtensionCommandEventEmitter } f
 import { withSafePiUi, withSafePiUiAsync } from "../kit/shared/safe-ui.ts";
 import {
 	customMessageText,
+	stripTerminalEscapes,
 	truncateDisplayLine,
 	type CustomMessageContent,
 } from "../kit/terminal/presentation.ts";
@@ -73,8 +74,12 @@ export type CliCommandSelectPrompt = NsSelectPrompt;
 
 export interface CliCommandRunDeps {
 	cwd: string;
+	/** Invocation-owned structured output capture. */
 	stdout: (text: string) => void;
+	/** Invocation-owned structured error capture. */
 	stderr: (text: string) => void;
+	/** Whether the host permits ANSI rendering for this invocation. */
+	canEmitAnsi: boolean;
 	env: Record<string, string | undefined>;
 	/**
 	 * Emits structured live-progress phase events for the Pi footer status path only.
@@ -462,6 +467,9 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		const interaction = createPiCliCommandInteraction(ctx, activity);
 		const runDeps: CliCommandRunDeps = {
 			cwd: ctx.cwd,
+			// Pi owns terminal rendering. Embedded commands must produce settled text
+			// rather than infer capabilities from the physical process terminal.
+			canEmitAnsi: false,
 			stdout: (text) => {
 				stdout += text;
 			},
@@ -642,6 +650,7 @@ function emitCliCommandOutput(
 	displayText = formatCliCommandOutput(details),
 ): void {
 	const sendMessage = pi.sendMessage;
+	const safeDisplayText = sanitizeTerminalControlText(displayText);
 	const canSendRenderedMessage =
 		ctx.hasUI && sendMessage !== undefined && pi.registerMessageRenderer !== undefined;
 	const target = canSendRenderedMessage
@@ -653,7 +662,7 @@ function emitCliCommandOutput(
 				: "stderr";
 	traceCliCommand("emit_output", {
 		commandName: details.commandName,
-		displayChars: displayText.length,
+		displayChars: safeDisplayText.length,
 		hasUI: ctx.hasUI,
 		level: details.level,
 		messageRendererAvailable: hasMessageRenderer(pi),
@@ -666,7 +675,7 @@ function emitCliCommandOutput(
 		const sendResult = withSafePiUi(() => {
 			sendMessage({
 				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
-				content: displayText,
+				content: safeDisplayText,
 				display: true,
 				details,
 			});
@@ -682,13 +691,19 @@ function emitCliCommandOutput(
 	}
 	if (ctx.hasUI) {
 		withSafePiUi(() => {
-			ctx.ui.notify(displayText, details.level);
+			ctx.ui.notify(safeDisplayText, details.level);
 		});
 		return;
 	}
 
 	const stream = details.level === "info" ? process.stdout : process.stderr;
-	stream.write(displayText.endsWith("\n") ? displayText : `${displayText}\n`);
+	stream.write(safeDisplayText.endsWith("\n") ? safeDisplayText : `${safeDisplayText}\n`);
+}
+
+function sanitizeTerminalControlText(text: string): string {
+	return stripTerminalEscapes(text)
+		.replace(/\r\n?/g, "\n")
+		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
 function formatSuccessfulOutput(sourceCommand: string, stdout: string, stderr: string): string {
