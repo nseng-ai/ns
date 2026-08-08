@@ -60,15 +60,10 @@ export function renderObjectiveListPretty(
 		return lines.join("\n");
 	}
 
-	const maxSlug = Math.max(...result.records.map((r) => r.slug.length), "OBJECTIVE".length);
+	const slugW = Math.max(...result.records.map((r) => r.slug.length), "OBJECTIVE".length);
 	const statusW = "X blocked".length; // widest plain status cell ("{glyph} blocked")
 	const flagW = "x".length; // the outstanding-changes flag gets its own spaced column
 	const branchesW = "BRANCHES".length; // Local non-trunk branch count; `show` lists names.
-	const edgesW = "EDGES".length; // Objective Edge count, right of BRANCHES, blank when zero
-	const slugW = Math.max(
-		12,
-		Math.min(maxSlug, caps.columns - statusW - flagW - branchesW - edgesW - 23),
-	);
 	const dateW = "LATEST UPDATE".length;
 
 	lines.push("");
@@ -80,7 +75,7 @@ export function renderObjectiveListPretty(
 	);
 
 	for (const record of result.records) {
-		const slugCell = padPlain(clip(caps, record.slug, slugW), slugW);
+		const slugCell = padPlain(record.slug, slugW);
 
 		const status = objectiveStatusPresentation(record);
 		const statusGlyph = glyph(caps, status.glyphName);
