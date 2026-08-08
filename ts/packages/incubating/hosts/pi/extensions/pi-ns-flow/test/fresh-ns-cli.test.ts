@@ -20,6 +20,7 @@ describe("fresh ns CLI runner", () => {
 		const runCli = createFreshNsCliRunner(loader);
 		const deps = {
 			cwd: "/repo",
+			canEmitAnsi: false,
 			env: {},
 			stdout() {},
 			stderr() {},
