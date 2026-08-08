@@ -15,5 +15,5 @@
 ## Parked
 
 - Fixed comparative survey of additional CLI frameworks (oclif, clap, cliffy); prior art beyond Click enters only through a specific open question.
-- Third-host generalization of the channel contracts; revisit when a concrete host beyond terminal and Pi exists.
+- Third-host generalization of the channel contracts; revisit when a concrete host beyond terminal and Pi exists. MCP is the anticipated candidate: the 2026-07-28 stateless spec plus MRTR makes the channel mapping clean, but it also imposes replay-with-answers elicitation semantics. See `references/mcp-as-third-host.md` for the mapping, the two derived design tests (MCP-derivability, replay-satisfiable elicitation), and the un-parking trigger (a concrete consumer wanting ns capabilities over MCP).
 - Any new invocation service beyond Progress, Notice, and Elicitation; the streamed-durable-body ruling may propose one, which returns through the open-question decision, not this list.
