@@ -20,8 +20,8 @@ export { createNsGitGateway } from "./git-gateway.ts";
 export { createNsDomainCommand, type NsDomainCommandOptions } from "./ns-command.ts";
 export {
 	createNsClinkrInteraction,
-	createNsCwdEnvStdinContext,
-	readEmptyNsStdin,
+	createNsCwdEnvJsonInputContext,
+	readEmptyJsonInput,
 	type NsClinkrInteractionOptions,
-	type NsCwdEnvStdinContext,
+	type NsCwdEnvJsonInputContext,
 } from "./ns-context.ts";

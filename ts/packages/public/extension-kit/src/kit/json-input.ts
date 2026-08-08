@@ -19,7 +19,7 @@ export interface ReadJsonInputTextOptions {
 	readonly optionName: string;
 	readonly fileOptionName?: string;
 	readonly canReadStdin?: boolean;
-	readonly stdin: () => Promise<string>;
+	readonly readJsonInput: () => Promise<string>;
 }
 
 export interface LoadJsonInputOptions<T> extends ReadJsonInputTextOptions {
@@ -102,7 +102,7 @@ async function readRawPayload(
 			fileOptionNameValue: options.fileOptionName,
 		});
 	}
-	if (canReadStdin) return { type: "ok", value: await options.stdin() };
+	if (canReadStdin) return { type: "ok", value: await options.readJsonInput() };
 
 	return {
 		type: "error",

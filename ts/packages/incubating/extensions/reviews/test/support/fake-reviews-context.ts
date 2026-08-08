@@ -31,7 +31,7 @@ export interface FakeReviewsContextOptions {
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
 	readonly signal?: AbortSignal;
-	readonly stdin?: () => Promise<string>;
+	readonly readJsonInput?: () => Promise<string>;
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
 }
@@ -66,7 +66,7 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 		cwd: options.cwd ?? DEFAULT_REPO_ROOT,
 		env: options.env ?? {},
 		...(options.signal === undefined ? {} : { signal: options.signal }),
-		stdin: options.stdin ?? (async () => ""),
+		readJsonInput: options.readJsonInput ?? (async () => ""),
 		stdout: options.stdout ?? (() => undefined),
 		stderr: options.stderr ?? (() => undefined),
 	};

@@ -50,8 +50,10 @@ export interface ClinkrOutput {
 }
 
 interface ClinkrRunAdapterOptions {
-	/** Stdin source for `--input-json`; defaults to draining `process.stdin`. */
-	readonly readStdin?: () => Promise<string>;
+	/** Finite JSON text for `--input-json`. */
+	readonly jsonInput?: string;
+	/** Deferred finite JSON acquisition for standalone adapters. Embedded hosts should supply `jsonInput`. */
+	readonly readJsonInput?: () => Promise<string>;
 	/** ANSI capability override; defaults to process stdout for terminal output and false for custom output. */
 	readonly canEmitAnsi?: boolean;
 	/** Invocation-scoped framework and structured text output. */
@@ -418,8 +420,8 @@ class TopologyClinkrApp<TContext> {
 					"invalid-request",
 				);
 			}
-			const readStdin = options.readStdin ?? drainProcessStdin;
-			const parsedJson = parseJsonInput(await readStdin(), definition.schema);
+			const jsonInput = options.jsonInput ?? (await options.readJsonInput?.()) ?? "";
+			const parsedJson = parseJsonInput(jsonInput, definition.schema);
 			if (!parsedJson.success) {
 				return emitUsageError(parsedJson.message, parsedJson.errorType, parsedJson.data);
 			}
@@ -766,13 +768,6 @@ function parseJsonInput(text: string, schema: z.ZodObject): DecodeRequestResult 
 		};
 	}
 	return decodeJsonRequest(value, schema);
-}
-
-/** Default stdin source for the terminal adapter's `--input-json` transport. */
-async function drainProcessStdin(): Promise<string> {
-	const chunks: Buffer[] = [];
-	for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
-	return Buffer.concat(chunks).toString("utf8");
 }
 
 /**
