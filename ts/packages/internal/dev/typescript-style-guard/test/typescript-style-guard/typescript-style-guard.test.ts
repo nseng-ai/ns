@@ -941,17 +941,6 @@ describe("TypeScript style guard package disposition topology rules", () => {
 			expectedViolationCount: 1,
 		},
 		{
-			name: "package-grade code outside ts/packages is rejected",
-			packages: [
-				dispositionPackage({
-					name: "@nseng-ai/skill-exposure",
-					packageDir: ".ns/extensions/skill-exposure",
-				}),
-			],
-			expectedTextIncludes: "outside ts/packages/",
-			expectedViolationCount: 1,
-		},
-		{
 			name: "a package at the disposition root itself has no leaf and is rejected",
 			packages: [dispositionPackage({ name: "@nseng-ai/ns", packageDir: "ts/packages/public" })],
 			expectedTextIncludes: "disposition root itself",

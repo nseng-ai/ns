@@ -23,10 +23,8 @@ _run-parallel left right:
 
 _check-core: dprint-check _ts-deps-check _ts-format-check _ts-lint _ts-check _ts-test _objective-check
 
-# Local equivalent of CI plus local metadata checks.
-ci: _ts-workspace-ready (_run-parallel "check" "_ci-additional")
-
-_ci-additional: (_run-parallel "_ci-typescript-specialized" "skill-exposure-check")
+# Local equivalent of CI, including specialized TypeScript checks.
+ci: _ts-workspace-ready (_run-parallel "check" "_ci-typescript-specialized")
 
 _ci-typescript-specialized: (_run-parallel "ts-test-integration" "ts-test-typescript-style-guard")
 
@@ -203,22 +201,6 @@ objective-check: _ts-workspace-ready _objective-check
 
 _objective-check:
     node {{justfile_directory()}}/ts/packages/public/ns/src/cli.ts objective check --all
-
-# Repo-wide Skill Exposure Policy sweep. Discovery belongs to this consumer
-# gate; the extension itself intentionally accepts only explicit skill paths.
-skill-exposure-check: _ts-workspace-ready
-    @set -e; \
-      root="{{justfile_directory()}}"; \
-      set --; \
-      for skill_md in $(find "$root/skills/public" "$root/skills/incubating" "$root/skills/internal" -type f -name SKILL.md -print | sort); do \
-        set -- "$@" "${skill_md%/SKILL.md}"; \
-      done; \
-      for skill in "$root"/.agents/skills/*; do \
-        if [ -d "$skill" ] && [ ! -L "$skill" ]; then set -- "$@" "$skill"; fi; \
-      done; \
-      if [ "$#" -eq 0 ]; then echo "No skills found for exposure check." >&2; exit 1; fi; \
-      cd "$root"; \
-      node "$root/ts/packages/public/ns/src/cli.ts" skill-exposure check "$@"
 
 # Render the architecture topology report (raw inventory) and open it. No agent
 # in the loop — extracts the package graph and renders from a synthesized spec.

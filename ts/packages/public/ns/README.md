@@ -4,10 +4,10 @@ The `ns` CLI, distributed as a single self-contained npm package. Installing it 
 the `ns` binary — the shared command surface that you and your coding agents use to run
 multi-session, multi-branch software work in a git-native way.
 
-`@nseng-ai/ns` ships **bare core**: repository activation (`ns init`), extension
-management (`ns extension …`), and explicit first-party skill provisioning (`ns skills …`).
-Extensions such as Objectives are installed on top as ns extensions — see
-[Add Objectives](#add-objectives).
+`@nseng-ai/ns` ships **bare core**: repository activation (`ns init`) and extension
+management (`ns extension …`). Extensions such as Objectives are installed on top as ns
+extensions — see [Add Objectives](#add-objectives). ns can invoke installed skills, but it
+does not manage them.
 
 ## Prerequisites
 
@@ -69,18 +69,17 @@ ns extension install npm:@nseng-ai/objectives
 ```
 
 This records the extension in `ns.toml`, applies its repository activation metadata, and
-adds the `ns objective` CLI. Extension installation does not copy Objective skills into a
-harness. Provision a first-party ns skill separately when you want one:
+adds the `ns objective` CLI. Extension installation does not copy Objective skills into a harness. Install a
+first-party ns skill separately with the direct `npx skills` workflow when you want one:
 
 ```bash
-ns skills list
-ns skills path objective --harness pi --scope project
-ns skills install objective --harness pi --scope project
+npx skills add nseng-ai/ns --skill objective --full-depth
 ```
 
-Use `claude-code`, `codex`, or `pi` as the explicit `--harness` value. The choice applies
-to that command only and is not persisted as repository policy. Use `--scope user` instead
-when you deliberately want the selected skill in that harness's user root.
+`npx skills` owns skill acquisition, installation, updates, removal, and
+`skills-lock.json`. Repository files own first-party skill sources and topology, checked-in
+Harness Overlays, and invocation metadata. There is no `ns skills`, top-level `ns update`,
+or `ns skill-exposure` command.
 
 Once installed, drive an Objective through its lifecycle with your agent:
 
@@ -148,10 +147,11 @@ that contribute the same command path or Point ID, Project declarations take pre
 over User declarations. Collisions within one scope are errors, and built-in host commands
 remain reserved at both scopes.
 
-No extension scope automatically provisions or removes harness artifacts. Harness-specific
-first-party skill installation is always a separate `ns skills ... --harness <id>` action.
-Installing from this repository with `just install-ns` still installs only the source-backed
-ns executable shim and never edits user extension configuration.
+No extension scope automatically installs or removes harness skills. Skill lifecycle and
+lock state are owned by direct `npx skills` commands; ns workflows may invoke those commands
+but do not manage skills. Installing from this repository with `just install-ns` still
+installs only the source-backed ns executable shim and never edits user extension
+configuration.
 
 > **Trust warning:** `--ignore-scripts` disables npm lifecycle scripts, but descriptors and
 > selected commands are executable extension code. Install only extensions you trust.

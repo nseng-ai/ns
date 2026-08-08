@@ -6,7 +6,6 @@ import { loadNsCommandSourceInventory } from "../../src/extensions/source-invent
 import {
 	createExtensionRegistryWorkspace,
 	writeUserConfig,
-	writeWorkspaceFile,
 } from "../helpers/extension-workspace.ts";
 
 interface SourceExtensionExpectation {
@@ -54,31 +53,4 @@ describe("user source extension inventory", () => {
 			expect(userSources[0]).not.toHaveProperty("compose");
 		},
 	);
-
-	test("discovers Skill Exposure only when explicitly declared by the project", async () => {
-		const workspace = await createExtensionRegistryWorkspace();
-		const packageRoot = fileURLToPath(
-			new URL("../../../../incubating/extensions/skill-exposure/", import.meta.url),
-		);
-		writeWorkspaceFile(
-			`${workspace.cwd}/ns.toml`,
-			`extensions = [${JSON.stringify(packageRoot)}]\n`,
-		);
-
-		const inventory = await loadNsCommandSourceInventory({
-			cwd: workspace.cwd,
-			homeDir: workspace.homeDir,
-		});
-		const projectSources = inventory.sources.filter((source) => source.kind === "project");
-
-		expect(inventory.diagnostics).toEqual([]);
-		expect([...inventory.extensionPackageNames]).toEqual(["@nseng-ai/skill-exposure"]);
-		expect(projectSources).toEqual([
-			expect.objectContaining({
-				label: "project:@nseng-ai/skill-exposure",
-				kind: "project",
-				commandDirectory: expect.any(String),
-			}),
-		]);
-	});
 });

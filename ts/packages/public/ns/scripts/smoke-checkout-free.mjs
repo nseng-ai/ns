@@ -38,7 +38,7 @@ try {
 		[
 			"--input-type=module",
 			"--eval",
-			'import { defineExtension, ok, z } from "@nseng-ai/ns/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).type !== "ok" || typeof z.object !== "function") throw new Error("bad sdk export");',
+			'import { defineExtension, ok, z } from "@nseng-ai/ns/sdk"; const extension = defineExtension({ name: "smoke", commands: [] }); if (extension.name !== "smoke" || ok({}).status !== "success" || typeof z.object !== "function") throw new Error("bad sdk export");',
 		],
 		{ cwd: tempRoot },
 	);
@@ -70,7 +70,6 @@ async function assertInstalledPackageBoundary(nsBin, installedCli, installedPack
 		"@nseng-ai/objectives",
 		"@nseng-ai/pr-feedback",
 		"@nseng-ai/reviews",
-		"@nseng-ai/skill-exposure",
 		"@nseng-ai/slots",
 	].filter((packageName) => runtimeDependencyNames.includes(packageName));
 	if (forbiddenExtensionDependencies.length > 0) {

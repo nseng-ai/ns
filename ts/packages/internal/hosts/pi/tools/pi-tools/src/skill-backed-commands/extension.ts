@@ -4,11 +4,11 @@ export {
 	skillBackedCommandSurface,
 	specializedSkillBackedCommandRegistrations,
 	visibleSkillBackedCommandSurfaces,
-} from "@nseng-ai/skill-exposure/replacement-registry";
+} from "./registry.ts";
 export type {
 	SkillBackedCommandRegistration,
 	SkillBackedCommandRegistrationKind,
-} from "@nseng-ai/foundation/command";
+} from "./registry.ts";
 
 export { skillBackedCommandsParity } from "./parity.ts";
 export { derivePiReplacementCommand, genericSkillBackedCommandSpecs } from "./specs.ts";

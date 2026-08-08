@@ -41,7 +41,7 @@ For first-party repo-local skills, `skills/<disposition>/<family>/<name>/` is th
 3. Add canonical route rows and old-name alias rows to the router table.
 4. Remove each old nested canonical directory plus its `.agents/skills/<old-name>/` and `.claude/skills/<old-name>/` entries.
 5. Remove old skill lockfile entries if the migration changes installed skill state.
-6. Validate skill inventory, symlink/install state, and formatting.
+6. Validate skill inventory, symlink/install state, checked-in invocation metadata, and formatting.
 
 Avoid copying every current route into always-loaded repository context such as `AGENTS.md`. The router skill frontmatter is the discoverable entrypoint; the detailed route inventory belongs in the lazy-loaded router body.
 
@@ -71,7 +71,9 @@ For a skill migration, also verify the installed router and repository consisten
 
 ```bash
 INSTALL_INTERNAL_SKILLS=1 npx skills list | rg "<router-name>"
-ns skill-exposure check skills/<disposition>/<family>/<router-name>
+rg -n "<router-name>" .pi/settings.json \
+  skills/<disposition>/<family>/<router-name>/SKILL.md \
+  skills/<disposition>/<family>/<router-name>/agents/openai.yaml
 ```
 
 For selector code changes, load the TypeScript style skill before editing and run the relevant package checks/tests, normally through the repo `just` targets or the changed package's `pnpm --dir ts/packages/pi ...` scripts.

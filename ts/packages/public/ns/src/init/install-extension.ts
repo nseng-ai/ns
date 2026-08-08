@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { CommandOutcome } from "@nseng-ai/clinkr/app";
 import { failure, ok } from "@nseng-ai/clinkr/app";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { parseNsTomlExtensions } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions } from "./ns-toml.ts";
 import { planDeclaredExtensionInstallToml } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 

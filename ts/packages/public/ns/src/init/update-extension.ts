@@ -1,6 +1,6 @@
 import type { CommandOutcome } from "@nseng-ai/clinkr/app";
 import { failure, ok } from "@nseng-ai/clinkr/app";
-import { parseNsTomlExtensions } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions } from "./ns-toml.ts";
 import type { ExtensionAcquisitionDiagnostic } from "@nseng-ai/sdk/extensions/acquisition";
 import { planDeclaredExtensionTarget } from "@nseng-ai/sdk/project-config";
 import { z } from "zod";

@@ -100,9 +100,8 @@ skills.
   new skill has an approved canonical destination.
 - `experimental_install`: restore from `skills-lock.json`; usually unnecessary
   when overlays and vendored content are committed.
-- `experimental_sync`: sync npm-packaged skills. This belongs to npm-package
-  acquisition and does not replace ns first-party provisioning or
-  `ns skill-exposure`.
+- `experimental_sync`: sync npm-packaged skills. Use only when that acquisition
+  mode is explicitly intended; it does not own repository topology or invocation metadata.
 
 ## Agent layout
 
@@ -140,12 +139,13 @@ Never stage placeholders such as `PENDING_REGEN`.
 A GitHub lock source remains its upstream identifier, such as
 `withgraphite/agent-skills`, with `sourceType: "github"`.
 
-## Visibility and exposure
+## Visibility and invocation metadata
 
 `metadata.internal: true` affects `npx skills` discovery. Use
 `INSTALL_INTERNAL_SKILLS=1` to list or install such a skill. It is distinct from
-canonical disposition and from Skill Exposure Policy.
+canonical disposition and invocation mode.
 
-`ns skill-exposure` owns exposure overlays on explicit skill paths. `npx skills`
-does not apply exposure policy, and npm-module-bundled provisioning remains the
-separate `ns skills` / `ns update` channel.
+Repository files own invocation frontmatter, Codex sidecars, and Pi exclusions.
+Maintain and review them directly. `npx skills` owns acquisition and lock state,
+but does not create Pi exclusions or all invocation metadata. There is no ns
+skill provisioning, reconciliation, exposure, or catalog command surface.

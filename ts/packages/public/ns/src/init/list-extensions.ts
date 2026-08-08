@@ -5,7 +5,7 @@ import { failure, ok } from "@nseng-ai/clinkr/app";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
-import { parseNsTomlExtensions } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions } from "./ns-toml.ts";
 import type {
 	DeclaredExtensionDescriptor,
 	DeclaredExtensionDescriptorDiagnostic,

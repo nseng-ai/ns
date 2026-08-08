@@ -18,11 +18,11 @@ upstream skill path, and computed hash — but no commit.
 
 Since upstream v1.2, every upstream skill ships its own `agents/openai.yaml` (Codex
 `interface.*` metadata, plus `policy.allow_implicit_invocation: false` for user-invoked
-skills). For skills whose ns Skill Exposure Policy is `normal`, that upstream sidecar is
-kept as-shipped. For explicit-policy skills (`invoke-only`, `skill-backed-command`), the
-sidecar seam is repo-owned: `ns skill-exposure apply` refuses the upstream file, so it is
-removed and re-derived on refresh, dropping upstream's `interface.*` metadata — this is
-part of the recorded Harness Overlay exception to byte-identity. ns first-party adaptations live under their explicit nested canonical paths in
+skills). For skills whose invocation mode is `normal`, that upstream sidecar is kept as-shipped.
+For explicit-mode skills (`invoke-only`, `skill-backed-command`), the sidecar seam is
+repo-owned: remove the upstream file and maintain the checked-in replacement directly
+after refresh, dropping upstream's `interface.*` metadata. This is part of the recorded
+Harness Overlay exception to byte-identity. ns first-party adaptations live under their explicit nested canonical paths in
 `skills/<disposition>/<family>/<name>/` (with approved top-level product exceptions).
 
 ## Imported upstream skills
@@ -52,7 +52,7 @@ part of the recorded Harness Overlay exception to byte-identity. ns first-party 
 
 ## Recorded forks
 
-Vendored dirs are byte-identical to upstream except repo-owned Harness Overlays managed by `ns skill-exposure` and:
+Vendored dirs are byte-identical to upstream except repo-owned invocation metadata (maintained and reviewed directly) and:
 
 - `pocock-review/SKILL.md`: the frontmatter `name:` line (rename on import).
 - `pocock-resolving-merge-conflicts/SKILL.md`: the frontmatter `name:` line (rename on import).
@@ -160,7 +160,7 @@ seam-first testing), and generic duplication/progressive-disclosure wording in f
   consumed by agents. Do not reintroduce a separate first-party audit vocabulary.
 - **Invocation semantics.** Matt Skills uses `disable-model-invocation: true` for
   user-invoked wrappers and rich descriptions for reusable model-invoked skills. ns maps
-  this through `ns skill-exposure apply <policy> <explicit-path>`;
+  this through directly maintained frontmatter, Codex sidecars, and Pi exclusions;
   `docs/research/harness-skill-invocation.md` records the harness caveat that Codex may
   not make invoke-only skills truly zero-ambient.
 

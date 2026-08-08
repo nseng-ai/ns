@@ -38,8 +38,6 @@ const SOURCE_EXTENSIONS = [
 	{ directoryName: "slots", packageName: "@nseng-ai/slots" },
 ] as const satisfies readonly SourceExtensionCase[];
 
-const SKILL_EXPOSURE_PACKAGE = "@nseng-ai/skill-exposure";
-
 describe("source user extension install host", () => {
 	test.each(SOURCE_EXTENSIONS)(
 		"installs $packageName for user command availability without activating the invocation directory",
@@ -83,7 +81,6 @@ describe("source user extension install host", () => {
 
 			const configBytes = await readFile(join(xdgConfigHome, "ns", "ns.toml"), "utf8");
 			expect(configBytes).toBe(`extensions = [${JSON.stringify(packageRoot)}]\n`);
-			expect(configBytes).not.toContain(SKILL_EXPOSURE_PACKAGE);
 
 			const listed = await runJson(
 				["extension", "list", "--scope", "user"],
@@ -111,7 +108,6 @@ describe("source user extension install host", () => {
 					},
 				],
 			});
-			expect(JSON.stringify(listedResult)).not.toContain(SKILL_EXPOSURE_PACKAGE);
 			expect(await snapshotTree(invocation)).toEqual(beforeInvocation);
 		},
 	);

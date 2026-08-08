@@ -1,4 +1,4 @@
-import { parseNsTomlExtensions, type NsTomlChange } from "../harness-artifacts/api.ts";
+import { parseNsTomlExtensions, type NsTomlChange } from "./ns-toml.ts";
 import type { DeclaredExtensionDescriptor } from "@nseng-ai/sdk/extensions/declared-descriptors";
 import type { NsActivationContext } from "./activation-context.ts";
 import type {

@@ -5,37 +5,20 @@ import {
 	preinstalledCommandSources,
 } from "../src/cli/preinstalled-command-catalog.ts";
 
-const expectedLabels = ["host:@nseng-ai/ns:init", "host:@nseng-ai/ns:harness-artifacts"] as const;
-
 describe("preinstalled ns command sources", () => {
-	test("registers exactly the two host-owned built-in sources", () => {
-		expect(preinstalledCommandSources.map(({ label }) => label)).toEqual(expectedLabels);
-		expect(preinstalledCommandSources.map(({ kind }) => kind)).toEqual(["built-in", "built-in"]);
-		expect(preinstalledCommandSources.map(({ helpClassification }) => helpClassification)).toEqual([
-			"built-in",
-			"built-in",
-		]);
-		expect(preinstalledCommandSources.map(({ package: facts }) => facts?.name)).toEqual([
-			"@nseng-ai/ns",
-			"@nseng-ai/ns",
-		]);
-	});
-
-	test("gives init one programmatic composition owner for lifecycle and point routes", () => {
-		const [init, harnessArtifacts] = preinstalledCommandSources;
-
-		expect(init).toMatchObject({
+	test("registers the host-owned init built-in source", () => {
+		expect(preinstalledCommandSources).toHaveLength(1);
+		expect(preinstalledCommandSources[0]).toMatchObject({
 			label: "host:@nseng-ai/ns:init",
+			kind: "built-in",
+			helpClassification: "built-in",
 			compose: expect.any(Function),
-			package: { descriptorPath: "@nseng-ai/ns/init/ns-extension" },
+			package: {
+				name: "@nseng-ai/ns",
+				descriptorPath: "@nseng-ai/ns/init/ns-extension",
+			},
 		});
-		expect(init).not.toHaveProperty("commandDirectory");
-		expect(harnessArtifacts).toMatchObject({
-			label: "host:@nseng-ai/ns:harness-artifacts",
-			commandDirectory: expect.any(String),
-			package: { descriptorPath: "@nseng-ai/ns/harness-artifacts/ns-extension" },
-		});
-		expect(harnessArtifacts).not.toHaveProperty("compose");
+		expect(preinstalledCommandSources[0]).not.toHaveProperty("commandDirectory");
 	});
 
 	test("returns the stable source inventory without route enumeration", () => {

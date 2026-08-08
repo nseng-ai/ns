@@ -33,8 +33,8 @@ mode uses the strict **Objective Runner** protocol: `runner-finish` verifies and
 slice, producing a **runner-attested Runner Checkpoint**. Only a real committed Runner
 Checkpoint can be eligible for the separate, parent-only ADR 0037 publication path.
 
-Installing this package remains useful when you want the `ns objective` CLI, provisioned
-Objective skills, agent instructions, and Pi slash-command conveniences. In particular,
+Installing this package remains useful when you want the `ns objective` CLI, agent
+instructions, and Pi slash-command conveniences. In particular,
 `/ns:objective:autorun` is a thin picker/injector: it selects an active Objective and invokes
 the same `objective-autorun` skill; it does not own a separate execution protocol.
 
@@ -62,8 +62,16 @@ A bare-core `ns` install does **not** include `ns objective`. Installing this ex
    to check `ns objective list` before non-trivial work and to use the Objective skills.
 4. Creates the declared `.ns/objectives` consumer directory.
 
-Extension installation does not copy Objective skills into a harness. Use the explicit
-`ns skills ... --harness <id>` surface for first-party skill provisioning. The standalone
+Extension installation does not copy Objective skills into a harness. Install them through
+the direct `npx skills` workflow, which owns acquisition, lifecycle, and `skills-lock.json`:
+
+```bash
+npx skills add nseng-ai/ns --skill objective --full-depth
+```
+
+Repository files own first-party sources and topology, checked-in Harness Overlays, and
+invocation metadata. ns may invoke installed skills but does not manage them; there is no
+`ns skills`, top-level `ns update`, or `ns skill-exposure` command. The standalone
 `objective-runner-step` skill is retired; the first-party Objective skill set contains
 `objective`, `objective-autorun`, `objective-close`, `objective-create`, `objective-critique`,
 `objective-next`, `objective-refresh`, and `objective-update`.

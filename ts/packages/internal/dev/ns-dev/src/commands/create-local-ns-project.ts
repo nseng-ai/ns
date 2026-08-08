@@ -156,7 +156,7 @@ async function runCreateLocalNsProjectInner(
 		for (const args of [
 			["ns", "--help"],
 			["ns", "init", "--help"],
-			["ns", "skills", "list"],
+			["ns", "extension", "--help"],
 			["ns", "extension", "points"],
 		] as const) {
 			const result = await runTrackedCommand(context, {
@@ -182,7 +182,7 @@ async function runCreateLocalNsProjectInner(
 		nsPackageVersion: sourcePackageJson.value.version,
 		publishPath,
 		verification,
-		nextCommands: [`cd ${projectPath}`, "npx ns init --supported-harness claude-code"],
+		nextCommands: [`cd ${projectPath}`, "npx ns init"],
 		commands,
 	});
 }

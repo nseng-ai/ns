@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseNsTomlExtensions } from "../src/harness-artifacts/api.ts";
+import { parseNsTomlExtensions } from "../src/init/ns-toml.ts";
 
 describe("ns.toml extensions", () => {
 	it("parses top-level extensions, including an explicitly empty declaration set", () => {

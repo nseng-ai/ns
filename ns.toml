@@ -1,5 +1,3 @@
-extensions = ["./ts/packages/incubating/extensions/skill-exposure"]
-
 [slots]
 provision = [".env.local"]
 
