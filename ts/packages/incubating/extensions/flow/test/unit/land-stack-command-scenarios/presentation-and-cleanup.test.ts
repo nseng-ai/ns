@@ -18,6 +18,7 @@ import {
 	singleBranchPreflightWithRefs,
 } from "./feature-stack-fixtures.ts";
 import { childrenRecheckStep, DB_TO_CURRENT, SHA_A, SHA_B } from "./repo-fixtures.ts";
+import { metadataDbJson } from "../land-test-helpers.ts";
 import { commandMessagesText, messageContentText, runLandStack, step, TRUNK } from "./support.ts";
 
 describe("land-stack command scenarios", () => {
@@ -42,11 +43,9 @@ describe("land-stack command scenarios", () => {
 			`✓ $ gh pr merge 101 --squash --match-head-commit ${SHA_A} --subject 'PR 101' --body '<PR body>'`,
 		);
 		expect(streamText).toContain("→ Merged and verified PR #101 feature-a.");
-		expect(streamText).toContain("→ Cleaning up local branch feature-a...");
+		expect(streamText).toContain("✓ $ gt delete feature-a -f -q");
 		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
-		expect(streamText).toContain(
-			"Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",
-		);
+		expect(streamText).toContain("Deleted local branches: feature-a.");
 	});
 	test("uses merge-loop PR title and body as squash subject/body without displaying the body", async () => {
 		const body = "Line 1\n\nLine 2";
@@ -121,14 +120,14 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("success");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).not.toContain("git switch --detach");
 		expect(streamText).toContain(
-			"✓ $ gt delete feature-a -f -q — branch feature-a still checked out; clean up manually with gt sync or direct branch deletion",
+			"✓ $ gt delete feature-a -f -q — branch feature-a still checked out; clean up manually",
 		);
 		expect(streamText).toContain(
-			"Local branch feature-a was kept (still checked out at /repo); delete it manually or run gt sync.",
+			"strict cleanup could not delete local Graphite branch feature-a because it is checked out at /repo",
 		);
 		expect(streamText).not.toContain("Completed with 1 warning:");
 	});
@@ -146,26 +145,18 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("success");
+		expect(notifications.at(-1)?.level).toBe("error");
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain(
-			"Landed 1 PR: #101 feature-a.",
+			"strict cleanup could not delete local Graphite branch feature-a because it is checked out at /repo-main",
 		);
 		const streamText = commandMessagesText(messages);
-		expect(streamText).not.toContain("✗ $ gt delete feature-a -f -q — exit code 1");
-		expect(streamText).not.toContain("fatal: 'feature-a' is already checked out");
 		expect(streamText).toContain(
-			"✓ $ gt delete feature-a -f -q — branch feature-a still checked out; clean up manually with gt sync or direct branch deletion",
+			"✓ $ gt delete feature-a -f -q — branch feature-a still checked out; clean up manually",
 		);
 		expect(streamText).toContain(
-			"Local branch feature-a was kept (still checked out at /repo-main); delete it manually or run gt sync.",
+			"strict cleanup could not delete local Graphite branch feature-a because it is checked out at /repo-main",
 		);
-		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
-		expect(streamText).not.toContain("Completed with 1 warning:");
-		expect(streamText).not.toContain(
-			"All target PRs were merged, but deleting the local Graphite branch feature-a failed.",
-		);
-		expect(streamText).not.toContain("land stopped");
-		expect(streamText).not.toContain("Failed at:");
+		expect(streamText).toContain("land stopped");
 	});
 	test("treats unexpected final local Graphite delete failure as a post-landing warning", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
@@ -181,22 +172,89 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
-		expect(notificationText).toContain(
-			"Delete or repair local Graphite branch feature-a manually, then inspect the stack.",
-		);
-		expect(notificationText).toContain("Landed 1 PR");
+		expect(notificationText).toContain("deleting the local Graphite branch feature-a failed");
+		expect(notificationText).toContain("Already landed");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit code 1");
-		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
-		expect(streamText).toContain("Completed with 1 warning:");
-		expect(streamText).toContain(
-			"All target PRs were merged, but deleting the local Graphite branch feature-a failed.",
-		);
-		expect(streamText).not.toContain("land stopped");
-		expect(streamText).not.toContain("Failed at:");
+		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("land stopped");
+		expect(streamText).toContain("deleting the local Graphite branch feature-a failed");
+		expect(streamText).toContain("land stopped");
+		expect(streamText).toContain("Failed at:");
 	});
+	test("preserve lands the selected branch and defers surviving-child reconciliation", async () => {
+		const selectedWithSurvivingChild = metadataDbJson([
+			{ branch: TRUNK, children: ["feature-a"], trunk: true },
+			{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },
+			{ branch: "feature-b", parent: "feature-a", children: [] },
+		]);
+		const script = [
+			...singleBranchPreflightWithRefs({
+				localSha: SHA_A,
+				prSha: SHA_A,
+				dbRows: selectedWithSurvivingChild,
+			}),
+			step("git", ["worktree", "list", "--porcelain"], {
+				stdout:
+					"worktree /repo\nHEAD 0000000000000000000000000000000000000000\nbranch refs/heads/feature-a",
+			}),
+			...backupRefSteps(["feature-a", "feature-b"]),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-a^{commit}"], {
+				stdout: `${SHA_A}\n`,
+			}),
+			step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A })),
+			}),
+			step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A })),
+			step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 101,
+						branch: "feature-a",
+						base: TRUNK,
+						sha: SHA_A,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+					}),
+				),
+			}),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script, {
+			cleanupPolicy: "preserve",
+			executeOptions: {
+				execution: {
+					source: { type: "discover" },
+					approvedConfirmationKinds: new Set(["main-landing"]),
+				},
+			},
+		});
+
+		pi.assertDone();
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const output = commandMessagesText(messages);
+		expect(output).toContain("From the worktree that has main checked out, run:");
+		expect(output).toContain(
+			"gt get feature-b --downstack --no-restack --no-checkout --force --no-interactive",
+		);
+		expect(
+			pi.execCalls.filter(
+				(call) =>
+					call.command === "gt" &&
+					["get", "track", "restack", "submit", "delete"].includes(call.args[0] ?? ""),
+			),
+		).toEqual([]);
+		expect(
+			pi.execCalls.filter(
+				(call) =>
+					call.command === "git" &&
+					call.args[0] === "rev-parse" &&
+					call.args.includes("refs/heads/feature-b^{commit}"),
+			),
+		).toEqual([]);
+	});
+
 	test("targets the next open branch for Graphite refresh after merging a downstack PR", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
@@ -230,8 +288,7 @@ describe("land-stack command scenarios", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-a", ["feature-b"]),
-			step("gt", ["delete", "feature-a", "-f", "-q"]),
+			step("gt", ["track", "feature-b", "--parent", TRUNK, "--no-interactive"]),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: "feature-b",
@@ -259,6 +316,8 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
+			childrenRecheckStep("feature-a", []),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];

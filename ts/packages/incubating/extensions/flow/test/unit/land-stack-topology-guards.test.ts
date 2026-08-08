@@ -22,6 +22,7 @@ import {
 	createMergeFeatureASteps,
 	expectedSquashMergeArgs,
 	guardShaStep,
+	postRestackSubmitCheckSteps,
 	prSnapshot,
 	prStdout,
 } from "./land-stack-script-fixtures.ts";
@@ -554,7 +555,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		pi.assertDone();
 		expect(notifications[0]?.level).toBe("info");
 		expect(notifications[0]?.message).toContain(
-			"Will leave open and, after target PRs land, restack/update with verified postconditions (required for full completion):",
+			"Surviving PR branches (not part of the shared selected-landing phase):",
 		);
 		expect(notifications[0]?.message).toContain("feature-c");
 		expect(notifications[0]?.message).toContain("feature-d");
@@ -638,7 +639,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		).toEqual(["101"]);
 	});
 
-	test("stops hard when a mid-stack branch grows unexpected children before delete", async () => {
+	test("skips compatibility cleanup when a landed branch grows unexpected children", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
@@ -653,30 +654,54 @@ describe("fork-safe topology and destructive-phase guards", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-a", ["feature-b", "rogue-branch"]),
+			step("gt", ["track", "feature-b", "--parent", TRUNK, "--no-interactive"]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: TRUNK,
+			}),
+			guardShaStep("feature-b", SHA_B),
+			step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 102, branch: "feature-b", base: TRUNK, sha: SHA_B })),
+			}),
+			step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
+			step("gh", ["pr", "view", "102", "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 102,
+						branch: "feature-b",
+						base: TRUNK,
+						sha: SHA_B,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+					}),
+				),
+			}),
+			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep("feature-b", ["rogue-branch"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain(
-			"feature-a now has unexpected Graphite children (rogue-branch); refusing gt delete",
-		);
+		expect(streamText).toContain("feature-b now has unexpected Graphite children (rogue-branch)");
 		expect(streamText).toContain(BACKUP_REF_NAMESPACE);
-		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
-			false,
-		);
-		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack")).toBe(
-			false,
-		);
+		expect(
+			pi.execCalls.some(
+				(call) =>
+					call.command === "gt" && call.args[0] === "delete" && call.args[1] === "feature-b",
+			),
+		).toBe(false);
 		expect(
 			pi.execCalls
 				.filter(
 					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
 				)
 				.map((call) => call.args[2]),
-		).toEqual(["101"]);
+		).toEqual(["101", "102"]);
 	});
 
 	test("skips the final delete with a warning when unexpected children appear", async () => {
@@ -690,12 +715,11 @@ describe("fork-safe topology and destructive-phase guards", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("feature-a now has unexpected Graphite children (rogue-branch)");
-		expect(streamText).toContain("local branch feature-a cleanup was skipped");
 		expect(streamText).toContain(BACKUP_REF_NAMESPACE);
-		expect(streamText).toContain("Landed 1 PR: #101 feature-a.");
+		expect(streamText).toContain("PR #101 merged");
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
 			false,
 		);

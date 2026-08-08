@@ -142,10 +142,11 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 					{ type: "completed", phase: "preflight" },
 					{ type: "completed", phase: "dry-run" },
 				],
+				postTarget: { type: "not-run", reason: "dry run performs no reconciliation" },
 				cleanup: {
 					preMergeFreedSlots: [],
-					mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
-					postLandingSlotCleanup: { type: "not-applicable" },
+					landedBranches: { deleted: [], retained: [] },
+					managedSlot: { type: "not-applicable" },
 				},
 				plan: {
 					branchPlans: [

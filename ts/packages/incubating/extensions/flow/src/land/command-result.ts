@@ -17,7 +17,10 @@ import type {
 	LandingContinuationReport,
 	LandingExecutionReport,
 	LandingFailure,
+	LandingWarning,
+	LandingCleanupReport,
 	PostLandingSlotCleanupReport,
+	PostTargetExecutionReport,
 } from "./types.ts";
 
 export type LandCommandSuccess =
@@ -44,8 +47,9 @@ export type LandCommandSuccess =
 			readonly type: "stack-completed" | "cleanup-only";
 			readonly repoRoot: string;
 			readonly landedChunks: readonly LandedChunk[];
-			readonly warnings: readonly string[];
-			readonly cleanup: PostLandingSlotCleanupReport;
+			readonly warnings: readonly LandingWarning[];
+			readonly postTarget: PostTargetExecutionReport;
+			readonly cleanup: LandingCleanupReport;
 			readonly continuation: LandingContinuationReport;
 	  }
 	| {
@@ -112,8 +116,9 @@ export function landCommandSuccess(result: FlowLandWorkflowResult): LandCommandS
 		type: report.completionDisposition.type === "cleanup-only" ? "cleanup-only" : "stack-completed",
 		repoRoot: report.repoRoot,
 		landedChunks: report.landedChunks,
-		warnings: report.warnings.map((warning) => warning.message),
-		cleanup: report.cleanup.postLandingSlotCleanup,
+		warnings: report.warnings,
+		postTarget: report.postTarget,
+		cleanup: report.cleanup,
 		continuation: report.continuation,
 	};
 }
@@ -181,21 +186,19 @@ function renderStackCompletion(caps: Caps, report: LandingExecutionReport): stri
 		);
 	}
 	if (report.completionDisposition.type === "cleanup-only") {
-		return renderSuccess(caps, cleanupText(report.cleanup.postLandingSlotCleanup));
+		return renderSuccess(caps, cleanupText(report.cleanup.managedSlot));
 	}
 	const landed = report.landedChunks.flatMap((chunk) => [...chunk.landed]);
 	const summary = formatSuccessSummary({
 		landed,
-		descendantMaintenance: report.plan?.descendantMaintenance ?? { type: "none", branches: [] },
+		postTarget: report.postTarget,
 		warnings: report.warnings,
-		cleanup: {
-			retainedLocalBranches: [...report.cleanup.mergeMaintenanceCleanup.retainedLocalBranches],
-		},
+		cleanup: report.cleanup.landedBranches,
 		continuation: report.continuation,
 	});
 	return renderSuccess(
 		caps,
-		[summary, cleanupText(report.cleanup.postLandingSlotCleanup)].filter(Boolean).join("\n\n"),
+		[summary, cleanupText(report.cleanup.managedSlot)].filter(Boolean).join("\n\n"),
 	);
 }
 

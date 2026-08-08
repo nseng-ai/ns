@@ -108,8 +108,7 @@ export function mergeFeatureBWithDescendant(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		childrenRecheckStep("feature-b", [DESCENDANT]),
-		step("gt", ["delete", "feature-b", "-f", "-q"]),
+		step("gt", ["track", DESCENDANT, "--parent", TRUNK, "--no-interactive"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 		...descendantReconcileSteps({
 			branch: DESCENDANT,
@@ -117,6 +116,18 @@ export function mergeFeatureBWithDescendant(): ScriptedExec[] {
 			prNumber: 103,
 			staleBase: "feature-b",
 		}),
+		...strictFeatureCleanupSteps(),
+	];
+}
+
+function strictFeatureCleanupSteps(): ScriptedExec[] {
+	return [
+		childrenRecheckStep("feature-a", []),
+		childrenRecheckStep("feature-b", [DESCENDANT]),
+		childrenRecheckStep("feature-b", [DESCENDANT]),
+		step("gt", ["delete", "feature-b", "-f", "-q"]),
+		childrenRecheckStep("feature-a", []),
+		step("gt", ["delete", "feature-a", "-f", "-q"]),
 	];
 }
 
@@ -155,14 +166,20 @@ export function mergeFeatureBWithForkedDescendants(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		childrenRecheckStep("feature-b", [DESCENDANT, "feature-d"]),
-		step("gt", ["delete", "feature-b", "-f", "-q"]),
+		step("gt", ["track", DESCENDANT, "--parent", TRUNK, "--no-interactive"]),
+		step("gt", ["track", "feature-d", "--parent", TRUNK, "--no-interactive"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 		...featureCReconciliation.slice(0, 3),
 		step("gt", ["restack", "--branch", "feature-d", "--upstack", "--no-interactive"]),
 		...featureDReconciliation.slice(0, 3),
 		...featureCReconciliation.slice(3),
 		...featureDReconciliation.slice(3),
+		childrenRecheckStep("feature-a", []),
+		childrenRecheckStep("feature-b", [DESCENDANT, "feature-d"]),
+		childrenRecheckStep("feature-b", [DESCENDANT, "feature-d"]),
+		step("gt", ["delete", "feature-b", "-f", "-q"]),
+		childrenRecheckStep("feature-a", []),
+		step("gt", ["delete", "feature-a", "-f", "-q"]),
 	];
 }
 
@@ -179,8 +196,7 @@ export function mergeFeatureBWithDescendantRestackFailure(): ScriptedExec[] {
 			"--force",
 			"--no-interactive",
 		]),
-		childrenRecheckStep("feature-b", [DESCENDANT]),
-		step("gt", ["delete", "feature-b", "-f", "-q"]),
+		step("gt", ["track", DESCENDANT, "--parent", TRUNK, "--no-interactive"]),
 		step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"], {
 			code: 1,
 			stderr: "restack failed",
@@ -298,12 +314,15 @@ export function mergeFeatureAThroughDelete(
 				"--force",
 				"--no-interactive",
 			]),
+			step("gt", ["track", refreshTarget, "--parent", TRUNK, "--no-interactive"]),
 		);
 	}
-	steps.push(
-		childrenRecheckStep("feature-a", refreshTarget ? ["feature-b"] : []),
-		step("gt", ["delete", "feature-a", "-f", "-q"]),
-	);
+	if (!refreshTarget) {
+		steps.push(
+			childrenRecheckStep("feature-a", []),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
+		);
+	}
 	return steps;
 }
 

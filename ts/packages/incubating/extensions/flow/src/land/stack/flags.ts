@@ -40,7 +40,7 @@ export const landFlagDescriptors = [
 		commandRequestField: "free",
 		commandShort: "-F",
 		usageDescription:
-			"After a successful landing, free the current managed slot and delete the landed local branch.",
+			"After selected landing, reconcile and verify survivors, strictly delete every landed local branch, then free the current managed slot. Any incomplete cleanup fails nonzero.",
 	},
 	{
 		long: "--up",
@@ -48,7 +48,7 @@ export const landFlagDescriptors = [
 		parsedArg: "shouldContinueUpstack",
 		commandRequestField: "up",
 		usageDescription:
-			"After landing, continue onto the sole immediate upstack child in this worktree; always keep the managed slot. By default the landed local branch is retained; pass --free to delete it after successful continuation.",
+			"Snapshot the sole immediate child before mutation; after landing, reconcile it, check it out, and verify it in this worktree. Always keep the managed slot; --free strictly deletes landed branches only after successful checkout.",
 	},
 	{
 		long: "--verbose",

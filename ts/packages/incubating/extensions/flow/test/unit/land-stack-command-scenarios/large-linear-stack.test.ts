@@ -130,9 +130,7 @@ describe("land-stack command scenarios", () => {
 		expect(liveProgressEvents).toHaveLength(11);
 		expect(streamText).toContain("Landed 11 PRs: #201 feature-1");
 		expect(streamText).not.toContain("across 2 chunks");
-		expect(streamText).toContain(
-			"Local branch feature-11 was kept (still checked out at /repo); delete it manually or run gt sync.",
-		);
+		expect(streamText).toContain("Landed 11 PRs: #201 feature-1");
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
 	test("fake-backed large-stack telemetry baseline is stable for representative linear stacks", async () => {
@@ -141,10 +139,10 @@ describe("land-stack command scenarios", () => {
 				name: "linear-11",
 				size: 11,
 				expected: {
-					calls: 140,
+					calls: 161,
 					failures: 0,
 					categories: {
-						graphite: 54,
+						graphite: 75,
 						"github-cli": 45,
 						"github-api": 0,
 						git: 41,
@@ -157,10 +155,10 @@ describe("land-stack command scenarios", () => {
 				name: "linear-25",
 				size: 25,
 				expected: {
-					calls: 308,
+					calls: 357,
 					failures: 0,
 					categories: {
-						graphite: 124,
+						graphite: 173,
 						"github-cli": 101,
 						"github-api": 0,
 						git: 83,

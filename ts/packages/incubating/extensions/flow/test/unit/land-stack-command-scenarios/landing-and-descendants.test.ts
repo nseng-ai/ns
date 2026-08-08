@@ -184,7 +184,7 @@ describe("land-stack command scenarios", () => {
 		expect(stripAnsi(notifications.at(-1)?.message ?? "")).toContain(
 			"Landed 2 PRs: #101 feature-a, #102 feature-b.",
 		);
-		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
+		expect(commandMessagesText(messages)).toContain("Reconciled surviving branches: feature-c.");
 	});
 	test("happy path restacks and updates multiple descendant roots above the current branch", async () => {
 		const script = [
@@ -214,7 +214,9 @@ describe("land-stack command scenarios", () => {
 				.map((call) => call.args[2]),
 		).toEqual(["feature-b", DESCENDANT, "feature-d"]);
 		expect(notifications.at(-1)?.level).toBe("success");
-		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
+		expect(commandMessagesText(messages)).toContain(
+			"Reconciled surviving branches: feature-c, feature-d.",
+		);
 	});
 	test("required descendant refresh failure guards every root, skips later mutation and unsafe deletion, and fails", async () => {
 		const script = [
@@ -550,8 +552,12 @@ describe("land-stack command scenarios", () => {
 				base: TRUNK,
 			}),
 			...mergeFeatureBThroughVerification(),
+			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep("feature-b", []),
 			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
+			childrenRecheckStep("feature-a", []),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
@@ -605,8 +611,7 @@ describe("land-stack command scenarios", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-b", [DESCENDANT]),
-			step("gt", ["delete", "feature-b", "-f", "-q"]),
+			step("gt", ["track", DESCENDANT, "--parent", TRUNK, "--no-interactive"]),
 			step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 			guardShaStep(DESCENDANT, SHA_C),
 			containsTrunkStep(DESCENDANT),
@@ -659,12 +664,24 @@ describe("land-stack command scenarios", () => {
 			),
 		).toBe(false);
 	});
-	test("explains cleanup rebase conflicts after PRs have merged", async () => {
+	test("fails strict cleanup when branch deletion leaves a rebase conflict", async () => {
+		const selectedPreparation = mergeFeatureAThroughDelete();
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
-			...mergeFeatureAThroughDelete().slice(0, -1),
-			step("gt", ["delete", "feature-a", "-f", "-q"], {
+			...selectedPreparation,
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: TRUNK,
+			}),
+			...mergeFeatureBThroughVerification(),
+			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep("feature-b", []),
+			childrenRecheckStep("feature-b", []),
+			step("gt", ["delete", "feature-b", "-f", "-q"], {
 				code: 1,
 				stderr: [
 					"CONFLICT (content): Merge conflict in skills/ns-typescript/SKILL.md",
@@ -673,7 +690,9 @@ describe("land-stack command scenarios", () => {
 				].join("\n"),
 			}),
 		];
-		const { pi, messages, notifications } = await runLandStack("--yes", script);
+		const { pi, messages, notifications } = await runLandStack("--yes", script, {
+			useExactScript: true,
+		});
 
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
@@ -681,8 +700,9 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("land stopped.");
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain("#101 feature-a");
+		expect(streamText).toContain("#102 feature-b");
 		expect(streamText).toContain(
-			"Graphite cleanup for local branch feature-a stopped during branch deletion with an in-progress Git operation or conflicts.",
+			"Graphite cleanup for local branch feature-b stopped during branch deletion with an in-progress Git operation or conflicts.",
 		);
 		expect(streamText).toContain("The repository may now be mid-rebase");
 		expect(streamText).toContain(

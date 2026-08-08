@@ -261,7 +261,7 @@ describe("core post-landing cleanup", () => {
 			worktrees: {
 				freeSlotsFailure: {
 					type: "boundary",
-					phase: "post-landing-cleanup",
+					phase: "managed-slot-cleanup",
 					source: "slot",
 					code: "slot_free_failed",
 					message: "slot free failed",

@@ -343,7 +343,7 @@ describe("land-stack pure helpers", () => {
 			"/ns:flow:land [--yes] [--dry-run] [--free] [--up] [--verbose] [--help]",
 		);
 		expect(usage()).toContain(
-			"  --free, -F      After a successful landing, free the current managed slot and delete the landed local branch.",
+			"  --free, -F      After selected landing, reconcile and verify survivors, strictly delete every landed local branch, then free the current managed slot. Any incomplete cleanup fails nonzero.",
 		);
 		expect(usage()).toContain("  --help, -h      Show this help.");
 		expect(landCommandOptionSpecs()).toEqual({
@@ -639,11 +639,14 @@ describe("land-stack pure helpers", () => {
 		const formatted = formatPlan(plan);
 		expect(formatted).toContain("Land Graphite stack path: main -> feature-a -> feature-b");
 		expect(formatted).toContain(
-			"Will leave open and, after target PRs land, restack/update with verified postconditions (required for full completion):",
+			"Surviving PR branches (not part of the shared selected-landing phase):",
+		);
+		expect(formatted).toContain(
+			"after the final selected PR, stop without reconciling survivors or deleting landed branches",
 		);
 		expect(formatted).toContain("slot-01 feature-a");
 		expect(formatted).toContain(
-			"gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
+			"merge each selected PR with its expected head commit and PR title/body",
 		);
 		const planWithSubmit: LandingPlan = {
 			...plan,

@@ -67,10 +67,11 @@ export type LandingPhase =
 	| "submit-preparation"
 	| "dry-run"
 	| "merge"
-	| "descendant-maintenance"
-	| "merge-maintenance-cleanup"
+	| "between-selected-maintenance"
+	| "post-target-reconciliation"
+	| "landed-branch-cleanup"
 	| "upstack-continuation"
-	| "post-landing-cleanup";
+	| "managed-slot-cleanup";
 
 export type LandingFailure =
 	| LandingBoundaryFailure
@@ -155,6 +156,7 @@ export interface LandingExecutionReport {
 	readonly phases: readonly LandingPhaseOutcome[];
 	readonly landedChunks: readonly LandedChunk[];
 	readonly warnings: readonly LandingWarning[];
+	readonly postTarget: PostTargetExecutionReport;
 	readonly cleanup: LandingCleanupReport;
 	readonly continuation: LandingContinuationReport;
 }
@@ -168,15 +170,18 @@ export interface LandingCompletedExecutionReport extends LandingExecutionReport 
 export type LandingContinuationReport =
 	| { readonly type: "not-requested" }
 	| { readonly type: "candidate"; readonly branch: string }
-	| { readonly type: "continued"; readonly branch: string; readonly originalBranchDeleted: boolean }
+	| { readonly type: "continued"; readonly branch: string }
 	| {
 			readonly type: "unavailable";
 			readonly reason: "no-child" | "multiple-children" | "lookup-failed";
 			readonly candidates: readonly string[];
 	  }
 	| { readonly type: "checkout-failed"; readonly branch: string }
-	| { readonly type: "verification-failed"; readonly branch: string; readonly actualBranch: string }
-	| { readonly type: "cleanup-failed"; readonly branch: string };
+	| {
+			readonly type: "verification-failed";
+			readonly branch: string;
+			readonly actualBranch: string;
+	  };
 
 /** Canonical result of {@link LandingRequest} execution. Both variants carry observed-fact reports. */
 export type LandingExecutionResult =
@@ -199,16 +204,27 @@ export type LandingPhaseOutcome =
 	| { readonly type: "skipped"; readonly phase: LandingPhase; readonly reason: string }
 	| { readonly type: "failed"; readonly phase: LandingPhase; readonly failure: LandingFailure };
 
+export type PostTargetExecutionReport =
+	| { readonly type: "not-run"; readonly reason: string }
+	| { readonly type: "deferred"; readonly firstSurvivor: string; readonly manualAction: string }
+	| { readonly type: "not-needed" }
+	| { readonly type: "reconciled"; readonly branches: readonly string[] }
+	| {
+			readonly type: "failed";
+			readonly branches: readonly string[];
+			readonly failure: LandingFailure;
+	  };
+
 export interface LandingCleanupReport {
 	readonly preMergeFreedSlots: readonly ManagedSlotWorktree[];
-	readonly mergeMaintenanceCleanup: MergeMaintenanceCleanupReport;
-	readonly postLandingSlotCleanup: PostLandingSlotCleanupReport;
+	readonly landedBranches: LandedBranchCleanupReport;
+	readonly managedSlot: PostLandingSlotCleanupReport;
 }
 
-/** Local-branch cleanup observed during per-merge Graphite maintenance. */
-export interface MergeMaintenanceCleanupReport {
-	readonly deletedLocalBranches: readonly string[];
-	readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
+/** Provider-neutral observed disposition of every eligible landed local branch. */
+export interface LandedBranchCleanupReport {
+	readonly deleted: readonly string[];
+	readonly retained: readonly RetainedLocalBranchCleanup[];
 }
 
 /** Observed outcome of post-landing managed-slot cleanup. */
@@ -371,7 +387,7 @@ export interface LandedPullRequest {
 
 export interface RetainedLocalBranchCleanup {
 	readonly branch: string;
-	readonly path: string;
+	readonly path?: string;
 }
 
 export interface LandingWarning {

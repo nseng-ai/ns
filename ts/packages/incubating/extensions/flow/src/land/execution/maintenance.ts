@@ -5,46 +5,33 @@ import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graph
 import { isMaintenancePrCurrent } from "../preflight.ts";
 import { landingExecutionFailure } from "../results.ts";
 import type { LandingExecutionFailure, LandingPlan, LandingWarning } from "../types.ts";
-import { landingWarning } from "../types.ts";
 import type { LandExecutionContext } from "./execution-context.ts";
-import { reconcileDescendantRoots } from "./descendant-reconciliation.ts";
 import type { MergeLoopState } from "./merge-loop.ts";
 import {
-	blockedDescendantMaintenanceFailure,
 	formatCheckedOutElsewhere,
 	formatRestackFailureMessage,
 	formatSubmitFailureMessage,
-	planGraphiteMaintenanceTargets,
 	type RequiredNextLandingMaintenance,
 } from "./maintenance-plan.ts";
-import {
-	branchPreDeleteCheckFailure,
-	checkBranchBeforeDelete,
-	guardForcedRefresh,
-	localBranchDeletionFailure,
-	localBranchDeletionFailureDetails,
-	repairGraphiteBranchParent,
-} from "./maintenance-safety.ts";
+import { guardForcedRefresh, repairGraphiteBranchParent } from "./maintenance-safety.ts";
 
-interface GraphiteMaintenanceStep {
-	readonly index: number;
-	readonly branch: string;
-	readonly prNumber: number;
+export interface PrepareNextSelectedLandingOptions {
+	readonly plan: LandingPlan;
+	readonly landedBranch: string;
+	readonly landedPrNumber: number;
+	readonly nextSelectedBranch: string;
 	readonly state: MergeLoopState;
 }
-
-/** Phase a post-merge maintenance halt is attributed to in the landing report. */
-export type MaintenanceHaltPhase = "descendant-maintenance" | "merge-maintenance-cleanup";
 
 type GraphiteMaintenanceOutcome =
 	| { kind: "proceed" }
 	| { kind: "skip"; warning?: LandingWarning }
 	| { kind: "halt"; failure: LandingExecutionFailure };
 
-export type PerformedGraphiteMaintenance =
+export type PreparedNextSelectedLanding =
 	| { kind: "proceed" }
 	| { kind: "skip"; warning?: LandingWarning }
-	| { kind: "halt"; failure: LandingExecutionFailure; phase: MaintenanceHaltPhase };
+	| { kind: "halt"; failure: LandingExecutionFailure; phase: "between-selected-maintenance" };
 
 interface GraphiteRefreshFailureOptions {
 	prNumber: number;
@@ -78,12 +65,6 @@ function graphiteRefreshFailure(
 	});
 }
 
-interface PerformGraphiteMaintenanceOptions {
-	readonly plan: LandingPlan;
-	readonly step: GraphiteMaintenanceStep;
-	readonly shouldDeferLandedBranchDeletion?: boolean;
-}
-
 interface MaintenanceOperationInput {
 	readonly repoRoot: string;
 	readonly plan: LandingPlan;
@@ -109,70 +90,25 @@ function withMaintenanceBranch(
 	return { ...operationInput, maintenanceBranch };
 }
 
-export async function performGraphiteMaintenance(
+export async function prepareNextSelectedLanding(
 	executionContext: LandExecutionContext,
-	maintenanceOptions: PerformGraphiteMaintenanceOptions,
-): Promise<PerformedGraphiteMaintenance> {
-	const { plan, step } = maintenanceOptions;
-	const { repoRoot } = plan;
-	const { index, branch, prNumber, state } = step;
-	const maintenance = planGraphiteMaintenanceTargets(plan, index);
-	const shouldDeferLandedBranchDeletion =
-		maintenanceOptions.shouldDeferLandedBranchDeletion ?? false;
-
-	if (maintenance.mode === "blocked-descendants") {
-		// The main confirmation (or --yes) disclosed and consented to the deferred maintenance;
-		// the landing is still only partially complete, so this is a failed postcondition, not a
-		// warning. Nothing checked out elsewhere is mutated and the landed local branch is kept.
-		return {
-			kind: "halt",
-			phase: "descendant-maintenance",
-			failure: blockedDescendantMaintenanceFailure(plan, branch, prNumber),
-		};
-	}
-
-	if (maintenance.mode === "required-descendants") {
-		return await reconcileDescendantRoots(executionContext, {
-			plan,
-			prNumber,
-			landedBranch: branch,
-			state,
-			maintenance,
-			shouldDeferLandedBranchDeletion,
-		});
-	}
-
-	const outcome =
-		maintenance.mode === "required-next-landing"
-			? await maintainNextLandingBranches(
-					executionContext,
-					{
-						repoRoot,
-						plan,
-						prNumber,
-						landedBranch: branch,
-						state,
-						maintenance,
-					},
-					shouldDeferLandedBranchDeletion,
-				)
-			: await cleanUpLandedBranchBestEffort(executionContext, {
-					repoRoot,
-					plan,
-					prNumber,
-					landedBranch: branch,
-					state,
-					shouldDeferLandedBranchDeletion,
-				});
-	if (outcome.kind === "halt") return { ...outcome, phase: "merge-maintenance-cleanup" };
-	return outcome;
+	options: PrepareNextSelectedLandingOptions,
+): Promise<PreparedNextSelectedLanding> {
+	const outcome = await maintainNextLandingBranches(executionContext, {
+		repoRoot: options.plan.repoRoot,
+		plan: options.plan,
+		prNumber: options.landedPrNumber,
+		landedBranch: options.landedBranch,
+		state: options.state,
+		maintenance: { mode: "required-next-landing", branches: [options.nextSelectedBranch] },
+	});
+	return outcome.kind === "halt" ? { ...outcome, phase: "between-selected-maintenance" } : outcome;
 }
 
 /** Required next-landing maintenance: refresh/delete/restack/submit. */
 async function maintainNextLandingBranches(
 	executionContext: LandExecutionContext,
 	operationInput: MaintenanceOperationInput,
-	shouldDeferLandedBranchDeletion: boolean,
 ): Promise<GraphiteMaintenanceOutcome> {
 	const { progress } = executionContext;
 	const { maintenance } = operationInput;
@@ -184,23 +120,15 @@ async function maintainNextLandingBranches(
 		if (refresh !== undefined) return refresh;
 	}
 
-	if (shouldDeferLandedBranchDeletion) {
-		for (const maintenanceBranch of maintenance.branches) {
-			const repairFailure = await repairGraphiteBranchParent(executionContext, {
-				repoRoot: operationInput.repoRoot,
-				prNumber: operationInput.prNumber,
-				branch: maintenanceBranch,
-				parent: operationInput.plan.stack.trunk,
-				failureSubject: maintenanceBranch,
-			});
-			if (repairFailure !== undefined) return { kind: "halt", failure: repairFailure };
-		}
-	} else {
-		const deleteCheck = await checkGraphiteBranchBeforeDelete(executionContext, operationInput);
-		if (deleteCheck !== undefined) return deleteCheck;
-
-		const deletion = await deleteLocalGraphiteBranchAfterLanding(executionContext, operationInput);
-		if (deletion.kind !== "proceed") return deletion;
+	for (const maintenanceBranch of maintenance.branches) {
+		const repairFailure = await repairGraphiteBranchParent(executionContext, {
+			repoRoot: operationInput.repoRoot,
+			prNumber: operationInput.prNumber,
+			branch: maintenanceBranch,
+			parent: operationInput.plan.stack.trunk,
+			failureSubject: maintenanceBranch,
+		});
+		if (repairFailure !== undefined) return { kind: "halt", failure: repairFailure };
 	}
 
 	for (const maintenanceBranch of maintenance.branches) {
@@ -247,6 +175,7 @@ async function checkSubmitMaintenanceBranch(
 		};
 	}
 
+	options.state.expectedShas.set(maintenanceBranch, localSha.value);
 	const pr = await landContext.github.pullRequestFacts({
 		repoRoot,
 		branchOrNumber: maintenanceBranch,
@@ -343,54 +272,6 @@ async function refreshMaintenanceBranch(
 	};
 }
 
-async function checkGraphiteBranchBeforeDelete(
-	executionContext: LandExecutionContext,
-	options: MaintenanceOperationInput,
-): Promise<{ kind: "halt"; failure: LandingExecutionFailure } | undefined> {
-	const { repoRoot, plan, prNumber, landedBranch: branch, state, maintenance } = options;
-	const allowedChildren = new Set(state.deletedBranches);
-	for (const maintenanceBranch of maintenance.branches) allowedChildren.add(maintenanceBranch);
-	const failureDetails = await checkBranchBeforeDelete(executionContext, {
-		repoRoot,
-		metadataDbPath: plan.metadataDbPath,
-		prNumber,
-		branch,
-		allowedChildren,
-	});
-	return failureDetails === undefined
-		? undefined
-		: { kind: "halt", failure: branchPreDeleteCheckFailure(failureDetails) };
-}
-
-async function deleteLocalGraphiteBranchAfterLanding(
-	executionContext: LandExecutionContext,
-	options: MaintenanceOperationInput,
-): Promise<GraphiteMaintenanceOutcome> {
-	const { land: landContext, progress } = executionContext;
-	const { repoRoot, landedBranch: branch, prNumber, state } = options;
-	progress.note(`Cleaning up local branch ${branch}...`);
-	progress.setStatus(`deleting local Graphite branch ${branch}...`);
-	const deletion = await landContext.graphite.deleteLocalBranch({ repoRoot, branch });
-	switch (deletion.type) {
-		case "deleted":
-			state.deletedBranches.add(branch);
-			return { kind: "proceed" };
-		case "failed":
-			return {
-				kind: "halt",
-				failure: localBranchDeletionFailure({
-					branch,
-					prNumber,
-					commandDisplay: deletion.commandDisplay,
-					result: deletion.result,
-					isLikelyInProgressGitOperation: deletion.isLikelyInProgressGitOperation,
-				}),
-			};
-		default:
-			assertNever(deletion);
-	}
-}
-
 async function restackMaintenanceBranch(
 	executionContext: LandExecutionContext,
 	options: MaintenanceBranchOperationInput,
@@ -417,74 +298,4 @@ async function restackMaintenanceBranch(
 			},
 		),
 	};
-}
-
-async function cleanUpLandedBranchBestEffort(
-	executionContext: LandExecutionContext,
-	options: {
-		readonly repoRoot: string;
-		readonly plan: LandingPlan;
-		readonly prNumber: number;
-		readonly landedBranch: string;
-		readonly state: MergeLoopState;
-		readonly shouldDeferLandedBranchDeletion: boolean;
-	},
-): Promise<GraphiteMaintenanceOutcome> {
-	if (options.shouldDeferLandedBranchDeletion) return { kind: "proceed" };
-
-	const allowedChildren = new Set(options.state.deletedBranches);
-	const checkFailure = await checkBranchBeforeDelete(executionContext, {
-		repoRoot: options.repoRoot,
-		metadataDbPath: options.plan.metadataDbPath,
-		prNumber: options.prNumber,
-		branch: options.landedBranch,
-		allowedChildren,
-	});
-	if (checkFailure !== undefined) {
-		return {
-			kind: "skip",
-			warning: landingWarning({
-				message: checkFailure.warningMessage,
-				suggestedAction: checkFailure.suggestedAction,
-			}),
-		};
-	}
-
-	const { progress } = executionContext;
-	progress.note(`Cleaning up local branch ${options.landedBranch}...`);
-	progress.setStatus(`deleting local Graphite branch ${options.landedBranch}...`);
-	const deletion = await executionContext.land.graphite.deleteLocalBranchRetaining({
-		repoRoot: options.repoRoot,
-		branch: options.landedBranch,
-	});
-	if (deletion.type === "deleted") {
-		options.state.deletedBranches.add(options.landedBranch);
-		return { kind: "proceed" };
-	}
-	if (deletion.type === "retained") {
-		options.state.cleanup.retainedLocalBranches.push({
-			branch: deletion.branch,
-			path: deletion.path,
-		});
-		return { kind: "proceed" };
-	}
-
-	const details = localBranchDeletionFailureDetails({
-		branch: options.landedBranch,
-		prNumber: options.prNumber,
-		isLikelyInProgressGitOperation: deletion.isLikelyInProgressGitOperation,
-	});
-	return {
-		kind: "skip",
-		warning: landingWarning({
-			message: details.warningMessage,
-			commandDisplay: deletion.commandDisplay,
-			result: deletion.result,
-			suggestedAction: details.warningSuggestedAction,
-		}),
-	};
-}
-
-function assertNever(value: never): never {
-	throw new Error(`Unhandled local branch deletion result: ${JSON.stringify(value)}`);
 }

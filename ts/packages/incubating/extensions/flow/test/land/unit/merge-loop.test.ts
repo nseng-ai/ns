@@ -1,10 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { nullLandExecutionProgress } from "../../../src/land/execution/host-seams.ts";
-import {
-	prepareMergeLoopState,
-	reduceDescendantMaintenanceObservation,
-	runMergeLoop,
-} from "../../../src/land/execution/merge-loop.ts";
+import { prepareMergeLoopState, runMergeLoop } from "../../../src/land/execution/merge-loop.ts";
 import {
 	createInMemoryLandContext,
 	pullRequestFacts,
@@ -128,30 +124,12 @@ describe("merge loop preparation", () => {
 			type: "success",
 			value: {
 				expectedShas: new Map([["feature-a", SHA_A]]),
-				deletedBranches: new Set(),
 				warnings: [WARNING],
-				cleanup: { retainedLocalBranches: [] },
 			},
 		});
 		expect(memory.git.snapshotBackupRefsCalls).toEqual([
 			{ repoRoot: REPO_ROOT, branches: ["feature-a"] },
 		]);
-	});
-});
-
-describe("descendant maintenance observation reduction", () => {
-	test("later defined observation wins", () => {
-		expect(
-			reduceDescendantMaintenanceObservation(
-				{ type: "skipped", reason: "earlier" },
-				{ type: "completed" },
-			),
-		).toEqual({ type: "completed" });
-	});
-
-	test("later absent observation preserves the previous observation", () => {
-		const previous = { type: "completed" } as const;
-		expect(reduceDescendantMaintenanceObservation(previous, undefined)).toBe(previous);
 	});
 });
 
@@ -183,7 +161,6 @@ describe("merge loop over LandContext", () => {
 					{ branch: "feature-b", number: 2, title: "Land feature-b" },
 				],
 				warnings: [WARNING],
-				cleanup: { retainedLocalBranches: [] },
 			},
 		});
 		expect(memory.callEvents.map(eventLabel)).toEqual([
@@ -194,8 +171,7 @@ describe("merge loop over LandContext", () => {
 			"github.pullRequestFacts:1",
 			"git.localBranchSha:feature-b",
 			"graphite.refreshBranchFromRemote:feature-b",
-			"graphite.branchChildren:feature-a",
-			"graphite.deleteLocalBranch:feature-a",
+			"graphite.reparentBranch:feature-b",
 			"graphite.restack:feature-b",
 			"git.localBranchSha:feature-b",
 			"github.pullRequestFacts:feature-b",
@@ -203,8 +179,6 @@ describe("merge loop over LandContext", () => {
 			"github.pullRequestFacts:feature-b",
 			"github.squashMergePullRequest:feature-b",
 			"github.pullRequestFacts:2",
-			"graphite.branchChildren:feature-b",
-			"graphite.deleteLocalBranch:feature-b",
 		]);
 		expect(memory.git.snapshotBackupRefsCalls).toHaveLength(1);
 		const firstEventRead = memory.callEvents;
@@ -241,9 +215,7 @@ describe("merge loop over LandContext", () => {
 		expect(memory.git.snapshotBackupRefsCalls).toEqual([
 			{ repoRoot: REPO_ROOT, branches: ["feature-a", "feature-b"] },
 		]);
-		expect(memory.graphite.refreshBranchFromRemoteCalls.map((call) => call.branch)).toEqual([
-			"feature-b",
-		]);
+		expect(memory.graphite.refreshBranchFromRemoteCalls).toEqual([]);
 	});
 
 	test("snapshot failure causes no merge", async () => {
@@ -265,13 +237,7 @@ describe("merge loop over LandContext", () => {
 
 		expect(result).toEqual({
 			type: "failure",
-			observations: {
-				landed: [],
-				warnings: [],
-				cleanup: { retainedLocalBranches: [] },
-				deletedLocalBranches: [],
-				descendantMaintenance: { type: "not-attempted" },
-			},
+			observations: { landed: [], warnings: [] },
 			failure: boundaryFailure("snapshot failed"),
 			failedPhase: "merge",
 		});
@@ -305,9 +271,6 @@ describe("merge loop over LandContext", () => {
 			observations: {
 				landed: [{ branch: "feature-a", number: 1 }],
 				warnings: [WARNING],
-				cleanup: { retainedLocalBranches: [] },
-				deletedLocalBranches: ["feature-a"],
-				descendantMaintenance: { type: "not-attempted" },
 			},
 			failure: { failedBranch: "feature-b", failedPrNumber: 2 },
 		});
@@ -406,7 +369,7 @@ describe("merge loop over LandContext", () => {
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
-	test("required descendant refresh failure fails the merge loop at the descendant-maintenance phase", async () => {
+	test("final selected merge does not run descendant maintenance", async () => {
 		const memory = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -443,13 +406,8 @@ describe("merge loop over LandContext", () => {
 		);
 
 		expect(result).toMatchObject({
-			type: "failure",
-			failedPhase: "descendant-maintenance",
-			observations: {
-				landed: [{ branch: "feature-a", number: 1 }],
-				descendantMaintenance: { type: "not-attempted" },
-			},
-			failure: { failedBranch: "descendant" },
+			type: "success",
+			observations: { landed: [{ branch: "feature-a", number: 1 }] },
 		});
 		// The landed branch is not deleted when descendant refresh proof fails.
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);

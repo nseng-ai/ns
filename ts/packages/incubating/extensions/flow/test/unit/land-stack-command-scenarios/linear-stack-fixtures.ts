@@ -115,12 +115,20 @@ export function linearStackLandingScript(size: number): ScriptedExec[] {
 	return [
 		...numberedPreflight({ end: size, current: size }),
 		...backupRefStepsForNumberedBranches(1, size),
-		...Array.from({ length: size }, (_, offset) => offset + 1).flatMap((index) =>
-			mergeNumberedBranch(
+		...Array.from({ length: size }, (_, offset) => offset + 1).flatMap((index) => {
+			const mergeSteps = mergeNumberedBranch(
 				index,
-				index === size ? { finalCheckedOut: true } : { next: index + 1, stackEnd: size },
-			),
+				index === size ? {} : { next: index + 1, stackEnd: size },
+			);
+			return index === size ? mergeSteps.slice(0, -2) : mergeSteps;
+		}),
+		...Array.from({ length: size }, (_, offset) => offset + 1).map((index) =>
+			childrenRecheckStep(numberedBranch(index), []),
 		),
+		...Array.from({ length: size }, (_, offset) => size - offset).flatMap((index) => {
+			const branch = numberedBranch(index);
+			return [childrenRecheckStep(branch, []), step("gt", ["delete", branch, "-f", "-q"])];
+		}),
 	].flat();
 }
 
@@ -176,8 +184,7 @@ export function mergeNumberedBranch(
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep(branch, [nextBranch]),
-			step("gt", ["delete", branch, "-f", "-q"]),
+			step("gt", ["track", nextBranch, "--parent", TRUNK, "--no-interactive"]),
 			step("gt", ["restack", "--branch", nextBranch, "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: nextBranch,

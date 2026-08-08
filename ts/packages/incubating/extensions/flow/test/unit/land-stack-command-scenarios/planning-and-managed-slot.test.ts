@@ -98,7 +98,6 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...fromManagedCurrentSlot(linearStackLandingScript(3)),
 			step("ns", ["slot", "free", "--wt", "slot-03"]),
-			step("gt", ["delete", "feature-3", "-f", "-q"]),
 		];
 		const { pi, confirmations, notifications } = await runLandStack("--free", script, {
 			cwd: CURRENT_SLOT_ROOT,
@@ -241,11 +240,11 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(confirmations).toEqual([]);
 		expect(notifications[0]?.message).toContain(
-			"Descendant reconciliation is blocked: these descendants are checked out in other worktrees and will NOT be restacked or updated:",
+			"Post-target survivor reconciliation is blocked by other worktree checkouts:",
 		);
 		expect(notifications[0]?.message).toContain("slot-07 feature-c");
 		expect(notifications[0]?.message).toContain(
-			"Full completion is impossible until those worktrees are freed/detached or deferred maintenance is explicitly accepted.",
+			"Keep can still land and deliberately leave this topology unreconciled; free or up will fail before branch or slot cleanup.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(

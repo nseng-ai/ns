@@ -1,7 +1,6 @@
 import { landingExecutionFailure } from "../results.ts";
 import type {
 	LandContext,
-	LandingCleanupPolicy,
 	LandingContinuationReport,
 	LandingFailure,
 	StackSnapshot,
@@ -87,9 +86,8 @@ export async function executeUpstackContinuation(options: {
 	readonly repoRoot: string;
 	readonly originalBranch: string;
 	readonly candidateBranch: string;
-	readonly cleanup: LandingCleanupPolicy;
 }): Promise<ExecuteUpstackContinuationResult> {
-	const { context, repoRoot, originalBranch, candidateBranch, cleanup } = options;
+	const { context, repoRoot, originalBranch, candidateBranch } = options;
 	const checkedOut = await context.git.checkoutBranch({ repoRoot, branch: candidateBranch });
 	if (checkedOut.type === "failure") {
 		return {
@@ -141,34 +139,8 @@ export async function executeUpstackContinuation(options: {
 		};
 	}
 
-	if (cleanup === "preserve") {
-		return {
-			type: "completed",
-			report: { type: "continued", branch: candidateBranch, originalBranchDeleted: false },
-		};
-	}
-
-	const deletion = await context.graphite.deleteLocalBranch({
-		repoRoot,
-		branch: originalBranch,
-	});
-	if (deletion.type !== "deleted") {
-		return {
-			type: "failed",
-			report: { type: "cleanup-failed", branch: candidateBranch },
-			failure: landingExecutionFailure(
-				`Landing completed and continued onto ${candidateBranch}, but deleting original local branch ${originalBranch} did not complete.`,
-				{
-					failedBranch: originalBranch,
-					displayCommand: deletion.commandDisplay,
-					execResult: deletion.result,
-					suggestedAction: `Inspect the stack and delete ${originalBranch} manually when safe.`,
-				},
-			),
-		};
-	}
 	return {
 		type: "completed",
-		report: { type: "continued", branch: candidateBranch, originalBranchDeleted: true },
+		report: { type: "continued", branch: candidateBranch },
 	};
 }

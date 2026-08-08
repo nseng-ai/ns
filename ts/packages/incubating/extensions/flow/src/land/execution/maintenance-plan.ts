@@ -28,34 +28,14 @@ export type RequiredDescendantMaintenance = Extract<
 
 export type NoMaintenance = Extract<MaintenanceTargetPlan, { mode: "none" }>;
 
-export function planGraphiteMaintenanceTargets(
+export function planNextSelectedLanding(
 	plan: LandingPlan,
 	index: number,
-): MaintenanceTargetPlan {
+): RequiredNextLandingMaintenance | NoMaintenance {
 	const nextLandingBranch = plan.stack.landingBranches[index + 1];
-	if (nextLandingBranch !== undefined) {
-		return { mode: "required-next-landing", branches: [nextLandingBranch] };
-	}
-
-	if (index !== plan.stack.landingBranches.length - 1) {
-		return { mode: "none", branches: [] };
-	}
-
-	const nextFutureLandingBranch = plan.stack.remainingLandingBranches[0];
-	if (nextFutureLandingBranch !== undefined) {
-		return { mode: "required-next-landing", branches: [nextFutureLandingBranch] };
-	}
-
-	if (plan.descendantMaintenance.type === "auto") {
-		return {
-			mode: "required-descendants",
-			branches: plan.descendantMaintenance.targetBranches,
-		};
-	}
-	if (plan.descendantMaintenance.type === "blocked") {
-		return { mode: "blocked-descendants", branches: [] };
-	}
-	return { mode: "none", branches: [] };
+	return nextLandingBranch === undefined
+		? { mode: "none", branches: [] }
+		: { mode: "required-next-landing", branches: [nextLandingBranch] };
 }
 
 export function refreshTargetsAfterMaintainedBranch(

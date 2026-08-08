@@ -125,7 +125,7 @@ async function runSingleBranchDispatch(input: {
 	if (cleanup.type === "failure") {
 		return {
 			type: "failed",
-			failedPhase: "post-landing-cleanup",
+			failedPhase: "managed-slot-cleanup",
 			failure: cleanup.failure,
 			landedPullRequest: fastPath.outcome.pullRequest,
 		};

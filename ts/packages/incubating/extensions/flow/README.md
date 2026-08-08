@@ -79,10 +79,11 @@ reshaped stack.
   Graphite-native by design.
 - **GitHub (`gh`)** — the GitHub CLI for PR reads and edits, including PR lookup,
   title and description updates, and merge state.
-- **slots** — ns managed worktree slots: `autoslot` checks branches out into a slot;
-  `land --free` cleans up the current managed slot after a successful landing. In an
-  interactive selector-capable host, a managed-slot landing with no cleanup flag offers
-  keep (the default), free, or cancel before merge.
+- **slots** — ns managed worktree slots: `autoslot` checks branches out into a slot.
+  After the shared selected-landing phase, `land --free` reconciles and verifies survivors,
+  strictly deletes every landed local branch, and then frees the current managed slot.
+  In an interactive selector-capable host, a managed-slot landing with no cleanup flag
+  offers keep (the default), free, or cancel before merge.
 - **LLM** — injected text generation for change summaries, checkpoint messages,
   branch-name slugs, and assembled PR inventories.
 
@@ -105,16 +106,26 @@ reshaped stack.
   remain ordinary Git worktrees.
 - `land` uses GitHub squash merge and requires `gh` authentication with permission
   to merge the target PRs. The repository must allow squash merges. Other merge
-  strategies are not part of the current land contract. By default, successful landing
-  keeps the current managed slot and landed local branch; selector-capable interactive hosts
-  offer keep, free, or cancel before merge when neither `--free` nor `--up` is supplied.
-  Pass `--free` to free the slot and delete the branch. Pass `--up` to keep the slot and continue in the same worktree
-  on the sole immediate Graphite child. If no unambiguous child is available, the command
-  fails before landing. If checkout, verification, or landed-branch cleanup fails after
-  merge, the command reports failure while preserving recoverable state and identifying
-  the PRs that already landed. With `--up`, the default preserves the landed branch and
-  `--free` deletes it after successful continuation without freeing the slot. A dry run
-  reports continuation availability and performs no checkout or cleanup.
+  strategies are not part of the current land contract. Keep, free, and up all use the
+  same selected-landing phase: merge and verify bottom-through-target PRs, preparing only
+  the exact next selected PR between merges. This phase stops after the final selected PR;
+  it does not reconcile final survivors or delete landed branches.
+- Default keep preserves the current slot and all landed local branches, stays on the
+  invoking merged branch, and performs no post-target survivor reads or mutations. When
+  survivors remain, it succeeds with a warning that names the first survivor and gives the
+  exact `gt get ... --downstack --no-restack --no-checkout --force --no-interactive`
+  command to run from trunk. The surviving topology is intentionally unreconciled.
+- `--free` additively reconciles and verifies survivors before strict cleanup. Only after
+  reconciliation succeeds does it delete landed local branches in reverse landing order
+  and free the managed slot. A reconciliation, verification, deletion, or slot-cleanup
+  failure is nonzero and reports already-landed and partial cleanup facts; an eligible
+  landed branch left undeleted is never downgraded to a warning.
+- `--up` snapshots the sole immediate child before any mutation and requires it to agree
+  with the deterministic immediate survivor. After common survivor reconciliation, it
+  checks out and verifies that branch in the invoking worktree. The managed slot is always
+  preserved. Default up retains landed branches; `--up --free` runs common strict branch
+  cleanup only after successful checkout and still never frees the slot. A dry run reports
+  continuation availability and performs no reconciliation, checkout, or cleanup.
 - The hidden agent-facing exec surface has one operation:
   `ns flow exec read-graphite-branch-metadata`, which reads Graphite's branch
   metadata database through a controlled `sqlite3` query.

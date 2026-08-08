@@ -105,10 +105,11 @@ export async function executeStackLanding(
 				phases: [{ type: "failed", phase: "merge", failure }],
 				landedChunks: [],
 				warnings: [],
+				postTarget: { type: "not-run", reason: "unexpected workflow failure" },
 				cleanup: {
 					preMergeFreedSlots: [],
-					mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
-					postLandingSlotCleanup: { type: "not-run", reason: "unexpected workflow failure" },
+					landedBranches: { deleted: [], retained: [] },
+					managedSlot: { type: "not-run", reason: "unexpected workflow failure" },
 				},
 				continuation: { type: "not-requested" },
 			},

@@ -29,12 +29,20 @@ The Flow-owned semantic adapter around canonical land execution: interaction/pro
 *Avoid*: direct `executeStackLandingPlan` call, second landing report, settled rendering below the command edge, fake stack report for a single-branch landing, standalone land CLI behavior
 
 **Canonical Landing Execution**:
-The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle — discovery, preflight planning, confirmation, pre-merge preparation, merge, per-merge maintenance, optional **Upstack Continuation**, and post-landing managed-slot cleanup under the closed cleanup policy (`preserve` / `free`) — and returns a `LandingExecutionResult` whose completed and failed variants carry the same observed-fact `LandingExecutionReport`. For an execute-mode managed-slot landing whose flag-derived policy is `preserve` and which is not continuing upstack, a selector-capable host may approve confirmation with a chosen cleanup policy after presenting keep (default), free, and cancel choices; explicit flags and non-selector hosts retain their existing behavior.
-*Avoid*: phase synthesis from plan shape, gateway-level `LandResult` widening, second execution report model, Flow-owned cleanup ordering
+The `executeLanding` entry point on the **Land subpackage API** that owns the full `LandingRequest` lifecycle and returns one observed-fact `LandingExecutionReport` from both completed and failed variants. Preserve, free, and up share one policy-free **Selected Landing** phase: merge and verify each selected PR and prepare only the exact next selected PR between merges. After the final selected PR, preserve performs zero survivor reads or mutations and warns with a manual command; free and up add common **Post-Target Reconciliation** before any strict cleanup.
+*Avoid*: cleanup policy inside selected landing, final-survivor work inside the merge loop, phase synthesis from plan shape, second execution report model
+
+**Selected Landing**:
+The common bottom-through-target merge operation. It snapshots safety SHAs, merges and verifies each selected PR, and performs deletion-free preparation only when another selected PR remains. It returns landed facts and expected local SHAs, then stops before final-survivor reconciliation or landed-branch deletion.
+*Avoid*: preserve/free switch, continuation policy, remaining-stack target selection, descendant cleanup
+
+**Post-Target Reconciliation**:
+The additive, verified survivor operation used by free and up after Selected Landing. It guards expected SHAs, refreshes and reparents survivor roots, restacks, verifies Git ancestry and provider parent facts, publishes stale PRs, and verifies GitHub head/base facts. Reconciliation performs no landed-branch deletion; failure blocks branch deletion and slot cleanup.
+*Avoid*: best-effort warning, deletion during reconciliation, provider command success as postcondition proof
 
 **Upstack Continuation**:
-The explicit `land --up` continuation policy that snapshots the invoking branch's immediate Graphite children before mutation, always preserves the invoking managed slot, and after successful merge attempts to check out the sole child in the same worktree. No child, multiple children, or lookup failure stops before merge; checkout, verification, or original-branch cleanup failure returns a failed command outcome that preserves recoverable state and reports already-landed PRs. The default `preserve` cleanup policy keeps the landed local branch, while `--free` deletes it after successful continuation without overriding slot preservation. Dry runs report availability without checkout or cleanup.
-*Avoid*: descendant merge, inferred first child, cross-worktree navigation, cleanup despite `--up`, hiding partial landing behind a successful command outcome
+The explicit `land --up` policy that snapshots the invoking branch's sole immediate Graphite child before mutation and requires that candidate to equal the deterministic immediate survivor. After common Post-Target Reconciliation, continuation only checks out and verifies that branch. The invoking managed slot is always preserved. Preserve retains landed branches; `--up --free` invokes common strict landed-branch cleanup only after successful checkout. Any lookup, invariant, reconciliation, checkout, verification, or cleanup failure is nonzero with already-landed and partial facts.
+*Avoid*: descendant merge, inferred or fallback child, cross-worktree navigation, deletion inside continuation, slot free, hiding partial landing behind success
 
 **Land Domain Core**:
 The deterministic land logic in the `@nseng-ai/flow/land` subpackage that consumes injected Git, Graphite, GitHub PR, and worktree-slot gateways to produce land-domain results.

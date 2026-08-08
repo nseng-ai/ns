@@ -336,7 +336,7 @@ async function loadBranchChildren(options: {
 }): Promise<LandResult<readonly string[]>> {
 	const topology = await loadGraphiteTopology(options.pi, options.repoRoot, options.metadataDbPath);
 	if (topology.type === "failure")
-		return normalizeAdapterResult(topology, "graphite", "descendant-maintenance");
+		return normalizeAdapterResult(topology, "graphite", "post-target-reconciliation");
 	return landSuccess([...(topology.value.get(options.branch)?.children ?? [])]);
 }
 
@@ -348,7 +348,7 @@ async function loadBranchParent(options: {
 }): Promise<LandResult<string | undefined>> {
 	const topology = await loadGraphiteTopology(options.pi, options.repoRoot, options.metadataDbPath);
 	if (topology.type === "failure")
-		return normalizeAdapterResult(topology, "graphite", "descendant-maintenance");
+		return normalizeAdapterResult(topology, "graphite", "post-target-reconciliation");
 	return landSuccess(topology.value.get(options.branch)?.parent);
 }
 

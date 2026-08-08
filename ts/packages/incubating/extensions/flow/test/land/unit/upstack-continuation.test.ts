@@ -108,73 +108,28 @@ describe("upstack continuation execution", () => {
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
-	test("preserve success keeps the original branch", async () => {
-		const memory = createInMemoryLandContext();
-
-		const result = await execute(memory.context, "preserve");
-
-		expect(result).toEqual({
-			type: "completed",
-			report: { type: "continued", branch: CHILD, originalBranchDeleted: false },
-		});
-		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
-	});
-
-	test("delete success removes the original branch only after verified checkout", async () => {
+	test("success checks out and verifies without deleting the original branch", async () => {
 		const memory = createInMemoryLandContext();
 
 		const result = await execute(memory.context);
 
 		expect(result).toEqual({
 			type: "completed",
-			report: { type: "continued", branch: CHILD, originalBranchDeleted: true },
+			report: { type: "continued", branch: CHILD },
 		});
 		expect(memory.callEvents.map((event) => event.operation)).toEqual([
 			"git.checkoutBranch",
 			"git.currentBranch",
-			"graphite.deleteLocalBranch",
 		]);
-	});
-
-	test("delete failure reports recoverable cleanup", async () => {
-		const memory = createInMemoryLandContext({
-			graphite: {
-				deleteLocalBranchResults: {
-					[ORIGINAL]: {
-						type: "failed",
-						commandDisplay: `gt delete ${ORIGINAL}`,
-						result: {
-							type: "exited",
-							stdout: "",
-							stderr: "delete failed",
-							code: 1,
-							signal: null,
-						},
-						isLikelyInProgressGitOperation: false,
-					},
-				},
-			},
-		});
-
-		const result = await execute(memory.context);
-
-		expect(result).toMatchObject({
-			type: "failed",
-			report: { type: "cleanup-failed", branch: CHILD },
-			failure: { displayCommand: `gt delete ${ORIGINAL}` },
-		});
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 });
 
-async function execute(
-	context: ReturnType<typeof createInMemoryLandContext>["context"],
-	cleanup: "preserve" | "free" = "free",
-) {
+async function execute(context: ReturnType<typeof createInMemoryLandContext>["context"]) {
 	return await executeUpstackContinuation({
 		context,
 		repoRoot: ROOT,
 		originalBranch: ORIGINAL,
 		candidateBranch: CHILD,
-		cleanup,
 	});
 }

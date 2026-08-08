@@ -182,6 +182,7 @@ describe("land-stack command scenarios", () => {
 				),
 			}),
 			childrenRecheckStep("feature-a", []),
+			childrenRecheckStep("feature-a", []),
 			step("gt", ["delete", "feature-a", "-f", "-q"]),
 		];
 		const pi = new FakeLandExecutionApi(script);

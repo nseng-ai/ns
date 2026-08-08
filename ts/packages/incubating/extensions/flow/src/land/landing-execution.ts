@@ -81,9 +81,9 @@ export async function runFlowStackLanding(
 export function isPostLandingCleanupFailureAfterLanding(
 	execution: Extract<LandingExecutionResult, { readonly type: "failed" }>,
 ): boolean {
-	if (execution.failedPhase !== "post-landing-cleanup") return false;
+	if (execution.failedPhase !== "managed-slot-cleanup") return false;
 	if (!execution.report.landedChunks.some((chunk) => chunk.landed.length > 0)) return false;
-	return execution.report.cleanup.postLandingSlotCleanup.type === "failed";
+	return execution.report.cleanup.managedSlot.type === "failed";
 }
 
 export { setStatus };

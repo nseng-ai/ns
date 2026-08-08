@@ -182,8 +182,8 @@ describe("land stack sandbox integration", () => {
 						],
 					]);
 					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toEqual([
-						FEATURE_A,
 						FEATURE_B,
+						FEATURE_A,
 					]);
 					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_C);
 					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_D);
@@ -191,9 +191,6 @@ describe("land stack sandbox integration", () => {
 						commandIndex(log, "gt", ["get", FEATURE_B]),
 					);
 					expect(commandIndex(log, "gt", ["get", FEATURE_B])).toBeLessThan(
-						commandIndex(log, "gt", ["delete", FEATURE_A]),
-					);
-					expect(commandIndex(log, "gt", ["delete", FEATURE_A])).toBeLessThan(
 						commandIndex(log, "gt", ["restack", "--branch", FEATURE_B]),
 					);
 					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_B])).toBeLessThan(
@@ -202,8 +199,8 @@ describe("land stack sandbox integration", () => {
 					expect(commandIndex(log, "gh", ["pr", "merge", "102"])).toBeLessThan(
 						commandIndex(log, "gt", ["get", FEATURE_C]),
 					);
-					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_C])).toBeGreaterThan(
-						commandIndex(log, "gt", ["delete", FEATURE_B]),
+					expect(commandIndex(log, "gt", ["delete", FEATURE_B])).toBeGreaterThan(
+						commandIndex(log, "gt", ["submit", "--branch", FEATURE_D]),
 					);
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_C])).toBeGreaterThan(
 						commandIndex(log, "gt", ["restack", "--branch", FEATURE_C]),
@@ -224,7 +221,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"preserve reconciliation repairs topology without selecting separate stacks later",
+		"preserve performs no post-target reads or mutations and leaves topology unreconciled",
 		async () => {
 			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
 				const initialTopology = (await readState(sandbox.statePath)).topology;
@@ -242,24 +239,20 @@ describe("land stack sandbox integration", () => {
 				expect(await localBranches(sandbox)).toEqual(
 					expect.arrayContaining([FEATURE_A, FEATURE_B, FEATURE_C, FEATURE_D]),
 				);
-				const repairedTopology = (await readState(sandbox.statePath)).topology;
-				expect(repairedTopology.find((row) => row.branch === FEATURE_A)?.children).toEqual([]);
-				expect(repairedTopology.find((row) => row.branch === FEATURE_B)).toMatchObject({
-					parent: TRUNK,
-					children: [],
-				});
-				expect(repairedTopology.find((row) => row.branch === FEATURE_C)?.parent).toBe(TRUNK);
-				expect(repairedTopology.find((row) => row.branch === FEATURE_D)?.parent).toBe(TRUNK);
+				const finalTopology = (await readState(sandbox.statePath)).topology;
+				expect(finalTopology.find((row) => row.branch === FEATURE_B)?.parent).toBe(TRUNK);
+				expect(finalTopology.find((row) => row.branch === FEATURE_C)?.parent).toBe(FEATURE_B);
+				expect(finalTopology.find((row) => row.branch === FEATURE_D)?.parent).toBe(FEATURE_B);
 
 				const log = await readCommandLog(sandbox);
-				for (const branch of [FEATURE_B, FEATURE_C, FEATURE_D]) {
-					const getIndex = commandIndex(log, "gt", ["get", branch]);
-					const trackIndex = commandIndex(log, "gt", ["track", branch, "--parent", TRUNK]);
-					const restackIndex = commandIndex(log, "gt", ["restack", "--branch", branch]);
-					expect(trackIndex).toBeGreaterThan(getIndex);
-					expect(restackIndex).toBeGreaterThan(trackIndex);
-				}
+				expect(commandArgs(log, "gt", "get").map((args) => args[1])).toEqual([FEATURE_B]);
+				expect(commandArgs(log, "gt", "track").map((args) => args[1])).toEqual([FEATURE_B]);
+				expect(commandArgs(log, "gt", "restack").map((args) => args[2])).toEqual([FEATURE_B]);
+				expect(commandArgs(log, "gt", "submit").map((args) => args[2])).toEqual([FEATURE_B]);
 				expect(commandArgs(log, "gt", "delete")).toEqual([]);
+				expect(notificationText(result)).toContain(
+					`gt get ${FEATURE_C} --downstack --no-restack --no-checkout --force --no-interactive`,
+				);
 
 				const snapshot = await loadStackSnapshot({
 					pi: createSandboxExecutionApi(sandbox),
@@ -271,8 +264,8 @@ describe("land stack sandbox integration", () => {
 				expect(snapshot.type).toBe("success");
 				if (snapshot.type !== "success") throw new Error(snapshot.failure.message);
 				expect(snapshot.value.landingBranches).toEqual([FEATURE_B]);
-				expect(snapshot.value.descendantBranches).toEqual([]);
-				expect(snapshot.value.descendantRootBranches).toEqual([]);
+				expect(snapshot.value.descendantBranches).toEqual([FEATURE_C, FEATURE_D]);
+				expect(snapshot.value.descendantRootBranches).toEqual([FEATURE_C, FEATURE_D]);
 				expect(snapshot.value.warnings).toEqual([]);
 			});
 		},
@@ -315,7 +308,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"fails fast without publishing or preparing later roots after a post-delete restack failure",
+		"fails reconciliation without cleanup or preparing later roots after a restack failure",
 		async () => {
 			await withSandbox(
 				{
@@ -337,14 +330,14 @@ describe("land stack sandbox integration", () => {
 					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_D])).toBe(-1);
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_C])).toBe(-1);
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_D])).toBe(-1);
-					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toContain(FEATURE_B);
+					expect(commandArgs(log, "gt", "delete")).toEqual([]);
 
 					const messages = notificationText(result);
 					expect(messages).toContain(FEATURE_C);
 					expect(messages).not.toContain(`descendant branch ${FEATURE_D} was left`);
 
 					const branches = await localBranches(sandbox);
-					expect(branches).not.toContain(FEATURE_B);
+					expect(branches).toContain(FEATURE_B);
 					expect(branches).toContain(FEATURE_C);
 					expect(branches).toContain(FEATURE_D);
 				},
@@ -393,7 +386,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"skips local deletion when the pre-delete topology reread exposes a new child",
+		"fails strict cleanup when the pre-delete topology reread exposes a new child",
 		async () => {
 			await withSandbox(
 				{
@@ -416,7 +409,7 @@ describe("land stack sandbox integration", () => {
 				async (sandbox) => {
 					const result = await executeSandboxLanding(sandbox);
 
-					expect(result.outcome.type).toBe("completed");
+					expect(result.outcome.type).toBe("failed");
 					const log = await readCommandLog(sandbox);
 					expect(commandArgs(log, "gt", "delete")).toEqual([]);
 					const branches = await localBranches(sandbox);

@@ -48,16 +48,16 @@ import type {
 	NotifyLevel,
 	PrintAwareLandStackCommandContext,
 } from "./stack/types.ts";
-import type { RemainingCleanup } from "./execution/merge-loop.ts";
 import type { PostLandingSlotCleanupPreview } from "./execution/post-landing-cleanup.ts";
 import { formatConflict, formatSlotConflict, slotFreeArgs } from "./worktree-paths.ts";
 import type {
-	DescendantMaintenancePlan,
+	LandedBranchCleanupReport,
 	LandedPullRequest,
 	LandingContinuationReport,
 	LandingPlan,
 	LandingWarning,
 	PostLandingSlotCleanupReport,
+	PostTargetExecutionReport,
 } from "./types.ts";
 
 // --------------------------------------------------------------------------
@@ -136,7 +136,7 @@ export function formatPlan(plan: LandingPlan): string {
 	});
 
 	lines.push("");
-	lines.push(...formatDescendantMaintenancePlan(plan.descendantMaintenance));
+	lines.push(...formatSurvivorPlan(plan));
 
 	if (stack.warnings.length > 0) {
 		lines.push("", "Warnings:");
@@ -186,36 +186,40 @@ export function formatPlan(plan: LandingPlan): string {
 
 	lines.push(
 		"",
-		"For each merged PR:",
-		"  - gh pr merge <number> --squash --match-head-commit <headRefOid> --subject <PR title> --body <PR body>",
-		`  - verify PR is MERGED on ${stack.trunk}`,
-		"  - if another landing branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
-		"  - gt delete <landed-branch> -f -q, retaining the final landed local branch when it is checked out in this worktree",
-		"  - restack/submit the next landing branch when required; descendant reconciliation (restack/update with verified local, provider, and GitHub postconditions) is required after target PRs land",
+		"Shared selected-landing phase:",
+		"  - merge each selected PR with its expected head commit and PR title/body",
+		`  - verify each PR is MERGED on ${stack.trunk}`,
+		"  - only when another selected PR remains, refresh, reparent, restack, and publish that exact next selected branch",
+		"  - after the final selected PR, stop without reconciling survivors or deleting landed branches",
 		"",
-		"Will not merge descendants above current, will not delete remote branches, will not run global gt sync --delete-all, will not wait for checks or enable auto-merge, and will stop on first failure before all target PRs land.",
+		"Post-target policy:",
+		"  - keep (default): preserve the slot and landed branches and report the exact manual survivor-reconciliation command",
+		"  - free: reconcile and verify survivors, then strictly delete every landed local branch and free the managed slot",
+		"  - up: reconcile the pre-snapshotted immediate survivor, check it out and verify it, always preserve the slot, then retain or strictly delete landed branches according to cleanup policy",
+		"",
+		"Will not merge survivors, delete remote branches, run global gt sync --delete-all, wait for checks, or enable auto-merge. Any requested reconciliation, checkout, verification, or strict cleanup failure finishes nonzero with observed partial facts.",
 	);
 
 	return lines.join("\n");
 }
 
-function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan): string[] {
-	if (maintenance.type === "none") {
-		return ["No descendant PRs above the current branch will be merged."];
-	}
-
-	if (maintenance.type === "auto") {
+function formatSurvivorPlan(plan: LandingPlan): string[] {
+	const survivors =
+		plan.stack.remainingLandingBranches.length > 0
+			? plan.stack.remainingLandingBranches
+			: plan.descendantMaintenance.branches;
+	if (survivors.length === 0)
+		return ["No surviving PR branches require post-target reconciliation."];
+	if (plan.descendantMaintenance.type === "blocked") {
 		return [
-			"Will leave open and, after target PRs land, restack/update with verified postconditions (required for full completion):",
-			...maintenance.branches.map((branch) => `  - ${branch}`),
+			"Post-target survivor reconciliation is blocked by other worktree checkouts:",
+			...plan.descendantMaintenance.conflicts.map((conflict) => `  - ${formatConflict(conflict)}`),
+			"Keep can still land and deliberately leave this topology unreconciled; free or up will fail before branch or slot cleanup.",
 		];
 	}
-
 	return [
-		"Descendant reconciliation is blocked: these descendants are checked out in other worktrees and will NOT be restacked or updated:",
-		...maintenance.conflicts.map((conflict) => `  - ${formatConflict(conflict)}`),
-		"Approving this landing (interactively or with --yes) accepts deferred descendant maintenance: the merge proceeds, the blocked descendants are left stale, and the command finishes nonzero with branch-specific repair steps.",
-		"Full completion is impossible until those worktrees are freed/detached or deferred maintenance is explicitly accepted.",
+		"Surviving PR branches (not part of the shared selected-landing phase):",
+		...survivors.map((branch) => `  - ${branch}`),
 	];
 }
 
@@ -225,9 +229,9 @@ export function usage(): string {
 		`/${COMMAND_NAME} ${landUsageTokens().join(" ")}`,
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
-		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
-		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts. Descendant reconciliation after landing is required for full completion; descendant worktree conflicts require explicit consent (confirmation or --yes) and finish as a nonzero partial completion with deferred descendant maintenance.",
-		"After successful landing, this command keeps the current managed slot and local branch by default; in selector-capable interactive hosts, execute-mode managed-slot landings offer keep, free, or cancel before merge. Pass --free to choose cleanup upfront, or --up to continue onto the sole immediate child while keeping the slot.",
+		"Fast path requires Graphite to prove a single-branch PR shape. Stack path uses one shared selected-landing phase for keep, free, and up: merge and verify bottom-through-target PRs, preparing only the exact next selected PR between merges.",
+		"After the final selected merge, keep performs no survivor reads or mutations and leaves topology intentionally unreconciled with an actionable warning. Free reconciles and verifies survivors before strict landed-branch and managed-slot cleanup; any requested post-target failure is nonzero.",
+		"In selector-capable interactive hosts, managed-slot landings offer keep, free, or cancel before merge. Pass --free to choose reconciliation plus strict cleanup upfront. Pass --up to reconcile and continue onto the pre-snapshotted sole immediate child while always preserving the slot; combine --up --free to delete landed branches only after verified checkout.",
 		"",
 		"Options:",
 		...landUsageOptionRows().map(formatUsageOptionRow),
@@ -240,9 +244,9 @@ function formatUsageOptionRow(row: { aliases: readonly string[]; description: st
 
 interface FormatSuccessSummaryOptions {
 	readonly landed: readonly LandedPullRequest[];
-	readonly descendantMaintenance: DescendantMaintenancePlan;
+	readonly postTarget: PostTargetExecutionReport;
 	readonly warnings: readonly LandingWarning[];
-	readonly cleanup: RemainingCleanup;
+	readonly cleanup: LandedBranchCleanupReport;
 	readonly continuation?: LandingContinuationReport;
 }
 
@@ -257,38 +261,35 @@ export function formatSuccessSummary(options: FormatSuccessSummaryOptions): stri
 		`Landed ${options.landed.length} PR${options.landed.length === 1 ? "" : "s"}: ${landedText}.`,
 	];
 	lines.push(...formatContinuationSummary(continuation));
-	if (
-		options.descendantMaintenance.type === "auto" &&
-		options.descendantMaintenance.branches.length > 0
-	) {
-		if (hasDescendantMaintenanceDeferral(noteEntries)) {
+	switch (options.postTarget.type) {
+		case "reconciled":
+			lines.push(`Reconciled surviving branches: ${options.postTarget.branches.join(", ")}.`);
+			break;
+		case "deferred":
+			lines.push(`Survivor reconciliation deferred at ${options.postTarget.firstSurvivor}.`);
+			break;
+		case "failed":
 			lines.push(
-				`Left open; restack/update deferred: ${options.descendantMaintenance.branches.join(", ")}.`,
+				`Survivor reconciliation failed after observing: ${options.postTarget.branches.join(", ")}.`,
 			);
-		} else if (hasDescendantMaintenanceWarning(warningEntries)) {
-			lines.push(
-				`Left open; restack/update needs follow-up: ${options.descendantMaintenance.branches.join(", ")}.`,
-			);
-		} else {
-			lines.push(`Left open/restacked: ${options.descendantMaintenance.branches.join(", ")}.`);
-		}
-	} else if (options.descendantMaintenance.type === "blocked") {
-		lines.push(
-			`Left open; restack/update blocked: ${options.descendantMaintenance.branches.join(", ")}.`,
-		);
-		lines.push(`Reason: ${options.descendantMaintenance.reason}.`);
+			break;
+		case "not-needed":
+		case "not-run":
+			break;
 	}
-	lines.push("", "Remaining cleanup:");
+	lines.push("", "Landed branch cleanup:");
 	lines.push("  - Remote branches were not deleted.");
-	for (const retained of options.cleanup.retainedLocalBranches) {
+	if (options.cleanup.deleted.length > 0) {
+		lines.push(`  - Deleted local branches: ${options.cleanup.deleted.join(", ")}.`);
+	}
+	for (const retained of options.cleanup.retained) {
+		const location = retained.path === undefined ? "" : ` (still checked out at ${retained.path})`;
 		lines.push(
-			`  - Local branch ${retained.branch} was kept (still checked out at ${retained.path}); delete it manually or run gt sync.`,
+			`  - Local branch ${retained.branch} was kept${location}; delete it manually or run gt sync.`,
 		);
 	}
-	if (options.cleanup.retainedLocalBranches.length === 0) {
-		lines.push(
-			"  - Clean up any remaining local branches manually, for example by running `gt sync` or deleting branches directly.",
-		);
+	if (options.cleanup.deleted.length === 0 && options.cleanup.retained.length === 0) {
+		lines.push("  - No landed local branches required cleanup.");
 	}
 	if (warningEntries.length > 0) {
 		lines.push(
@@ -315,9 +316,7 @@ function formatContinuationSummary(continuation: LandingContinuationReport): str
 		case "candidate":
 			return [`Upstack continuation available: would continue onto ${continuation.branch}.`];
 		case "continued":
-			return [
-				`Continued onto upstack branch ${continuation.branch}; original landed branch was ${continuation.originalBranchDeleted ? "deleted" : "preserved"}.`,
-			];
+			return [`Reconciled and continued onto upstack branch ${continuation.branch}.`];
 		case "unavailable":
 			return [
 				`Upstack continuation unavailable: ${continuationUnavailableReason(continuation.reason)}; managed slot and landed local branch were preserved.`,
@@ -329,10 +328,6 @@ function formatContinuationSummary(continuation: LandingContinuationReport): str
 		case "verification-failed":
 			return [
 				`Upstack continuation did not verify: expected ${continuation.branch}, found ${continuation.actualBranch}; landed local branch was preserved.`,
-			];
-		case "cleanup-failed":
-			return [
-				`Continued onto ${continuation.branch}, but cleanup of the landed local branch failed; the managed slot was preserved.`,
 			];
 	}
 }
@@ -352,17 +347,6 @@ function continuationUnavailableReason(
 
 function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
 	return warning.level ?? "warning";
-}
-
-function hasDescendantMaintenanceWarning(warnings: LandingWarning[]): boolean {
-	return warnings.some((warning) => warning.message.toLowerCase().includes("descendant"));
-}
-
-function hasDescendantMaintenanceDeferral(warnings: LandingWarning[]): boolean {
-	return warnings.some((warning) => {
-		const message = warning.message.toLowerCase();
-		return message.includes("descendant") && message.includes("deferred");
-	});
 }
 
 export function formatLandingWarning(warning: LandingWarning): string[] {
@@ -667,11 +651,11 @@ export function landingCleanupChoiceLabels(preview: PostLandingSlotCleanupPrevie
 	readonly cancel: string;
 } {
 	return {
-		keep: `Land and keep ${preview.slotName} + local branch ${preview.branch} (default)`,
+		keep: `Land; defer survivor reconciliation and keep ${preview.slotName} + landed local branches (default)`,
 		free:
 			preview.localBranchDisposition === "keep-trunk"
-				? `Land, free ${preview.slotName}, and keep local trunk branch ${preview.branch}`
-				: `Land, free ${preview.slotName}, and delete local branch ${preview.branch}`,
+				? `Land; reconcile survivors, free ${preview.slotName}, and keep local trunk branch ${preview.branch}`
+				: `Land; reconcile survivors, strictly delete landed branches, and free ${preview.slotName}`,
 		cancel: "Cancel landing",
 	};
 }
@@ -824,8 +808,8 @@ export function formatPostLandingCleanupImpact(
 	const commands = postLandingCleanupCommands(cleanup);
 	return [
 		keepsTrunk
-			? "Post-landing cleanup will detach the current managed slot to trunk. The local trunk branch is kept."
-			: "Post-landing cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
+			? "After selected landing, survivor reconciliation and verification run before the current managed slot is detached to trunk. The local trunk branch is kept."
+			: "After selected landing, survivor reconciliation and verification run before strict landed-branch deletion and managed-slot cleanup.",
 		"",
 		`Slot: ${cleanup.slotName}`,
 		`Worktree: ${cleanup.repoRoot}`,

@@ -188,6 +188,8 @@ export async function runLandStack(
 		hasUI?: boolean;
 		confirms?: boolean[];
 		executeOptions?: Parameters<typeof executeStackLanding>[3];
+		cleanupPolicy?: "free" | "preserve";
+		useExactScript?: boolean;
 	} = {},
 ): Promise<{
 	pi: FakeLandExecutionApi;
@@ -198,11 +200,16 @@ export async function runLandStack(
 	waitForIdleCalls: () => number;
 	messages: SentMessage[];
 }> {
-	const pi = new FakeLandExecutionApi(script);
+	const pi = new FakeLandExecutionApi(
+		contextOptions.useExactScript === true ? script : withStrictCleanupRereads(script),
+	);
 	const context = createContext(contextOptions);
-	// Permanent command transcripts exercise destructive Graphite cleanup unless a scenario opts
-	// into another policy through the canonical execution tests.
-	const parsedArgs = expectSuccess(parseArgs(args.includes("--free") ? args : `${args} --free`));
+	// Permanent command transcripts temporarily default to destructive Graphite cleanup. New
+	// preserve scenarios opt in explicitly until PR 2 migrates the remaining fixtures.
+	const cleanupPolicy = contextOptions.cleanupPolicy ?? "free";
+	const parsedArgs = expectSuccess(
+		parseArgs(cleanupPolicy === "free" && !args.includes("--free") ? `${args} --free` : args),
+	);
 	const execution = await executeStackLanding(
 		pi,
 		context.ctx,
@@ -228,6 +235,60 @@ export async function runLandStack(
 	);
 	pi.message?.(rendered);
 	return { pi, messages: pi.messages, ...context };
+}
+
+function withStrictCleanupRereads(script: readonly ScriptedExec[]): ScriptedExec[] {
+	const legacyCleanup: Array<{
+		check: ScriptedExec;
+		deletion: ScriptedExec;
+	}> = [];
+	const removed = new Set<number>();
+	for (const [index, entry] of script.entries()) {
+		if (entry.command !== "gt" || entry.args[0] !== "delete") continue;
+		const check = script[index - 1];
+		if (!isTopologyRead(check)) continue;
+		legacyCleanup.push({ check, deletion: entry });
+		let checkIndex = index - 1;
+		while (checkIndex >= 0 && isTopologyRead(script[checkIndex])) {
+			removed.add(checkIndex);
+			checkIndex -= 1;
+		}
+		removed.add(index);
+	}
+	if (legacyCleanup.length === 0) return [...script];
+	const firstCleanupIndex = Math.min(...removed);
+	const retainedBefore = script.filter(
+		(_entry, index) => index < firstCleanupIndex && !removed.has(index),
+	);
+	const retainedAfter = script.filter(
+		(entry, index) => index >= firstCleanupIndex && !removed.has(index) && !isTopologyRead(entry),
+	);
+	return [
+		...retainedBefore,
+		...legacyCleanup.map(({ check }) => check),
+		...retainedAfter,
+		...legacyCleanup
+			.toSorted((left, right) =>
+				compareCleanupBranches(right.deletion.args[1], left.deletion.args[1]),
+			)
+			.flatMap(({ check, deletion }) => [{ ...check, args: [...check.args] }, deletion]),
+	];
+}
+
+function compareCleanupBranches(left: string | undefined, right: string | undefined): number {
+	const leftNumber = /^feature-(\d+)$/.exec(left ?? "")?.[1];
+	const rightNumber = /^feature-(\d+)$/.exec(right ?? "")?.[1];
+	if (leftNumber !== undefined && rightNumber !== undefined)
+		return Number(leftNumber) - Number(rightNumber);
+	return (left ?? "").localeCompare(right ?? "");
+}
+
+function isTopologyRead(entry: ScriptedExec | undefined): entry is ScriptedExec {
+	return (
+		entry?.command === "ns" &&
+		entry.args[0] === "flow" &&
+		entry.args[2] === "read-graphite-branch-metadata"
+	);
 }
 
 export function commandMessagesText(messages: SentMessage[]): string {

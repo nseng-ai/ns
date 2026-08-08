@@ -61,13 +61,13 @@ describe("land execute mode over in-memory gateways", () => {
 					{ type: "completed", phase: "merge" },
 					{
 						type: "skipped",
-						phase: "descendant-maintenance",
-						reason: "no descendant branches require maintenance",
+						phase: "post-target-reconciliation",
+						reason: "no surviving branches require reconciliation",
 					},
-					{ type: "completed", phase: "merge-maintenance-cleanup" },
+					{ type: "completed", phase: "landed-branch-cleanup" },
 					{
 						type: "skipped",
-						phase: "post-landing-cleanup",
+						phase: "managed-slot-cleanup",
 						reason: "current worktree is not a managed slot",
 					},
 				],
@@ -78,13 +78,11 @@ describe("land execute mode over in-memory gateways", () => {
 						landed: [{ branch: BRANCH, number: 101, title: "PR 101" }],
 					},
 				],
+				postTarget: { type: "not-needed" },
 				cleanup: {
 					preMergeFreedSlots: [],
-					mergeMaintenanceCleanup: {
-						deletedLocalBranches: [BRANCH],
-						retainedLocalBranches: [],
-					},
-					postLandingSlotCleanup: { type: "not-applicable" },
+					landedBranches: { deleted: [BRANCH], retained: [] },
+					managedSlot: { type: "not-applicable" },
 				},
 			},
 		});
@@ -92,10 +90,10 @@ describe("land execute mode over in-memory gateways", () => {
 			{ type: "completed", phase: "merge" },
 			{
 				type: "skipped",
-				phase: "descendant-maintenance",
-				reason: "no descendant branches require maintenance",
+				phase: "post-target-reconciliation",
+				reason: "no surviving branches require reconciliation",
 			},
-			{ type: "completed", phase: "merge-maintenance-cleanup" },
+			{ type: "completed", phase: "landed-branch-cleanup" },
 		]);
 		expect(memory.git.resolveRepoRootCalls).toEqual([{ cwd: ROOT }]);
 		// Cross-check: `land-stack-command-scenarios/`, scenario
@@ -129,6 +127,10 @@ describe("land execute mode over in-memory gateways", () => {
 			{
 				operation: "github.pullRequestFacts",
 				request: { repoRoot: ROOT, branchOrNumber: "101" },
+			},
+			{
+				operation: "graphite.branchChildren",
+				request: { repoRoot: ROOT, metadataDbPath: `${ROOT}/.git/graphite.db`, branch: BRANCH },
 			},
 			{
 				operation: "graphite.branchChildren",
@@ -451,7 +453,7 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			failedPhase: "descendant-maintenance",
+			failedPhase: "post-target-reconciliation",
 			failure: {
 				type: "execution",
 				failedBranch: BRANCH,
@@ -471,7 +473,7 @@ describe("land execute mode over in-memory gateways", () => {
 			{ type: "completed", phase: "merge" },
 			{
 				type: "failed",
-				phase: "descendant-maintenance",
+				phase: "post-target-reconciliation",
 				failure: outcome.failure,
 			},
 		]);
@@ -538,16 +540,9 @@ describe("land execute mode over in-memory gateways", () => {
 			host: approvedHost(),
 		});
 
-		expect(outcome).toMatchObject({ type: "failed", failedPhase: "merge-maintenance-cleanup" });
+		expect(outcome).toMatchObject({ type: "failed", failedPhase: "between-selected-maintenance" });
 		if (outcome.type !== "failed") return;
-		expect(mergeLoopPhases(outcome.report)).toEqual([
-			{ type: "completed", phase: "merge" },
-			{
-				type: "failed",
-				phase: "merge-maintenance-cleanup",
-				failure: outcome.failure,
-			},
-		]);
+		expect(mergeLoopPhases(outcome.report)).toEqual([{ type: "completed", phase: "merge" }]);
 	});
 
 	test("reports completed descendant maintenance from observed operations", async () => {
@@ -594,13 +589,13 @@ describe("land execute mode over in-memory gateways", () => {
 		if (outcome.type !== "completed") return;
 		expect(mergeLoopPhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
-			{ type: "completed", phase: "descendant-maintenance" },
-			{ type: "completed", phase: "merge-maintenance-cleanup" },
+			{ type: "completed", phase: "post-target-reconciliation" },
+			{ type: "completed", phase: "landed-branch-cleanup" },
 		]);
-		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
+		expect(outcome.report.cleanup.landedBranches.deleted).toEqual([BRANCH]);
 	});
 
-	test("propagates retained local-branch cleanup", async () => {
+	test("fails closed and reports the checkout path when strict cleanup retains a branch", async () => {
 		const memory = createInMemoryLandContext(
 			linearState({
 				graphite: {
@@ -610,6 +605,7 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			}),
 		);
+
 		const outcome = await executeLanding({
 			context: memory.context,
 			source: { type: "discover" },
@@ -618,12 +614,11 @@ describe("land execute mode over in-memory gateways", () => {
 		});
 
 		expect(outcome).toMatchObject({
-			type: "completed",
+			type: "failed",
+			failedPhase: "landed-branch-cleanup",
 			report: {
 				cleanup: {
-					mergeMaintenanceCleanup: {
-						retainedLocalBranches: [{ branch: BRANCH, path: ROOT }],
-					},
+					landedBranches: { deleted: [], retained: [{ branch: BRANCH, path: ROOT }] },
 				},
 			},
 		});
@@ -631,7 +626,7 @@ describe("land execute mode over in-memory gateways", () => {
 
 	test.each([
 		{ policy: "preserve", expectedDeletedBranches: [] },
-		{ policy: "free", expectedDeletedBranches: [BRANCH, "feature-b"] },
+		{ policy: "free", expectedDeletedBranches: ["feature-b", BRANCH] },
 	] as const)(
 		"$policy applies to every landed branch in a multi-branch stack",
 		async ({ policy, expectedDeletedBranches }) => {
@@ -679,9 +674,7 @@ describe("land execute mode over in-memory gateways", () => {
 				expectedDeletedBranches,
 			);
 			if (outcome.type !== "completed") return;
-			expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual(
-				expectedDeletedBranches,
-			);
+			expect(outcome.report.cleanup.landedBranches.deleted).toEqual(expectedDeletedBranches);
 		},
 	);
 
@@ -793,18 +786,17 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(outcome.report.landedChunks).toMatchObject([
 			{ landed: [{ branch: BRANCH, number: 101 }] },
 		]);
-		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
+		expect(outcome.report.cleanup.landedBranches.deleted).toEqual([]);
 		expect(mergeLoopPhases(outcome.report)).toEqual([
-			{ type: "completed", phase: "merge-maintenance-cleanup" },
 			{ type: "failed", phase: "merge", failure: outcome.failure },
 		]);
 		expect(outcome.report.phases.at(-1)).toMatchObject({ type: "failed", phase: "merge" });
-		expect(outcome.report.cleanup.postLandingSlotCleanup).toMatchObject({ type: "not-run" });
+		expect(outcome.report.cleanup.managedSlot).toMatchObject({ type: "not-run" });
 	});
 });
 
 describe("upstack continuation under canonical execution", () => {
-	test("snapshots the sole child before mutation, continues in the invoking worktree, and deletes the original branch", async () => {
+	test("snapshots the sole child, reconciles it, checks it out, then deletes landed branches", async () => {
 		const child = "feature-child";
 		const memory = createInMemoryLandContext(
 			managedSlotState({
@@ -814,7 +806,27 @@ describe("upstack continuation under canonical execution", () => {
 						{ name: child, sha: OLD_SHA },
 					],
 				},
-				graphite: { branchChildren: { [BRANCH]: [child] } },
+				graphite: {
+					stackShape: stackSnapshot({
+						current: BRANCH,
+						landingBranches: [BRANCH],
+						descendantBranches: [child],
+						descendantRootBranches: [child],
+					}),
+					branchChildren: { [BRANCH]: [child] },
+					branchParents: { [child]: "main" },
+				},
+				github: {
+					pullRequests: [
+						pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+						pullRequestFacts({
+							number: 102,
+							headRefName: child,
+							headRefOid: OLD_SHA,
+							baseRefName: "main",
+						}),
+					],
+				},
 			}),
 		);
 
@@ -831,9 +843,9 @@ describe("upstack continuation under canonical execution", () => {
 		expect(outcome).toMatchObject({
 			type: "completed",
 			report: {
-				continuation: { type: "continued", branch: child, originalBranchDeleted: true },
+				continuation: { type: "continued", branch: child },
 				cleanup: {
-					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+					managedSlot: { type: "preserved", slotName: "slot-02", branch: BRANCH },
 				},
 			},
 		});
@@ -874,7 +886,7 @@ describe("upstack continuation under canonical execution", () => {
 			report: {
 				continuation: { type: "candidate", branch: child },
 				cleanup: {
-					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+					managedSlot: { type: "preserved", slotName: "slot-02", branch: BRANCH },
 				},
 			},
 		});
@@ -906,7 +918,7 @@ describe("upstack continuation under canonical execution", () => {
 					candidates: ["child-a", "child-b"],
 				},
 				cleanup: {
-					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+					managedSlot: { type: "preserved", slotName: "slot-02", branch: BRANCH },
 				},
 			},
 		});
@@ -935,7 +947,27 @@ describe("upstack continuation under canonical execution", () => {
 						},
 					},
 				},
-				graphite: { branchChildren: { [BRANCH]: [child] } },
+				graphite: {
+					stackShape: stackSnapshot({
+						current: BRANCH,
+						landingBranches: [BRANCH],
+						descendantBranches: [child],
+						descendantRootBranches: [child],
+					}),
+					branchChildren: { [BRANCH]: [child] },
+					branchParents: { [child]: "main" },
+				},
+				github: {
+					pullRequests: [
+						pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+						pullRequestFacts({
+							number: 102,
+							headRefName: child,
+							headRefOid: OLD_SHA,
+							baseRefName: "main",
+						}),
+					],
+				},
 			}),
 		);
 
@@ -954,7 +986,7 @@ describe("upstack continuation under canonical execution", () => {
 				continuation: { type: "checkout-failed", branch: child },
 				landedChunks: [{ landed: [{ branch: BRANCH, number: 101 }] }],
 				cleanup: {
-					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+					managedSlot: { type: "preserved", slotName: "slot-02", branch: BRANCH },
 				},
 			},
 		});
@@ -990,16 +1022,15 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			type: "completed",
 			report: {
 				cleanup: {
-					postLandingSlotCleanup: {
+					managedSlot: {
 						type: "completed",
 						freedSlot: { slotName: "slot-02", branch: BRANCH },
-						deletedLocalBranch: BRANCH,
 					},
 				},
 			},
 		});
 		if (outcome.type !== "completed") return;
-		expect(phaseByName(outcome.report, "post-landing-cleanup")).toMatchObject({
+		expect(phaseByName(outcome.report, "managed-slot-cleanup")).toMatchObject({
 			type: "completed",
 		});
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
@@ -1030,7 +1061,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			type: "failed",
 			failedPhase: "confirmation",
 			failure: { message: "Combined landing confirmation unavailable." },
-			report: { cleanup: { postLandingSlotCleanup: { type: "not-run" } } },
+			report: { cleanup: { managedSlot: { type: "not-run" } } },
 		});
 		expect(confirmation.requests).toEqual([
 			{
@@ -1063,12 +1094,12 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			type: "completed",
 			report: {
 				cleanup: {
-					postLandingSlotCleanup: { type: "preserved", slotName: "slot-02", branch: BRANCH },
+					managedSlot: { type: "preserved", slotName: "slot-02", branch: BRANCH },
 				},
 			},
 		});
 		if (outcome.type !== "completed") return;
-		expect(phaseByName(outcome.report, "post-landing-cleanup")).toMatchObject({
+		expect(phaseByName(outcome.report, "managed-slot-cleanup")).toMatchObject({
 			type: "skipped",
 		});
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
@@ -1098,7 +1129,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		]);
 		expect(outcome).toMatchObject({
 			type: "completed",
-			report: { cleanup: { postLandingSlotCleanup: { type: "completed" } } },
+			report: { cleanup: { managedSlot: { type: "completed" } } },
 		});
 		expect(memory.worktrees.freeSlotsCalls).toHaveLength(1);
 	});
@@ -1121,7 +1152,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(upfrontConfirmation.requests.map((request) => request.kind)).toEqual(["main-landing"]);
 		expect(outcome).toMatchObject({
 			type: "completed",
-			report: { cleanup: { postLandingSlotCleanup: { type: "completed" } } },
+			report: { cleanup: { managedSlot: { type: "completed" } } },
 		});
 		if (outcome.type !== "completed") return;
 		expect(phaseByName(outcome.report, "confirmation")).toEqual({
@@ -1152,7 +1183,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 					completionDisposition: { type: "stack-execution" },
 					cleanup: {
 						// Dry run dominates every cleanup policy.
-						postLandingSlotCleanup: { type: "dry-run" },
+						managedSlot: { type: "dry-run" },
 					},
 				},
 			});
@@ -1181,7 +1212,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			},
 			report: {
 				landedChunks: [],
-				cleanup: { postLandingSlotCleanup: { type: "not-run" } },
+				cleanup: { managedSlot: { type: "not-run" } },
 			},
 		});
 		expect(confirmation.requests).toHaveLength(1);
@@ -1200,7 +1231,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 				worktrees: {
 					freeSlotsFailure: {
 						type: "boundary",
-						phase: "post-landing-cleanup",
+						phase: "managed-slot-cleanup",
 						source: "slot",
 						code: "slot_free_failed",
 						message: "slot free failed",
@@ -1220,12 +1251,12 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			failure: { message: expect.stringContaining("freeing slot-02 failed") },
 			report: {
 				landedChunks: [{ landed: [{ number: 101 }] }],
-				cleanup: { postLandingSlotCleanup: { type: "failed" } },
+				cleanup: { managedSlot: { type: "failed" } },
 			},
 		});
 		if (outcome.type !== "failed") return;
-		expect(outcome.failedPhase).toBe("post-landing-cleanup");
-		const postCleanup = outcome.report.cleanup.postLandingSlotCleanup;
+		expect(outcome.failedPhase).toBe("managed-slot-cleanup");
+		const postCleanup = outcome.report.cleanup.managedSlot;
 		expect(postCleanup.type === "failed" && postCleanup.freedSlot === undefined).toBe(true);
 	});
 
@@ -1261,12 +1292,12 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(outcome).toMatchObject({
 			type: "failed",
 			failure: {
-				message: expect.stringContaining("deleting local branch feature-a failed"),
+				message: expect.stringContaining("deleting the local Graphite branch feature-a failed"),
 			},
 			report: {
 				landedChunks: [{ landed: [{ number: 101 }] }],
 				cleanup: {
-					postLandingSlotCleanup: {
+					managedSlot: {
 						type: "failed",
 						freedSlot: { type: "managed-slot", slotName: "slot-02" },
 					},
@@ -1344,7 +1375,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 				completionDisposition: { type: "cleanup-only" },
 				landedChunks: [],
 				cleanup: {
-					postLandingSlotCleanup: {
+					managedSlot: {
 						type: "completed",
 						keptTrunkBranch: "main",
 					},
@@ -1386,9 +1417,8 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 			report: {
 				completionDisposition: { type: "cleanup-only" },
 				cleanup: {
-					postLandingSlotCleanup: {
+					managedSlot: {
 						type: "completed",
-						deletedLocalBranch: BRANCH,
 					},
 				},
 			},
@@ -1445,7 +1475,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	});
 });
 
-const MERGE_LOOP_PHASES = new Set(["merge", "descendant-maintenance", "merge-maintenance-cleanup"]);
+const MERGE_LOOP_PHASES = new Set(["merge", "post-target-reconciliation", "landed-branch-cleanup"]);
 
 function mergeLoopPhases(report: LandingExecutionReport): LandingExecutionReport["phases"] {
 	return report.phases.filter((entry) => MERGE_LOOP_PHASES.has(entry.phase));

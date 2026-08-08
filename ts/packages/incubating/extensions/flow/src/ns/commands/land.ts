@@ -52,7 +52,40 @@ import {
 
 const landSchema = z.object(landCommandSchemaShape(z));
 const pullRequestSchema = z.object({ number: z.number(), branch: z.string(), base: z.string() });
-const cleanupSchema = z.object({ type: z.string() }).passthrough();
+const warningSchema = z.object({
+	level: z.union([z.literal("warning"), z.literal("info")]),
+	message: z.string(),
+	commandDisplay: z.string().optional(),
+	result: z.unknown().optional(),
+	suggestedAction: z.string().optional(),
+	notificationAction: z.string().optional(),
+});
+const cleanupSchema = z.object({
+	preMergeFreedSlots: z.array(
+		z.object({
+			type: z.literal("managed-slot"),
+			branch: z.string(),
+			path: z.string(),
+			slotName: z.string().optional(),
+		}),
+	),
+	landedBranches: z.object({
+		deleted: z.array(z.string()),
+		retained: z.array(z.object({ branch: z.string(), path: z.string().optional() })),
+	}),
+	managedSlot: z.object({ type: z.string() }).passthrough(),
+});
+const postTargetSchema = z.discriminatedUnion("type", [
+	z.object({ type: z.literal("not-run"), reason: z.string() }),
+	z.object({
+		type: z.literal("deferred"),
+		firstSurvivor: z.string(),
+		manualAction: z.string(),
+	}),
+	z.object({ type: z.literal("not-needed") }),
+	z.object({ type: z.literal("reconciled"), branches: z.array(z.string()) }),
+	z.object({ type: z.literal("failed"), branches: z.array(z.string()), failure: z.unknown() }),
+]);
 const continuationSchema = z.object({ type: z.string() }).passthrough();
 const landedChunkSchema = z.object({
 	index: z.number(),
@@ -85,7 +118,8 @@ const landSuccessSchema = z.discriminatedUnion("type", [
 		type: z.union([z.literal("stack-completed"), z.literal("cleanup-only")]),
 		repoRoot: z.string(),
 		landedChunks: z.array(landedChunkSchema),
-		warnings: z.array(z.string()),
+		warnings: z.array(warningSchema),
+		postTarget: postTargetSchema,
 		cleanup: cleanupSchema,
 		continuation: continuationSchema,
 	}),
@@ -93,7 +127,7 @@ const landSuccessSchema = z.discriminatedUnion("type", [
 		type: z.literal("single-branch-landed"),
 		repoRoot: z.string(),
 		pullRequest: pullRequestSchema,
-		cleanup: cleanupSchema,
+		cleanup: z.object({ type: z.string() }).passthrough(),
 	}),
 ]);
 

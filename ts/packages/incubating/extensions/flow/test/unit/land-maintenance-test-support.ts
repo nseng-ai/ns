@@ -48,9 +48,7 @@ export function createMergeLoopState(
 ): MergeLoopState {
 	return {
 		expectedShas: new Map(entries),
-		deletedBranches: new Set(),
 		warnings: [],
-		cleanup: { retainedLocalBranches: [] },
 	};
 }
 
