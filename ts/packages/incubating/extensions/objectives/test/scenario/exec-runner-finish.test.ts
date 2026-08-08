@@ -32,7 +32,7 @@ function factsData(overrides: Record<string, unknown> = {}): Record<string, unkn
 }
 
 function factsEnvelopeText(overrides: Record<string, unknown> = {}): string {
-	return JSON.stringify({ status: "ok", exitCode: 0, data: factsData(overrides) });
+	return JSON.stringify({ status: "success", exitCode: 0, data: factsData(overrides) });
 }
 
 function reportObject(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -352,7 +352,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		expect(api.phases).toEqual(["validating-inputs", "verifying", "committing"]);
 	});
 
-	test("control-plane problems are usage errors: missing slug/facts, bad JSON, slug mismatch, non-ok envelope, report inside repo", async () => {
+	test("control-plane problems are usage errors: missing slug/facts, bad JSON, slug mismatch, nonzero envelope, report inside repo", async () => {
 		const cases: Array<{ request: Record<string, unknown>; expectIn?: string }> = [
 			{ request: { facts: factsEnvelopeText() } },
 			{ request: { slug: SLUG } },
