@@ -4,8 +4,9 @@ import { join, relative } from "node:path";
 
 import { describe, expect, test } from "vitest";
 
-import { installExtensionResultSchema, listExtensionsResultSchema } from "../../src/init/index.ts";
 import { runNsCli } from "../../src/cli/index.ts";
+import { installExtensionResultSchema } from "../../src/init/install-extension.ts";
+import { listExtensionsResultSchema } from "../../src/init/list-extensions.ts";
 import { createEmptyProject, parseJsonOutput } from "../support/cli-harness.ts";
 
 interface SourceExtensionCase {

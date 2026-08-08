@@ -37,7 +37,7 @@ async function initializeGitRepo(projectRoot: string): Promise<void> {
 	if (!commandSucceeded(head)) throw new Error("git symbolic-ref failed");
 }
 
-describe("ns CLI update integration", () => {
+describe("ns extension update integration", () => {
 	test("updates a declared local extension from a git-root subdirectory and supports dry-run", async () => {
 		const projectRoot = await createEmptyProject();
 		await initializeGitRepo(projectRoot);

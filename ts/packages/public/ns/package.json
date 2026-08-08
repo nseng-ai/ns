@@ -38,7 +38,6 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/sdk": "workspace:*",
 		"jiti": "catalog:",
-		"smol-toml": "catalog:",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

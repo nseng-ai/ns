@@ -78,16 +78,6 @@ jobs:
       - name: Run TypeScript style guard tests
         run: just ts-test-typescript-style-guard
 
-  skill-exposure-check:
-    if: ${{ false }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-typescript
-      - name: Check skill exposure policy
-        run: just skill-exposure-check
-
   objective-check:
     if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
