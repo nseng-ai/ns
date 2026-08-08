@@ -21,6 +21,7 @@ describe("fresh ns CLI runner", () => {
 		const deps = {
 			cwd: "/repo",
 			canEmitAnsi: false,
+			readJsonInput: async () => "",
 			env: {},
 			stdout() {},
 			stderr() {},

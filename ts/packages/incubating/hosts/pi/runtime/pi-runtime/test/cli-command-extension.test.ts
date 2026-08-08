@@ -513,10 +513,16 @@ describe("cli command extension helper", () => {
 		);
 	});
 
-	test("captures structured output without ambient process writes", async () => {
+	test("isolates embedded structured execution from ambient process input and output", async () => {
 		const pi = new FakePi();
+		const stdinBefore = {
+			dataListeners: process.stdin.listenerCount("data"),
+			readableListeners: process.stdin.listenerCount("readable"),
+			readableFlowing: process.stdin.readableFlowing,
+		};
 		registerFakeCli(pi, {
-			runCli: (_args, deps) => {
+			runCli: async (_args, deps) => {
+				expect(await deps.readJsonInput()).toBe("");
 				deps.stdout("captured output\n");
 				deps.stderr("captured warning\n");
 				return 0;
@@ -528,6 +534,11 @@ describe("cli command extension helper", () => {
 			await commandFor(pi, "dev:preview-status").handler("", ctx);
 		});
 
+		expect({
+			dataListeners: process.stdin.listenerCount("data"),
+			readableListeners: process.stdin.listenerCount("readable"),
+			readableFlowing: process.stdin.readableFlowing,
+		}).toEqual(stdinBefore);
 		expect(writes).toEqual({ stdout: "", stderr: "" });
 		expectSingleCliOutputMessage(pi, "stdout:\ncaptured output\n\nstderr:\ncaptured warning\n");
 	});
