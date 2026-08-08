@@ -23,14 +23,14 @@ The channel ontology maps onto MCP nearly one-to-one. This is partial
 validation of the two-tier model: the contract really is host-neutral, not
 terminal vocabulary under different names.
 
-| Clinkr channel / capability | MCP equivalent |
-| --- | --- |
-| Request | tool call arguments (JSON Schema derived from the same zod schema that already drives the commander surface in `surface.ts`) |
-| Response | tool result (structured content; `isError` for failures) |
-| Progress | `notifications/progress` |
-| Notice | `notifications/message` (logging) |
-| Elicitation | MCP elicitation — the term this model imported |
-| `isInteractive()` | client elicitation-capability check |
+| Clinkr channel / capability | MCP equivalent                                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Request                     | tool call arguments (JSON Schema derived from the same zod schema that already drives the commander surface in `surface.ts`) |
+| Response                    | tool result (structured content; `isError` for failures)                                                                     |
+| Progress                    | `notifications/progress`                                                                                                     |
+| Notice                      | `notifications/message` (logging)                                                                                            |
+| Elicitation                 | MCP elicitation — the term this model imported                                                                               |
+| `isInteractive()`           | client elicitation-capability check                                                                                          |
 
 The key existing enabler: Clinkr commands declare inputs as zod schemas and
 the CLI flags are *derived* (`ts/packages/public/infra/clinkr/src/surface.ts`).
