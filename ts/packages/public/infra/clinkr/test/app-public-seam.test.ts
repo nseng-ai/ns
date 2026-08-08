@@ -89,14 +89,14 @@ test("explicit app output captures framework text without process writer replace
 
 test("runForCliTest captures stdout and stderr separately with exit codes", async () => {
 	const run = await runForCliTest(echoOutcomeApp, ["--input-json"], {
-		stdin: '{"outcome":{"status":"failure","errorType":"failed","message":"boom"}}',
+		jsonInput: '{"outcome":{"status":"failure","errorType":"failed","message":"boom"}}',
 	});
 	expect(run).toEqual({ exitCode: 2, stdout: "", stderr: "boom\n" });
 });
 
 test("runForCliTest feeds the single stdin seam and honors the ANSI capability option", async () => {
 	const run = await runForCliTest(typedResultApp, ["--input-json"], {
-		stdin: '{"name":"explicit"}',
+		jsonInput: '{"name":"explicit"}',
 		canEmitAnsi: true,
 	});
 	expect(run).toEqual({ exitCode: 0, stdout: "ansi:EXPLICIT\n", stderr: "" });
@@ -114,7 +114,7 @@ test("success data that fails resultSchema decoding is a programmer error", asyn
 test("success without resultSchema rejects a data payload", async () => {
 	await expect(
 		runForCliTest(echoOutcomeApp, ["--input-json"], {
-			stdin: '{"outcome":{"status":"success","data":"data"}}',
+			jsonInput: '{"outcome":{"status":"success","data":"data"}}',
 		}),
 	).rejects.toThrow("success outcome data requires a resultSchema");
 });
@@ -144,7 +144,7 @@ for (const [label, outcome, status, expectedData, exitCode] of [
 ] as const) {
 	test(`${label} data passes through to the envelope unvalidated`, async () => {
 		const run = await runForCliTest(echoOutcomeApp, ["--input-json", "--format=json"], {
-			stdin: JSON.stringify({ outcome }),
+			jsonInput: JSON.stringify({ outcome }),
 		});
 		expect(run.exitCode).toBe(exitCode);
 		expect(JSON.parse(run.stdout)).toMatchObject({ status, data: expectedData });
@@ -159,7 +159,7 @@ for (const [label, outcome, exitCode] of [
 ] as const) {
 	test(`undefined ${label} data is omitted from the envelope`, async () => {
 		const run = await runForCliTest(echoOutcomeApp, ["--input-json", "--format=json"], {
-			stdin: JSON.stringify({ outcome }),
+			jsonInput: JSON.stringify({ outcome }),
 		});
 		expect(run.exitCode).toBe(exitCode);
 		expect(run.stdout).not.toContain('"data"');
@@ -181,7 +181,7 @@ test.each([
 	["an extra field", { status: "negative", message: "no", extra: true }],
 ] as const)("malformed handler outcome (%s) is a programmer error", async (_label, outcome) => {
 	await expect(
-		runForCliTest(echoOutcomeApp, ["--input-json"], { stdin: JSON.stringify({ outcome }) }),
+		runForCliTest(echoOutcomeApp, ["--input-json"], { jsonInput: JSON.stringify({ outcome }) }),
 	).rejects.toThrow();
 });
 
@@ -192,7 +192,9 @@ test("unexpected handler exceptions propagate", async () => {
 test.each(["null", "[]", '"Ada"', "1", "true"])(
 	"JSON input rejects non-object transport value %s",
 	async (stdin) => {
-		const run = await runForCliTest(countingApp, ["--input-json", "--format=json"], { stdin });
+		const run = await runForCliTest(countingApp, ["--input-json", "--format=json"], {
+			jsonInput: stdin,
+		});
 		expect(run.exitCode).toBe(2);
 		expect(JSON.parse(run.stdout)).toMatchObject({
 			status: "usage-error",
@@ -203,7 +205,7 @@ test.each(["null", "[]", '"Ada"', "1", "true"])(
 
 test("JSON input applies defaults and transforms while preserving nested schema policy", async () => {
 	const run = await runForCliTest(schemaPolicyApp, ["--input-json"], {
-		stdin: '{"nested":{"value":1,"preserved":true}}',
+		jsonInput: '{"nested":{"value":1,"preserved":true}}',
 	});
 	const supportModule: unknown = await import(
 		path.join(FIXTURES_DIRECTORY, "schema-policy", "support.ts")
@@ -218,7 +220,7 @@ test("JSON input applies defaults and transforms while preserving nested schema 
 
 test("JSON input rejects top-level unknown keys with schema issues", async () => {
 	const run = await runForCliTest(schemaPolicyApp, ["--input-json", "--format=json"], {
-		stdin: '{"name":"Ada","nested":{"value":1},"unknown":true}',
+		jsonInput: '{"name":"Ada","nested":{"value":1},"unknown":true}',
 	});
 	const envelope = JSON.parse(run.stdout) as {
 		errorType: string;
@@ -241,7 +243,7 @@ test("JSON input enforces object-level refinements like the argv transport", asy
 		errorType: "invalid-request",
 	});
 	const jsonRun = await runForCliTest(refinedApp, ["--input-json", "--format=json"], {
-		stdin: "{}",
+		jsonInput: "{}",
 	});
 	expect(jsonRun.exitCode).toBe(2);
 	expect(JSON.parse(jsonRun.stdout)).toMatchObject({
@@ -350,7 +352,7 @@ test("-h wins over repeated --input-json", async () => {
 test.each([[["--json-schema", "--input-json"]], [["--input-json", "--json-schema"]]])(
 	"--json-schema combined with --input-json is a usage error (%j)",
 	async (argv) => {
-		const run = await runForCliTest(countingApp, [...argv, "--format=json"], { stdin: "{}" });
+		const run = await runForCliTest(countingApp, [...argv, "--format=json"], { jsonInput: "{}" });
 		expect(run.exitCode).toBe(2);
 		expect(JSON.parse(run.stdout)).toMatchObject({
 			status: "usage-error",
@@ -373,7 +375,7 @@ test("--format without a value stays a usage error", async () => {
 
 test("repeated --input-json without help stays a usage error", async () => {
 	const run = await runForCliTest(countingApp, ["--input-json", "--input-json", "--format=json"], {
-		stdin: "{}",
+		jsonInput: "{}",
 	});
 	expect(run.exitCode).toBe(2);
 	expect(JSON.parse(run.stdout)).toMatchObject({
