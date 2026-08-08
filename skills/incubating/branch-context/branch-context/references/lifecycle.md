@@ -62,7 +62,6 @@ Pi surfaces:
 CLI surfaces:
 
 - `enriched-plan list` for read-only local saved-plan store inspection
-- `enriched-plan exec save`
 - `enriched-plan exec resolve`
 - `ns branch-context exec from-plan`
 - `ns branch-context exec attach`
