@@ -266,6 +266,27 @@ describe("Graphite metadata core", () => {
 		expect(reconciled.get("master")?.children).toEqual(["A"]);
 	});
 
+	test("drops a stale child pointer when the live child names a different parent", () => {
+		const topology = parseRows([
+			{ branch_name: "main", children: '["landed","separate"]' },
+			{ branch_name: "landed", parent_branch_name: "main", children: "[]" },
+			{ branch_name: "separate", parent_branch_name: "trunk", children: "[]" },
+			{ branch_name: "trunk", children: '["separate"]' },
+		]);
+
+		const {
+			topology: reconciled,
+			droppedBranches,
+			droppedChildLinks,
+		} = reconcileTopologyToLiveBranches(topology, new Set(["main", "landed", "separate", "trunk"]));
+
+		expect(reconciled.get("main")?.children).toEqual(["landed"]);
+		expect(reconciled.get("trunk")?.children).toEqual(["separate"]);
+		expect(reconciled.has("separate")).toBe(true);
+		expect(droppedBranches).toEqual([]);
+		expect(droppedChildLinks).toEqual([{ parent: "main", child: "separate" }]);
+	});
+
 	test("drops a dead fork sibling while keeping live siblings", () => {
 		const topology = parseRows([
 			{ branch_name: "a", children: '["live", "dead"]' },

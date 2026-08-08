@@ -5,6 +5,36 @@ import { landingExecutionFailure } from "../results.ts";
 import type { LandingExecutionFailure } from "../types.ts";
 import type { LandExecutionContext } from "./execution-context.ts";
 
+export async function repairGraphiteBranchParent(
+	executionContext: LandExecutionContext,
+	options: {
+		readonly repoRoot: string;
+		readonly prNumber: number;
+		readonly branch: string;
+		readonly parent: string;
+		readonly failureSubject: string;
+	},
+): Promise<LandingExecutionFailure | undefined> {
+	const { land: landContext, progress } = executionContext;
+	progress.setStatus(`repairing Graphite topology for ${options.branch}...`);
+	const reparented = await landContext.graphite.reparentBranch({
+		repoRoot: options.repoRoot,
+		branch: options.branch,
+		parent: options.parent,
+	});
+	if (reparented.type === "success") return undefined;
+
+	return landingExecutionFailure(
+		`PR #${options.prNumber} merged, but Graphite topology repair failed for ${options.failureSubject}.`,
+		{
+			displayCommand: reparented.commandDisplay,
+			execResult: reparented.result,
+			failedBranch: options.branch,
+			suggestedAction: `Run ${reparented.commandDisplay} manually, inspect the stack, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+		},
+	);
+}
+
 export async function guardForcedRefresh(
 	executionContext: LandExecutionContext,
 	options: {

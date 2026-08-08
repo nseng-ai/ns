@@ -23,6 +23,7 @@ import {
 	guardForcedRefresh,
 	localBranchDeletionFailure,
 	localBranchDeletionFailureDetails,
+	repairGraphiteBranchParent,
 } from "./maintenance-safety.ts";
 
 interface GraphiteMaintenanceStep {
@@ -183,7 +184,18 @@ async function maintainNextLandingBranches(
 		if (refresh !== undefined) return refresh;
 	}
 
-	if (!shouldDeferLandedBranchDeletion) {
+	if (shouldDeferLandedBranchDeletion) {
+		for (const maintenanceBranch of maintenance.branches) {
+			const repairFailure = await repairGraphiteBranchParent(executionContext, {
+				repoRoot: operationInput.repoRoot,
+				prNumber: operationInput.prNumber,
+				branch: maintenanceBranch,
+				parent: operationInput.plan.stack.trunk,
+				failureSubject: maintenanceBranch,
+			});
+			if (repairFailure !== undefined) return { kind: "halt", failure: repairFailure };
+		}
+	} else {
 		const deleteCheck = await checkGraphiteBranchBeforeDelete(executionContext, operationInput);
 		if (deleteCheck !== undefined) return deleteCheck;
 

@@ -39,6 +39,11 @@ describe("land Graphite operations", () => {
 				"gt restack --branch 'feature a' --upstack --no-interactive",
 			],
 			[
+				{ kind: "track-branch-parent", branch: "feature/a", parent: "main" },
+				["track", "feature/a", "--parent", "main", "--no-interactive"],
+				"gt track feature/a --parent main --no-interactive",
+			],
+			[
 				{ kind: "get-downstack-no-checkout", branch: "feature/a" },
 				[
 					"get",

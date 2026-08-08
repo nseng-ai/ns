@@ -343,6 +343,68 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		});
 	});
 
+	test("models branch reparent success and failure from constructor state", async () => {
+		const failureResult = {
+			type: "exited" as const,
+			stdout: "partial track",
+			stderr: "track failed",
+			code: 7,
+			signal: null,
+		};
+		const graphite = new InMemoryLandGraphiteGateway({
+			branchParents: {
+				"feature/success": "feature/old-parent",
+				"feature/failure": "feature/old-parent",
+			},
+			reparentBranchResults: {
+				"feature/failure": {
+					type: "failure",
+					commandDisplay: "gt track feature/failure --parent main --no-interactive",
+					result: failureResult,
+				},
+			},
+		});
+
+		await expect(
+			graphite.reparentBranch({
+				repoRoot: REPO_ROOT,
+				branch: "feature/success",
+				parent: "main",
+			}),
+		).resolves.toMatchObject({ type: "success" });
+		await expect(
+			graphite.branchParent({
+				repoRoot: REPO_ROOT,
+				metadataDbPath: "/repo/.git/graphite.db",
+				branch: "feature/success",
+			}),
+		).resolves.toEqual({ type: "success", value: "main" });
+
+		await expect(
+			graphite.reparentBranch({
+				repoRoot: REPO_ROOT,
+				branch: "feature/failure",
+				parent: "main",
+			}),
+		).resolves.toEqual({
+			type: "failure",
+			commandDisplay: "gt track feature/failure --parent main --no-interactive",
+			result: failureResult,
+		});
+		await expect(
+			graphite.branchParent({
+				repoRoot: REPO_ROOT,
+				metadataDbPath: "/repo/.git/graphite.db",
+				branch: "feature/failure",
+			}),
+		).resolves.toEqual({ type: "success", value: "feature/old-parent" });
+
+		expect(graphite.reparentBranchCalls).toEqual([
+			{ repoRoot: REPO_ROOT, branch: "feature/success", parent: "main" },
+			{ repoRoot: REPO_ROOT, branch: "feature/failure", parent: "main" },
+		]);
+	});
+
 	test("injects custom typed command results for Graphite operation failures", async () => {
 		const result = {
 			type: "exited" as const,

@@ -445,34 +445,64 @@ export function filterLiveBranchNames(
 	return { kept, dropped };
 }
 
+/** A parent-to-child topology link rejected during reconciliation. */
+export interface DroppedGraphiteChildLink {
+	readonly parent: string;
+	readonly child: string;
+}
+
 /**
  * Reconcile a metadata-derived topology against the set of branches that still
  * have a live local git ref, mirroring how `gt children`/`gt ls` silently drop
  * branches whose `refs/heads/<name>` no longer exists.
  *
  * Returns a NEW topology where (a) any row whose branch is not live is removed,
- * and (b) every surviving row's `children` is filtered to live entries. The
- * input topology is never mutated; `parent`, `validationResult`, `isTrunkMarked`,
- * and `childrenCorruption` are preserved on surviving rows so the land fork gate
- * still fails closed on corrupt children. `droppedBranches` is the de-duplicated,
- * sorted set of branch names removed as rows and/or removed from any `children`.
+ * (b) every surviving row's `children` is filtered to live entries, and (c) a
+ * live parent-to-child link is removed when the child's own row names a
+ * different parent. The child row's parent metadata is authoritative for rule
+ * (c). The input topology is never mutated; `parent`, `validationResult`,
+ * `isTrunkMarked`, and `childrenCorruption` are preserved on surviving rows so
+ * the land fork gate still fails closed on corrupt children.
+ *
+ * `droppedBranches` is the de-duplicated, sorted set of branch names removed as
+ * rows and/or removed from any `children`. `droppedChildLinks` reports each live
+ * parent-to-child link removed by rule (c), preserving encounter order and
+ * multiplicity.
  */
 export function reconcileTopologyToLiveBranches(
 	topology: GraphiteTopology,
 	liveBranches: ReadonlySet<string>,
-): { readonly topology: GraphiteTopology; readonly droppedBranches: readonly string[] } {
+): {
+	readonly topology: GraphiteTopology;
+	readonly droppedBranches: readonly string[];
+	readonly droppedChildLinks: readonly DroppedGraphiteChildLink[];
+} {
 	const reconciled = new Map<string, GraphiteBranchTopology>();
 	const dropped = new Set<string>();
+	const droppedChildLinks: DroppedGraphiteChildLink[] = [];
 	for (const [branch, row] of topology) {
 		if (!liveBranches.has(branch)) {
 			dropped.add(branch);
 			continue;
 		}
-		const { kept, dropped: droppedChildren } = filterLiveBranchNames(row.children, liveBranches);
+		const { kept: liveChildren, dropped: droppedChildren } = filterLiveBranchNames(
+			row.children,
+			liveBranches,
+		);
 		for (const child of droppedChildren) dropped.add(child);
-		reconciled.set(branch, { ...row, children: kept });
+		const keptChildren = liveChildren.filter((child) => {
+			const childParent = topology.get(child)?.parent;
+			if (childParent === undefined || childParent === branch) return true;
+			droppedChildLinks.push({ parent: branch, child });
+			return false;
+		});
+		reconciled.set(branch, { ...row, children: keptChildren });
 	}
-	return { topology: reconciled, droppedBranches: [...dropped].sort() };
+	return {
+		topology: reconciled,
+		droppedBranches: [...dropped].sort(),
+		droppedChildLinks,
+	};
 }
 
 export function detectGraphiteForkViolations(

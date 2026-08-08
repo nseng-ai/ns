@@ -61,6 +61,7 @@ const DELETE_ARGS = ["delete", "feature-a", "-f", "-q"];
 const CHECKOUT_ARGS = ["checkout", "feature-b"];
 const RESTACK_ARGS = ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"];
 const RESTACK_ONLY_ARGS = ["restack", "--branch", "feature-b", "--only", "--no-interactive"];
+const REPARENT_ARGS = ["track", "feature-b", "--parent", "main", "--no-interactive"];
 const SUBMIT_FORCE_ARGS = [
 	"submit",
 	"--branch",
@@ -458,6 +459,46 @@ describe("land context adapter facts", () => {
 				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
 			},
 			{ command: TOPOLOGY_COMMAND, args: TOPOLOGY_ARGS, options: { cwd: ROOT, timeout: 30_000 } },
+		]);
+		pi.assertDone();
+	});
+
+	test("maps branch reparent success and failure through the Graphite command channel", async () => {
+		const pi = new FakeLandExecutionApi([
+			step("gt", REPARENT_ARGS),
+			step("gt", REPARENT_ARGS, {
+				code: 6,
+				stdout: "partial track\n",
+				stderr: "track rejected\n",
+			}),
+		]);
+		const context = createTestLandContext(pi);
+		const request = { repoRoot: ROOT, branch: "feature-b", parent: "main" };
+
+		await expect(context.graphite.reparentBranch(request)).resolves.toMatchObject({
+			type: "success",
+			result: { code: 0 },
+		});
+		await expect(context.graphite.reparentBranch(request)).resolves.toEqual({
+			type: "failure",
+			commandDisplay: "gt track feature-b --parent main --no-interactive",
+			result: execResult({
+				code: 6,
+				stdout: "partial track\n",
+				stderr: "track rejected\n",
+			}),
+		});
+		expect(pi.execCalls).toEqual([
+			{
+				command: "gt",
+				args: REPARENT_ARGS,
+				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
+			},
+			{
+				command: "gt",
+				args: REPARENT_ARGS,
+				options: { cwd: ROOT, timeout: GT_MUTATION_TIMEOUT_MS },
+			},
 		]);
 		pi.assertDone();
 	});
