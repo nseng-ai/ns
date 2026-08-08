@@ -13,7 +13,7 @@ export function createNsReviewsRuntime(ctx: NsExtensionApi): ReviewsRuntime {
 		createRealReviewsContext({
 			cwd: ctx.cwd,
 			env: ctx.env,
-			stdin: ctx.stdin ?? (async () => ""),
+			readJsonInput: ctx.readJsonInput ?? (async () => ""),
 			stdout: ctx.stdout ?? (() => undefined),
 			stderr: ctx.stderr ?? (() => undefined),
 			execApi,

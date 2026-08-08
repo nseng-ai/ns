@@ -51,7 +51,7 @@ async function runWaitForChecksOperation(
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",
 		schema: branchPrChecksInputSchema,
-		stdin: ctx.stdin,
+		readJsonInput: ctx.readJsonInput,
 	});
 	if (payloadResult.type === "error")
 		return failure(payloadResult.error.errorType, payloadResult.error.message);

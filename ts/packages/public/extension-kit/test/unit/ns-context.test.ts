@@ -6,7 +6,7 @@ import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 import {
 	createNsClinkrInteraction,
-	createNsCwdEnvStdinContext,
+	createNsCwdEnvJsonInputContext,
 } from "@nseng-ai/extension-kit/ns-context";
 
 describe("ns context adapters", () => {
@@ -69,11 +69,11 @@ describe("ns context adapters", () => {
 
 	test("creates cwd/env/stdin context from ns host context", async () => {
 		const env = { NS_TEST: "1" };
-		const context = createNsCwdEnvStdinContext(fakeApi({ env }));
+		const context = createNsCwdEnvJsonInputContext(fakeApi({ env }));
 
 		expect(context.cwd).toBe("/repo");
 		expect(context.env).toBe(env);
-		await expect(context.stdin()).resolves.toBe("");
+		await expect(context.readJsonInput()).resolves.toBe("");
 	});
 });
 

@@ -1,13 +1,8 @@
 import process from "node:process";
 import { createInterface } from "node:readline";
 
-/**
- * Read all of `process.stdin` into a UTF-8 string, resolving at EOF.
- *
- * Shared by CLI entrypoints that accept piped content; prefer this over
- * re-implementing the stdin drain loop per package.
- */
-export async function readStdin(): Promise<string> {
+/** Read one finite JSON request from process stdin, resolving at EOF. */
+export async function readJsonInput(): Promise<string> {
 	let content = "";
 	process.stdin.setEncoding("utf8");
 	for await (const chunk of process.stdin) {
