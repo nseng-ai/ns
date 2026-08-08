@@ -14,6 +14,4 @@ exported `@nseng-ai/pi-ns-flow/stack-squash` adapter is not directly discovered:
 `.pi/extensions/code.ts` composes it with Internal smart-restack presentation so neither owning
 package imports the other.
 
-Executed lifecycle mirrors use Pi Runtime's shared CLI result presentation: Pi sends bounded captured command output to the repository's configured command-summary model operation, displays the validated summary, and keeps exact stdout/stderr in private OS-temporary log files whose paths are shown in the result. Summarization failures fall back to complete inline raw output. This can send command output to the repository-configured model provider, and temporary-file retention follows operating-system cleanup policy.
-
 Pi is an optional host for Flow. The portable command face remains `ns flow ...`.

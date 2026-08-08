@@ -21,11 +21,6 @@ export interface ModelInfo {
 
 export interface ModelRegistry {
 	find(provider: string, modelId: string): ModelInfo | undefined;
-	getApiKeyAndHeaders?(
-		model: unknown,
-	): Promise<
-		{ ok: true; apiKey?: string; headers?: Record<string, string> } | { ok: false; error: string }
-	>;
 }
 
 export interface AutocompleteItem {

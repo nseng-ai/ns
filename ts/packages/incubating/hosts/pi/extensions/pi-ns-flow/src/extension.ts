@@ -1,5 +1,4 @@
 import { RealGitGateway } from "@nseng-ai/foundation/git";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import {
 	FLOW_COMMAND_SPECS,
 	nodeFlowSubmitRecoveryContext,
@@ -13,16 +12,11 @@ import {
 	type CliCommandExtensionAPI,
 	type CliCommandExtensionSpec,
 } from "@nseng-ai/pi-runtime/commands/cli-extension";
-import type { CompleteSimpleFunction } from "@nseng-ai/pi-runtime/models/call";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import {
 	createPiCommandExecApi,
 	type RawPiExecApi,
 } from "@nseng-ai/pi-runtime/shared/command-exec";
-import {
-	createRealCliCommandResultSummaryContext,
-	type CliCommandResultSummaryContext,
-} from "@nseng-ai/pi-runtime/commands/cli-command-result-summary-context";
 
 export interface FlowExtensionAPI extends CliCommandExtensionAPI, RawPiExecApi {
 	sendUserMessage(content: string): Promise<void> | void;
@@ -49,10 +43,6 @@ export interface FlowExtensionOptions {
 	recoveryContext?: FlowSubmitRecoveryContext;
 	/** Host-composed recovery Git consumer; defaults to Git over the Pi exec channel. */
 	recoveryGit?: FlowSubmitRecoveryGitGateway;
-	/** Host-composed result summarization context; defaults to Pi and Node adapters. */
-	resultSummary?: CliCommandResultSummaryContext;
-	/** Deterministic model completion for the default result-summary context; test seam only. */
-	resultSummaryCompleteFn?: CompleteSimpleFunction;
 }
 
 export default function registerFlowExtension(
@@ -62,15 +52,8 @@ export default function registerFlowExtension(
 	const commands = createPiCommandExecApi(pi);
 	const recoveryGit = options.recoveryGit ?? new RealGitGateway(commands);
 	const recoveryContext = options.recoveryContext ?? nodeFlowSubmitRecoveryContext;
-	const resultSummary =
-		options.resultSummary ??
-		createRealCliCommandResultSummaryContext({
-			git: new RealGitGateway(commands),
-			...optionalEntry("completeFn", options.resultSummaryCompleteFn),
-		});
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
-		resultSummary,
 		piNamespace: "ns:flow",
 		commands: FLOW_COMMAND_SPECS,
 		runCli: options.runCli,

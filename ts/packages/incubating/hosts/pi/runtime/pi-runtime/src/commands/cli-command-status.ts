@@ -225,12 +225,7 @@ export class CliCommandStatusActivity {
 
 	private textSegments(): string[] {
 		if (this.isPromptOpen()) return [this.bridgePhase];
-		if (
-			this.bridgePhase === "waiting for Pi" ||
-			this.bridgePhase === "summarizing command result"
-		) {
-			return [this.bridgePhase];
-		}
+		if (this.bridgePhase === "waiting for Pi") return [this.bridgePhase];
 		if (this.failedPhaseName !== undefined) {
 			return [`${sanitizeStatusText(this.failedPhaseName)} failed`];
 		}
