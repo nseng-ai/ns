@@ -82,6 +82,8 @@ export interface CliCommandRunDeps {
 	stderr: (text: string) => void;
 	/** Whether the host permits ANSI rendering for this invocation. */
 	canEmitAnsi: boolean;
+	/** Finite JSON request input. Pi slash commands do not inherit ambient process stdin. */
+	readJsonInput: () => Promise<string>;
 	env: Record<string, string | undefined>;
 	/**
 	 * Emits structured live-progress phase events for the Pi footer status path only.
@@ -463,6 +465,9 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			// Pi owns terminal rendering. Embedded commands must produce settled text
 			// rather than infer capabilities from the physical process terminal.
 			canEmitAnsi: false,
+			// Pi slash commands have no finite JSON request body. Supplying an empty
+			// invocation-owned value makes --input-json fail without reading process.stdin.
+			readJsonInput: async () => "",
 			stdout: (text) => {
 				stdout += text;
 			},
