@@ -38,7 +38,10 @@ interface GraphiteMaintenanceStep {
 }
 
 /** Phase a post-merge maintenance halt is attributed to in the landing report. */
-export type MaintenanceHaltPhase = "descendant-maintenance" | "merge-maintenance-cleanup";
+export type MaintenanceHaltPhase =
+	| "post-target-maintenance"
+	| "descendant-maintenance"
+	| "merge-maintenance-cleanup";
 
 type GraphiteMaintenanceOutcome =
 	| { kind: "proceed" }
@@ -171,7 +174,7 @@ export async function reconcilePostTargetSurvivors(
 		},
 		"survivor-reconciliation",
 	);
-	return outcome.kind === "halt" ? { ...outcome, phase: "merge-maintenance-cleanup" } : outcome;
+	return outcome.kind === "halt" ? { ...outcome, phase: "post-target-maintenance" } : outcome;
 }
 
 export async function cleanUpLandedBranches(
