@@ -36,7 +36,7 @@ import type {
 } from "../types.ts";
 import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
-import { performPostTargetMaintenance } from "./maintenance.ts";
+import { cleanUpLandedBranches, reconcilePostTargetSurvivors } from "./maintenance.ts";
 import { planPostTargetMaintenance } from "./maintenance-plan.ts";
 import { runMergeLoop, type MergeLoopResult } from "./merge-loop.ts";
 import {
@@ -302,24 +302,38 @@ export async function executeLandingRequest(
 	const shouldReconcilePostTarget =
 		effectiveCleanupRequest.policy === "free" || request.continuation.type === "upstack";
 	if (shouldReconcilePostTarget) {
-		const postTargetMaintenance = await performPostTargetMaintenance(executionContext, {
+		const reconciliation = await reconcilePostTargetSurvivors(executionContext, {
 			plan: readyPlan,
 			landed: observations.landed,
 			state: mergeOutcome.maintenanceState,
-			shouldCleanLandedBranches:
-				effectiveCleanupRequest.policy === "free" && request.continuation.type !== "upstack",
 		});
-		draft.warnings = [...mergeOutcome.maintenanceState.warnings];
-		draft.mergeMaintenanceCleanup = {
-			deletedLocalBranches: [...mergeOutcome.maintenanceState.deletedBranches],
-			retainedLocalBranches: [...mergeOutcome.maintenanceState.cleanup.retainedLocalBranches],
-		};
-		const postTargetPhases = postTargetMaintenancePhaseOutcomes(
-			readyPlan,
-			postTargetMaintenance,
-			draft.mergeMaintenanceCleanup,
+		if (reconciliation.kind === "halt") {
+			updateMaintenanceDraft(draft, mergeOutcome);
+			draft.phases.push(
+				...postTargetMaintenancePhaseOutcomes(
+					readyPlan,
+					reconciliation,
+					draft.mergeMaintenanceCleanup,
+				),
+			);
+			return failedResult(draft, reconciliation.phase, reconciliation.failure);
+		}
+		let postTargetMaintenance: Awaited<ReturnType<typeof cleanUpLandedBranches>> = reconciliation;
+		if (effectiveCleanupRequest.policy === "free" && request.continuation.type !== "upstack") {
+			postTargetMaintenance = await cleanUpLandedBranches(executionContext, {
+				plan: readyPlan,
+				landed: observations.landed,
+				state: mergeOutcome.maintenanceState,
+			});
+		}
+		updateMaintenanceDraft(draft, mergeOutcome);
+		draft.phases.push(
+			...postTargetMaintenancePhaseOutcomes(
+				readyPlan,
+				postTargetMaintenance,
+				draft.mergeMaintenanceCleanup,
+			),
 		);
-		draft.phases.push(...postTargetPhases);
 		if (postTargetMaintenance.kind === "halt") {
 			return failedResult(draft, postTargetMaintenance.phase, postTargetMaintenance.failure);
 		}
@@ -367,6 +381,17 @@ export async function executeLandingRequest(
 		cleanupRequest: effectiveCleanupRequest,
 		draft,
 	});
+}
+
+function updateMaintenanceDraft(draft: ReportDraft, mergeOutcome: MergeLoopResult): void {
+	if (mergeOutcome.type !== "success") {
+		throw new Error("Post-target maintenance requires a successful merge loop.");
+	}
+	draft.warnings = [...mergeOutcome.maintenanceState.warnings];
+	draft.mergeMaintenanceCleanup = {
+		deletedLocalBranches: [...mergeOutcome.maintenanceState.deletedBranches],
+		retainedLocalBranches: [...mergeOutcome.maintenanceState.cleanup.retainedLocalBranches],
+	};
 }
 
 interface ExecuteCleanupOnlyLandingOptions {
@@ -454,7 +479,7 @@ function manualSurvivorMaintenanceWarning(
 
 function postTargetMaintenancePhaseOutcomes(
 	plan: LandingPlan,
-	outcome: Awaited<ReturnType<typeof performPostTargetMaintenance>>,
+	outcome: Awaited<ReturnType<typeof reconcilePostTargetSurvivors>>,
 	cleanup: MergeMaintenanceCleanupReport,
 ): readonly LandingPhaseOutcome[] {
 	const maintenance = planPostTargetMaintenance(plan);

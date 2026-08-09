@@ -16,7 +16,7 @@ import {
 import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandExecutionProgress, LandExecutionStep } from "./host-seams.ts";
 import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
-import { performGraphiteMaintenance } from "./maintenance.ts";
+import { maintainBetweenLandingTargets } from "./maintenance.ts";
 import { planGraphiteMaintenanceTargets, type MaintenanceMode } from "./maintenance-plan.ts";
 
 export interface RemainingCleanup {
@@ -248,10 +248,9 @@ export async function runMergeLoop(
 			progress.setStep(branch, "restack", "skipped");
 			continue;
 		}
-		const maintenance = await performGraphiteMaintenance(executionContext, {
+		const maintenance = await maintainBetweenLandingTargets(executionContext, {
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
-			shouldDeferLandedBranchDeletion: true,
 		});
 		observedDescendantMaintenance = reduceDescendantMaintenanceObservation(
 			observedDescendantMaintenance,

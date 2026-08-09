@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { createInMemoryLandContext, pullRequestFacts } from "../../src/land/testing.ts";
 import type { DescendantReconciliationOutcome } from "../../src/land/execution/descendant-reconciliation.ts";
-import { performGraphiteMaintenance } from "../../src/land/execution/maintenance.ts";
+import { reconcilePostTargetSurvivors } from "../../src/land/execution/maintenance.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "../../src/land/graphite-operations.ts";
 import type { InMemoryLandContextState } from "../../src/land/testing.ts";
 import {
@@ -46,7 +46,7 @@ describe("Descendant reconciliation", () => {
 				],
 			},
 		});
-		const outcome = await performGraphiteMaintenance(
+		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
 			{
 				plan: createLandingPlan({
@@ -54,15 +54,11 @@ describe("Descendant reconciliation", () => {
 					descendantBranches: testCase.descendantBranches,
 					descendantMaintenance: testCase.descendantMaintenance,
 				}),
-				step: {
-					index: 0,
-					branch: "feature-a",
-					prNumber: 1,
-					state: createMergeLoopState([
-						["feature-a", FEATURE_A_SHA],
-						[testCase.movedBranch, FEATURE_B_SHA],
-					]),
-				},
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					[testCase.movedBranch, FEATURE_B_SHA],
+				]),
 			},
 		);
 
@@ -105,7 +101,7 @@ describe("Descendant reconciliation", () => {
 			},
 		});
 		const progress = createProgressRecorder();
-		const outcome = await performGraphiteMaintenance(
+		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: progress.progress },
 			{
 				plan: createLandingPlan({
@@ -117,15 +113,11 @@ describe("Descendant reconciliation", () => {
 						targetBranches: ["feature-c"],
 					},
 				}),
-				step: {
-					index: 0,
-					branch: "feature-a",
-					prNumber: 1,
-					state: createMergeLoopState([
-						["feature-a", FEATURE_A_SHA],
-						["feature-c", FEATURE_C_SHA],
-					]),
-				},
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					["feature-c", FEATURE_C_SHA],
+				]),
 			},
 		);
 
@@ -175,7 +167,7 @@ describe("Descendant reconciliation", () => {
 				},
 			},
 		});
-		const outcome = await performGraphiteMaintenance(
+		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
 			{
 				plan: createLandingPlan({
@@ -187,16 +179,12 @@ describe("Descendant reconciliation", () => {
 						targetBranches: ["feature-c", "feature-d"],
 					},
 				}),
-				step: {
-					index: 0,
-					branch: "feature-a",
-					prNumber: 1,
-					state: createMergeLoopState([
-						["feature-a", FEATURE_A_SHA],
-						["feature-c", FEATURE_C_SHA],
-						["feature-d", FEATURE_B_SHA],
-					]),
-				},
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					["feature-c", FEATURE_C_SHA],
+					["feature-d", FEATURE_B_SHA],
+				]),
 			},
 		);
 
@@ -213,7 +201,7 @@ describe("Descendant reconciliation", () => {
 		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
 	});
 
-	test("descendant restack command failure halts reconciliation after safe cleanup", async () => {
+	test("descendant restack command failure halts reconciliation without cleanup", async () => {
 		const fakes = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -252,11 +240,12 @@ describe("Descendant reconciliation", () => {
 			["feature-c", FEATURE_C_SHA],
 		]);
 
-		const outcome = await performGraphiteMaintenance(
+		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: progress.progress },
 			{
 				plan,
-				step: { index: 0, branch: "feature-a", prNumber: 1, state },
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state,
 			},
 		);
 
@@ -277,13 +266,7 @@ describe("Descendant reconciliation", () => {
 				checkedOutConflictHandling: "defer",
 			},
 		]);
-		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([
-			{
-				repoRoot: REPO_ROOT,
-				branch: "feature-a",
-				checkedOutConflictHandling: "fail",
-			},
-		]);
+		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
 		expect(fakes.graphite.restackCalls).toEqual([
 			{ repoRoot: REPO_ROOT, branch: "feature-c", scope: "upstack" },
 		]);
@@ -302,7 +285,7 @@ describe("Descendant reconciliation", () => {
 			},
 			graphite: { branchParents: { "feature-c": "main" } },
 		});
-		const outcome = await performGraphiteMaintenance(
+		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
 			{
 				plan: createLandingPlan({
@@ -314,15 +297,11 @@ describe("Descendant reconciliation", () => {
 						targetBranches: ["feature-c"],
 					},
 				}),
-				step: {
-					index: 0,
-					branch: "feature-a",
-					prNumber: 1,
-					state: createMergeLoopState([
-						["feature-a", FEATURE_A_SHA],
-						["feature-c", FEATURE_C_SHA],
-					]),
-				},
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					["feature-c", FEATURE_C_SHA],
+				]),
 			},
 		);
 
@@ -340,7 +319,7 @@ describe("Descendant reconciliation", () => {
 		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
 	});
 
-	test("zero-exit restack with provider parent still on the landed branch fails and blocks submit", async () => {
+	test("repairs a stale provider parent before restack", async () => {
 		const fakes = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -350,7 +329,7 @@ describe("Descendant reconciliation", () => {
 			},
 			graphite: { branchParents: { "feature-c": "feature-a" } },
 		});
-		const outcome = await performGraphiteMaintenance(
+		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
 			{
 				plan: createLandingPlan({
@@ -362,29 +341,22 @@ describe("Descendant reconciliation", () => {
 						targetBranches: ["feature-c"],
 					},
 				}),
-				step: {
-					index: 0,
-					branch: "feature-a",
-					prNumber: 1,
-					state: createMergeLoopState([
-						["feature-a", FEATURE_A_SHA],
-						["feature-c", FEATURE_C_SHA],
-					]),
-				},
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					["feature-c", FEATURE_C_SHA],
+				]),
 			},
 		);
 
-		expect(outcome).toMatchObject({
-			kind: "halt",
-			phase: "descendant-maintenance",
-			failure: {
-				failedBranch: "feature-c",
-				message: expect.stringContaining(
-					"provider topology still reports feature-c parented on feature-a, expected main",
-				),
+		expect(fakes.graphite.reparentBranchCalls).toEqual([
+			{
+				repoRoot: REPO_ROOT,
+				branch: "feature-c",
+				parent: "main",
 			},
-		});
-		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
+		]);
+		expect(outcome).toMatchObject({ kind: "halt", phase: "descendant-maintenance" });
 	});
 
 	test("zero-exit submit with stale remote facts fails reconciliation", async () => {
@@ -408,7 +380,7 @@ describe("Descendant reconciliation", () => {
 				],
 			},
 		});
-		const outcome = await performGraphiteMaintenance(
+		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
 			{
 				plan: createLandingPlan({
@@ -420,15 +392,11 @@ describe("Descendant reconciliation", () => {
 						targetBranches: ["feature-c"],
 					},
 				}),
-				step: {
-					index: 0,
-					branch: "feature-a",
-					prNumber: 1,
-					state: createMergeLoopState([
-						["feature-a", FEATURE_A_SHA],
-						["feature-c", FEATURE_C_SHA],
-					]),
-				},
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state: createMergeLoopState([
+					["feature-a", FEATURE_A_SHA],
+					["feature-c", FEATURE_C_SHA],
+				]),
 			},
 		);
 
@@ -448,102 +416,78 @@ describe("Descendant reconciliation", () => {
 		]);
 	});
 
-	test.each([
-		{
-			policy: "preserve",
-			shouldDeferLandedBranchDeletion: true,
-			expectedDeletedBranches: [],
-			expectedReparentedBranches: ["feature-c"],
-		},
-		{
-			policy: "free",
-			shouldDeferLandedBranchDeletion: false,
-			expectedDeletedBranches: ["feature-a"],
-			expectedReparentedBranches: [],
-		},
-	] as const)(
-		"$policy reconciles descendants while applying branch cleanup policy",
-		async ({
-			shouldDeferLandedBranchDeletion,
-			expectedDeletedBranches,
-			expectedReparentedBranches,
-		}) => {
-			const postRestackSha = "dddddddddddddddddddddddddddddddddddddddd";
-			const fakes = createInMemoryLandContext({
-				git: {
-					localBranches: [
-						{ name: "feature-a", sha: FEATURE_A_SHA },
-						{ name: "feature-c", sha: FEATURE_C_SHA },
-					],
-					// Before the restack transition runs, ancestry and topology are stale.
-					branchContainsParents: { "feature-c|main": false },
-				},
-				graphite: { branchParents: { "feature-c": "feature-a" } },
-				github: {
-					pullRequests: [
-						pullRequestFacts({
-							number: 3,
-							headRefName: "feature-c",
-							baseRefName: "feature-a",
-							headRefOid: FEATURE_C_SHA,
-						}),
-					],
-				},
-				transitions: {
-					onRestackSuccess: {
-						"feature-c": {
-							localSha: postRestackSha,
-							containsParents: { main: true },
-							providerParent: "main",
-						},
-					},
-					onSubmitUpdateSuccess: {
-						"feature-c": { headRefOid: postRestackSha, baseRefName: "main" },
-					},
-				},
-			});
-			const state = createMergeLoopState([
-				["feature-a", FEATURE_A_SHA],
-				["feature-c", FEATURE_C_SHA],
-			]);
-
-			const outcome = await performGraphiteMaintenance(
-				{ land: fakes.context, progress: createProgressRecorder().progress },
-				{
-					plan: createLandingPlan({
-						landingBranches: ["feature-a"],
-						descendantBranches: ["feature-c"],
-						descendantMaintenance: {
-							type: "auto",
-							branches: ["feature-c"],
-							targetBranches: ["feature-c"],
-						},
+	test("reconciles descendants without deleting landed branches", async () => {
+		const postRestackSha = "dddddddddddddddddddddddddddddddddddddddd";
+		const fakes = createInMemoryLandContext({
+			git: {
+				localBranches: [
+					{ name: "feature-a", sha: FEATURE_A_SHA },
+					{ name: "feature-c", sha: FEATURE_C_SHA },
+				],
+				// Before the restack transition runs, ancestry and topology are stale.
+				branchContainsParents: { "feature-c|main": false },
+			},
+			graphite: { branchParents: { "feature-c": "feature-a" } },
+			github: {
+				pullRequests: [
+					pullRequestFacts({
+						number: 3,
+						headRefName: "feature-c",
+						baseRefName: "feature-a",
+						headRefOid: FEATURE_C_SHA,
 					}),
-					step: { index: 0, branch: "feature-a", prNumber: 1, state },
-					shouldDeferLandedBranchDeletion,
+				],
+			},
+			transitions: {
+				onRestackSuccess: {
+					"feature-c": {
+						localSha: postRestackSha,
+						containsParents: { main: true },
+						providerParent: "main",
+					},
 				},
-			);
+				onSubmitUpdateSuccess: {
+					"feature-c": { headRefOid: postRestackSha, baseRefName: "main" },
+				},
+			},
+		});
+		const state = createMergeLoopState([
+			["feature-a", FEATURE_A_SHA],
+			["feature-c", FEATURE_C_SHA],
+		]);
 
-			expect(outcome).toEqual({ kind: "proceed" });
-			expect(fakes.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual(
-				expectedDeletedBranches,
-			);
-			expect(fakes.graphite.reparentBranchCalls.map((call) => call.branch)).toEqual(
-				expectedReparentedBranches,
-			);
-			expect(fakes.graphite.restackCalls).toEqual([
-				{ repoRoot: REPO_ROOT, branch: "feature-c", scope: "upstack" },
-			]);
-			expect(fakes.graphite.submitUpdateCalls).toEqual([
-				{ repoRoot: REPO_ROOT, branch: "feature-c", force: true },
-			]);
-			expect(fakes.graphite.branchParentCalls).toEqual([
-				{ repoRoot: REPO_ROOT, metadataDbPath: METADATA_DB_PATH, branch: "feature-c" },
-			]);
-			// Post-restack SHA becomes the new expectation for the reconciled root.
-			expect(state.expectedShas.get("feature-c")).toBe(postRestackSha);
-		},
-	);
+		const outcome = await reconcilePostTargetSurvivors(
+			{ land: fakes.context, progress: createProgressRecorder().progress },
+			{
+				plan: createLandingPlan({
+					landingBranches: ["feature-a"],
+					descendantBranches: ["feature-c"],
+					descendantMaintenance: {
+						type: "auto",
+						branches: ["feature-c"],
+						targetBranches: ["feature-c"],
+					},
+				}),
+				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+				state,
+			},
+		);
+
+		expect(outcome).toEqual({ kind: "proceed" });
+		expect(fakes.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual([]);
+		expect(fakes.graphite.reparentBranchCalls.map((call) => call.branch)).toEqual(["feature-c"]);
+		expect(fakes.graphite.restackCalls).toEqual([
+			{ repoRoot: REPO_ROOT, branch: "feature-c", scope: "upstack" },
+		]);
+		expect(fakes.graphite.submitUpdateCalls).toEqual([
+			{ repoRoot: REPO_ROOT, branch: "feature-c", force: true },
+		]);
+		expect(fakes.graphite.branchParentCalls).toEqual([
+			{ repoRoot: REPO_ROOT, metadataDbPath: METADATA_DB_PATH, branch: "feature-c" },
+		]);
+		// Post-restack SHA becomes the new expectation for the reconciled root.
+		expect(state.expectedShas.get("feature-c")).toBe(postRestackSha);
+	});
 
 	test("repairs every deferred descendant root before restacking or publishing", async () => {
 		const fakes = createTwoRootReconciliationContext({
@@ -551,9 +495,7 @@ describe("Descendant reconciliation", () => {
 				branchParents: { "feature-c": "feature-a", "feature-d": "feature-a" },
 			},
 		});
-		const outcome = await runTwoRootMaintenance(fakes, {
-			shouldDeferLandedBranchDeletion: true,
-		});
+		const outcome = await runTwoRootMaintenance(fakes);
 
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(
@@ -601,9 +543,7 @@ describe("Descendant reconciliation", () => {
 				},
 			},
 		});
-		const outcome = await runTwoRootMaintenance(fakes, {
-			shouldDeferLandedBranchDeletion: true,
-		});
+		const outcome = await runTwoRootMaintenance(fakes);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -789,12 +729,9 @@ function createTwoRootReconciliationContext(
 
 async function runTwoRootMaintenance(
 	fakes: ReturnType<typeof createTwoRootReconciliationContext>,
-	options: {
-		readonly expectedFeatureDSha?: string;
-		readonly shouldDeferLandedBranchDeletion?: boolean;
-	} = {},
-): Promise<Awaited<ReturnType<typeof performGraphiteMaintenance>>> {
-	return performGraphiteMaintenance(
+	options: { readonly expectedFeatureDSha?: string } = {},
+): Promise<Awaited<ReturnType<typeof reconcilePostTargetSurvivors>>> {
+	return reconcilePostTargetSurvivors(
 		{ land: fakes.context, progress: createProgressRecorder().progress },
 		{
 			plan: createLandingPlan({
@@ -806,17 +743,12 @@ async function runTwoRootMaintenance(
 					targetBranches: ["feature-c", "feature-d"],
 				},
 			}),
-			step: {
-				index: 0,
-				branch: "feature-a",
-				prNumber: 1,
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-					["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
-				]),
-			},
-			shouldDeferLandedBranchDeletion: options.shouldDeferLandedBranchDeletion ?? false,
+			landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
+			state: createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+				["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
+			]),
 		},
 	);
 }
