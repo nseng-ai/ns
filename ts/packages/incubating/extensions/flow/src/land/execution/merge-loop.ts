@@ -68,7 +68,11 @@ export interface MergeLoopObservations {
 }
 
 export type MergeLoopResult =
-	| { readonly type: "success"; readonly observations: MergeLoopObservations }
+	| {
+			readonly type: "success";
+			readonly observations: MergeLoopObservations;
+			readonly maintenanceState: MergeLoopState;
+	  }
 	| {
 			readonly type: "failure";
 			readonly observations: MergeLoopObservations;
@@ -80,10 +84,6 @@ export type MergeLoopResult =
 export interface RunMergeLoopOptions {
 	readonly plan: LandingPlan;
 	readonly warnings: readonly LandingWarning[];
-	/** Preserve landed branches during maintenance; later continuation may delete its invoking branch. */
-	readonly shouldPreserveLandedBranches?: boolean;
-	/** The invoking branch must remain checked out until upstack continuation succeeds. */
-	readonly deferredDeletionBranch?: string;
 }
 
 interface WithExecutionStepOptions<T> {
@@ -243,11 +243,15 @@ export async function runMergeLoop(
 		progress.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
 		progress.setStep(branch, "restack", "active");
+		const nextSelectedBranch = stack.landingBranches[index + 1];
+		if (nextSelectedBranch === undefined) {
+			progress.setStep(branch, "restack", "skipped");
+			continue;
+		}
 		const maintenance = await performGraphiteMaintenance(executionContext, {
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
-			shouldDeferLandedBranchDeletion:
-				options.shouldPreserveLandedBranches || branch === options.deferredDeletionBranch,
+			shouldDeferLandedBranchDeletion: true,
 		});
 		observedDescendantMaintenance = reduceDescendantMaintenanceObservation(
 			observedDescendantMaintenance,
@@ -275,6 +279,7 @@ export async function runMergeLoop(
 	}
 	return {
 		type: "success",
+		maintenanceState: state,
 		observations: snapshotMergeLoopObservations(
 			landed,
 			{

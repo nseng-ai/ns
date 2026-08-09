@@ -39,7 +39,7 @@ export function createMergeFeatureASteps(
 }
 
 function mergeFeatureA(
-	topologyArgs: readonly string[],
+	_topologyArgs: readonly string[],
 	options: MergeFeatureAOptions,
 ): LandStackScriptedExec[] {
 	const includeCleanup = options.includeCleanup ?? true;
@@ -107,8 +107,6 @@ function mergeFeatureA(
 			);
 		}
 		steps.push(
-			childrenRecheckStep(topologyArgs, "feature-a", ["feature-b"]),
-			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: "feature-b",

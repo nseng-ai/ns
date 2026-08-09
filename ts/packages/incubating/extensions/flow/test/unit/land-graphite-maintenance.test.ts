@@ -285,7 +285,7 @@ describe("Graphite maintenance over LandContext", () => {
 			policy: "preserve",
 			shouldDeferLandedBranchDeletion: true,
 			expectedDeletedBranches: [],
-			expectedReparentedBranches: ["feature-b"],
+			expectedReparentedBranches: [],
 		},
 		{
 			policy: "free",
@@ -348,8 +348,7 @@ describe("Graphite maintenance over LandContext", () => {
 		},
 	);
 
-	test("halts deferred required-next maintenance when topology repair fails", async () => {
-		const commandDisplay = "gt track feature-b --parent main --no-interactive";
+	test("deferred required-next maintenance does not reparent or delete before restack", async () => {
 		const fakes = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -357,20 +356,15 @@ describe("Graphite maintenance over LandContext", () => {
 					{ name: "feature-b", sha: FEATURE_B_SHA },
 				],
 			},
-			graphite: {
-				reparentBranchResults: {
-					"feature-b": {
-						type: "failure",
-						commandDisplay,
-						result: {
-							type: "exited",
-							stdout: "",
-							stderr: "track failed",
-							code: 1,
-							signal: null,
-						},
-					},
-				},
+			github: {
+				pullRequests: [
+					pullRequestFacts({
+						number: 2,
+						headRefName: "feature-b",
+						baseRefName: "main",
+						headRefOid: FEATURE_B_SHA,
+					}),
+				],
 			},
 		});
 
@@ -391,19 +385,10 @@ describe("Graphite maintenance over LandContext", () => {
 			},
 		);
 
-		expect(outcome).toMatchObject({
-			kind: "halt",
-			phase: "merge-maintenance-cleanup",
-			failure: {
-				failedBranch: "feature-b",
-				displayCommand: commandDisplay,
-				message: "PR #1 merged, but Graphite topology repair failed for feature-b.",
-				suggestedAction: `Run ${commandDisplay} manually, inspect the stack, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
-			},
-		});
-		expect(fakes.graphite.restackCalls).toEqual([]);
-		expect(fakes.graphite.submitUpdateCalls).toEqual([]);
+		expect(outcome).toEqual({ kind: "proceed" });
+		expect(fakes.graphite.reparentBranchCalls).toEqual([]);
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(fakes.graphite.restackCalls).toHaveLength(1);
 	});
 
 	test("reports unexpected children directly during best-effort cleanup", async () => {

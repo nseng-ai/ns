@@ -36,6 +36,8 @@ import type {
 } from "../types.ts";
 import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
+import { performPostTargetMaintenance } from "./maintenance.ts";
+import { planPostTargetMaintenance } from "./maintenance-plan.ts";
 import { runMergeLoop, type MergeLoopResult } from "./merge-loop.ts";
 import {
 	planManagedSlotPostLandingCleanup,
@@ -281,10 +283,6 @@ export async function executeLandingRequest(
 	const mergeOutcome = await runMergeLoop(executionContext, {
 		plan: readyPlan,
 		warnings: draft.warnings,
-		shouldPreserveLandedBranches: effectiveCleanupRequest.policy === "preserve",
-		...(request.continuation.type === "upstack"
-			? { deferredDeletionBranch: shape.stack.actualCurrentBranch }
-			: {}),
 	});
 	const { observations } = mergeOutcome;
 	draft.warnings = observations.warnings;
@@ -296,6 +294,30 @@ export async function executeLandingRequest(
 	draft.phases.push(...mergeLoopPhaseOutcomes(mergeOutcome));
 	if (mergeOutcome.type === "failure") {
 		return failedResult(draft, mergeOutcome.failedPhase, mergeOutcome.failure);
+	}
+
+	const postTargetMaintenance = await performPostTargetMaintenance(executionContext, {
+		plan: readyPlan,
+		landed: observations.landed,
+		state: mergeOutcome.maintenanceState,
+		shouldCleanLandedBranches:
+			effectiveCleanupRequest.policy === "free" && request.continuation.type !== "upstack",
+	});
+	draft.warnings = [...mergeOutcome.maintenanceState.warnings];
+	draft.mergeMaintenanceCleanup = {
+		deletedLocalBranches: [...mergeOutcome.maintenanceState.deletedBranches],
+		retainedLocalBranches: [
+			...mergeOutcome.maintenanceState.cleanup.retainedLocalBranches,
+		],
+	};
+	const postTargetPhases = postTargetMaintenancePhaseOutcomes(
+		readyPlan,
+		postTargetMaintenance,
+		draft.mergeMaintenanceCleanup,
+	);
+	draft.phases.push(...postTargetPhases);
+	if (postTargetMaintenance.kind === "halt") {
+		return failedResult(draft, postTargetMaintenance.phase, postTargetMaintenance.failure);
 	}
 
 	if (request.continuation.type === "upstack") {
@@ -390,6 +412,26 @@ async function executePostLandingCleanup(
 		...draft,
 		phases: [...draft.phases, postLandingCleanupPhase(cleanupRun.outcome)],
 	});
+}
+
+function postTargetMaintenancePhaseOutcomes(
+	plan: LandingPlan,
+	outcome: Awaited<ReturnType<typeof performPostTargetMaintenance>>,
+	cleanup: MergeMaintenanceCleanupReport,
+): readonly LandingPhaseOutcome[] {
+	const maintenance = planPostTargetMaintenance(plan);
+	const phases: LandingPhaseOutcome[] = [];
+	if (maintenance.mode === "required-descendants" && outcome.kind !== "halt") {
+		phases.push(completed("descendant-maintenance"));
+	} else if (maintenance.mode === "none") {
+		phases.push(skipped("descendant-maintenance", "no descendant branches require maintenance"));
+	}
+	if (cleanup.deletedLocalBranches.length + cleanup.retainedLocalBranches.length > 0) {
+		phases.push(completed("merge-maintenance-cleanup"));
+	} else if (outcome.kind !== "halt") {
+		phases.push(skipped("merge-maintenance-cleanup", "no local branch cleanup was performed"));
+	}
+	return phases;
 }
 
 function mergeLoopPhaseOutcomes(mergeLoopResult: MergeLoopResult): readonly LandingPhaseOutcome[] {

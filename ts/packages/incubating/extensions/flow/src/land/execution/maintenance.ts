@@ -4,7 +4,12 @@ import type { ExecResult } from "@nseng-ai/foundation/command";
 import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
 import { isMaintenancePrCurrent } from "../preflight.ts";
 import { landingExecutionFailure } from "../results.ts";
-import type { LandingExecutionFailure, LandingPlan, LandingWarning } from "../types.ts";
+import type {
+	LandedPullRequest,
+	LandingExecutionFailure,
+	LandingPlan,
+	LandingWarning,
+} from "../types.ts";
 import { landingWarning } from "../types.ts";
 import type { LandExecutionContext } from "./execution-context.ts";
 import { reconcileDescendantRoots } from "./descendant-reconciliation.ts";
@@ -15,6 +20,8 @@ import {
 	formatRestackFailureMessage,
 	formatSubmitFailureMessage,
 	planGraphiteMaintenanceTargets,
+	planPostTargetMaintenance,
+	type MaintenanceTargetPlan,
 	type RequiredNextLandingMaintenance,
 } from "./maintenance-plan.ts";
 import {
@@ -22,7 +29,6 @@ import {
 	checkBranchBeforeDelete,
 	guardForcedRefresh,
 	localBranchDeletionFailure,
-	localBranchDeletionFailureDetails,
 	repairGraphiteBranchParent,
 } from "./maintenance-safety.ts";
 
@@ -82,6 +88,8 @@ interface PerformGraphiteMaintenanceOptions {
 	readonly plan: LandingPlan;
 	readonly step: GraphiteMaintenanceStep;
 	readonly shouldDeferLandedBranchDeletion?: boolean;
+	readonly shouldRepairDeferredMaintenanceParent?: boolean;
+	readonly maintenance?: MaintenanceTargetPlan;
 }
 
 interface MaintenanceOperationInput {
@@ -116,9 +124,11 @@ export async function performGraphiteMaintenance(
 	const { plan, step } = maintenanceOptions;
 	const { repoRoot } = plan;
 	const { index, branch, prNumber, state } = step;
-	const maintenance = planGraphiteMaintenanceTargets(plan, index);
+	const maintenance = maintenanceOptions.maintenance ?? planGraphiteMaintenanceTargets(plan, index);
 	const shouldDeferLandedBranchDeletion =
 		maintenanceOptions.shouldDeferLandedBranchDeletion ?? false;
+	const shouldRepairDeferredMaintenanceParent =
+		maintenanceOptions.shouldRepairDeferredMaintenanceParent ?? false;
 
 	if (maintenance.mode === "blocked-descendants") {
 		// The main confirmation (or --yes) disclosed and consented to the deferred maintenance;
@@ -155,6 +165,7 @@ export async function performGraphiteMaintenance(
 						maintenance,
 					},
 					shouldDeferLandedBranchDeletion,
+					shouldRepairDeferredMaintenanceParent,
 				)
 			: await cleanUpLandedBranchBestEffort(executionContext, {
 					repoRoot,
@@ -168,11 +179,64 @@ export async function performGraphiteMaintenance(
 	return outcome;
 }
 
+export async function performPostTargetMaintenance(
+	executionContext: LandExecutionContext,
+	options: {
+		readonly plan: LandingPlan;
+		readonly landed: readonly LandedPullRequest[];
+		readonly state: MergeLoopState;
+		readonly shouldCleanLandedBranches: boolean;
+	},
+): Promise<PerformedGraphiteMaintenance> {
+	const lastLanded = options.landed.at(-1);
+	if (lastLanded === undefined) return { kind: "proceed" };
+
+	const reconciliation = await performGraphiteMaintenance(executionContext, {
+		plan: options.plan,
+		step: {
+			index: options.plan.stack.landingBranches.length - 1,
+			branch: lastLanded.branch,
+			prNumber: lastLanded.number,
+			state: options.state,
+		},
+		maintenance: planPostTargetMaintenance(options.plan),
+		shouldDeferLandedBranchDeletion: true,
+		shouldRepairDeferredMaintenanceParent: true,
+	});
+	if (reconciliation.kind === "halt" || !options.shouldCleanLandedBranches) {
+		return reconciliation;
+	}
+
+	const selectedLandedBranches = new Set([
+		...options.landed.map((landed) => landed.branch),
+		...planPostTargetMaintenance(options.plan).branches,
+	]);
+	for (const landed of options.landed) {
+		const cleanup = await cleanUpLandedBranchBestEffort(executionContext, {
+			repoRoot: options.plan.repoRoot,
+			plan: options.plan,
+			prNumber: landed.number,
+			landedBranch: landed.branch,
+			state: options.state,
+			shouldDeferLandedBranchDeletion: false,
+			allowedChildren: selectedLandedBranches,
+		});
+		if (cleanup.kind === "halt") {
+			return { ...cleanup, phase: "merge-maintenance-cleanup" };
+		}
+		if (cleanup.kind === "skip" && cleanup.warning !== undefined) {
+			options.state.warnings.push(cleanup.warning);
+		}
+	}
+	return reconciliation;
+}
+
 /** Required next-landing maintenance: refresh/delete/restack/submit. */
 async function maintainNextLandingBranches(
 	executionContext: LandExecutionContext,
 	operationInput: MaintenanceOperationInput,
 	shouldDeferLandedBranchDeletion: boolean,
+	shouldRepairDeferredMaintenanceParent: boolean,
 ): Promise<GraphiteMaintenanceOutcome> {
 	const { progress } = executionContext;
 	const { maintenance } = operationInput;
@@ -184,7 +248,7 @@ async function maintainNextLandingBranches(
 		if (refresh !== undefined) return refresh;
 	}
 
-	if (shouldDeferLandedBranchDeletion) {
+	if (shouldRepairDeferredMaintenanceParent) {
 		for (const maintenanceBranch of maintenance.branches) {
 			const repairFailure = await repairGraphiteBranchParent(executionContext, {
 				repoRoot: operationInput.repoRoot,
@@ -195,7 +259,7 @@ async function maintainNextLandingBranches(
 			});
 			if (repairFailure !== undefined) return { kind: "halt", failure: repairFailure };
 		}
-	} else {
+	} else if (!shouldDeferLandedBranchDeletion) {
 		const deleteCheck = await checkGraphiteBranchBeforeDelete(executionContext, operationInput);
 		if (deleteCheck !== undefined) return deleteCheck;
 
@@ -207,6 +271,13 @@ async function maintainNextLandingBranches(
 		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
 		const restacked = await restackMaintenanceBranch(executionContext, branchOperationContext);
 		if (restacked.kind !== "proceed") return restacked;
+		if (shouldRepairDeferredMaintenanceParent) {
+			const topologyProof = await verifyMaintenanceBranchParent(
+				executionContext,
+				branchOperationContext,
+			);
+			if (topologyProof !== undefined) return topologyProof;
+		}
 
 		const submitCheck = await checkSubmitMaintenanceBranch(
 			executionContext,
@@ -225,6 +296,33 @@ async function maintainNextLandingBranches(
 	}
 
 	return { kind: "proceed" };
+}
+
+async function verifyMaintenanceBranchParent(
+	executionContext: LandExecutionContext,
+	options: MaintenanceBranchOperationInput,
+): Promise<{ kind: "halt"; failure: LandingExecutionFailure } | undefined> {
+	const { repoRoot, plan, prNumber, maintenanceBranch } = options;
+	const expectedParent = plan.stack.trunk;
+	const providerParent = await executionContext.land.graphite.branchParent({
+		repoRoot,
+		metadataDbPath: plan.metadataDbPath,
+		branch: maintenanceBranch,
+	});
+	if (providerParent.type === "success" && providerParent.value === expectedParent)
+		return undefined;
+
+	const message =
+		providerParent.type === "failure"
+			? `PR #${prNumber} merged, but could not verify provider topology for ${maintenanceBranch} after reconciliation.\n${providerParent.failure.message}`
+			: `PR #${prNumber} merged, but provider topology still reports ${maintenanceBranch} parented on ${providerParent.value ?? "(untracked)"}, expected ${expectedParent}.`;
+	return {
+		kind: "halt",
+		failure: landingExecutionFailure(message, {
+			failedBranch: maintenanceBranch,
+			suggestedAction: `Inspect the stack topology for ${maintenanceBranch}, reparent it onto ${expectedParent}, restack/update it, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+		}),
+	};
 }
 
 async function checkSubmitMaintenanceBranch(
@@ -428,11 +526,15 @@ async function cleanUpLandedBranchBestEffort(
 		readonly landedBranch: string;
 		readonly state: MergeLoopState;
 		readonly shouldDeferLandedBranchDeletion: boolean;
+		readonly allowedChildren?: ReadonlySet<string>;
 	},
 ): Promise<GraphiteMaintenanceOutcome> {
 	if (options.shouldDeferLandedBranchDeletion) return { kind: "proceed" };
 
-	const allowedChildren = new Set(options.state.deletedBranches);
+	const allowedChildren = new Set([
+		...options.state.deletedBranches,
+		...(options.allowedChildren ?? []),
+	]);
 	const checkFailure = await checkBranchBeforeDelete(executionContext, {
 		repoRoot: options.repoRoot,
 		metadataDbPath: options.plan.metadataDbPath,
@@ -469,18 +571,14 @@ async function cleanUpLandedBranchBestEffort(
 		return { kind: "proceed" };
 	}
 
-	const details = localBranchDeletionFailureDetails({
-		branch: options.landedBranch,
-		prNumber: options.prNumber,
-		isLikelyInProgressGitOperation: deletion.isLikelyInProgressGitOperation,
-	});
 	return {
-		kind: "skip",
-		warning: landingWarning({
-			message: details.warningMessage,
+		kind: "halt",
+		failure: localBranchDeletionFailure({
+			branch: options.landedBranch,
+			prNumber: options.prNumber,
 			commandDisplay: deletion.commandDisplay,
 			result: deletion.result,
-			suggestedAction: details.warningSuggestedAction,
+			isLikelyInProgressGitOperation: deletion.isLikelyInProgressGitOperation,
 		}),
 	};
 }
