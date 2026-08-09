@@ -17,7 +17,7 @@ export interface PrAddressExecContext {
 	context: PrAddressContext;
 	cwd: string;
 	env: NodeJS.ProcessEnv;
-	readStructuredRequest: () => Promise<string>;
+	readJsonInput: () => Promise<string>;
 }
 
 /** One exec operation, ready to mount on the hidden `exec` subgroup. */

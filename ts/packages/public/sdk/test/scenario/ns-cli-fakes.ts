@@ -86,7 +86,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
 	confirm?: NsConfirmPrompt;
 	select?: NsSelectPrompt;
-	readStructuredRequest?: () => Promise<string>;
+	readJsonInput?: () => Promise<string>;
 	extensions?: Readonly<Record<string, unknown>>;
 	private readonly execResponses: ScriptedExecResponse[];
 	private readonly textGenerationResults: ScriptedTextGenerationResult[];
@@ -103,7 +103,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
 		if (state.confirm !== undefined) this.confirm = state.confirm;
 		if (state.select !== undefined) this.select = state.select;
-		this.readStructuredRequest = async () => state.stdin ?? "";
+		this.readJsonInput = async () => state.stdin ?? "";
 		if (state.extensions !== undefined) this.extensions = state.extensions;
 	}
 

@@ -1,5 +1,5 @@
 import { failure, negative, ok, type CommandExit } from "@nseng-ai/sdk";
-import { parseJsonInputText, type JsonInputError } from "@nseng-ai/extension-kit/json-input";
+import { parseJsonInputText, type JsonInputError } from "@nseng-ai/clinkr/app";
 import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -399,10 +399,10 @@ async function readFindingsPayload(
 	ctx: ReviewsRuntime,
 ): Promise<ReviewResult<ReviewFindingsPayload>> {
 	const result = parseJsonInputText({
-		text: await ctx.readStructuredRequest(),
+		text: await ctx.readJsonInput(),
 		schema: reviewFindingsPayloadSchema,
-		jsonDescription: "record-findings readStructuredRequest",
-		schemaDescription: "record-findings readStructuredRequest { findings: [...] }",
+		jsonDescription: "record-findings readJsonInput",
+		schemaDescription: "record-findings readJsonInput { findings: [...] }",
 	});
 	if (result.type === "ok") return { ok: true, value: result.value };
 	return {
@@ -505,7 +505,7 @@ export async function publishFindingsFromRequest(
 	ctx: ReviewsRuntime,
 	request: PublishFindingsRequest,
 ): Promise<PublishFindingsResult> {
-	const envelope = await ctx.readStructuredRequest();
+	const envelope = await ctx.readJsonInput();
 	return await publishFindings(ctx, {
 		prNumber: request.prNumber,
 		envelope,

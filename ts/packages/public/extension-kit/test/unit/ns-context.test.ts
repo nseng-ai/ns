@@ -70,17 +70,17 @@ describe("ns context adapters", () => {
 	test("creates cwd/env/request context from ns host context", async () => {
 		const env = { NS_TEST: "1" };
 		const context = createNsCwdEnvJsonInputContext(
-			fakeApi({ env, readStructuredRequest: async () => '{"request":true}' }),
+			fakeApi({ env, readJsonInput: async () => '{"request":true}' }),
 		);
 
 		expect(context.cwd).toBe("/repo");
 		expect(context.env).toBe(env);
-		await expect(context.readStructuredRequest()).resolves.toBe('{"request":true}');
+		await expect(context.readJsonInput()).resolves.toBe('{"request":true}');
 	});
 
-	test("rejects an ns host without a structured request reader", () => {
+	test("rejects an ns host without a JSON input reader", () => {
 		expect(() => createNsCwdEnvJsonInputContext(fakeApi())).toThrow(
-			"ns JSON input context requires readStructuredRequest",
+			"ns JSON input context requires readJsonInput",
 		);
 	});
 });

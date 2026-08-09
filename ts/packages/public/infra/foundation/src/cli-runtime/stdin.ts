@@ -2,7 +2,7 @@ import process from "node:process";
 import { createInterface } from "node:readline";
 
 /** Read one finite JSON request from process stdin, resolving at EOF. */
-export async function readStructuredRequest(): Promise<string> {
+export async function readJsonInput(): Promise<string> {
 	let content = "";
 	process.stdin.setEncoding("utf8");
 	for await (const chunk of process.stdin) {

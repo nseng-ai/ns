@@ -65,7 +65,7 @@ export interface NsExtensionApi {
 	/** Durable error output for commands that need to stream multiple chunks before returning. */
 	stderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	/** Optional finite JSON request reader. Standalone hosts acquire process input lazily; embedded hosts supply finite text. */
-	readStructuredRequest?: ExplicitUndefined<"public-api-compatibility", () => Promise<string>>;
+	readJsonInput?: ExplicitUndefined<"public-api-compatibility", () => Promise<string>>;
 	/** Transient live-progress output for UI bridges. */
 	onOutput?: ExplicitUndefined<
 		"public-api-compatibility",

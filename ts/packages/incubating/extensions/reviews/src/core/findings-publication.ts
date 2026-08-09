@@ -1,4 +1,4 @@
-import { parseJsonInputText } from "@nseng-ai/extension-kit/json-input";
+import { parseJsonInputText } from "@nseng-ai/clinkr/app";
 import { formatZodError } from "@nseng-ai/foundation/primitives";
 import { resultErr, resultOk, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";

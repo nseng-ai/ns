@@ -32,7 +32,7 @@ import {
 	resolveReviewThread,
 } from "./core/review-thread-mutations.ts";
 import { nonEmptyStringCollectionValidationMessage } from "./string-collection-validation.ts";
-import { loadJsonInput } from "@nseng-ai/extension-kit/json-input";
+import { loadJsonInput } from "@nseng-ai/clinkr/app";
 import {
 	discussionCommentsResult,
 	lookupResult,
@@ -330,7 +330,7 @@ async function runCloseReviewThreads(
 		inputDescription: "review-thread IDs JSON payload",
 		optionName: "--thread-ids-json",
 		schema: closeReviewThreadsInputSchema,
-		readStructuredRequest: ctx.readStructuredRequest,
+		readJsonInput: ctx.readJsonInput,
 	});
 	if (payloadResult.type === "error")
 		return failure(payloadResult.error.errorType, payloadResult.error.message);

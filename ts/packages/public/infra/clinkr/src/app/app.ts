@@ -50,8 +50,8 @@ export interface ClinkrOutput {
 }
 
 interface ClinkrRunAdapterOptions {
-	/** Read one finite structured request for `--input-json`. */
-	readonly readStructuredRequest?: () => Promise<string>;
+	/** Read one finite JSON request for `--input-json`. */
+	readonly readJsonInput?: () => Promise<string>;
 	/** ANSI capability override; defaults to process stdout for terminal output and false for custom output. */
 	readonly canEmitAnsi?: boolean;
 	/** Invocation-scoped framework and structured text output. */
@@ -174,8 +174,8 @@ function requireRunContext<TContext>(
 	return options.context;
 }
 
-async function rejectUnsupportedStructuredRequest(): Promise<string> {
-	throw new Error("clinkr: invocation host does not support structured request input");
+async function rejectUnsupportedJsonInput(): Promise<string> {
+	throw new Error("clinkr: invocation host does not support JSON input");
 }
 
 const SUCCESS_EXIT_CODE = exitCodeFor("success");
@@ -313,8 +313,7 @@ class TopologyClinkrApp<TContext> {
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
 		if (this.requiresContext) requireRunContext(options);
-		const readStructuredRequest =
-			options.readStructuredRequest ?? rejectUnsupportedStructuredRequest;
+		const readJsonInput = options.readJsonInput ?? rejectUnsupportedJsonInput;
 		const output = resolveOutput(options.output);
 		const rawOutput = options.rawOutput ?? processRawOutput;
 		const navigation = await this.navigator.navigate(argv);
@@ -427,7 +426,7 @@ class TopologyClinkrApp<TContext> {
 					"invalid-request",
 				);
 			}
-			const parsedJson = parseJsonInput(await readStructuredRequest(), definition.schema);
+			const parsedJson = parseJsonInput(await readJsonInput(), definition.schema);
 			if (!parsedJson.success) {
 				return emitUsageError(parsedJson.message, parsedJson.errorType, parsedJson.data);
 			}

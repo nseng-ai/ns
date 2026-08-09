@@ -31,7 +31,7 @@ export interface FakeReviewsContextOptions {
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
 	readonly signal?: AbortSignal;
-	readonly readStructuredRequest?: () => Promise<string>;
+	readonly readJsonInput?: () => Promise<string>;
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
 }
@@ -66,10 +66,10 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 		cwd: options.cwd ?? DEFAULT_REPO_ROOT,
 		env: options.env ?? {},
 		...(options.signal === undefined ? {} : { signal: options.signal }),
-		readStructuredRequest:
-			options.readStructuredRequest ??
+		readJsonInput:
+			options.readJsonInput ??
 			(async () => {
-				throw new Error("Unexpected structured request read");
+				throw new Error("Unexpected JSON input read");
 			}),
 		stdout: options.stdout ?? (() => undefined),
 		stderr: options.stderr ?? (() => undefined),

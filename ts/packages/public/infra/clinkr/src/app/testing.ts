@@ -10,15 +10,15 @@ export interface CapturedCliRun {
 
 export interface RunForCliTestOptions<TContext> {
 	readonly context: TContext;
-	/** Finite structured request reader. Required when argv selects `--input-json`. */
-	readonly readStructuredRequest?: () => Promise<string>;
+	/** Finite JSON input reader. Required when argv selects `--input-json`. */
+	readonly readJsonInput?: () => Promise<string>;
 	/** ANSI capability of the captured sink. Defaults to `false`. */
 	readonly canEmitAnsi?: boolean;
 }
 
 export interface ContextFreeRunForCliTestOptions {
-	/** Finite structured request reader. Required when argv selects `--input-json`. */
-	readonly readStructuredRequest?: () => Promise<string>;
+	/** Finite JSON input reader. Required when argv selects `--input-json`. */
+	readonly readJsonInput?: () => Promise<string>;
 	/** ANSI capability of the captured sink. Defaults to `false`. */
 	readonly canEmitAnsi?: boolean;
 }
@@ -52,9 +52,7 @@ export async function runForCliTest<TContext>(
 		writeStderr: (bytes) => stderrBytes.push(Uint8Array.from(bytes)),
 	};
 	const runOptions = {
-		...(options.readStructuredRequest === undefined
-			? {}
-			: { readStructuredRequest: options.readStructuredRequest }),
+		...(options.readJsonInput === undefined ? {} : { readJsonInput: options.readJsonInput }),
 		canEmitAnsi: options.canEmitAnsi ?? false,
 		output,
 		rawOutput,

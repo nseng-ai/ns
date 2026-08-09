@@ -79,13 +79,13 @@ interface ReviewsClientBaseOptions {
 
 export type ReviewsClientOptions =
 	| (ReviewsClientBaseOptions & {
-			readonly readStructuredRequest: () => Promise<string>;
+			readonly readJsonInput: () => Promise<string>;
 			readonly runtime?: never;
 	  })
 	| (ReviewsClientBaseOptions & {
 			/** Inject a prebuilt gateway-injected runtime instead of constructing real adapters. */
 			readonly runtime: ReviewsRuntime;
-			readonly readStructuredRequest?: never;
+			readonly readJsonInput?: never;
 	  });
 
 export interface ReviewsClient {
@@ -131,7 +131,7 @@ function createRealRuntime(options: ReviewsClientOptions): ReviewsRuntime {
 		createRealReviewsContext({
 			cwd: options.cwd,
 			env: normalizedEnv(options.env),
-			readStructuredRequest: requireStructuredRequestReader(options),
+			readJsonInput: requireJsonInputReader(options),
 			stdout: options.stdout ?? (() => undefined),
 			stderr: options.stderr ?? (() => undefined),
 			...(options.signal === undefined ? {} : { signal: options.signal }),
@@ -139,11 +139,11 @@ function createRealRuntime(options: ReviewsClientOptions): ReviewsRuntime {
 	);
 }
 
-function requireStructuredRequestReader(options: ReviewsClientOptions): () => Promise<string> {
-	if ("readStructuredRequest" in options && options.readStructuredRequest !== undefined) {
-		return options.readStructuredRequest;
+function requireJsonInputReader(options: ReviewsClientOptions): () => Promise<string> {
+	if ("readJsonInput" in options && options.readJsonInput !== undefined) {
+		return options.readJsonInput;
 	}
-	throw new Error("ReviewsClient real runtime requires readStructuredRequest");
+	throw new Error("ReviewsClient real runtime requires readJsonInput");
 }
 
 function normalizedEnv(
