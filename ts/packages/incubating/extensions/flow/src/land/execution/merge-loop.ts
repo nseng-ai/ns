@@ -62,7 +62,9 @@ export type ObservedDescendantMaintenance =
 export interface MergeLoopObservations {
 	readonly landed: readonly LandedPullRequest[];
 	readonly warnings: readonly LandingWarning[];
-	readonly cleanup: RemainingCleanup;
+	readonly cleanup: {
+		readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
+	};
 	readonly deletedLocalBranches: readonly string[];
 	readonly descendantMaintenance: ObservedDescendantMaintenance;
 }
@@ -70,7 +72,7 @@ export interface MergeLoopObservations {
 export type MergeLoopResult =
 	| {
 			readonly type: "success";
-			readonly observations: MergeLoopObservations;
+			readonly landed: readonly LandedPullRequest[];
 			readonly maintenanceState: MergeLoopState;
 	  }
 	| {
@@ -278,16 +280,8 @@ export async function runMergeLoop(
 	}
 	return {
 		type: "success",
+		landed: [...landed],
 		maintenanceState: state,
-		observations: snapshotMergeLoopObservations(
-			landed,
-			{
-				warnings: state.warnings,
-				cleanup: state.cleanup,
-				deletedLocalBranches: state.deletedBranches,
-			},
-			observedDescendantMaintenance,
-		),
 	};
 }
 

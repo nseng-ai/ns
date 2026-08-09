@@ -177,11 +177,11 @@ describe("merge loop over LandContext", () => {
 
 		expect(result).toMatchObject({
 			type: "success",
-			observations: {
-				landed: [
-					{ branch: "feature-a", number: 1, title: "Land feature-a" },
-					{ branch: "feature-b", number: 2, title: "Land feature-b" },
-				],
+			landed: [
+				{ branch: "feature-a", number: 1, title: "Land feature-a" },
+				{ branch: "feature-b", number: 2, title: "Land feature-b" },
+			],
+			maintenanceState: {
 				warnings: [WARNING],
 				cleanup: { retainedLocalBranches: [] },
 			},
@@ -202,7 +202,8 @@ describe("merge loop over LandContext", () => {
 			"github.squashMergePullRequest:feature-b",
 			"github.pullRequestFacts:2",
 		]);
-		expect(result.observations.deletedLocalBranches).toEqual([]);
+		if (result.type !== "success") return;
+		expect([...result.maintenanceState.deletedBranches]).toEqual([]);
 		expect(memory.git.snapshotBackupRefsCalls).toHaveLength(1);
 		const firstEventRead = memory.callEvents;
 		expect(memory.callEvents).not.toBe(firstEventRead);
@@ -233,7 +234,7 @@ describe("merge loop over LandContext", () => {
 
 		expect(result).toMatchObject({
 			type: "success",
-			observations: { landed: [{ branch: "feature-a", number: 1 }] },
+			landed: [{ branch: "feature-a", number: 1 }],
 		});
 		expect(memory.git.snapshotBackupRefsCalls).toEqual([
 			{ repoRoot: REPO_ROOT, branches: ["feature-a", "feature-b"] },
@@ -439,10 +440,7 @@ describe("merge loop over LandContext", () => {
 
 		expect(result).toMatchObject({
 			type: "success",
-			observations: {
-				landed: [{ branch: "feature-a", number: 1 }],
-				descendantMaintenance: { type: "not-attempted" },
-			},
+			landed: [{ branch: "feature-a", number: 1 }],
 		});
 		expect(memory.graphite.refreshBranchFromRemoteCalls).toEqual([]);
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
