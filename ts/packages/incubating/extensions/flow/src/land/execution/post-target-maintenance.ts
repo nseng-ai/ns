@@ -32,7 +32,12 @@ export async function runPostTargetMaintenance(
 ): Promise<PostTargetMaintenanceResult> {
 	const phases: LandingPhaseOutcome[] = [];
 	const maintenance = planPostTargetMaintenance(options.plan);
-	const reconciliation = await reconcilePostTargetSurvivors(executionContext, options);
+	const reconciliation = await reconcilePostTargetSurvivors(
+		executionContext,
+		options.plan,
+		options.landed,
+		options.state,
+	);
 	if (maintenance.mode === "none") {
 		phases.push(
 			skipped("post-target-maintenance", "no remaining landing branches require maintenance"),

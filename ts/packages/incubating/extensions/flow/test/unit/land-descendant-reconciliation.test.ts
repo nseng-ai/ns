@@ -48,18 +48,16 @@ describe("Descendant reconciliation", () => {
 		});
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({
-					landingBranches: testCase.landingBranches,
-					descendantBranches: testCase.descendantBranches,
-					descendantMaintenance: testCase.descendantMaintenance,
-				}),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					[testCase.movedBranch, FEATURE_B_SHA],
-				]),
-			},
+			createLandingPlan({
+				landingBranches: testCase.landingBranches,
+				descendantBranches: testCase.descendantBranches,
+				descendantMaintenance: testCase.descendantMaintenance,
+			}),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				[testCase.movedBranch, FEATURE_B_SHA],
+			]),
 		);
 
 		expect(outcome.kind).toBe(testCase.expectedKind);
@@ -103,22 +101,20 @@ describe("Descendant reconciliation", () => {
 		const progress = createProgressRecorder();
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: progress.progress },
-			{
-				plan: createLandingPlan({
-					landingBranches: ["feature-a"],
-					descendantBranches: ["feature-c"],
-					descendantMaintenance: {
-						type: "auto",
-						branches: ["feature-c"],
-						targetBranches: ["feature-c"],
-					},
-				}),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
-			},
+			createLandingPlan({
+				landingBranches: ["feature-a"],
+				descendantBranches: ["feature-c"],
+				descendantMaintenance: {
+					type: "auto",
+					branches: ["feature-c"],
+					targetBranches: ["feature-c"],
+				},
+			}),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+			]),
 		);
 
 		expect(outcome).toMatchObject({
@@ -169,23 +165,21 @@ describe("Descendant reconciliation", () => {
 		});
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({
-					landingBranches: ["feature-a"],
-					descendantBranches: ["feature-c", "feature-d"],
-					descendantMaintenance: {
-						type: "auto",
-						branches: ["feature-c", "feature-d"],
-						targetBranches: ["feature-c", "feature-d"],
-					},
-				}),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-					["feature-d", FEATURE_B_SHA],
-				]),
-			},
+			createLandingPlan({
+				landingBranches: ["feature-a"],
+				descendantBranches: ["feature-c", "feature-d"],
+				descendantMaintenance: {
+					type: "auto",
+					branches: ["feature-c", "feature-d"],
+					targetBranches: ["feature-c", "feature-d"],
+				},
+			}),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+				["feature-d", FEATURE_B_SHA],
+			]),
 		);
 
 		expect(outcome).toMatchObject({
@@ -242,11 +236,9 @@ describe("Descendant reconciliation", () => {
 
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: progress.progress },
-			{
-				plan,
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state,
-			},
+			plan,
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			state,
 		);
 
 		expect(outcome).toMatchObject({
@@ -287,22 +279,20 @@ describe("Descendant reconciliation", () => {
 		});
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({
-					landingBranches: ["feature-a"],
-					descendantBranches: ["feature-c"],
-					descendantMaintenance: {
-						type: "auto",
-						branches: ["feature-c"],
-						targetBranches: ["feature-c"],
-					},
-				}),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
-			},
+			createLandingPlan({
+				landingBranches: ["feature-a"],
+				descendantBranches: ["feature-c"],
+				descendantMaintenance: {
+					type: "auto",
+					branches: ["feature-c"],
+					targetBranches: ["feature-c"],
+				},
+			}),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+			]),
 		);
 
 		expect(outcome).toMatchObject({
@@ -331,22 +321,20 @@ describe("Descendant reconciliation", () => {
 		});
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({
-					landingBranches: ["feature-a"],
-					descendantBranches: ["feature-c"],
-					descendantMaintenance: {
-						type: "auto",
-						branches: ["feature-c"],
-						targetBranches: ["feature-c"],
-					},
-				}),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
-			},
+			createLandingPlan({
+				landingBranches: ["feature-a"],
+				descendantBranches: ["feature-c"],
+				descendantMaintenance: {
+					type: "auto",
+					branches: ["feature-c"],
+					targetBranches: ["feature-c"],
+				},
+			}),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+			]),
 		);
 
 		expect(fakes.graphite.reparentBranchCalls).toEqual([
@@ -382,22 +370,20 @@ describe("Descendant reconciliation", () => {
 		});
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({
-					landingBranches: ["feature-a"],
-					descendantBranches: ["feature-c"],
-					descendantMaintenance: {
-						type: "auto",
-						branches: ["feature-c"],
-						targetBranches: ["feature-c"],
-					},
-				}),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state: createMergeLoopState([
-					["feature-a", FEATURE_A_SHA],
-					["feature-c", FEATURE_C_SHA],
-				]),
-			},
+			createLandingPlan({
+				landingBranches: ["feature-a"],
+				descendantBranches: ["feature-c"],
+				descendantMaintenance: {
+					type: "auto",
+					branches: ["feature-c"],
+					targetBranches: ["feature-c"],
+				},
+			}),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			createMergeLoopState([
+				["feature-a", FEATURE_A_SHA],
+				["feature-c", FEATURE_C_SHA],
+			]),
 		);
 
 		expect(outcome).toMatchObject({
@@ -458,19 +444,17 @@ describe("Descendant reconciliation", () => {
 
 		const outcome = await reconcilePostTargetSurvivors(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({
-					landingBranches: ["feature-a"],
-					descendantBranches: ["feature-c"],
-					descendantMaintenance: {
-						type: "auto",
-						branches: ["feature-c"],
-						targetBranches: ["feature-c"],
-					},
-				}),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state,
-			},
+			createLandingPlan({
+				landingBranches: ["feature-a"],
+				descendantBranches: ["feature-c"],
+				descendantMaintenance: {
+					type: "auto",
+					branches: ["feature-c"],
+					targetBranches: ["feature-c"],
+				},
+			}),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			state,
 		);
 
 		expect(outcome).toEqual({ kind: "proceed" });
@@ -733,22 +717,20 @@ async function runTwoRootMaintenance(
 ): Promise<Awaited<ReturnType<typeof reconcilePostTargetSurvivors>>> {
 	return reconcilePostTargetSurvivors(
 		{ land: fakes.context, progress: createProgressRecorder().progress },
-		{
-			plan: createLandingPlan({
-				landingBranches: ["feature-a"],
-				descendantBranches: ["feature-c", "feature-d"],
-				descendantMaintenance: {
-					type: "auto",
-					branches: ["feature-c", "feature-d"],
-					targetBranches: ["feature-c", "feature-d"],
-				},
-			}),
-			landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-			state: createMergeLoopState([
-				["feature-a", FEATURE_A_SHA],
-				["feature-c", FEATURE_C_SHA],
-				["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
-			]),
-		},
+		createLandingPlan({
+			landingBranches: ["feature-a"],
+			descendantBranches: ["feature-c", "feature-d"],
+			descendantMaintenance: {
+				type: "auto",
+				branches: ["feature-c", "feature-d"],
+				targetBranches: ["feature-c", "feature-d"],
+			},
+		}),
+		[{ branch: "feature-a", number: 1, title: "feature-a" }],
+		createMergeLoopState([
+			["feature-a", FEATURE_A_SHA],
+			["feature-c", FEATURE_C_SHA],
+			["feature-d", options.expectedFeatureDSha ?? FEATURE_B_SHA],
+		]),
 	);
 }

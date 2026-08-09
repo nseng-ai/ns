@@ -343,11 +343,12 @@ export async function executeLandingRequest(
 			skipped("merge-maintenance-cleanup", "cleanup policy preserves landed local branches"),
 		);
 	} else {
-		const cleanup = await cleanUpLandedBranches(executionContext, {
-			plan: readyPlan,
+		const cleanup = await cleanUpLandedBranches(
+			executionContext,
+			readyPlan,
 			landed,
-			state: maintenanceState,
-		});
+			maintenanceState,
+		);
 		updateMaintenanceReport(draft, maintenanceState);
 		if (cleanup.kind === "halt") {
 			return failedResult(draft, cleanup.phase, cleanup.failure);

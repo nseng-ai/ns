@@ -130,11 +130,9 @@ describe("named landing maintenance operations", () => {
 		const state = createMergeLoopState([["feature-a", FEATURE_A_SHA]]);
 		const outcome = await cleanUpLandedBranches(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({ landingBranches: ["feature-a"] }),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state,
-			},
+			createLandingPlan({ landingBranches: ["feature-a"] }),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			state,
 		);
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(state.cleanup.retainedLocalBranches).toEqual([
@@ -150,11 +148,9 @@ describe("named landing maintenance operations", () => {
 		const state = createMergeLoopState([["feature-a", FEATURE_A_SHA]]);
 		const outcome = await cleanUpLandedBranches(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({ landingBranches: ["feature-a"] }),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state,
-			},
+			createLandingPlan({ landingBranches: ["feature-a"] }),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			state,
 		);
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(state.warnings).toEqual([
@@ -179,11 +175,9 @@ describe("named landing maintenance operations", () => {
 		const state = createMergeLoopState([["feature-a", FEATURE_A_SHA]]);
 		const outcome = await cleanUpLandedBranches(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
-			{
-				plan: createLandingPlan({ landingBranches: ["feature-a"] }),
-				landed: [{ branch: "feature-a", number: 1, title: "feature-a" }],
-				state,
-			},
+			createLandingPlan({ landingBranches: ["feature-a"] }),
+			[{ branch: "feature-a", number: 1, title: "feature-a" }],
+			state,
 		);
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(state.warnings).toEqual([

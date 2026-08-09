@@ -132,32 +132,26 @@ export async function maintainBetweenLandingTargets(
 
 export async function reconcilePostTargetSurvivors(
 	executionContext: LandExecutionContext,
-	options: {
-		readonly plan: LandingPlan;
-		readonly landed: readonly LandedPullRequest[];
-		readonly state: MergeLoopState;
-	},
+	plan: LandingPlan,
+	landed: readonly LandedPullRequest[],
+	state: MergeLoopState,
 ): Promise<PerformedGraphiteMaintenance> {
-	const lastLanded = options.landed.at(-1);
+	const lastLanded = landed.at(-1);
 	if (lastLanded === undefined) return { kind: "proceed" };
-	const maintenance = planPostTargetMaintenance(options.plan);
+	const maintenance = planPostTargetMaintenance(plan);
 	if (maintenance.mode === "blocked-descendants") {
 		return {
 			kind: "halt",
 			phase: "descendant-maintenance",
-			failure: blockedDescendantMaintenanceFailure(
-				options.plan,
-				lastLanded.branch,
-				lastLanded.number,
-			),
+			failure: blockedDescendantMaintenanceFailure(plan, lastLanded.branch, lastLanded.number),
 		};
 	}
 	if (maintenance.mode === "required-descendants") {
 		return await reconcileDescendantRoots(executionContext, {
-			plan: options.plan,
+			plan,
 			prNumber: lastLanded.number,
 			landedBranch: lastLanded.branch,
-			state: options.state,
+			state,
 			maintenance,
 		});
 	}
@@ -165,11 +159,11 @@ export async function reconcilePostTargetSurvivors(
 	const outcome = await maintainNextLandingBranches(
 		executionContext,
 		{
-			repoRoot: options.plan.repoRoot,
-			plan: options.plan,
+			repoRoot: plan.repoRoot,
+			plan,
 			prNumber: lastLanded.number,
 			landedBranch: lastLanded.branch,
-			state: options.state,
+			state,
 			maintenance,
 		},
 		"survivor-reconciliation",
@@ -179,28 +173,26 @@ export async function reconcilePostTargetSurvivors(
 
 export async function cleanUpLandedBranches(
 	executionContext: LandExecutionContext,
-	options: {
-		readonly plan: LandingPlan;
-		readonly landed: readonly LandedPullRequest[];
-		readonly state: MergeLoopState;
-	},
+	plan: LandingPlan,
+	landed: readonly LandedPullRequest[],
+	state: MergeLoopState,
 ): Promise<PerformedGraphiteMaintenance> {
 	const selectedLandedBranches = new Set([
-		...options.landed.map((landed) => landed.branch),
-		...planPostTargetMaintenance(options.plan).branches,
+		...landed.map((landedPullRequest) => landedPullRequest.branch),
+		...planPostTargetMaintenance(plan).branches,
 	]);
-	for (const landed of options.landed) {
+	for (const landedPullRequest of landed) {
 		const cleanup = await cleanUpLandedBranchBestEffort(executionContext, {
-			repoRoot: options.plan.repoRoot,
-			plan: options.plan,
-			prNumber: landed.number,
-			landedBranch: landed.branch,
-			state: options.state,
+			repoRoot: plan.repoRoot,
+			plan,
+			prNumber: landedPullRequest.number,
+			landedBranch: landedPullRequest.branch,
+			state,
 			allowedChildren: selectedLandedBranches,
 		});
 		if (cleanup.kind === "halt") return { ...cleanup, phase: "merge-maintenance-cleanup" };
 		if (cleanup.kind === "skip" && cleanup.warning !== undefined) {
-			options.state.warnings.push(cleanup.warning);
+			state.warnings.push(cleanup.warning);
 		}
 	}
 	return { kind: "proceed" };
