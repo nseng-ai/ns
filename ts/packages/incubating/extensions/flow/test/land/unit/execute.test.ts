@@ -600,7 +600,7 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
 	});
 
-	test("post-target free cleanup halts on deletion failure without deleting later branches", async () => {
+	test("post-target free cleanup reports earlier deletions when a later deletion fails", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 		const memory = createInMemoryLandContext({
@@ -620,9 +620,9 @@ describe("land execute mode over in-memory gateways", () => {
 					landingBranches: [BRANCH, branchB],
 				}),
 				deleteLocalBranchResults: {
-					[BRANCH]: {
+					[branchB]: {
 						type: "failed",
-						commandDisplay: `gt delete ${BRANCH} -f -q`,
+						commandDisplay: `gt delete ${branchB} -f -q`,
 						result: {
 							type: "exited",
 							stdout: "",
@@ -660,13 +660,16 @@ describe("land execute mode over in-memory gateways", () => {
 			report: {
 				cleanup: {
 					mergeMaintenanceCleanup: {
-						deletedLocalBranches: [],
+						deletedLocalBranches: [BRANCH],
 						retainedLocalBranches: [],
 					},
 				},
 			},
 		});
-		expect(memory.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual([BRANCH]);
+		expect(memory.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual([
+			BRANCH,
+			branchB,
+		]);
 		if (outcome.type === "failed" && outcome.failure.type === "execution") {
 			expect(outcome.failure.message).toContain("in-progress Git operation");
 		}

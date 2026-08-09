@@ -38,7 +38,7 @@ import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
 import { cleanUpLandedBranches, reconcilePostTargetSurvivors } from "./maintenance.ts";
 import { planPostTargetMaintenance } from "./maintenance-plan.ts";
-import { runMergeLoop, type MergeLoopResult } from "./merge-loop.ts";
+import { runMergeLoop, type MergeLoopResult, type MergeLoopState } from "./merge-loop.ts";
 import {
 	planManagedSlotPostLandingCleanup,
 	postLandingCleanupSkipReport,
@@ -310,11 +310,7 @@ export async function executeLandingRequest(
 			state: maintenanceState,
 		});
 		if (reconciliation.kind === "halt") {
-			draft.warnings = [...maintenanceState.warnings];
-			draft.mergeMaintenanceCleanup = {
-				deletedLocalBranches: [...maintenanceState.deletedBranches],
-				retainedLocalBranches: [...maintenanceState.cleanup.retainedLocalBranches],
-			};
+			updateMaintenanceReport(draft, maintenanceState);
 			draft.phases.push(
 				...postTargetMaintenancePhaseOutcomes(
 					readyPlan,
@@ -332,11 +328,7 @@ export async function executeLandingRequest(
 				state: maintenanceState,
 			});
 		}
-		draft.warnings = [...maintenanceState.warnings];
-		draft.mergeMaintenanceCleanup = {
-			deletedLocalBranches: [...maintenanceState.deletedBranches],
-			retainedLocalBranches: [...maintenanceState.cleanup.retainedLocalBranches],
-		};
+		updateMaintenanceReport(draft, maintenanceState);
 		draft.phases.push(
 			...postTargetMaintenancePhaseOutcomes(
 				readyPlan,
@@ -352,11 +344,7 @@ export async function executeLandingRequest(
 		if (survivors.length > 0) {
 			maintenanceState.warnings.push(manualSurvivorMaintenanceWarning(readyPlan, survivors));
 		}
-		draft.warnings = [...maintenanceState.warnings];
-		draft.mergeMaintenanceCleanup = {
-			deletedLocalBranches: [...maintenanceState.deletedBranches],
-			retainedLocalBranches: [...maintenanceState.cleanup.retainedLocalBranches],
-		};
+		updateMaintenanceReport(draft, maintenanceState);
 		draft.phases.push(
 			skipped("descendant-maintenance", "post-target survivor maintenance left for manual action"),
 			skipped("merge-maintenance-cleanup", "preserve policy performs no post-target cleanup"),
@@ -455,6 +443,14 @@ async function executePostLandingCleanup(
 		...draft,
 		phases: [...draft.phases, postLandingCleanupPhase(cleanupRun.outcome)],
 	});
+}
+
+function updateMaintenanceReport(draft: ReportDraft, state: MergeLoopState): void {
+	draft.warnings = [...state.warnings];
+	draft.mergeMaintenanceCleanup = {
+		deletedLocalBranches: [...state.deletedBranches],
+		retainedLocalBranches: [...state.cleanup.retainedLocalBranches],
+	};
 }
 
 function postTargetSurvivors(plan: LandingPlan): readonly string[] {
