@@ -95,8 +95,8 @@ export interface ContextfulClinkrCompletionConfig<TContext> {
 
 export interface ClinkrContextFreeApp {
 	readonly requiresContext: false;
-	/** Run as a standalone process-backed CLI using process argv and finite JSON stdin. */
-	runCli(): Promise<number>;
+	/** Run with standalone process-backed I/O and an explicit application argv tail. */
+	runCli(argv: readonly string[]): Promise<number>;
 	run(argv: readonly string[], options?: ClinkrContextFreeRunOptions): Promise<number>;
 	complete(
 		request: ClinkrCompletionRequest,
@@ -106,8 +106,8 @@ export interface ClinkrContextFreeApp {
 
 export interface ClinkrContextfulApp<TContext> {
 	readonly requiresContext: true;
-	/** Run as a standalone process-backed CLI using process argv and finite JSON stdin. */
-	runCli(options: { readonly context: TContext }): Promise<number>;
+	/** Run with standalone process-backed I/O and an explicit application argv tail. */
+	runCli(argv: readonly string[], options: { readonly context: TContext }): Promise<number>;
 	run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number>;
 	complete(
 		request: ClinkrCompletionRequest,
@@ -319,11 +319,11 @@ class TopologyClinkrApp<TContext> {
 					});
 	}
 
-	async runCli(options: { readonly context?: TContext } = {}): Promise<number> {
-		return await this.run(process.argv.slice(2), {
-			...options,
-			readJsonInput: readProcessJsonInput,
-		});
+	async runCli(
+		argv: readonly string[],
+		options: { readonly context?: TContext } = {},
+	): Promise<number> {
+		return await this.run(argv, { ...options, readJsonInput: readProcessJsonInput });
 	}
 
 	async run(
