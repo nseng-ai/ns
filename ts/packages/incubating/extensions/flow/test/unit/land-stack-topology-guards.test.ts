@@ -22,7 +22,9 @@ import {
 	createMergeFeatureASteps,
 	expectedSquashMergeArgs,
 	guardShaStep,
+	postRestackSubmitCheckSteps,
 	prSnapshot,
+	submitUpdateStep,
 	prStdout,
 } from "./land-stack-script-fixtures.ts";
 import {
@@ -653,22 +655,51 @@ describe("fork-safe topology and destructive-phase guards", () => {
 				"--force",
 				"--no-interactive",
 			]),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: "feature-a",
+			}),
+			submitUpdateStep("feature-b"),
+			step("git", ["rev-parse", "--verify", "refs/heads/feature-b^{commit}"], {
+				stdout: `${SHA_B}\n`,
+			}),
+			step("gh", ["pr", "view", "feature-b", "--json", PR_FIELDS], {
+				stdout: prStdout(prSnapshot({ number: 102, branch: "feature-b", base: TRUNK, sha: SHA_B })),
+			}),
+			step("gh", expectedSquashMergeArgs({ number: 102, sha: SHA_B })),
+			step("gh", ["pr", "view", "102", "--json", PR_FIELDS], {
+				stdout: prStdout(
+					prSnapshot({
+						number: 102,
+						branch: "feature-b",
+						base: TRUNK,
+						sha: SHA_B,
+						state: "MERGED",
+						mergedAt: "2026-05-22T00:00:00Z",
+					}),
+				),
+			}),
 			childrenRecheckStep("feature-a", ["feature-b", "rogue-branch"]),
+			childrenRecheckStep("feature-b", []),
+			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("error");
+		expect(notifications.at(-1)?.level).toBe("warning");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain(
-			"feature-a now has unexpected Graphite children (rogue-branch); refusing gt delete",
+			"feature-a now has unexpected Graphite children (rogue-branch); local branch feature-a cleanup was skipped.",
 		);
 		expect(streamText).toContain(BACKUP_REF_NAMESPACE);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
-			false,
+			true,
 		);
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "restack")).toBe(
-			false,
+			true,
 		);
 		expect(
 			pi.execCalls
@@ -676,7 +707,7 @@ describe("fork-safe topology and destructive-phase guards", () => {
 					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
 				)
 				.map((call) => call.args[2]),
-		).toEqual(["101"]);
+		).toEqual(["101", "102"]);
 	});
 
 	test("skips the final delete with a warning when unexpected children appear", async () => {

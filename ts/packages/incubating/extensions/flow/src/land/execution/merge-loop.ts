@@ -16,7 +16,7 @@ import {
 import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandExecutionProgress, LandExecutionStep } from "./host-seams.ts";
 import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
-import { performGraphiteMaintenance } from "./maintenance.ts";
+import { maintainBetweenLandingTargets } from "./maintenance.ts";
 import { planGraphiteMaintenanceTargets, type MaintenanceMode } from "./maintenance-plan.ts";
 
 export interface RemainingCleanup {
@@ -62,13 +62,19 @@ export type ObservedDescendantMaintenance =
 export interface MergeLoopObservations {
 	readonly landed: readonly LandedPullRequest[];
 	readonly warnings: readonly LandingWarning[];
-	readonly cleanup: RemainingCleanup;
+	readonly cleanup: {
+		readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
+	};
 	readonly deletedLocalBranches: readonly string[];
 	readonly descendantMaintenance: ObservedDescendantMaintenance;
 }
 
 export type MergeLoopResult =
-	| { readonly type: "success"; readonly observations: MergeLoopObservations }
+	| {
+			readonly type: "success";
+			readonly landed: readonly LandedPullRequest[];
+			readonly maintenanceState: MergeLoopState;
+	  }
 	| {
 			readonly type: "failure";
 			readonly observations: MergeLoopObservations;
@@ -80,10 +86,6 @@ export type MergeLoopResult =
 export interface RunMergeLoopOptions {
 	readonly plan: LandingPlan;
 	readonly warnings: readonly LandingWarning[];
-	/** Preserve landed branches during maintenance; later continuation may delete its invoking branch. */
-	readonly shouldPreserveLandedBranches?: boolean;
-	/** The invoking branch must remain checked out until upstack continuation succeeds. */
-	readonly deferredDeletionBranch?: string;
 }
 
 interface WithExecutionStepOptions<T> {
@@ -243,11 +245,14 @@ export async function runMergeLoop(
 		progress.note(`Merged and verified PR #${currentPr.number} ${branch}.`);
 
 		progress.setStep(branch, "restack", "active");
-		const maintenance = await performGraphiteMaintenance(executionContext, {
+		const nextSelectedBranch = stack.landingBranches[index + 1];
+		if (nextSelectedBranch === undefined) {
+			progress.setStep(branch, "restack", "skipped");
+			continue;
+		}
+		const maintenance = await maintainBetweenLandingTargets(executionContext, {
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
-			shouldDeferLandedBranchDeletion:
-				options.shouldPreserveLandedBranches || branch === options.deferredDeletionBranch,
 		});
 		observedDescendantMaintenance = reduceDescendantMaintenanceObservation(
 			observedDescendantMaintenance,
@@ -275,15 +280,8 @@ export async function runMergeLoop(
 	}
 	return {
 		type: "success",
-		observations: snapshotMergeLoopObservations(
-			landed,
-			{
-				warnings: state.warnings,
-				cleanup: state.cleanup,
-				deletedLocalBranches: state.deletedBranches,
-			},
-			observedDescendantMaintenance,
-		),
+		landed: [...landed],
+		maintenanceState: state,
 	};
 }
 

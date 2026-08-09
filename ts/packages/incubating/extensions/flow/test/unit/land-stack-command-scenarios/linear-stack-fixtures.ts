@@ -121,6 +121,19 @@ export function linearStackLandingScript(size: number): ScriptedExec[] {
 				index === size ? { finalCheckedOut: true } : { next: index + 1, stackEnd: size },
 			),
 		),
+		...Array.from({ length: size }, (_, offset) => offset + 1).flatMap((index) => [
+			childrenRecheckStep(numberedBranch(index), index === size ? [] : [numberedBranch(index + 1)]),
+			step(
+				"gt",
+				["delete", numberedBranch(index), "-f", "-q"],
+				index === size
+					? {
+							code: 1,
+							stderr: `fatal: '${numberedBranch(index)}' is already checked out at '/repo'\n`,
+						}
+					: undefined,
+			),
+		]),
 	].flat();
 }
 
@@ -176,8 +189,6 @@ export function mergeNumberedBranch(
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep(branch, [nextBranch]),
-			step("gt", ["delete", branch, "-f", "-q"]),
 			step("gt", ["restack", "--branch", nextBranch, "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: nextBranch,
@@ -189,15 +200,5 @@ export function mergeNumberedBranch(
 		steps.push(submitUpdateStep(nextBranch));
 		return steps;
 	}
-	steps.push(
-		childrenRecheckStep(branch, []),
-		step(
-			"gt",
-			["delete", branch, "-f", "-q"],
-			options.finalCheckedOut
-				? { code: 1, stderr: `fatal: '${branch}' is already checked out at '/repo'\n` }
-				: undefined,
-		),
-	);
 	return steps;
 }

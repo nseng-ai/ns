@@ -67,6 +67,7 @@ export type LandingPhase =
 	| "submit-preparation"
 	| "dry-run"
 	| "merge"
+	| "post-target-maintenance"
 	| "descendant-maintenance"
 	| "merge-maintenance-cleanup"
 	| "upstack-continuation"

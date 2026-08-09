@@ -9,13 +9,7 @@ import {
 	formatCheckedOutElsewhere,
 	type RequiredDescendantMaintenance,
 } from "./maintenance-plan.ts";
-import {
-	branchPreDeleteCheckFailure,
-	checkBranchBeforeDelete,
-	guardForcedRefresh,
-	localBranchDeletionFailure,
-	repairGraphiteBranchParent,
-} from "./maintenance-safety.ts";
+import { guardForcedRefresh, repairGraphiteBranchParent } from "./maintenance-safety.ts";
 
 export type DescendantReconciliationOutcome =
 	| { readonly kind: "proceed" }
@@ -31,7 +25,6 @@ export interface ReconcileDescendantRootsOptions {
 	readonly landedBranch: string;
 	readonly state: MergeLoopState;
 	readonly maintenance: RequiredDescendantMaintenance;
-	readonly shouldDeferLandedBranchDeletion: boolean;
 }
 
 interface DescendantBranchOptions extends ReconcileDescendantRootsOptions {
@@ -73,22 +66,15 @@ export async function reconcileDescendantRoots(
 		if (refreshFailure !== undefined) return reconciliationHalt(refreshFailure);
 	}
 
-	if (options.shouldDeferLandedBranchDeletion) {
-		for (const maintenanceBranch of maintenance.branches) {
-			const reparentFailure = await repairGraphiteBranchParent(executionContext, {
-				repoRoot: options.plan.repoRoot,
-				prNumber: options.prNumber,
-				branch: maintenanceBranch,
-				parent: options.plan.stack.trunk,
-				failureSubject: `descendant root ${maintenanceBranch}`,
-			});
-			if (reparentFailure !== undefined) return reconciliationHalt(reparentFailure);
-		}
-	} else {
-		const deleteCheckFailure = await checkLandedBranchBeforeDelete(executionContext, options);
-		if (deleteCheckFailure !== undefined) return reconciliationHalt(deleteCheckFailure);
-		const deletionFailure = await deleteLandedBranch(executionContext, options);
-		if (deletionFailure !== undefined) return reconciliationHalt(deletionFailure);
+	for (const maintenanceBranch of maintenance.branches) {
+		const reparentFailure = await repairGraphiteBranchParent(executionContext, {
+			repoRoot: options.plan.repoRoot,
+			prNumber: options.prNumber,
+			branch: maintenanceBranch,
+			parent: options.plan.stack.trunk,
+			failureSubject: `descendant root ${maintenanceBranch}`,
+		});
+		if (reparentFailure !== undefined) return reconciliationHalt(reparentFailure);
 	}
 
 	const preparedRoots: PreparedDescendantRoot[] = [];
@@ -155,48 +141,6 @@ async function refreshDescendantBranch(
 		execResult: refresh.result,
 		failedBranch: maintenanceBranch,
 		suggestedAction: `Run ${refresh.commandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
-	});
-}
-
-async function checkLandedBranchBeforeDelete(
-	executionContext: LandExecutionContext,
-	options: ReconcileDescendantRootsOptions,
-): Promise<LandingExecutionFailure | undefined> {
-	const { plan, prNumber, landedBranch, state, maintenance } = options;
-	const allowedChildren = new Set(state.deletedBranches);
-	for (const branch of maintenance.branches) allowedChildren.add(branch);
-	const failureDetails = await checkBranchBeforeDelete(executionContext, {
-		repoRoot: plan.repoRoot,
-		metadataDbPath: plan.metadataDbPath,
-		prNumber,
-		branch: landedBranch,
-		allowedChildren,
-	});
-	return failureDetails === undefined ? undefined : branchPreDeleteCheckFailure(failureDetails);
-}
-
-async function deleteLandedBranch(
-	executionContext: LandExecutionContext,
-	options: ReconcileDescendantRootsOptions,
-): Promise<LandingExecutionFailure | undefined> {
-	const { land: landContext, progress } = executionContext;
-	const { plan, landedBranch, prNumber, state } = options;
-	progress.note(`Cleaning up local branch ${landedBranch}...`);
-	progress.setStatus(`deleting local Graphite branch ${landedBranch}...`);
-	const deletion = await landContext.graphite.deleteLocalBranch({
-		repoRoot: plan.repoRoot,
-		branch: landedBranch,
-	});
-	if (deletion.type === "deleted") {
-		state.deletedBranches.add(landedBranch);
-		return undefined;
-	}
-	return localBranchDeletionFailure({
-		branch: landedBranch,
-		prNumber,
-		commandDisplay: deletion.commandDisplay,
-		result: deletion.result,
-		isLikelyInProgressGitOperation: deletion.isLikelyInProgressGitOperation,
 	});
 }
 

@@ -550,6 +550,8 @@ describe("land-stack command scenarios", () => {
 				base: TRUNK,
 			}),
 			...mergeFeatureBThroughVerification(),
+			childrenRecheckStep("feature-a", ["feature-b"]),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];
@@ -605,8 +607,7 @@ describe("land-stack command scenarios", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-b", [DESCENDANT]),
-			step("gt", ["delete", "feature-b", "-f", "-q"]),
+			step("gt", ["track", DESCENDANT, "--parent", TRUNK, "--no-interactive"]),
 			step("gt", ["restack", "--branch", DESCENDANT, "--upstack", "--no-interactive"]),
 			guardShaStep(DESCENDANT, SHA_C),
 			containsTrunkStep(DESCENDANT),
@@ -663,7 +664,27 @@ describe("land-stack command scenarios", () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),
-			...mergeFeatureAThroughDelete().slice(0, -1),
+			...mergeFeatureAThroughDelete(),
+			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
+			...postRestackSubmitCheckSteps({
+				branch: "feature-b",
+				sha: SHA_B,
+				prNumber: 102,
+				base: "feature-a",
+			}),
+			step("gt", [
+				"submit",
+				"--branch",
+				"feature-b",
+				"--no-stack",
+				"--update-only",
+				"--no-edit",
+				"--no-ai",
+				"--no-interactive",
+				"--force",
+			]),
+			...mergeFeatureBThroughVerification(),
+			childrenRecheckStep("feature-a", ["feature-b"]),
 			step("gt", ["delete", "feature-a", "-f", "-q"], {
 				code: 1,
 				stderr: [
@@ -678,8 +699,8 @@ describe("land-stack command scenarios", () => {
 		pi.assertDone();
 		expect(notifications.at(-1)?.level).toBe("error");
 		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain("land stopped.");
 		expect(streamText).toContain("Already landed:");
+		expect(streamText).toContain("land stopped.");
 		expect(streamText).toContain("#101 feature-a");
 		expect(streamText).toContain(
 			"Graphite cleanup for local branch feature-a stopped during branch deletion with an in-progress Git operation or conflicts.",

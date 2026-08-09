@@ -167,7 +167,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).not.toContain("land stopped");
 		expect(streamText).not.toContain("Failed at:");
 	});
-	test("treats unexpected final local Graphite delete failure as a post-landing warning", async () => {
+	test("halts when final local Graphite branch deletion fails", async () => {
 		const mergeSteps = mergeFeatureAThroughDelete({ refreshTarget: null });
 		const script = [
 			...singleBranchPreflightWithRefs({ localSha: SHA_A, prSha: SHA_A }),
@@ -181,21 +181,20 @@ describe("land-stack command scenarios", () => {
 		const { pi, notifications, messages } = await runLandStack("--yes", script);
 
 		pi.assertDone();
-		expect(notifications.at(-1)?.level).toBe("warning");
+		expect(notifications.at(-1)?.level).toBe("error");
 		const notificationText = stripAnsi(notifications.at(-1)?.message ?? "");
 		expect(notificationText).toContain(
-			"Delete or repair local Graphite branch feature-a manually, then inspect the stack.",
+			"Delete or repair local Graphite branch feature-a manually, then inspect the stack before rerunning /ns:flow:land.",
 		);
-		expect(notificationText).toContain("Landed 1 PR");
+		expect(notificationText).toContain("Already landed:");
 		const streamText = commandMessagesText(messages);
 		expect(streamText).toContain("✗ $ gt delete feature-a -f -q — exit code 1");
-		expect(streamText).toContain("✓ Landed 1 PR: #101 feature-a.");
-		expect(streamText).toContain("Completed with 1 warning:");
+		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain(
-			"All target PRs were merged, but deleting the local Graphite branch feature-a failed.",
+			"PR #101 merged, but deleting the local Graphite branch feature-a failed.",
 		);
-		expect(streamText).not.toContain("land stopped");
-		expect(streamText).not.toContain("Failed at:");
+		expect(streamText).toContain("land stopped");
+		expect(streamText).toContain("Failed at:");
 	});
 	test("targets the next open branch for Graphite refresh after merging a downstack PR", async () => {
 		const script = [
@@ -230,8 +229,6 @@ describe("land-stack command scenarios", () => {
 				"--force",
 				"--no-interactive",
 			]),
-			childrenRecheckStep("feature-a", ["feature-b"]),
-			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			step("gt", ["restack", "--branch", "feature-b", "--only", "--no-interactive"]),
 			...postRestackSubmitCheckSteps({
 				branch: "feature-b",
@@ -259,6 +256,8 @@ describe("land-stack command scenarios", () => {
 					}),
 				),
 			}),
+			childrenRecheckStep("feature-a", ["feature-b"]),
+			step("gt", ["delete", "feature-a", "-f", "-q"]),
 			childrenRecheckStep("feature-b", []),
 			step("gt", ["delete", "feature-b", "-f", "-q"]),
 		];

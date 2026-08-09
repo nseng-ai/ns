@@ -191,10 +191,10 @@ describe("land stack sandbox integration", () => {
 						commandIndex(log, "gt", ["get", FEATURE_B]),
 					);
 					expect(commandIndex(log, "gt", ["get", FEATURE_B])).toBeLessThan(
-						commandIndex(log, "gt", ["delete", FEATURE_A]),
-					);
-					expect(commandIndex(log, "gt", ["delete", FEATURE_A])).toBeLessThan(
 						commandIndex(log, "gt", ["restack", "--branch", FEATURE_B]),
+					);
+					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_B])).toBeLessThan(
+						commandIndex(log, "gt", ["delete", FEATURE_A]),
 					);
 					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_B])).toBeLessThan(
 						commandIndex(log, "gt", ["submit", "--branch", FEATURE_B]),
@@ -202,7 +202,7 @@ describe("land stack sandbox integration", () => {
 					expect(commandIndex(log, "gh", ["pr", "merge", "102"])).toBeLessThan(
 						commandIndex(log, "gt", ["get", FEATURE_C]),
 					);
-					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_C])).toBeGreaterThan(
+					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_C])).toBeLessThan(
 						commandIndex(log, "gt", ["delete", FEATURE_B]),
 					);
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_C])).toBeGreaterThan(
@@ -224,7 +224,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"preserve reconciliation repairs topology without selecting separate stacks later",
+		"preserve reconciliation repairs survivor topology while retaining landed branches",
 		async () => {
 			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
 				const initialTopology = (await readState(sandbox.statePath)).topology;
@@ -243,16 +243,18 @@ describe("land stack sandbox integration", () => {
 					expect.arrayContaining([FEATURE_A, FEATURE_B, FEATURE_C, FEATURE_D]),
 				);
 				const repairedTopology = (await readState(sandbox.statePath)).topology;
-				expect(repairedTopology.find((row) => row.branch === FEATURE_A)?.children).toEqual([]);
+				expect(repairedTopology.find((row) => row.branch === FEATURE_A)?.children).toEqual([
+					FEATURE_B,
+				]);
 				expect(repairedTopology.find((row) => row.branch === FEATURE_B)).toMatchObject({
-					parent: TRUNK,
+					parent: FEATURE_A,
 					children: [],
 				});
 				expect(repairedTopology.find((row) => row.branch === FEATURE_C)?.parent).toBe(TRUNK);
 				expect(repairedTopology.find((row) => row.branch === FEATURE_D)?.parent).toBe(TRUNK);
 
 				const log = await readCommandLog(sandbox);
-				for (const branch of [FEATURE_B, FEATURE_C, FEATURE_D]) {
+				for (const branch of [FEATURE_C, FEATURE_D]) {
 					const getIndex = commandIndex(log, "gt", ["get", branch]);
 					const trackIndex = commandIndex(log, "gt", ["track", branch, "--parent", TRUNK]);
 					const restackIndex = commandIndex(log, "gt", ["restack", "--branch", branch]);
@@ -270,7 +272,7 @@ describe("land stack sandbox integration", () => {
 				});
 				expect(snapshot.type).toBe("success");
 				if (snapshot.type !== "success") throw new Error(snapshot.failure.message);
-				expect(snapshot.value.landingBranches).toEqual([FEATURE_B]);
+				expect(snapshot.value.landingBranches).toEqual([FEATURE_A, FEATURE_B]);
 				expect(snapshot.value.descendantBranches).toEqual([]);
 				expect(snapshot.value.descendantRootBranches).toEqual([]);
 				expect(snapshot.value.warnings).toEqual([]);
@@ -315,7 +317,7 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"fails fast without publishing or preparing later roots after a post-delete restack failure",
+		"fails fast without cleanup, publishing, or preparing later roots after a restack failure",
 		async () => {
 			await withSandbox(
 				{
@@ -337,14 +339,14 @@ describe("land stack sandbox integration", () => {
 					expect(commandIndex(log, "gt", ["restack", "--branch", FEATURE_D])).toBe(-1);
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_C])).toBe(-1);
 					expect(commandIndex(log, "gt", ["submit", "--branch", FEATURE_D])).toBe(-1);
-					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).toContain(FEATURE_B);
+					expect(commandArgs(log, "gt", "delete").map((args) => args[1])).not.toContain(FEATURE_B);
 
 					const messages = notificationText(result);
 					expect(messages).toContain(FEATURE_C);
 					expect(messages).not.toContain(`descendant branch ${FEATURE_D} was left`);
 
 					const branches = await localBranches(sandbox);
-					expect(branches).not.toContain(FEATURE_B);
+					expect(branches).toContain(FEATURE_B);
 					expect(branches).toContain(FEATURE_C);
 					expect(branches).toContain(FEATURE_D);
 				},

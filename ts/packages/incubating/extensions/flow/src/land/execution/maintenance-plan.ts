@@ -36,16 +36,14 @@ export function planGraphiteMaintenanceTargets(
 	if (nextLandingBranch !== undefined) {
 		return { mode: "required-next-landing", branches: [nextLandingBranch] };
 	}
+	return planPostTargetMaintenance(plan);
+}
 
-	if (index !== plan.stack.landingBranches.length - 1) {
-		return { mode: "none", branches: [] };
-	}
-
+export function planPostTargetMaintenance(plan: LandingPlan): MaintenanceTargetPlan {
 	const nextFutureLandingBranch = plan.stack.remainingLandingBranches[0];
 	if (nextFutureLandingBranch !== undefined) {
 		return { mode: "required-next-landing", branches: [nextFutureLandingBranch] };
 	}
-
 	if (plan.descendantMaintenance.type === "auto") {
 		return {
 			mode: "required-descendants",

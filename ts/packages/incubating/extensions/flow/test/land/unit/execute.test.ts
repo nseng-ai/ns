@@ -61,6 +61,11 @@ describe("land execute mode over in-memory gateways", () => {
 					{ type: "completed", phase: "merge" },
 					{
 						type: "skipped",
+						phase: "post-target-maintenance",
+						reason: "no remaining landing branches require maintenance",
+					},
+					{
+						type: "skipped",
 						phase: "descendant-maintenance",
 						reason: "no descendant branches require maintenance",
 					},
@@ -88,8 +93,13 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			},
 		});
-		expect(mergeLoopPhases(outcome.report)).toEqual([
+		expect(maintenancePhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
+			{
+				type: "skipped",
+				phase: "post-target-maintenance",
+				reason: "no remaining landing branches require maintenance",
+			},
 			{
 				type: "skipped",
 				phase: "descendant-maintenance",
@@ -467,8 +477,13 @@ describe("land execute mode over in-memory gateways", () => {
 				landed: [{ branch: BRANCH, number: 101, title: "PR 101" }],
 			},
 		]);
-		expect(mergeLoopPhases(outcome.report)).toEqual([
+		expect(maintenancePhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
+			{
+				type: "skipped",
+				phase: "post-target-maintenance",
+				reason: "no remaining landing branches require maintenance",
+			},
 			{
 				type: "failed",
 				phase: "descendant-maintenance",
@@ -592,12 +607,178 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({ type: "completed" });
 		if (outcome.type !== "completed") return;
-		expect(mergeLoopPhases(outcome.report)).toEqual([
+		expect(maintenancePhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
+			{
+				type: "skipped",
+				phase: "post-target-maintenance",
+				reason: "no remaining landing branches require maintenance",
+			},
 			{ type: "completed", phase: "descendant-maintenance" },
 			{ type: "completed", phase: "merge-maintenance-cleanup" },
 		]);
 		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
+	});
+
+	test("post-target free cleanup reports earlier deletions when a later deletion fails", async () => {
+		const branchB = "feature-b";
+		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: branchB,
+				localBranches: [
+					{ name: BRANCH, sha: SHA },
+					{ name: branchB, sha: shaB },
+				],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: branchB,
+					actualCurrentBranch: branchB,
+					landingTargetBranch: branchB,
+					landingBranches: [BRANCH, branchB],
+				}),
+				deleteLocalBranchResults: {
+					[branchB]: {
+						type: "failed",
+						commandDisplay: `gt delete ${branchB} -f -q`,
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "rebase stopped",
+							code: 1,
+							signal: null,
+						},
+						isLikelyInProgressGitOperation: true,
+					},
+				},
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+					pullRequestFacts({
+						number: 102,
+						headRefName: branchB,
+						headRefOid: shaB,
+						baseRefName: "main",
+					}),
+				],
+			},
+		});
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ cleanup: "free" }),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "merge-maintenance-cleanup",
+			report: {
+				cleanup: {
+					mergeMaintenanceCleanup: {
+						deletedLocalBranches: [BRANCH],
+						retainedLocalBranches: [],
+					},
+				},
+			},
+		});
+		expect(memory.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual([
+			BRANCH,
+			branchB,
+		]);
+		if (outcome.type !== "failed") return;
+		expect(phaseByName(outcome.report, "merge-maintenance-cleanup")).toMatchObject({
+			type: "failed",
+			phase: "merge-maintenance-cleanup",
+		});
+		expect(
+			outcome.report.phases.some(
+				(phase) => phase.type === "completed" && phase.phase === "merge-maintenance-cleanup",
+			),
+		).toBe(false);
+		if (outcome.failure.type === "execution") {
+			expect(outcome.failure.message).toContain("in-progress Git operation");
+		}
+	});
+
+	test("partial free cleanup preserves facts without completing the failed cleanup phase", async () => {
+		const branchB = "feature-b";
+		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: branchB,
+				localBranches: [
+					{ name: BRANCH, sha: SHA },
+					{ name: branchB, sha: shaB },
+				],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: branchB,
+					actualCurrentBranch: branchB,
+					landingTargetBranch: branchB,
+					landingBranches: [BRANCH, branchB],
+				}),
+				deleteLocalBranchResults: {
+					[branchB]: {
+						type: "failed",
+						commandDisplay: `gt delete ${branchB} -f -q`,
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "delete failed",
+							code: 1,
+							signal: null,
+						},
+						isLikelyInProgressGitOperation: false,
+					},
+				},
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+					pullRequestFacts({
+						number: 102,
+						headRefName: branchB,
+						headRefOid: shaB,
+						baseRefName: "main",
+					}),
+				],
+			},
+		});
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: executeRequest({ cleanup: "free" }),
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "merge-maintenance-cleanup",
+			report: {
+				cleanup: {
+					mergeMaintenanceCleanup: {
+						deletedLocalBranches: [BRANCH],
+						retainedLocalBranches: [],
+					},
+				},
+			},
+		});
+		expect(memory.graphite.deleteLocalBranchCalls.map((call) => call.branch)).toEqual([
+			BRANCH,
+			branchB,
+		]);
+		if (outcome.type !== "failed") return;
+		expect(
+			outcome.report.phases.filter((phase) => phase.phase === "merge-maintenance-cleanup"),
+		).toEqual([{ type: "failed", phase: "merge-maintenance-cleanup", failure: outcome.failure }]);
 	});
 
 	test("propagates retained local-branch cleanup", async () => {
@@ -682,10 +863,144 @@ describe("land execute mode over in-memory gateways", () => {
 			expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual(
 				expectedDeletedBranches,
 			);
+			expect(memory.git.checkoutBranchCalls).toEqual([]);
 		},
 	);
 
-	test("bounded landing snapshots and maintains the first remaining branch", async () => {
+	test("two selected PRs require maintenance between targets for both cleanup policies", async () => {
+		const run = async (cleanup: LandingCleanupPolicy) => {
+			const branchB = "feature-b";
+			const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+			const memory = createInMemoryLandContext({
+				git: {
+					repoRoot: ROOT,
+					currentBranch: branchB,
+					localBranches: [
+						{ name: BRANCH, sha: SHA },
+						{ name: branchB, sha: shaB },
+					],
+				},
+				graphite: {
+					stackShape: stackSnapshot({
+						current: branchB,
+						actualCurrentBranch: branchB,
+						landingTargetBranch: branchB,
+						landingBranches: [BRANCH, branchB],
+					}),
+				},
+				github: {
+					pullRequests: [
+						pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+						pullRequestFacts({
+							number: 102,
+							headRefName: branchB,
+							headRefOid: shaB,
+							baseRefName: "main",
+						}),
+					],
+				},
+			});
+
+			const outcome = await executeLanding({
+				context: memory.context,
+				source: { type: "discover" },
+				request: executeRequest({ cleanup }),
+				host: approvedHost(),
+			});
+
+			expect(outcome).toMatchObject({ type: "completed" });
+			return memory.callEvents.map((event) => event.operation);
+		};
+
+		for (const cleanup of ["free", "preserve"] as const) {
+			const operations = await run(cleanup);
+			const firstMerge = operations.indexOf("github.squashMergePullRequest");
+			const secondMerge = operations.lastIndexOf("github.squashMergePullRequest");
+			expect(firstMerge).toBeLessThan(operations.indexOf("graphite.refreshBranchFromRemote"));
+			expect(operations.indexOf("graphite.refreshBranchFromRemote")).toBeLessThan(secondMerge);
+			expect(operations.indexOf("graphite.restack")).toBeLessThan(secondMerge);
+			expect(operations.indexOf("graphite.submitUpdate")).toBeLessThan(secondMerge);
+		}
+	});
+
+	test("default preserve reconciles every post-target survivor and retains landed branches", async () => {
+		const branchB = "feature-b";
+		const branchC = "feature-c";
+		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		const shaC = "cccccccccccccccccccccccccccccccccccccccc";
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: branchB,
+				localBranches: [
+					{ name: BRANCH, sha: SHA },
+					{ name: branchB, sha: shaB },
+					{ name: branchC, sha: shaC },
+				],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: branchC,
+					actualCurrentBranch: branchC,
+					landingTargetBranch: branchC,
+					landingBranches: [BRANCH, branchB, branchC],
+				}),
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+					pullRequestFacts({
+						number: 102,
+						headRefName: branchB,
+						headRefOid: shaB,
+						baseRefName: BRANCH,
+					}),
+					pullRequestFacts({
+						number: 103,
+						headRefName: branchC,
+						headRefOid: shaC,
+						baseRefName: branchB,
+					}),
+				],
+			},
+		});
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: {
+				...executeRequest({ cleanup: "preserve" }),
+				target: { type: "stack", landingBranchLimit: 1 },
+			},
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({ type: "completed", report: { warnings: [] } });
+		expect(memory.graphite.refreshBranchFromRemoteCalls.map((call) => call.branch)).toEqual([
+			branchB,
+		]);
+		expect(memory.graphite.restackCalls.map((call) => call.branch)).toEqual([branchB]);
+		expect(memory.graphite.submitUpdateCalls.map((call) => call.branch)).toEqual([branchB]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.git.checkoutBranchCalls).toEqual([]);
+		if (outcome.type !== "completed") return;
+		expect(maintenancePhases(outcome.report)).toEqual([
+			{ type: "completed", phase: "merge" },
+			{ type: "completed", phase: "post-target-maintenance" },
+			{
+				type: "skipped",
+				phase: "descendant-maintenance",
+				reason: "no descendant branches require maintenance",
+			},
+			{
+				type: "skipped",
+				phase: "merge-maintenance-cleanup",
+				reason: "cleanup policy preserves landed local branches",
+			},
+		]);
+	});
+
+	test("bounded free landing snapshots and maintains the first remaining branch", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 		const memory = createInMemoryLandContext({
@@ -743,12 +1058,92 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(memory.graphite.refreshBranchFromRemoteCalls.map((call) => call.branch)).toEqual([
 			branchB,
 		]);
+		if (outcome.type !== "completed") return;
+		expect(phaseByName(outcome.report, "post-target-maintenance")).toEqual({
+			type: "completed",
+			phase: "post-target-maintenance",
+		});
+		expect(memory.graphite.reparentBranchCalls).toEqual([
+			{ repoRoot: ROOT, branch: branchB, parent: "main" },
+		]);
+		expect(memory.graphite.branchParentCalls).toEqual([
+			{ repoRoot: ROOT, metadataDbPath: "/repo/.git/graphite.db", branch: branchB },
+		]);
 		expect(
 			memory.github.squashMergePullRequestCalls.map((call) => call.pullRequest.number),
 		).toEqual([101]);
 	});
 
-	test("retains the first landed chunk and observed cleanup when a later merge fails", async () => {
+	test("attributes remaining landing branch reconciliation failure to post-target maintenance", async () => {
+		const branchB = "feature-b";
+		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: branchB,
+				localBranches: [
+					{ name: BRANCH, sha: SHA },
+					{ name: branchB, sha: shaB },
+				],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: branchB,
+					actualCurrentBranch: branchB,
+					landingTargetBranch: branchB,
+					landingBranches: [BRANCH, branchB],
+				}),
+				refreshBranchFromRemoteResults: {
+					[branchB]: {
+						type: "failure",
+						commandDisplay: `gt get ${branchB}`,
+						result: {
+							type: "exited",
+							stdout: "",
+							stderr: "refresh failed",
+							code: 1,
+							signal: null,
+						},
+					},
+				},
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+					pullRequestFacts({
+						number: 102,
+						headRefName: branchB,
+						headRefOid: shaB,
+						baseRefName: "main",
+					}),
+				],
+			},
+		});
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: { ...executeRequest(), target: { type: "stack", landingBranchLimit: 1 } },
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "post-target-maintenance",
+		});
+		expect(outcome.report.phases).toEqual(
+			expect.arrayContaining([
+				{ type: "completed", phase: "merge" },
+				expect.objectContaining({ type: "failed", phase: "post-target-maintenance" }),
+			]),
+		);
+		if (outcome.type !== "failed") return;
+		expect(
+			outcome.report.phases.filter((phase) => phase.phase === "post-target-maintenance"),
+		).toEqual([{ type: "failed", phase: "post-target-maintenance", failure: outcome.failure }]);
+	});
+
+	test("retains the first landed chunk without cleanup when a later merge fails", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 		const memory = createInMemoryLandContext({
@@ -793,9 +1188,8 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(outcome.report.landedChunks).toMatchObject([
 			{ landed: [{ branch: BRANCH, number: 101 }] },
 		]);
-		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
+		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([]);
 		expect(mergeLoopPhases(outcome.report)).toEqual([
-			{ type: "completed", phase: "merge-maintenance-cleanup" },
 			{ type: "failed", phase: "merge", failure: outcome.failure },
 		]);
 		expect(outcome.report.phases.at(-1)).toMatchObject({ type: "failed", phase: "merge" });
@@ -855,6 +1249,15 @@ describe("upstack continuation under canonical execution", () => {
 			operationOrder.lastIndexOf("graphite.deleteLocalBranch"),
 		);
 		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+		if (outcome.type !== "completed") return;
+		const postTargetIndex = outcome.report.phases.findIndex(
+			(phase) => phase.phase === "post-target-maintenance",
+		);
+		const continuationIndex = outcome.report.phases.findIndex(
+			(phase) => phase.phase === "upstack-continuation",
+		);
+		expect(postTargetIndex).toBeGreaterThan(-1);
+		expect(postTargetIndex).toBeLessThan(continuationIndex);
 	});
 
 	test("dry run previews the sole child without merge, checkout, deletion, or slot cleanup", async () => {
@@ -1229,7 +1632,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(postCleanup.type === "failed" && postCleanup.freedSlot === undefined).toBe(true);
 	});
 
-	test("branch deletion failure after slot free retains the freed slot as a partial fact", async () => {
+	test("post-target branch deletion failure stops before slot cleanup", async () => {
 		const memory = createInMemoryLandContext(
 			managedSlotState({
 				graphite: {
@@ -1260,19 +1663,28 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
+			failedPhase: "merge-maintenance-cleanup",
 			failure: {
-				message: expect.stringContaining("deleting local branch feature-a failed"),
+				message: expect.stringContaining("deleting the local Graphite branch feature-a failed"),
 			},
 			report: {
 				landedChunks: [{ landed: [{ number: 101 }] }],
 				cleanup: {
-					postLandingSlotCleanup: {
-						type: "failed",
-						freedSlot: { type: "managed-slot", slotName: "slot-02" },
+					mergeMaintenanceCleanup: {
+						deletedLocalBranches: [],
+						retainedLocalBranches: [],
 					},
+					postLandingSlotCleanup: { type: "not-run" },
 				},
 			},
 		});
+		expect(memory.worktrees.freeSlotsCalls).toEqual([]);
+		if (outcome.type !== "failed") return;
+		expect(
+			outcome.report.phases.some(
+				(phase) => phase.type === "completed" && phase.phase === "merge-maintenance-cleanup",
+			),
+		).toBe(false);
 	});
 
 	test("rejects a prepared stack shape for a single-branch target before discovery", async () => {
@@ -1446,9 +1858,19 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 });
 
 const MERGE_LOOP_PHASES = new Set(["merge", "descendant-maintenance", "merge-maintenance-cleanup"]);
+const MAINTENANCE_PHASES = new Set([
+	"merge",
+	"post-target-maintenance",
+	"descendant-maintenance",
+	"merge-maintenance-cleanup",
+]);
 
 function mergeLoopPhases(report: LandingExecutionReport): LandingExecutionReport["phases"] {
 	return report.phases.filter((entry) => MERGE_LOOP_PHASES.has(entry.phase));
+}
+
+function maintenancePhases(report: LandingExecutionReport): LandingExecutionReport["phases"] {
+	return report.phases.filter((entry) => MAINTENANCE_PHASES.has(entry.phase));
 }
 
 function phaseByName(
