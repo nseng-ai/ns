@@ -224,11 +224,10 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"preserve reconciliation repairs survivor topology while retaining landed branches",
+		"preserve reconciles survivor topology and retains local resources",
 		async () => {
 			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
-				const initialTopology = (await readState(sandbox.statePath)).topology;
-				expect(initialTopology).toEqual([
+				expect((await readState(sandbox.statePath)).topology).toEqual([
 					{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 					{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
 					{ branch: FEATURE_B, parent: FEATURE_A, children: [FEATURE_C, FEATURE_D] },
@@ -242,24 +241,20 @@ describe("land stack sandbox integration", () => {
 				expect(await localBranches(sandbox)).toEqual(
 					expect.arrayContaining([FEATURE_A, FEATURE_B, FEATURE_C, FEATURE_D]),
 				);
-				const repairedTopology = (await readState(sandbox.statePath)).topology;
-				expect(repairedTopology.find((row) => row.branch === FEATURE_A)?.children).toEqual([
-					FEATURE_B,
+				expect((await readState(sandbox.statePath)).topology).toEqual([
+					{ branch: TRUNK, children: [FEATURE_A, FEATURE_C, FEATURE_D], isTrunk: true },
+					{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
+					{ branch: FEATURE_B, parent: FEATURE_A, children: [] },
+					{ branch: FEATURE_C, parent: TRUNK, children: [] },
+					{ branch: FEATURE_D, parent: TRUNK, children: [] },
 				]);
-				expect(repairedTopology.find((row) => row.branch === FEATURE_B)).toMatchObject({
-					parent: FEATURE_A,
-					children: [],
-				});
-				expect(repairedTopology.find((row) => row.branch === FEATURE_C)?.parent).toBe(TRUNK);
-				expect(repairedTopology.find((row) => row.branch === FEATURE_D)?.parent).toBe(TRUNK);
 
 				const log = await readCommandLog(sandbox);
 				for (const branch of [FEATURE_C, FEATURE_D]) {
-					const getIndex = commandIndex(log, "gt", ["get", branch]);
-					const trackIndex = commandIndex(log, "gt", ["track", branch, "--parent", TRUNK]);
-					const restackIndex = commandIndex(log, "gt", ["restack", "--branch", branch]);
-					expect(trackIndex).toBeGreaterThan(getIndex);
-					expect(restackIndex).toBeGreaterThan(trackIndex);
+					expect(commandArgs(log, "gt", "get").map((args) => args[1])).toContain(branch);
+					expect(commandArgs(log, "gt", "track").map((args) => args[1])).toContain(branch);
+					expect(commandArgs(log, "gt", "restack").map((args) => args[2])).toContain(branch);
+					expect(commandArgs(log, "gt", "submit").map((args) => args[2])).toContain(branch);
 				}
 				expect(commandArgs(log, "gt", "delete")).toEqual([]);
 

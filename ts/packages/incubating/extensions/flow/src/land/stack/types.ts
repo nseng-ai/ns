@@ -57,7 +57,6 @@ export interface ParsedArgs {
 	shouldSkipConfirmation: boolean;
 	isDryRun: boolean;
 	shouldFreeSlot: boolean;
-	shouldContinueUpstack: boolean;
 	shouldShowHelp: boolean;
 	shouldStreamVerboseOutput: boolean;
 }
