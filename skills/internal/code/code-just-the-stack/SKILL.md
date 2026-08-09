@@ -47,7 +47,7 @@ For any `gt` navigation/restack command below: use `--no-interactive`; if this i
    - Record the current branch with `git branch --show-current`.
    - Run `just`.
    - If `just` passes, record that branch as passed.
-   - If `just` fails, inspect the failure, edit the root cause, and rerun `just`. Stop if the same gate fails twice after reasonable local fixes, or if the fix requires a product/design choice.
+   - If `just` fails, inspect the failure, edit the root cause, and rerun `just` after each fix. Stop if the fix requires a product/design choice; otherwise continue diagnosing and report any unresolved failure accurately.
    - When a branch required edits and now passes, run `ns flow cp` on that same branch to create a separate checkpoint-style fix commit. Capture the printed commit summary. If `ns flow cp` refuses because the worktree is clean, record that no commit was needed; for any other refusal, stop and report stdout/stderr.
 
 4. **Restack after every fix commit**

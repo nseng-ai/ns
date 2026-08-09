@@ -343,6 +343,17 @@ describe("buildImplBranchContextPrompt", () => {
 		expect(prompt).toContain("## Evidence inheritance");
 		expect(prompt).toContain("## Branch-context plan contract protocol");
 		expect(prompt).toContain(
+			"Universal STOP triggers: excerpt mismatch; ambiguity or internal inconsistency; implementation requires touching an out-of-scope file/area; or the plan asks for mutating Branch Memory",
+		);
+		expect(prompt).not.toContain("verification gate fails twice");
+		expect(prompt).not.toContain("fails twice after reasonable local attempts");
+		expect(prompt).toContain(
+			"Investigate validation failures, rerun appropriate gates after fixes, and report unresolved failures accurately",
+		);
+		expect(prompt).toContain(
+			"STOP report shape: observed vs expected, completed work, files touched/tree state, and the exact gate/assumption that failed",
+		);
+		expect(prompt).toContain(
 			`----- BEGIN ATTACHED PLAN -----\n${PLAN_CONTENT}\n----- END ATTACHED PLAN -----`,
 		);
 	});
