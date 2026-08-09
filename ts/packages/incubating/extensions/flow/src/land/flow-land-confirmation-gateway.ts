@@ -96,18 +96,33 @@ async function selectLandingCleanup(
 			: formatSingleBranchMainLandingConfirmationDetails(request);
 	ctx.ui.notify(details, "info");
 	const labels = landingCleanupChoiceLabels(request.cleanupChoice);
-	const selected = await ctx.ui.select(landingCleanupChoiceTitle(request.cleanupChoice), [
+	const selection = await ctx.ui.select(landingCleanupChoiceTitle(request.cleanupChoice), [
 		labels.keep,
 		labels.free,
 		labels.cancel,
 	]);
+	switch (selection.type) {
+		case "selected":
+			return mapSelectedCleanupPolicy(selection.value, labels);
+		case "cancelled":
+			return { type: "declined" };
+		default:
+			return assertNever(selection);
+	}
+}
+
+function mapSelectedCleanupPolicy(
+	selected: string,
+	labels: ReturnType<typeof landingCleanupChoiceLabels>,
+): LandConfirmationDecision {
 	if (selected === labels.keep) {
 		return { type: "approved", approvalSource: "prompted", cleanupPolicy: "preserve" };
 	}
 	if (selected === labels.free) {
 		return { type: "approved", approvalSource: "prompted", cleanupPolicy: "free" };
 	}
-	return { type: "declined" };
+	if (selected === labels.cancel) return { type: "declined" };
+	throw new Error(`Unknown landing cleanup selection: ${JSON.stringify(selected)}`);
 }
 
 function confirmationOptions(

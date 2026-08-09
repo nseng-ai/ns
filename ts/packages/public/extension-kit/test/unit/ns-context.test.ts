@@ -10,7 +10,7 @@ import {
 } from "@nseng-ai/extension-kit/ns-context";
 
 describe("ns context adapters", () => {
-	test("maps ns confirm approval to confirmed", async () => {
+	test("preserves confirmed ns confirmation results", async () => {
 		const prompts: Array<{ title: string; message: string; defaultAnswer: "yes" | "no" }> = [];
 		const interaction = createNsClinkrInteraction(
 			fakeApi({
@@ -31,7 +31,7 @@ describe("ns context adapters", () => {
 		]);
 	});
 
-	test("maps ns confirm rejection to declined", async () => {
+	test("preserves declined ns confirmation results", async () => {
 		const interaction = createNsClinkrInteraction(
 			fakeApi({ confirm: async () => ({ type: "declined" }) }),
 			{
@@ -44,7 +44,7 @@ describe("ns context adapters", () => {
 		).resolves.toEqual({ type: "declined" });
 	});
 
-	test("maps ns confirmation cancellation to Clinkr abort", async () => {
+	test("preserves cancelled ns confirmation results", async () => {
 		const interaction = createNsClinkrInteraction(
 			fakeApi({ confirm: async () => ({ type: "cancelled" }) }),
 			{ title: "Confirm" },
@@ -52,7 +52,7 @@ describe("ns context adapters", () => {
 
 		await expect(
 			interaction.confirm({ message: "Continue?", defaultAnswer: "no" }),
-		).resolves.toEqual({ type: "aborted" });
+		).resolves.toEqual({ type: "cancelled" });
 	});
 
 	test("uses the request message when no formatter is supplied", async () => {

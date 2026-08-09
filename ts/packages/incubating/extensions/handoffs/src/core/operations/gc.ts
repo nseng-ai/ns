@@ -79,7 +79,7 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 				cancelled: false,
 			}),
 		);
-	if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+	if (confirmed.type === "cancelled") return failure("aborted", "Aborted!");
 	return ok(toGcResult(plan, { dryRun: false, cancelled: true }));
 }
 

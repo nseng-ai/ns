@@ -53,7 +53,7 @@ export async function runNsShellInstall(ctx: NsCliContext, request: NsShellInsta
 			message: `Install ns shell integration for ${selected.shell} in ${rcPath}?`,
 			defaultAnswer: "no",
 		});
-		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+		if (confirmed.type === "cancelled") return failure("aborted", "Aborted!");
 		if (confirmed.type === "declined") {
 			return ok({
 				shell: selected.shell,

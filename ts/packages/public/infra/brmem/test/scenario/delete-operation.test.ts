@@ -105,7 +105,7 @@ describe("delete operation", () => {
 			["delete", entry.key, "--namespace", entry.namespace, "--format", "json"],
 			{
 				gateway,
-				confirmations: [{ type: "aborted" }],
+				confirmations: [{ type: "cancelled" }],
 				isInteractive: true,
 			},
 		);

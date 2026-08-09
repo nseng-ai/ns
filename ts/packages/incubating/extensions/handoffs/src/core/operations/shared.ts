@@ -1,5 +1,5 @@
 import { validateBranchName, type BrmemErrorInfo } from "@nseng-ai/brmem";
-import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
+import { confirmInteractiveOrUsageError, type ConfirmationResult } from "@nseng-ai/clinkr";
 import { failure, type ClinkrExit, type ClinkrFailureExit } from "@nseng-ai/clinkr/legacy";
 
 import type { HandoffCliContext } from "../context.ts";
@@ -38,9 +38,7 @@ export async function resolveBranch(
 }
 
 export type DestructiveConfirmationResult =
-	| { type: "confirmed" }
-	| { type: "declined" }
-	| { type: "aborted" }
+	| ConfirmationResult
 	| { type: "gateFailure"; exit: ClinkrExit<never> };
 
 export async function confirmDestructiveAction(

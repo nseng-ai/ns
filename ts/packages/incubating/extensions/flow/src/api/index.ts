@@ -19,6 +19,7 @@ export type {
 	FlowLandWorkflowResult,
 	LandCommandContext,
 	LandConfirmPrompt,
+	LandSelectPrompt,
 	NotifyLevel,
 	PrintOutput,
 	RunLandWorkflowInput,

@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 import { z } from "zod";
 
-import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { ClinkrGroup, type SelectionResult } from "@nseng-ai/clinkr";
 import {
 	buildSurfacePlan,
 	createCaptureIo,
@@ -12,6 +12,11 @@ import {
 } from "@nseng-ai/clinkr/testing";
 
 test("subpath exports resolve through the package name", async () => {
+	const selection: SelectionResult<string> = { type: "selected", value: "record" };
+	const cancellation: SelectionResult<string> = { type: "cancelled" };
+	expect(selection).toEqual({ type: "selected", value: "record" });
+	expect(cancellation).toEqual({ type: "cancelled" });
+
 	const capture = createCaptureIo();
 	capture.io.stdout("x");
 	expect(capture.stdout()).toBe("x");
@@ -40,7 +45,7 @@ test("fake interaction fails on unexpected and unused confirmations", async () =
 		empty.interaction.confirm({ message: "Unexpected?", defaultAnswer: "yes" }),
 	).rejects.toThrow("Unexpected confirmation prompt: Unexpected?");
 
-	const unused = createFakeClinkrInteraction({ confirmations: [{ type: "aborted" }] });
+	const unused = createFakeClinkrInteraction({ confirmations: [{ type: "cancelled" }] });
 	expect(() => unused.assertComplete()).toThrow("Unused confirmation result(s): 1");
 });
 
@@ -51,7 +56,7 @@ test("one-shot stdin adapter consumes string input once", async () => {
 	await expect(stdin()).resolves.toBeNull();
 });
 
-test("one-shot stdin adapter treats missing input as aborted", async () => {
+test("one-shot stdin adapter treats missing input as EOF", async () => {
 	const stdin = createOneShotStdinAdapter(undefined);
 
 	await expect(stdin()).resolves.toBeNull();

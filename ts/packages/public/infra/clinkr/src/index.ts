@@ -14,6 +14,7 @@ export type {
 	CreateClinkrInteractionOptions,
 	InteractiveConfirmationResult,
 	ResolveClinkrInteractionOptions,
+	SelectionResult,
 } from "./confirmation.ts";
 export {
 	DEFAULT_COLUMNS,

@@ -745,7 +745,7 @@ describe("land-stack command scenarios", () => {
 			progressIo,
 			confirm: async (title, message) => {
 				confirmations.push({ title, message });
-				return true;
+				return { type: "confirmed" };
 			},
 		});
 

@@ -6,6 +6,7 @@ import process from "node:process";
 import { describe, expect, test, vi } from "vitest";
 
 import type { TimerScheduler } from "@nseng-ai/foundation/timers";
+import type { NsConfirmOptions } from "@nseng-ai/sdk";
 
 import {
 	CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
@@ -50,6 +51,7 @@ interface WidgetUpdate {
 interface ConfirmationPrompt {
 	title: string;
 	message: string;
+	options: NsConfirmOptions | undefined;
 }
 
 interface SelectionPrompt {
@@ -58,7 +60,11 @@ interface SelectionPrompt {
 }
 
 interface CreateContextOptions {
-	confirm?: (title: string, message: string) => Promise<boolean> | boolean;
+	confirm?: (
+		title: string,
+		message: string,
+		options?: NsConfirmOptions,
+	) => Promise<boolean> | boolean;
 	select?: (
 		title: string,
 		options: readonly string[],
@@ -180,9 +186,13 @@ function createContext(
 	}
 	if (options.confirm !== undefined) {
 		const confirm = options.confirm;
-		ui.confirm = async (title: string, message: string): Promise<boolean> => {
-			confirmations.push({ title, message });
-			return confirm(title, message);
+		ui.confirm = async (
+			title: string,
+			message: string,
+			confirmOptions?: NsConfirmOptions,
+		): Promise<boolean> => {
+			confirmations.push({ title, message, options: confirmOptions });
+			return confirm(title, message, confirmOptions);
 		};
 	}
 	if (options.select !== undefined) {
@@ -646,12 +656,14 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "done\n");
 	});
 
-	test("passes UI confirmation capability to the CLI runner", async () => {
+	test("maps accepted Pi confirmation and forwards the default answer", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				const confirmation = await deps.confirm("Confirm title", "Confirm body");
-				deps.stdout(`confirmed=${String(confirmation.type === "confirmed")}\n`);
+				const confirmation = await deps.confirm("Confirm title", "Confirm body", {
+					defaultAnswer: "no",
+				});
+				deps.stdout(`confirmation=${confirmation.type}\n`);
 				return 0;
 			},
 		});
@@ -659,8 +671,30 @@ describe("cli command extension helper", () => {
 
 		await commandFor(pi, "dev:preview-status").handler("", ctx);
 
-		expect(confirmations).toEqual([{ title: "Confirm title", message: "Confirm body" }]);
-		expectSingleCliOutputMessage(pi, "confirmed=true\n");
+		expect(confirmations).toEqual([
+			{
+				title: "Confirm title",
+				message: "Confirm body",
+				options: { defaultAnswer: "no" },
+			},
+		]);
+		expectSingleCliOutputMessage(pi, "confirmation=confirmed\n");
+	});
+
+	test("maps rejected Pi confirmation to declined", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const confirmation = await deps.confirm("Confirm title", "Confirm body");
+				deps.stdout(`confirmation=${confirmation.type}\n`);
+				return 0;
+			},
+		});
+		const { ctx } = createContext([], { confirm: () => false });
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(pi, "confirmation=declined\n");
 	});
 
 	test("passes UI selection capability to the CLI runner", async () => {
@@ -678,6 +712,22 @@ describe("cli command extension helper", () => {
 
 		expect(selections).toEqual([{ title: "Choose a target", options: ["one", "two"] }]);
 		expectSingleCliOutputMessage(pi, "selected=two\n");
+	});
+
+	test("maps an undefined Pi selection to cancelled", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: async (_args, deps) => {
+				const selection = await deps.select("Choose a target", ["one", "two"]);
+				deps.stdout(`selection=${selection.type}\n`);
+				return 0;
+			},
+		});
+		const { ctx } = createContext([], { select: () => undefined });
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(pi, "selection=cancelled\n");
 	});
 
 	test("reports an error when Pi has no applicable confirmation UI", async () => {

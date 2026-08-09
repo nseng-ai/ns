@@ -163,7 +163,7 @@ describe("packagechk claim commands", () => {
 		const run = await runPackagechk(["claim-pypi", SAMPLE], {
 			registryGateway: registry,
 			pypiPublishGateway: publisher,
-			confirmations: [{ type: "aborted" }],
+			confirmations: [{ type: "cancelled" }],
 		});
 
 		expect(run.code).toBe(1);

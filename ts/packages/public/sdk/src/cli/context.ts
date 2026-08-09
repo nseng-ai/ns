@@ -86,18 +86,10 @@ export function createTerminalConfirmPrompt(): NsConfirmPrompt {
 			isInteractive: () => process.stdin.isTTY === true && process.stderr.isTTY === true,
 			formatPrompt: (_request, suffix) => `${title}\n\n${message}\n\nProceed? ${suffix} `,
 		});
-		const result = await interaction.confirm({
+		return await interaction.confirm({
 			message,
 			defaultAnswer: options?.defaultAnswer ?? "no",
 		});
-		switch (result.type) {
-			case "confirmed":
-				return { type: "confirmed" };
-			case "declined":
-				return { type: "declined" };
-			case "aborted":
-				return { type: "cancelled" };
-		}
 	};
 }
 

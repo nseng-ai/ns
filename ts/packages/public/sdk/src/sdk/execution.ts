@@ -1,3 +1,4 @@
+import type { ConfirmationResult, SelectionResult } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
@@ -22,25 +23,16 @@ export interface NsConfirmOptions {
 	defaultAnswer?: "yes" | "no";
 }
 
-export type NsConfirmationResult =
-	| { readonly type: "confirmed" }
-	| { readonly type: "declined" }
-	| { readonly type: "cancelled" };
-
 export type NsConfirmPrompt = (
 	title: string,
 	message: string,
 	options?: NsConfirmOptions,
-) => Promise<NsConfirmationResult> | NsConfirmationResult;
-
-export type NsSelectionResult =
-	| { readonly type: "selected"; readonly value: string }
-	| { readonly type: "cancelled" };
+) => Promise<ConfirmationResult> | ConfirmationResult;
 
 export type NsSelectPrompt = (
 	title: string,
 	options: readonly string[],
-) => Promise<NsSelectionResult> | NsSelectionResult;
+) => Promise<SelectionResult<string>> | SelectionResult<string>;
 
 export interface NsExtensionApi {
 	/** Current repository working directory for command-entry execution. */

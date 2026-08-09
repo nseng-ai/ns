@@ -9,7 +9,12 @@ export interface ConfirmationRequest {
 
 export type ConfirmationPromptFormatter = (request: ConfirmationRequest, suffix: string) => string;
 
-export type ConfirmationResult = { type: "confirmed" } | { type: "declined" } | { type: "aborted" };
+export type ConfirmationResult =
+	| { type: "confirmed" }
+	| { type: "declined" }
+	| { type: "cancelled" };
+
+export type SelectionResult<T> = { type: "selected"; value: T } | { type: "cancelled" };
 
 /**
  * Semantic terminal interaction capabilities owned by Clinkr.
@@ -88,7 +93,7 @@ async function confirmWithLineReader(
 	writePrompt(options, request);
 	for (;;) {
 		const input = await options.stdin();
-		if (input === null) return { type: "aborted" };
+		if (input === null) return { type: "cancelled" };
 		const lines = input.split(/\r?\n/);
 		for (const rawLine of lines) {
 			const parsed = parseConfirmationLine(rawLine, request.defaultAnswer);
