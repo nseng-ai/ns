@@ -72,6 +72,8 @@ export interface NsExtensionApi {
 		"public-api-compatibility",
 		(stream: NsOutputStream, text: string) => void
 	>;
+	/** Whether this invocation can use the host's semantic confirmation and selection capabilities. */
+	isInteractive(): boolean;
 	/** Required semantic confirmation capability supplied by every host. */
 	confirm: NsConfirmPrompt;
 	/** Required semantic selection capability supplied by every host. */

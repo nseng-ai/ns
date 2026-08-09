@@ -22,6 +22,7 @@ export interface FakeHandoffNsApiOptions {
 	git?: InMemoryGitGateway;
 	sourceReader?: BrmemSourceReader;
 	interaction?: ClinkrInteraction;
+	isInteractive?: boolean;
 	stderr?: (text: string) => void;
 }
 
@@ -40,6 +41,7 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
+	readonly isInteractive: () => boolean;
 	readonly confirm = () => {
 		throw new Error("Unexpected confirmation prompt in handoff test.");
 	};
@@ -53,6 +55,7 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 		const git = options.git ?? new InMemoryGitGateway({ currentBranch: "main" });
 		this.cwd = options.cwd ?? "/work";
 		this.env = { HOME: "/home/ns-test", ...(options.env ?? {}) };
+		this.isInteractive = () => options.isInteractive ?? false;
 		this.stderr = (text) => {
 			this.stderrChunks.push(text);
 			options.stderr?.(text);

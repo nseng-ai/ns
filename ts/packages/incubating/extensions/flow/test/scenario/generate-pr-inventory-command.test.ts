@@ -130,16 +130,13 @@ describe("project-local generate-pr-inventory extension behavior", () => {
 		expect(formattedExecCalls(run.context)).toEqual([]);
 	});
 
-	test("fails loudly when confirmation UI is unavailable", async () => {
+	test("requires yes when confirmation UI is unavailable", async () => {
 		const run = runGeneratePrWithFakes({ state: { exec: [] } });
-		const [exit, result] = await Promise.allSettled([run.exit, run.result]);
-		expect(exit).toMatchObject({
-			status: "rejected",
-			reason: new Error("Unexpected confirmation prompt in Flow test."),
-		});
-		expect(result).toMatchObject({
-			status: "rejected",
-			reason: new Error("Unexpected confirmation prompt in Flow test."),
+
+		expect(await run.exit).toBe(2);
+		expect(await run.result).toMatchObject({
+			status: "usage-error",
+			data: { missingFlag: "--yes" },
 		});
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([]);

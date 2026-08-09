@@ -376,11 +376,14 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
 
-	test("missing confirmation UI fails loudly before submit work", async () => {
+	test("missing confirmation UI requires yes before submit work", async () => {
 		const run = runWithFakes({ request: { generatePrInventory: true } });
 
-		await expect(run.exit).rejects.toThrow("Unexpected confirmation prompt in Flow test.");
-		await expect(run.result).rejects.toThrow("Unexpected confirmation prompt in Flow test.");
+		expect(await run.exit).toBe(2);
+		expect(await run.result).toMatchObject({
+			status: "usage-error",
+			data: { missingFlag: "--yes" },
+		});
 		expect(formattedExecCalls(run.context)).toEqual([]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});

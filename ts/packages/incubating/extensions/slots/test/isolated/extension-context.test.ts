@@ -63,6 +63,7 @@ function extensionApi(options: { renderCapabilities: RenderCapabilities }): NsEx
 		progress: noopNsProgress,
 		renderCapabilities: options.renderCapabilities,
 		hasExtension: () => false,
+		isInteractive: () => false,
 		confirm: () => {
 			throw new Error("Unexpected confirmation prompt in test.");
 		},
