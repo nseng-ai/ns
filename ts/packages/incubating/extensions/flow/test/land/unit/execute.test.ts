@@ -682,8 +682,65 @@ describe("land execute mode over in-memory gateways", () => {
 			expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual(
 				expectedDeletedBranches,
 			);
+			expect(memory.git.checkoutBranchCalls).toEqual([]);
 		},
 	);
+
+	test("two selected PRs require maintenance between targets for both cleanup policies", async () => {
+		const run = async (cleanup: LandingCleanupPolicy) => {
+			const branchB = "feature-b";
+			const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+			const memory = createInMemoryLandContext({
+				git: {
+					repoRoot: ROOT,
+					currentBranch: branchB,
+					localBranches: [
+						{ name: BRANCH, sha: SHA },
+						{ name: branchB, sha: shaB },
+					],
+				},
+				graphite: {
+					stackShape: stackSnapshot({
+						current: branchB,
+						actualCurrentBranch: branchB,
+						landingTargetBranch: branchB,
+						landingBranches: [BRANCH, branchB],
+					}),
+				},
+				github: {
+					pullRequests: [
+						pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+						pullRequestFacts({
+							number: 102,
+							headRefName: branchB,
+							headRefOid: shaB,
+							baseRefName: "main",
+						}),
+					],
+				},
+			});
+
+			const outcome = await executeLanding({
+				context: memory.context,
+				source: { type: "discover" },
+				request: executeRequest({ cleanup }),
+				host: approvedHost(),
+			});
+
+			expect(outcome).toMatchObject({ type: "completed" });
+			return memory.callEvents.map((event) => event.operation);
+		};
+
+		for (const cleanup of ["free", "preserve"] as const) {
+			const operations = await run(cleanup);
+			const firstMerge = operations.indexOf("github.squashMergePullRequest");
+			const secondMerge = operations.lastIndexOf("github.squashMergePullRequest");
+			expect(firstMerge).toBeLessThan(operations.indexOf("graphite.refreshBranchFromRemote"));
+			expect(operations.indexOf("graphite.refreshBranchFromRemote")).toBeLessThan(secondMerge);
+			expect(operations.indexOf("graphite.restack")).toBeLessThan(secondMerge);
+			expect(operations.indexOf("graphite.submitUpdate")).toBeLessThan(secondMerge);
+		}
+	});
 
 	test("bounded landing snapshots and maintains the first remaining branch", async () => {
 		const branchB = "feature-b";

@@ -187,6 +187,7 @@ export async function runLandStack(
 		cwd?: string;
 		hasUI?: boolean;
 		confirms?: boolean[];
+		cleanupPolicy?: "free" | "preserve";
 		executeOptions?: Parameters<typeof executeStackLanding>[3];
 	} = {},
 ): Promise<{
@@ -201,8 +202,11 @@ export async function runLandStack(
 	const pi = new FakeLandExecutionApi(script);
 	const context = createContext(contextOptions);
 	// Permanent command transcripts exercise destructive Graphite cleanup unless a scenario opts
-	// into another policy through the canonical execution tests.
-	const parsedArgs = expectSuccess(parseArgs(args.includes("--free") ? args : `${args} --free`));
+	// into the command's default preserve policy.
+	const cleanupPolicy = contextOptions.cleanupPolicy ?? "free";
+	const parsedArgs = expectSuccess(
+		parseArgs(cleanupPolicy === "free" && !args.includes("--free") ? `${args} --free` : args),
+	);
 	const execution = await executeStackLanding(
 		pi,
 		context.ctx,
