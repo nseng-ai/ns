@@ -92,7 +92,12 @@ async function selectLandingCleanup(
 
 	const details =
 		request.kind === "main-landing"
-			? formatPlan(request.plan)
+			? [
+					formatPlan(request.plan, request.postTargetMaintenance),
+					"",
+					"Keep leaves post-target survivors for manual maintenance and completes with warnings when maintenance is blocked.",
+					"Free reconciles post-target survivors, cleans every safely cleanable landed branch, and fails nonzero if required reconciliation or cleanup cannot complete.",
+				].join("\n")
 			: formatSingleBranchMainLandingConfirmationDetails(request);
 	ctx.ui.notify(details, "info");
 	const labels = landingCleanupChoiceLabels(request.cleanupChoice);
@@ -132,7 +137,10 @@ function mainLandingOptions(
 	ctx: PrintAwareLandStackCommandContext,
 	request: Extract<LandConfirmationRequest, { readonly kind: "main-landing" }>,
 ): ConfirmLandStackActionOptions {
-	const details = appendPostLandingCleanupImpact(formatPlan(request.plan), request.cleanup);
+	const details = appendPostLandingCleanupImpact(
+		formatPlan(request.plan, request.postTargetMaintenance),
+		request.cleanup,
+	);
 	return {
 		ctx,
 		shouldPrompt: true,

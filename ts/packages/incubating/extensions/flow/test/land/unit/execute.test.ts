@@ -814,7 +814,80 @@ describe("land execute mode over in-memory gateways", () => {
 		}
 	});
 
-	test("bounded landing snapshots and maintains the first remaining branch", async () => {
+	test("default preserve leaves every post-target survivor for manual maintenance", async () => {
+		const branchB = "feature-b";
+		const branchC = "feature-c";
+		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		const shaC = "cccccccccccccccccccccccccccccccccccccccc";
+		const memory = createInMemoryLandContext({
+			git: {
+				repoRoot: ROOT,
+				currentBranch: branchB,
+				localBranches: [
+					{ name: BRANCH, sha: SHA },
+					{ name: branchB, sha: shaB },
+					{ name: branchC, sha: shaC },
+				],
+			},
+			graphite: {
+				stackShape: stackSnapshot({
+					current: branchC,
+					actualCurrentBranch: branchC,
+					landingTargetBranch: branchC,
+					landingBranches: [BRANCH, branchB, branchC],
+				}),
+			},
+			github: {
+				pullRequests: [
+					pullRequestFacts({ number: 101, headRefName: BRANCH, headRefOid: SHA }),
+					pullRequestFacts({
+						number: 102,
+						headRefName: branchB,
+						headRefOid: shaB,
+						baseRefName: BRANCH,
+					}),
+					pullRequestFacts({
+						number: 103,
+						headRefName: branchC,
+						headRefOid: shaC,
+						baseRefName: branchB,
+					}),
+				],
+			},
+		});
+
+		const outcome = await executeLanding({
+			context: memory.context,
+			source: { type: "discover" },
+			request: {
+				...executeRequest({ cleanup: "preserve" }),
+				target: { type: "stack", landingBranchLimit: 1 },
+			},
+			host: approvedHost(),
+		});
+
+		expect(outcome).toMatchObject({
+			type: "completed",
+			report: {
+				warnings: [
+					{
+						level: "warning",
+						message: expect.stringContaining("feature-b, feature-c"),
+						commandDisplay:
+							"gt get feature-b --downstack --no-restack --no-checkout --force --no-interactive",
+						suggestedAction: expect.stringContaining("worktree that has main checked out"),
+					},
+				],
+			},
+		});
+		expect(memory.graphite.refreshBranchFromRemoteCalls).toEqual([]);
+		expect(memory.graphite.restackCalls).toEqual([]);
+		expect(memory.graphite.submitUpdateCalls).toEqual([]);
+		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
+		expect(memory.git.checkoutBranchCalls).toEqual([]);
+	});
+
+	test("bounded free landing snapshots and maintains the first remaining branch", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 		const memory = createInMemoryLandContext({

@@ -32,10 +32,11 @@ export interface LandingPreflightMode {
 /**
  * Closed post-landing cleanup policy for local branches and the current managed-slot worktree.
  *
- * - `preserve` (default): keep every landed local branch and the current slot; never prompt or
- *   mutate cleanup state.
- * - `free`: explicit opt-in (`--free`) that may delete landed local branches during maintenance,
- *   then frees the current managed slot after a successful landing. The flag itself is the consent;
+ * - `preserve` (default): keep every landed local branch and the current slot. Required maintenance
+ *   between selected PRs still runs, but post-target survivors are left for manual maintenance.
+ * - `free`: explicit opt-in (`--free`) that reconciles post-target survivors, may delete landed
+ *   local branches during maintenance, then frees the current managed slot after a successful
+ *   landing. The flag itself is the consent;
  *   no separate cleanup confirmation is prompted.
  *
  * `mode: "dry-run"` always dominates cleanup policy and performs no cleanup mutation.
@@ -338,8 +339,9 @@ export interface ManualWorktreeConflict {
  *   postconditions as a required part of landing completion.
  * - `blocked`: descendant branches are checked out in other worktrees, so automatic
  *   reconciliation is impossible without mutating another checkout. Landing may proceed only
- *   with explicit main-landing consent (interactive approval or `--yes`), and the landing then
- *   finishes as a failed partial completion with deferred descendant maintenance.
+ *   with explicit main-landing consent (interactive approval or `--yes`). Default `preserve`
+ *   completes with a warning and leaves maintenance manual; `free` and upstack continuation fail
+ *   nonzero because their required reconciliation could not complete.
  */
 export type DescendantMaintenancePlan =
 	| { readonly type: "none"; readonly branches: readonly [] }

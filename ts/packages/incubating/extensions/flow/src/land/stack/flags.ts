@@ -20,9 +20,9 @@ export const landFlagDescriptors = [
 		commandRequestField: "yes",
 		commandShort: "-y",
 		usageDescription:
-			"Skip the stack/global landing confirmation. Also accepts any disclosed deferred descendant maintenance (descendants checked out in other worktrees); such landings still finish nonzero as partial completions. Landing-branch managed slot cleanup and PR submit/update still require explicit UI confirmation.",
+			"Skip the stack/global landing confirmation. With the default preserve policy, disclosed blocked descendants complete with a warning; --free and --up still fail nonzero if required survivor reconciliation cannot complete.",
 		commandDescription:
-			"Confirm stack landing without an interactive prompt; accepts disclosed deferred descendant maintenance.",
+			"Confirm stack landing without an interactive prompt; default preserve reports blocked descendants as a success-with-warning.",
 	},
 	{
 		long: "--dry-run",
@@ -40,7 +40,7 @@ export const landFlagDescriptors = [
 		commandRequestField: "free",
 		commandShort: "-F",
 		usageDescription:
-			"After a successful landing, free the current managed slot and delete the landed local branch.",
+			"After landing, reconcile surviving branches, delete safely cleanable landed local branches, and free the current managed slot.",
 	},
 	{
 		long: "--up",
@@ -48,7 +48,7 @@ export const landFlagDescriptors = [
 		parsedArg: "shouldContinueUpstack",
 		commandRequestField: "up",
 		usageDescription:
-			"After landing, continue onto the sole immediate upstack child in this worktree; always keep the managed slot. By default the landed local branch is retained; pass --free to delete it after successful continuation.",
+			"After landing, reconcile surviving branches and continue onto the sole immediate upstack child in this worktree; always keep the managed slot. By default the landed local branch is retained; pass --free to delete it after successful continuation.",
 	},
 	{
 		long: "--verbose",

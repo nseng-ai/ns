@@ -122,10 +122,7 @@ export function linearStackLandingScript(size: number): ScriptedExec[] {
 			),
 		),
 		...Array.from({ length: size }, (_, offset) => offset + 1).flatMap((index) => [
-			childrenRecheckStep(
-				numberedBranch(index),
-				index === size ? [] : [numberedBranch(index + 1)],
-			),
+			childrenRecheckStep(numberedBranch(index), index === size ? [] : [numberedBranch(index + 1)]),
 			step(
 				"gt",
 				["delete", numberedBranch(index), "-f", "-q"],

@@ -186,6 +186,60 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
 	});
+	test("default preserve lands selected PRs and leaves every survivor for manual maintenance", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
+				shas: BRANCH_SHAS,
+			}),
+			...mergeFeatureA(),
+			...mergeFeatureBThroughVerification(),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script, {
+			cleanupPolicy: "preserve",
+		});
+
+		pi.assertDone();
+		expect(
+			pi.execCalls
+				.filter(
+					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
+				)
+				.map((call) => call.args[2]),
+		).toEqual(["101", "102"]);
+		for (const branch of [DESCENDANT, "feature-d"]) {
+			expect(
+				pi.execCalls.some(
+					(call) =>
+						call.command === "gt" &&
+						["get", "track"].includes(call.args[0] ?? "") &&
+						call.args[1] === branch,
+				),
+			).toBe(false);
+			expect(
+				pi.execCalls.some(
+					(call) =>
+						call.command === "gt" &&
+						["restack", "submit"].includes(call.args[0] ?? "") &&
+						call.args[2] === branch,
+				),
+			).toBe(false);
+		}
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
+			false,
+		);
+		expect(notifications.at(-1)?.level).toBe("warning");
+		const streamText = commandMessagesText(messages);
+		expect(streamText).toContain(
+			"Surviving branches remain open for manual maintenance: feature-c, feature-d.",
+		);
+		expect(streamText).toContain(
+			"gt get feature-c --downstack --no-restack --no-checkout --force --no-interactive",
+		);
+		expect(streamText).toContain("refresh, restack, and submit were not attempted");
+		expect(streamText).toContain("From the worktree that has main checked out");
+		expect(streamText).toContain("then inspect, restack, and update the surviving stack");
+	});
 	test("happy path restacks and updates multiple descendant roots above the current branch", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),

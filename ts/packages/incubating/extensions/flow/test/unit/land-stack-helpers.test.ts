@@ -343,7 +343,13 @@ describe("land-stack pure helpers", () => {
 			"/ns:flow:land [--yes] [--dry-run] [--free] [--up] [--verbose] [--help]",
 		);
 		expect(usage()).toContain(
-			"  --free, -F      After a successful landing, free the current managed slot and delete the landed local branch.",
+			"By default, blocked descendant maintenance completes with a warning after the selected PRs land; --free and --up still fail nonzero when required survivor reconciliation cannot complete.",
+		);
+		expect(usage()).toContain(
+			"  --yes, -y       Skip the stack/global landing confirmation. With the default preserve policy, disclosed blocked descendants complete with a warning; --free and --up still fail nonzero if required survivor reconciliation cannot complete.",
+		);
+		expect(usage()).toContain(
+			"  --free, -F      After landing, reconcile surviving branches, delete safely cleanable landed local branches, and free the current managed slot.",
 		);
 		expect(usage()).toContain("  --help, -h      Show this help.");
 		expect(landCommandOptionSpecs()).toEqual({

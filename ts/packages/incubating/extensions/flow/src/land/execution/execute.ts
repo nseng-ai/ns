@@ -226,6 +226,9 @@ export async function executeLandingRequest(
 	const mainDecision = await host.confirmation.confirm({
 		kind: "main-landing",
 		plan: plan.value,
+		...(cleanupRequest.policy === "preserve" && request.continuation.type === "none"
+			? { postTargetMaintenance: "manual" as const }
+			: {}),
 		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
 		...optionalEntry("cleanupChoice", cleanupChoice),
 	});
@@ -296,28 +299,39 @@ export async function executeLandingRequest(
 		return failedResult(draft, mergeOutcome.failedPhase, mergeOutcome.failure);
 	}
 
-	const postTargetMaintenance = await performPostTargetMaintenance(executionContext, {
-		plan: readyPlan,
-		landed: observations.landed,
-		state: mergeOutcome.maintenanceState,
-		shouldCleanLandedBranches:
-			effectiveCleanupRequest.policy === "free" && request.continuation.type !== "upstack",
-	});
-	draft.warnings = [...mergeOutcome.maintenanceState.warnings];
-	draft.mergeMaintenanceCleanup = {
-		deletedLocalBranches: [...mergeOutcome.maintenanceState.deletedBranches],
-		retainedLocalBranches: [
-			...mergeOutcome.maintenanceState.cleanup.retainedLocalBranches,
-		],
-	};
-	const postTargetPhases = postTargetMaintenancePhaseOutcomes(
-		readyPlan,
-		postTargetMaintenance,
-		draft.mergeMaintenanceCleanup,
-	);
-	draft.phases.push(...postTargetPhases);
-	if (postTargetMaintenance.kind === "halt") {
-		return failedResult(draft, postTargetMaintenance.phase, postTargetMaintenance.failure);
+	const shouldReconcilePostTarget =
+		effectiveCleanupRequest.policy === "free" || request.continuation.type === "upstack";
+	if (shouldReconcilePostTarget) {
+		const postTargetMaintenance = await performPostTargetMaintenance(executionContext, {
+			plan: readyPlan,
+			landed: observations.landed,
+			state: mergeOutcome.maintenanceState,
+			shouldCleanLandedBranches:
+				effectiveCleanupRequest.policy === "free" && request.continuation.type !== "upstack",
+		});
+		draft.warnings = [...mergeOutcome.maintenanceState.warnings];
+		draft.mergeMaintenanceCleanup = {
+			deletedLocalBranches: [...mergeOutcome.maintenanceState.deletedBranches],
+			retainedLocalBranches: [...mergeOutcome.maintenanceState.cleanup.retainedLocalBranches],
+		};
+		const postTargetPhases = postTargetMaintenancePhaseOutcomes(
+			readyPlan,
+			postTargetMaintenance,
+			draft.mergeMaintenanceCleanup,
+		);
+		draft.phases.push(...postTargetPhases);
+		if (postTargetMaintenance.kind === "halt") {
+			return failedResult(draft, postTargetMaintenance.phase, postTargetMaintenance.failure);
+		}
+	} else {
+		const survivors = postTargetSurvivors(readyPlan);
+		if (survivors.length > 0) {
+			draft.warnings = [...draft.warnings, manualSurvivorMaintenanceWarning(readyPlan, survivors)];
+		}
+		draft.phases.push(
+			skipped("descendant-maintenance", "post-target survivor maintenance left for manual action"),
+			skipped("merge-maintenance-cleanup", "preserve policy performs no post-target cleanup"),
+		);
 	}
 
 	if (request.continuation.type === "upstack") {
@@ -412,6 +426,30 @@ async function executePostLandingCleanup(
 		...draft,
 		phases: [...draft.phases, postLandingCleanupPhase(cleanupRun.outcome)],
 	});
+}
+
+function postTargetSurvivors(plan: LandingPlan): readonly string[] {
+	return [
+		...plan.stack.remainingLandingBranches,
+		...(plan.descendantMaintenance.type === "none" ? [] : plan.descendantMaintenance.branches),
+	];
+}
+
+function manualSurvivorMaintenanceWarning(
+	plan: LandingPlan,
+	survivors: readonly string[],
+): LandingWarning {
+	const firstSurvivor = survivors[0];
+	if (firstSurvivor === undefined)
+		throw new Error("Manual survivor maintenance requires a branch.");
+	const commandDisplay = `gt get ${firstSurvivor} --downstack --no-restack --no-checkout --force --no-interactive`;
+	return {
+		level: "warning",
+		message: `Surviving branches remain open for manual maintenance: ${survivors.join(", ")}. Start with ${firstSurvivor}; refresh, restack, and submit were not attempted after the final selected PR.`,
+		commandDisplay,
+		suggestedAction: `From the worktree that has ${plan.stack.trunk} checked out, run ${commandDisplay}; then inspect, restack, and update the surviving stack.`,
+		notificationAction: `Maintain surviving branch ${firstSurvivor} manually from the ${plan.stack.trunk} worktree.`,
+	};
 }
 
 function postTargetMaintenancePhaseOutcomes(
