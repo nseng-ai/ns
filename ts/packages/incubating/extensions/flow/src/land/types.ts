@@ -18,10 +18,7 @@ export interface LandingRequest {
 	readonly mode: LandingMode;
 	readonly preflight: LandingPreflightMode;
 	readonly cleanup: LandingCleanupPolicy;
-	readonly continuation: LandingContinuationRequest;
 }
-
-export type LandingContinuationRequest = { readonly type: "none" } | { readonly type: "upstack" };
 
 export type LandingMode = "execute" | "dry-run";
 
@@ -32,11 +29,12 @@ export interface LandingPreflightMode {
 /**
  * Closed post-landing cleanup policy for local branches and the current managed-slot worktree.
  *
- * - `preserve` (default): keep every landed local branch and the current slot. Required maintenance
- *   between selected PRs still runs, but post-target survivors are left for manual maintenance.
- * - `free`: explicit opt-in (`--free`) that reconciles post-target survivors, may delete landed
- *   local branches during maintenance, then frees the current managed slot after a successful
- *   landing. The flag itself is the consent;
+ * Reconciliation is invariant: required maintenance runs between selected PRs and after the final
+ * selected PR under both policies.
+ *
+ * - `preserve` (default): keep every landed local branch and the current slot after reconciliation.
+ * - `free`: explicit opt-in (`--free`) that may delete safely cleanable landed local branches after
+ *   reconciliation, then frees the current managed slot after successful branch cleanup. The flag itself is the consent;
  *   no separate cleanup confirmation is prompted.
  *
  * `mode: "dry-run"` always dominates cleanup policy and performs no cleanup mutation.
@@ -71,7 +69,6 @@ export type LandingPhase =
 	| "post-target-maintenance"
 	| "descendant-maintenance"
 	| "merge-maintenance-cleanup"
-	| "upstack-continuation"
 	| "post-landing-cleanup";
 
 export type LandingFailure =
@@ -158,27 +155,12 @@ export interface LandingExecutionReport {
 	readonly landedChunks: readonly LandedChunk[];
 	readonly warnings: readonly LandingWarning[];
 	readonly cleanup: LandingCleanupReport;
-	readonly continuation: LandingContinuationReport;
 }
 
 /** Completed execution always observed the repository before reaching a semantic success. */
 export interface LandingCompletedExecutionReport extends LandingExecutionReport {
 	readonly repoRoot: string;
 }
-
-/** Provider-neutral observed outcome of the requested post-landing continuation. */
-export type LandingContinuationReport =
-	| { readonly type: "not-requested" }
-	| { readonly type: "candidate"; readonly branch: string }
-	| { readonly type: "continued"; readonly branch: string; readonly originalBranchDeleted: boolean }
-	| {
-			readonly type: "unavailable";
-			readonly reason: "no-child" | "multiple-children" | "lookup-failed";
-			readonly candidates: readonly string[];
-	  }
-	| { readonly type: "checkout-failed"; readonly branch: string }
-	| { readonly type: "verification-failed"; readonly branch: string; readonly actualBranch: string }
-	| { readonly type: "cleanup-failed"; readonly branch: string };
 
 /** Canonical result of {@link LandingRequest} execution. Both variants carry observed-fact reports. */
 export type LandingExecutionResult =
@@ -340,9 +322,8 @@ export interface ManualWorktreeConflict {
  *   postconditions as a required part of landing completion.
  * - `blocked`: descendant branches are checked out in other worktrees, so automatic
  *   reconciliation is impossible without mutating another checkout. Landing may proceed only
- *   with explicit main-landing consent (interactive approval or `--yes`). Default `preserve`
- *   completes with a warning and leaves maintenance manual; `free` and upstack continuation fail
- *   nonzero because their required reconciliation could not complete.
+ *   with explicit main-landing consent (interactive approval or `--yes`), then fails nonzero after
+ *   selected merges because required reconciliation could not complete.
  */
 export type DescendantMaintenancePlan =
 	| { readonly type: "none"; readonly branches: readonly [] }
@@ -414,10 +395,6 @@ export interface LandGitGateway {
 		readonly repoRoot: string;
 		readonly branches: readonly string[];
 	}): Promise<LandResult<ReadonlyMap<string, string>>>;
-	checkoutBranch(request: {
-		readonly repoRoot: string;
-		readonly branch: string;
-	}): Promise<LandOutcome>;
 }
 
 export interface WorkingTreeStatus {

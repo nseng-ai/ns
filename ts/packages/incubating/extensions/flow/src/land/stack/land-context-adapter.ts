@@ -83,8 +83,6 @@ export function createLandContext(
 				loadBranchContainsParent({ pi, repoRoot, branch, parent }),
 			snapshotBackupRefs: async ({ repoRoot, branches }) =>
 				snapshotBackupRefs({ pi, repoRoot, branches }),
-			checkoutBranch: async ({ repoRoot, branch }) =>
-				checkoutBranch({ git: options.git, repoRoot, branch }),
 		},
 		graphite: {
 			trunk: async ({ repoRoot }) =>
@@ -195,25 +193,6 @@ export function createLandContext(
 			freeSlots: async ({ repoRoot, slots }) => freeSlots({ pi, repoRoot, slots }),
 		},
 	};
-}
-
-async function checkoutBranch(options: {
-	readonly git: GitGateway;
-	readonly repoRoot: string;
-	readonly branch: string;
-}): Promise<LandOutcome> {
-	const result = await options.git.checkout({ cwd: options.repoRoot, branch: options.branch });
-	if (result.ok) return landCompleted();
-	return landOutcomeFailure({
-		type: "boundary",
-		phase: "upstack-continuation",
-		source: "git",
-		code: "checkout_branch_failed",
-		message: `Could not check out continuation branch ${options.branch}.\n${result.error.message}`,
-		...(result.error.displayCommand === undefined
-			? {}
-			: { displayCommand: result.error.displayCommand }),
-	});
 }
 
 interface PrepareGraphiteMutationOptions {

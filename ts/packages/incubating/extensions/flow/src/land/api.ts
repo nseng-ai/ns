@@ -93,8 +93,6 @@ export type {
 	LandingCleanupPolicy,
 	LandingCleanupReport,
 	LandingCompletedExecutionReport,
-	LandingContinuationReport,
-	LandingContinuationRequest,
 	LandingCompletionDisposition,
 	LandingDomainFailure,
 	LandingDomainFailureReason,

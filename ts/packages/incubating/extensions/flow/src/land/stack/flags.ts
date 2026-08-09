@@ -20,9 +20,8 @@ export const landFlagDescriptors = [
 		commandRequestField: "yes",
 		commandShort: "-y",
 		usageDescription:
-			"Skip the stack/global landing confirmation. With the default preserve policy, disclosed blocked descendants complete with a warning; --free and --up still fail nonzero if required survivor reconciliation cannot complete.",
-		commandDescription:
-			"Confirm stack landing without an interactive prompt; default preserve reports blocked descendants as a success-with-warning.",
+			"Skip the stack/global landing confirmation. Required survivor reconciliation still fails nonzero if it cannot complete.",
+		commandDescription: "Confirm stack landing without an interactive prompt.",
 	},
 	{
 		long: "--dry-run",
@@ -41,14 +40,6 @@ export const landFlagDescriptors = [
 		commandShort: "-F",
 		usageDescription:
 			"After landing, reconcile surviving branches, delete safely cleanable landed local branches, and free the current managed slot.",
-	},
-	{
-		long: "--up",
-		aliases: ["--up"],
-		parsedArg: "shouldContinueUpstack",
-		commandRequestField: "up",
-		usageDescription:
-			"After landing, reconcile surviving branches and continue onto the sole immediate upstack child in this worktree; always keep the managed slot. By default the landed local branch is retained; pass --free to delete it after successful continuation.",
 	},
 	{
 		long: "--verbose",
@@ -132,7 +123,6 @@ export function landParsedArgsFromCommandRequest(request: LandCommandRequest): P
 		shouldSkipConfirmation: request.yes === true,
 		isDryRun: request.dryRun === true,
 		shouldFreeSlot: request.free === true,
-		shouldContinueUpstack: request.up === true,
 		shouldShowHelp: false,
 		shouldStreamVerboseOutput: request.verbose === true,
 	};

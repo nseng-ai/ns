@@ -105,19 +105,14 @@ reshaped stack.
   remain ordinary Git worktrees.
 - `land` uses GitHub squash merge and requires `gh` authentication with permission
   to merge the target PRs. The repository must allow squash merges. Other merge
-  strategies are not part of the current land contract. By default, successful landing
-  keeps the current managed slot and landed local branch. It performs required maintenance
-  between PRs selected for the invocation, but leaves surviving branches after the final
-  selected PR for explicit manual refresh/restack/update and completes with a warning.
-  Selector-capable interactive hosts offer keep, free, or cancel before merge when neither
-  `--free` nor `--up` is supplied. Pass `--free` to reconcile the surviving stack, free the
-  slot, and delete safely cleanable landed branches. Pass `--up` to reconcile the surviving
-  stack, keep the slot, and continue in the same worktree on the sole immediate Graphite child. If no unambiguous child is available, the command
-  fails before landing. If checkout, verification, or landed-branch cleanup fails after
-  merge, the command reports failure while preserving recoverable state and identifying
-  the PRs that already landed. With `--up`, the default preserves the landed branch and
-  `--free` deletes it after successful continuation without freeing the slot. A dry run
-  reports continuation availability and performs no checkout or cleanup.
+  strategies are not part of the current land contract. Landing always performs required
+  maintenance between selected PRs and reconciles the surviving stack after the final
+  selected PR. By default, successful landing preserves landed local branches and the
+  current managed slot after reconciliation. Selector-capable interactive hosts offer keep,
+  free, or cancel before merge. Pass `--free` to delete safely cleanable landed branches
+  after successful reconciliation and then free the slot. Reconciliation or branch-cleanup
+  failure reports nonzero partial completion, identifies PRs that already landed, and does
+  not free the slot.
 - The hidden agent-facing exec surface has one operation:
   `ns flow exec read-graphite-branch-metadata`, which reads Graphite's branch
   metadata database through a controlled `sqlite3` query.

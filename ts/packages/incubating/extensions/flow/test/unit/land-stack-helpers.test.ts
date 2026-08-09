@@ -302,7 +302,6 @@ describe("land-stack pure helpers", () => {
 			{ value: "--yes", label: "--yes" },
 			{ value: "--dry-run", label: "--dry-run" },
 			{ value: "--free", label: "--free" },
-			{ value: "--up", label: "--up" },
 			{ value: "--verbose", label: "--verbose" },
 			{ value: "--help", label: "--help" },
 		]);
@@ -311,11 +310,10 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("parses supported command arguments", () => {
-		expect(expectSuccess(parseArgs("--yes --dry-run --free --up --verbose --help"))).toEqual({
+		expect(expectSuccess(parseArgs("--yes --dry-run --free --verbose --help"))).toEqual({
 			shouldSkipConfirmation: true,
 			isDryRun: true,
 			shouldFreeSlot: true,
-			shouldContinueUpstack: true,
 			shouldShowHelp: true,
 			shouldStreamVerboseOutput: true,
 		});
@@ -323,13 +321,11 @@ describe("land-stack pure helpers", () => {
 			shouldSkipConfirmation: true,
 			isDryRun: false,
 			shouldFreeSlot: true,
-			shouldContinueUpstack: false,
 			shouldShowHelp: true,
 			shouldStreamVerboseOutput: false,
 		});
 		expect(expectSuccess(parseArgs(""))).toMatchObject({
 			shouldFreeSlot: false,
-			shouldContinueUpstack: false,
 		});
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
 			"Unknown /ns:flow:land argument: --wat",
@@ -339,14 +335,12 @@ describe("land-stack pure helpers", () => {
 	});
 
 	test("derives usage and Clinkr wrapper flag surfaces from the descriptors", () => {
+		expect(usage()).toContain("/ns:flow:land [--yes] [--dry-run] [--free] [--verbose] [--help]");
 		expect(usage()).toContain(
-			"/ns:flow:land [--yes] [--dry-run] [--free] [--up] [--verbose] [--help]",
+			"Required survivor reconciliation fails nonzero when it cannot complete.",
 		);
 		expect(usage()).toContain(
-			"By default, blocked descendant maintenance completes with a warning after the selected PRs land; --free and --up still fail nonzero when required survivor reconciliation cannot complete.",
-		);
-		expect(usage()).toContain(
-			"  --yes, -y       Skip the stack/global landing confirmation. With the default preserve policy, disclosed blocked descendants complete with a warning; --free and --up still fail nonzero if required survivor reconciliation cannot complete.",
+			"  --yes, -y       Skip the stack/global landing confirmation. Required survivor reconciliation still fails nonzero if it cannot complete.",
 		);
 		expect(usage()).toContain(
 			"  --free, -F      After landing, reconcile surviving branches, delete safely cleanable landed local branches, and free the current managed slot.",
@@ -363,14 +357,12 @@ describe("land-stack pure helpers", () => {
 				yes: true,
 				dryRun: true,
 				free: true,
-				up: true,
 				verbose: true,
 			}),
 		).toEqual({
 			shouldSkipConfirmation: true,
 			isDryRun: true,
 			shouldFreeSlot: true,
-			shouldContinueUpstack: true,
 			shouldShowHelp: false,
 			shouldStreamVerboseOutput: true,
 		});

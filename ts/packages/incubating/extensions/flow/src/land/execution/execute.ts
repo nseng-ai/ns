@@ -21,7 +21,6 @@ import type {
 	LandingCleanupReport,
 	LandingCompletedExecutionReport,
 	LandingCompletionDisposition,
-	LandingContinuationReport,
 	LandingExecutionReport,
 	LandingExecutionResult,
 	LandingFailure,
@@ -37,6 +36,7 @@ import type {
 import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
 import { runPostTargetMaintenance } from "./post-target-maintenance.ts";
+import { cleanUpLandedBranches } from "./maintenance.ts";
 import { runMergeLoop, type MergeLoopResult, type MergeLoopState } from "./merge-loop.ts";
 import {
 	planManagedSlotPostLandingCleanup,
@@ -45,7 +45,6 @@ import {
 	type PostLandingCleanupRequest,
 } from "./post-landing-cleanup.ts";
 import { confirmAndFreeManagedSlots, submitRequiredUpdatesAndRecheckPlan } from "./pre-merge.ts";
-import { executeUpstackContinuation, snapshotUpstackContinuation } from "./upstack-continuation.ts";
 
 export interface LandStackExecutionHost {
 	readonly confirmation: LandConfirmationGateway;
@@ -80,7 +79,6 @@ interface ReportDraft {
 	preMergeFreedSlots: readonly ManagedSlotWorktree[];
 	mergeMaintenanceCleanup: MergeMaintenanceCleanupReport;
 	postLandingSlotCleanup: PostLandingSlotCleanupReport;
-	continuation: LandingContinuationReport;
 }
 
 export async function executeLandingRequest(
@@ -97,7 +95,6 @@ export async function executeLandingRequest(
 		preMergeFreedSlots: [],
 		mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
 		postLandingSlotCleanup: CLEANUP_NOT_RUN,
-		continuation: { type: "not-requested" },
 	};
 
 	if (request.target.type !== "stack") {
@@ -144,35 +141,10 @@ export async function executeLandingRequest(
 		policy: request.cleanup,
 	};
 
-	if (request.continuation.type === "upstack") {
-		const continuation = await snapshotUpstackContinuation({
-			context,
-			repoRoot: shape.repoRoot,
-			metadataDbPath: shape.metadataDbPath,
-			stack: shape.stack,
-		});
-		draft.continuation = continuation.report;
-		if (continuation.type === "unavailable") {
-			draft.postLandingSlotCleanup = continuationPreservationReport(shape);
-			return failedResult(draft, "upstack-continuation", continuation.failure);
-		}
-	}
-
 	if (
 		shape.stack.actualCurrentBranch === shape.stack.trunk ||
 		shape.stack.landingBranches.length === 0
 	) {
-		if (request.continuation.type === "upstack") {
-			draft.completionDisposition = {
-				type: "nothing-to-land",
-				currentBranch: shape.stack.actualCurrentBranch,
-			};
-			draft.postLandingSlotCleanup = continuationPreservationReport(shape);
-			draft.phases.push(
-				skipped("post-landing-cleanup", "upstack continuation preserves the invoking slot"),
-			);
-			return completedResult(draft);
-		}
 		const preview = planManagedSlotPostLandingCleanup({ cleanup: cleanupRequest, shape });
 		if (preview !== undefined) {
 			draft.completionDisposition = { type: "cleanup-only" };
@@ -207,16 +179,13 @@ export async function executeLandingRequest(
 
 	if (request.mode === "dry-run") {
 		draft.phases.push(completed("dry-run"));
-		draft.postLandingSlotCleanup =
-			request.continuation.type === "upstack"
-				? continuationPreservationReport(shape)
-				: postLandingCleanupSkipReport(cleanupRequest, shape);
+		draft.postLandingSlotCleanup = postLandingCleanupSkipReport(cleanupRequest, shape);
 		return completedResult(draft);
 	}
 
 	const cleanupPreview = planManagedSlotPostLandingCleanup({ cleanup: cleanupRequest, shape });
 	const cleanupChoice =
-		request.cleanup === "preserve" && request.continuation.type !== "upstack"
+		request.cleanup === "preserve"
 			? planManagedSlotPostLandingCleanup({
 					cleanup: { mode: request.mode, policy: "free" },
 					shape,
@@ -225,9 +194,6 @@ export async function executeLandingRequest(
 	const mainDecision = await host.confirmation.confirm({
 		kind: "main-landing",
 		plan: plan.value,
-		...(cleanupRequest.policy === "preserve" && request.continuation.type === "none"
-			? { postTargetMaintenance: "manual" as const }
-			: {}),
 		...(cleanupPreview === undefined ? {} : { cleanup: cleanupPreview }),
 		...optionalEntry("cleanupChoice", cleanupChoice),
 	});
@@ -304,10 +270,6 @@ export async function executeLandingRequest(
 		plan: readyPlan,
 		landed,
 		state: maintenanceState,
-		shouldReconcileSurvivors:
-			effectiveCleanupRequest.policy === "free" || request.continuation.type === "upstack",
-		shouldCleanUpLandedBranches:
-			effectiveCleanupRequest.policy === "free" && request.continuation.type !== "upstack",
 	});
 	updateMaintenanceReport(draft, maintenanceState);
 	draft.phases.push(...postTargetMaintenance.phases);
@@ -315,30 +277,25 @@ export async function executeLandingRequest(
 		return failedResult(draft, postTargetMaintenance.phase, postTargetMaintenance.failure);
 	}
 
-	if (request.continuation.type === "upstack") {
-		draft.postLandingSlotCleanup = continuationPreservationReport(shape);
-		if (draft.continuation.type !== "candidate") {
-			throw new Error("Successful upstack continuation preflight must produce a candidate branch.");
-		}
-		const continuation = await executeUpstackContinuation({
-			context,
-			repoRoot: shape.repoRoot,
-			originalBranch: shape.stack.actualCurrentBranch,
-			candidateBranch: draft.continuation.branch,
-			cleanup: request.cleanup,
-		});
-		draft.continuation = continuation.report;
-		if (continuation.type === "failed") {
-			draft.phases.push(
-				skipped("post-landing-cleanup", "upstack continuation preserves the invoking slot"),
-			);
-			return failedResult(draft, "upstack-continuation", continuation.failure);
-		}
+	if (effectiveCleanupRequest.policy === "preserve") {
 		draft.phases.push(
-			completed("upstack-continuation"),
-			skipped("post-landing-cleanup", "upstack continuation preserves the invoking slot"),
+			skipped("merge-maintenance-cleanup", "cleanup policy preserves landed local branches"),
 		);
-		return completedResult(draft);
+	} else {
+		const cleanup = await cleanUpLandedBranches(executionContext, {
+			plan: readyPlan,
+			landed,
+			state: maintenanceState,
+		});
+		draft.warnings = [...maintenanceState.warnings];
+		draft.mergeMaintenanceCleanup = {
+			deletedLocalBranches: [...maintenanceState.deletedBranches],
+			retainedLocalBranches: [...maintenanceState.cleanup.retainedLocalBranches],
+		};
+		if (cleanup.kind === "halt") {
+			return failedResult(draft, cleanup.phase, cleanup.failure);
+		}
+		draft.phases.push(completed("merge-maintenance-cleanup"));
 	}
 
 	return await executePostLandingCleanup({
@@ -473,10 +430,6 @@ function postLandingCleanupPhase(outcome: PostLandingSlotCleanupReport): Landing
 	}
 }
 
-function continuationPreservationReport(shape: StackLandingShape): PostLandingSlotCleanupReport {
-	return postLandingCleanupSkipReport({ mode: "execute", policy: "preserve" }, shape);
-}
-
 function completed(phase: LandingPhase): LandingPhaseOutcome {
 	return { type: "completed", phase };
 }
@@ -525,7 +478,6 @@ function reportFromDraft(draft: ReportDraft): LandingExecutionReport {
 		landedChunks: draft.landedChunks,
 		warnings: draft.warnings,
 		cleanup,
-		continuation: draft.continuation,
 	};
 }
 

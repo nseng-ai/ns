@@ -224,11 +224,10 @@ describe("land stack sandbox integration", () => {
 	);
 
 	test(
-		"preserve leaves survivor topology unchanged and reports manual maintenance",
+		"preserve reconciles survivor topology and retains local resources",
 		async () => {
 			await withSandbox({ currentBranch: FEATURE_B }, async (sandbox) => {
-				const initialTopology = (await readState(sandbox.statePath)).topology;
-				expect(initialTopology).toEqual([
+				expect((await readState(sandbox.statePath)).topology).toEqual([
 					{ branch: TRUNK, children: [FEATURE_A], isTrunk: true },
 					{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
 					{ branch: FEATURE_B, parent: FEATURE_A, children: [FEATURE_C, FEATURE_D] },
@@ -242,19 +241,22 @@ describe("land stack sandbox integration", () => {
 				expect(await localBranches(sandbox)).toEqual(
 					expect.arrayContaining([FEATURE_A, FEATURE_B, FEATURE_C, FEATURE_D]),
 				);
-				expect((await readState(sandbox.statePath)).topology).toEqual(initialTopology);
+				expect((await readState(sandbox.statePath)).topology).toEqual([
+					{ branch: TRUNK, children: [FEATURE_A, FEATURE_C, FEATURE_D], isTrunk: true },
+					{ branch: FEATURE_A, parent: TRUNK, children: [FEATURE_B] },
+					{ branch: FEATURE_B, parent: FEATURE_A, children: [] },
+					{ branch: FEATURE_C, parent: TRUNK, children: [] },
+					{ branch: FEATURE_D, parent: TRUNK, children: [] },
+				]);
 
 				const log = await readCommandLog(sandbox);
 				for (const branch of [FEATURE_C, FEATURE_D]) {
-					expect(commandArgs(log, "gt", "get").map((args) => args[1])).not.toContain(branch);
-					expect(commandArgs(log, "gt", "track").map((args) => args[1])).not.toContain(branch);
-					expect(commandArgs(log, "gt", "restack").map((args) => args[2])).not.toContain(branch);
-					expect(commandArgs(log, "gt", "submit").map((args) => args[2])).not.toContain(branch);
+					expect(commandArgs(log, "gt", "get").map((args) => args[1])).toContain(branch);
+					expect(commandArgs(log, "gt", "track").map((args) => args[1])).toContain(branch);
+					expect(commandArgs(log, "gt", "restack").map((args) => args[2])).toContain(branch);
+					expect(commandArgs(log, "gt", "submit").map((args) => args[2])).toContain(branch);
 				}
 				expect(commandArgs(log, "gt", "delete")).toEqual([]);
-				expect(notificationText(result)).toContain(
-					"Surviving branches remain open for manual maintenance: feature-c, feature-d.",
-				);
 
 				const snapshot = await loadStackSnapshot({
 					pi: createSandboxExecutionApi(sandbox),
@@ -266,8 +268,8 @@ describe("land stack sandbox integration", () => {
 				expect(snapshot.type).toBe("success");
 				if (snapshot.type !== "success") throw new Error(snapshot.failure.message);
 				expect(snapshot.value.landingBranches).toEqual([FEATURE_A, FEATURE_B]);
-				expect(snapshot.value.descendantBranches).toEqual([FEATURE_C, FEATURE_D]);
-				expect(snapshot.value.descendantRootBranches).toEqual([FEATURE_C, FEATURE_D]);
+				expect(snapshot.value.descendantBranches).toEqual([]);
+				expect(snapshot.value.descendantRootBranches).toEqual([]);
 				expect(snapshot.value.warnings).toEqual([]);
 			});
 		},

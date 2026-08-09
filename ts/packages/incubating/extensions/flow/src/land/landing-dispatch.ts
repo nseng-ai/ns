@@ -63,7 +63,7 @@ export async function runLandingDispatch(
 	}
 
 	const approvedConfirmationKinds = approvedLandConfirmationKinds({ flags: options.parsedArgs });
-	if (isSingleBranchFastPath(shape.value.stack) && !options.parsedArgs.shouldContinueUpstack) {
+	if (isSingleBranchFastPath(shape.value.stack)) {
 		return await runSingleBranchDispatch({
 			options,
 			shape: shape.value,

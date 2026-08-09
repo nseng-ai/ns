@@ -53,7 +53,6 @@ import {
 const landSchema = z.object(landCommandSchemaShape(z));
 const pullRequestSchema = z.object({ number: z.number(), branch: z.string(), base: z.string() });
 const cleanupSchema = z.object({ type: z.string() }).passthrough();
-const continuationSchema = z.object({ type: z.string() }).passthrough();
 const landedChunkSchema = z.object({
 	index: z.number(),
 	landingTargetBranch: z.string(),
@@ -79,7 +78,6 @@ const landSuccessSchema = z.discriminatedUnion("type", [
 				branches: z.array(z.object({ branch: z.string(), pullRequestNumber: z.number() })),
 			})
 			.optional(),
-		continuation: continuationSchema,
 	}),
 	z.object({
 		type: z.union([z.literal("stack-completed"), z.literal("cleanup-only")]),
@@ -87,7 +85,6 @@ const landSuccessSchema = z.discriminatedUnion("type", [
 		landedChunks: z.array(landedChunkSchema),
 		warnings: z.array(z.string()),
 		cleanup: cleanupSchema,
-		continuation: continuationSchema,
 	}),
 	z.object({
 		type: z.literal("single-branch-landed"),

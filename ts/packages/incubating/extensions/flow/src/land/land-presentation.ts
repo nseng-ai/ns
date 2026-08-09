@@ -54,7 +54,6 @@ import { formatConflict, formatSlotConflict, slotFreeArgs } from "./worktree-pat
 import type {
 	DescendantMaintenancePlan,
 	LandedPullRequest,
-	LandingContinuationReport,
 	LandingPlan,
 	LandingWarning,
 	PostLandingSlotCleanupReport,
@@ -111,10 +110,7 @@ export function renderLandResultBlockFromMessage(
 
 const MAX_NOTIFICATION_CHARS = 160;
 
-export function formatPlan(
-	plan: LandingPlan,
-	postTargetMaintenance: "reconcile" | "manual" = "reconcile",
-): string {
+export function formatPlan(plan: LandingPlan): string {
 	const { stack, branchPlans, prSubmitRequirements, managedSlotConflicts } = plan;
 	const lines: string[] = [];
 
@@ -139,7 +135,7 @@ export function formatPlan(
 	});
 
 	lines.push("");
-	lines.push(...formatPostTargetMaintenancePlan(plan, postTargetMaintenance));
+	lines.push(...formatDescendantMaintenancePlan(plan.descendantMaintenance));
 
 	if (stack.warnings.length > 0) {
 		lines.push("", "Warnings:");
@@ -194,36 +190,12 @@ export function formatPlan(
 		`  - verify PR is MERGED on ${stack.trunk}`,
 		"  - if another selected landing branch remains, gt get <next-branch> --downstack --no-restack --no-checkout --force --no-interactive",
 		"  - retain or delete the landed local branch according to the selected cleanup policy",
-		postTargetMaintenance === "manual"
-			? "  - after the final selected PR, leave surviving branches open without automatic refresh/restack/submit; perform the disclosed manual maintenance"
-			: "  - restack/submit the next landing branch when required; descendant reconciliation uses verified local, provider, and GitHub postconditions after target PRs land",
+		"  - after the final selected PR, reconcile the surviving stack with verified local, provider, and GitHub postconditions",
 		"",
 		"Will not merge descendants above current, will not delete remote branches, will not run global gt sync --delete-all, will not wait for checks or enable auto-merge, and will stop on first failure before all target PRs land.",
 	);
 
 	return lines.join("\n");
-}
-
-function formatPostTargetMaintenancePlan(
-	plan: LandingPlan,
-	policy: "reconcile" | "manual",
-): string[] {
-	const descendants =
-		plan.descendantMaintenance.type === "none" ? [] : plan.descendantMaintenance.branches;
-	const survivors = [...plan.stack.remainingLandingBranches, ...descendants];
-	const firstSurvivor = survivors[0];
-	if (policy !== "manual" || firstSurvivor === undefined) {
-		return formatDescendantMaintenancePlan(plan.descendantMaintenance);
-	}
-	const command = `gt get ${firstSurvivor} --downstack --no-restack --no-checkout --force --no-interactive`;
-	return [
-		"Will leave these surviving branches open; refresh/restack/submit will not be attempted after the final selected PR:",
-		...survivors.map((branch) => `  - ${branch}`),
-		`First manual entry branch: ${firstSurvivor}`,
-		`From the worktree that has ${plan.stack.trunk} checked out, run:`,
-		`  ${command}`,
-		"Then inspect, restack, and update the surviving stack.",
-	];
 }
 
 function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan): string[] {
@@ -253,8 +225,8 @@ export function usage(): string {
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
 		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
-		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts. By default, blocked descendant maintenance completes with a warning after the selected PRs land; --free and --up still fail nonzero when required survivor reconciliation cannot complete.",
-		"After successful landing, this command keeps the current managed slot and local branch by default and leaves post-target survivors for manual maintenance; in selector-capable interactive hosts, execute-mode managed-slot landings offer keep, free, or cancel before merge. Pass --free to reconcile survivors and clean safely cleanable landed branches upfront, or --up to reconcile and continue onto the sole immediate child while keeping the slot.",
+		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts. Required survivor reconciliation fails nonzero when it cannot complete.",
+		"After successful landing and survivor reconciliation, this command keeps the current managed slot and landed local branches by default. In selector-capable interactive hosts, execute-mode managed-slot landings offer keep, free, or cancel before merge. Pass --free to clean safely cleanable landed branches and free the slot after reconciliation.",
 		"",
 		"Options:",
 		...landUsageOptionRows().map(formatUsageOptionRow),
@@ -270,11 +242,9 @@ interface FormatSuccessSummaryOptions {
 	readonly descendantMaintenance: DescendantMaintenancePlan;
 	readonly warnings: readonly LandingWarning[];
 	readonly cleanup: RemainingCleanup;
-	readonly continuation?: LandingContinuationReport;
 }
 
 export function formatSuccessSummary(options: FormatSuccessSummaryOptions): string {
-	const continuation = options.continuation ?? { type: "not-requested" };
 	const warningEntries = options.warnings.filter(
 		(warning) => landingWarningLevel(warning) === "warning",
 	);
@@ -283,7 +253,6 @@ export function formatSuccessSummary(options: FormatSuccessSummaryOptions): stri
 	const lines = [
 		`Landed ${options.landed.length} PR${options.landed.length === 1 ? "" : "s"}: ${landedText}.`,
 	];
-	lines.push(...formatContinuationSummary(continuation));
 	if (
 		options.descendantMaintenance.type === "auto" &&
 		options.descendantMaintenance.branches.length > 0
@@ -335,48 +304,6 @@ export function formatSuccessSummary(options: FormatSuccessSummaryOptions): stri
 	return lines.join("\n");
 }
 
-function formatContinuationSummary(continuation: LandingContinuationReport): string[] {
-	switch (continuation.type) {
-		case "not-requested":
-			return [];
-		case "candidate":
-			return [`Upstack continuation available: would continue onto ${continuation.branch}.`];
-		case "continued":
-			return [
-				`Continued onto upstack branch ${continuation.branch}; original landed branch was ${continuation.originalBranchDeleted ? "deleted" : "preserved"}.`,
-			];
-		case "unavailable":
-			return [
-				`Upstack continuation unavailable: ${continuationUnavailableReason(continuation.reason)}; managed slot and landed local branch were preserved.`,
-			];
-		case "checkout-failed":
-			return [
-				`Upstack continuation did not complete: checkout of ${continuation.branch} failed; managed slot and landed local branch were preserved.`,
-			];
-		case "verification-failed":
-			return [
-				`Upstack continuation did not verify: expected ${continuation.branch}, found ${continuation.actualBranch}; landed local branch was preserved.`,
-			];
-		case "cleanup-failed":
-			return [
-				`Continued onto ${continuation.branch}, but cleanup of the landed local branch failed; the managed slot was preserved.`,
-			];
-	}
-}
-
-function continuationUnavailableReason(
-	reason: Extract<LandingContinuationReport, { readonly type: "unavailable" }>["reason"],
-): string {
-	switch (reason) {
-		case "no-child":
-			return "no immediate child exists";
-		case "multiple-children":
-			return "multiple immediate children exist";
-		case "lookup-failed":
-			return "child lookup failed";
-	}
-}
-
 function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
 	return warning.level ?? "warning";
 }
@@ -388,10 +315,7 @@ function hasDescendantMaintenanceWarning(warnings: LandingWarning[]): boolean {
 function hasDescendantMaintenanceDeferral(warnings: LandingWarning[]): boolean {
 	return warnings.some((warning) => {
 		const message = warning.message.toLowerCase();
-		return (
-			(message.includes("descendant") && message.includes("deferred")) ||
-			message.includes("surviving branches remain open for manual maintenance")
-		);
+		return message.includes("descendant") && message.includes("deferred");
 	});
 }
 
@@ -587,16 +511,14 @@ interface PresentDryRunLandingOptions {
 	ctx: LandStackCommandContext;
 	commandStream: LandStackCommandStream;
 	planText: string;
-	continuation: LandingContinuationReport;
 }
 
 export function presentDryRunLanding(options: PresentDryRunLandingOptions): void {
 	const message = "Dry run only; no PRs or local refs were changed.";
 	options.commandStream.finishSuccess(message);
-	const continuationText = formatContinuationSummary(options.continuation).join("\n");
 	present({
 		ctx: options.ctx,
-		message: [message, options.planText, continuationText].filter(Boolean).join("\n\n"),
+		message: [message, options.planText].filter(Boolean).join("\n\n"),
 		level: "info",
 		kind: "success",
 	});
@@ -694,7 +616,7 @@ export function landingCleanupChoiceLabels(preview: PostLandingSlotCleanupPrevie
 	readonly cancel: string;
 } {
 	return {
-		keep: `Land and keep ${preview.slotName} + local branch ${preview.branch}; leave survivors for manual maintenance (default)`,
+		keep: `Land, reconcile survivors, and keep ${preview.slotName} + local branch ${preview.branch} (default)`,
 		free:
 			preview.localBranchDisposition === "keep-trunk"
 				? `Land, reconcile survivors, free ${preview.slotName}, and keep local trunk branch ${preview.branch}`

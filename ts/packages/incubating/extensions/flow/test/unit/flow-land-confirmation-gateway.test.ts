@@ -209,8 +209,7 @@ describe("flow land confirmation gateway", () => {
 
 	test.each([
 		{
-			selected:
-				"Land and keep slot-02 + local branch feature-a; leave survivors for manual maintenance (default)",
+			selected: "Land, reconcile survivors, and keep slot-02 + local branch feature-a (default)",
 			expectedPolicy: "preserve",
 		},
 		{
@@ -242,7 +241,7 @@ describe("flow land confirmation gateway", () => {
 		expect(fixture.selections[0]).toMatchObject({
 			title: "Land and choose cleanup for slot-02?",
 			options: [
-				"Land and keep slot-02 + local branch feature-a; leave survivors for manual maintenance (default)",
+				"Land, reconcile survivors, and keep slot-02 + local branch feature-a (default)",
 				"Land, reconcile survivors, delete safely cleanable landed branches, and free slot-02",
 				"Cancel landing",
 			],

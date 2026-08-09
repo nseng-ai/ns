@@ -14,7 +14,6 @@ export type LandConfirmationRequest =
 	| {
 			readonly kind: "main-landing";
 			readonly plan: LandingPlan;
-			readonly postTargetMaintenance?: "reconcile" | "manual";
 			readonly cleanup?: PostLandingSlotCleanupPreview;
 			readonly cleanupChoice?: PostLandingSlotCleanupPreview;
 	  }

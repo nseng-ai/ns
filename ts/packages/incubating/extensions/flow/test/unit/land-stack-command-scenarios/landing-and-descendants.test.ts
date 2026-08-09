@@ -186,14 +186,14 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
 	});
-	test("default preserve lands selected PRs and leaves every survivor for manual maintenance", async () => {
+	test("default preserve reconciles survivors and retains landed branches", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
 				shas: BRANCH_SHAS,
 			}),
 			...mergeFeatureA(),
-			...mergeFeatureBThroughVerification(),
+			...mergeFeatureBWithForkedDescendants().slice(0, -4),
 		];
 		const { pi, notifications, messages } = await runLandStack("--yes", script, {
 			cleanupPolicy: "preserve",
@@ -212,33 +212,16 @@ describe("land-stack command scenarios", () => {
 				pi.execCalls.some(
 					(call) =>
 						call.command === "gt" &&
-						["get", "track"].includes(call.args[0] ?? "") &&
-						call.args[1] === branch,
-				),
-			).toBe(false);
-			expect(
-				pi.execCalls.some(
-					(call) =>
-						call.command === "gt" &&
 						["restack", "submit"].includes(call.args[0] ?? "") &&
 						call.args[2] === branch,
 				),
-			).toBe(false);
+			).toBe(true);
 		}
 		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
 			false,
 		);
-		expect(notifications.at(-1)?.level).toBe("warning");
-		const streamText = commandMessagesText(messages);
-		expect(streamText).toContain(
-			"Surviving branches remain open for manual maintenance: feature-c, feature-d.",
-		);
-		expect(streamText).toContain(
-			"gt get feature-c --downstack --no-restack --no-checkout --force --no-interactive",
-		);
-		expect(streamText).toContain("refresh, restack, and submit were not attempted");
-		expect(streamText).toContain("From the worktree that has main checked out");
-		expect(streamText).toContain("then inspect, restack, and update the surviving stack");
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
 	});
 	test("happy path restacks and updates multiple descendant roots above the current branch", async () => {
 		const script = [
@@ -812,7 +795,6 @@ describe("land-stack command scenarios", () => {
 				shouldSkipConfirmation: false,
 				isDryRun: false,
 				shouldFreeSlot: false,
-				shouldContinueUpstack: false,
 				shouldShowHelp: false,
 				shouldStreamVerboseOutput: false,
 			},
