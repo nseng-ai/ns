@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import type { ClinkrRawOutput } from "../raw/definition.ts";
 import type { ClinkrContextFreeApp, ClinkrContextfulApp, ClinkrOutput } from "./app.ts";
 
@@ -52,7 +54,7 @@ export async function runForCliTest<TContext>(
 		writeStderr: (bytes) => stderrBytes.push(Uint8Array.from(bytes)),
 	};
 	const runOptions = {
-		...(options.readJsonInput === undefined ? {} : { readJsonInput: options.readJsonInput }),
+		...optionalEntry("readJsonInput", options.readJsonInput),
 		canEmitAnsi: options.canEmitAnsi ?? false,
 		output,
 		rawOutput,
