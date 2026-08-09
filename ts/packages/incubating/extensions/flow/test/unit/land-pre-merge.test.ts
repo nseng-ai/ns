@@ -67,7 +67,7 @@ function plan(overrides: Partial<LandingPlan> = {}): LandingPlan {
 		],
 		submitRestackRequirements: [],
 		managedSlotConflicts: [SLOT],
-		descendantMaintenance: { type: "none", branches: [] },
+		descendantReconciliation: { type: "none", branches: [] },
 		...overrides,
 	};
 }

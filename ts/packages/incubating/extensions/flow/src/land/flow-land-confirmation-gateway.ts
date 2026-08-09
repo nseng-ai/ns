@@ -95,7 +95,7 @@ async function selectLandingCleanup(
 			? [
 					formatPlan(request.plan),
 					"",
-					"Both choices reconcile post-target survivors and fail nonzero if required reconciliation cannot complete.",
+					"Both choices reconcile surviving stack and fail nonzero if required reconciliation cannot complete.",
 					"Keep retains landed local branches and the managed slot. Free then cleans safely cleanable landed branches and frees the slot.",
 				].join("\n")
 			: formatSingleBranchMainLandingConfirmationDetails(request);

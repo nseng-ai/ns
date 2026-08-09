@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { createInMemoryLandContext, pullRequestFacts } from "../../src/land/testing.ts";
 import type { DescendantReconciliationOutcome } from "../../src/land/execution/descendant-reconciliation.ts";
-import { reconcilePostTargetSurvivors } from "../../src/land/execution/maintenance.ts";
+import { reconcilePostTargetSurvivors } from "../../src/land/execution/reconciliation.ts";
 import { LAND_BACKUP_RECOVERY_HINT } from "../../src/land/graphite-operations.ts";
 import type { InMemoryLandContextState } from "../../src/land/testing.ts";
 import {
@@ -13,7 +13,7 @@ import {
 	createLandingPlan,
 	createMergeLoopState,
 	createProgressRecorder,
-} from "./land-maintenance-test-support.ts";
+} from "./land-reconciliation-test-support.ts";
 
 type DescendantWarningGradeOutcome = Extract<DescendantReconciliationOutcome, { kind: "skip" }>;
 type DescendantCanReturnWarningGrade = DescendantWarningGradeOutcome extends never ? false : true;
@@ -29,7 +29,7 @@ describe("Descendant reconciliation", () => {
 			name: "halts required descendant reconciliation",
 			landingBranches: ["feature-a"],
 			descendantBranches: ["feature-c"],
-			descendantMaintenance: {
+			descendantReconciliation: {
 				type: "auto" as const,
 				branches: ["feature-c"],
 				targetBranches: ["feature-c"],
@@ -51,7 +51,7 @@ describe("Descendant reconciliation", () => {
 			createLandingPlan({
 				landingBranches: testCase.landingBranches,
 				descendantBranches: testCase.descendantBranches,
-				descendantMaintenance: testCase.descendantMaintenance,
+				descendantReconciliation: testCase.descendantReconciliation,
 			}),
 			[{ branch: "feature-a", number: 1, title: "feature-a" }],
 			createMergeLoopState([
@@ -61,7 +61,7 @@ describe("Descendant reconciliation", () => {
 		);
 
 		expect(outcome.kind).toBe(testCase.expectedKind);
-		if (outcome.kind === "proceed") throw new Error("expected moved-SHA maintenance stop");
+		if (outcome.kind === "proceed") throw new Error("expected moved-SHA reconciliation stop");
 		const diagnostic = outcome.kind === "halt" ? outcome.failure : outcome.warning;
 		expect(diagnostic?.message).toContain(
 			`local branch ${testCase.movedBranch} moved from bbbbbbb to ccccccc`,
@@ -104,7 +104,7 @@ describe("Descendant reconciliation", () => {
 			createLandingPlan({
 				landingBranches: ["feature-a"],
 				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
+				descendantReconciliation: {
 					type: "auto",
 					branches: ["feature-c"],
 					targetBranches: ["feature-c"],
@@ -119,7 +119,7 @@ describe("Descendant reconciliation", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
+			phase: "post-merge-stack-reconciliation",
 			failure: {
 				failedBranch: "feature-c",
 				message: expect.stringContaining(
@@ -168,7 +168,7 @@ describe("Descendant reconciliation", () => {
 			createLandingPlan({
 				landingBranches: ["feature-a"],
 				descendantBranches: ["feature-c", "feature-d"],
-				descendantMaintenance: {
+				descendantReconciliation: {
 					type: "auto",
 					branches: ["feature-c", "feature-d"],
 					targetBranches: ["feature-c", "feature-d"],
@@ -184,7 +184,7 @@ describe("Descendant reconciliation", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
+			phase: "post-merge-stack-reconciliation",
 			failure: { failedBranch: "feature-c" },
 		});
 		expect(fakes.graphite.refreshBranchFromRemoteCalls.map((call) => call.branch)).toEqual([
@@ -223,7 +223,7 @@ describe("Descendant reconciliation", () => {
 		const plan = createLandingPlan({
 			landingBranches: ["feature-a"],
 			descendantBranches: ["feature-c"],
-			descendantMaintenance: {
+			descendantReconciliation: {
 				type: "auto",
 				branches: ["feature-c"],
 				targetBranches: ["feature-c"],
@@ -243,7 +243,7 @@ describe("Descendant reconciliation", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
+			phase: "post-merge-stack-reconciliation",
 			failure: {
 				message: "PR #1 merged, but restack failed for descendant root feature-c.",
 				displayCommand: "gt restack custom feature-c",
@@ -282,7 +282,7 @@ describe("Descendant reconciliation", () => {
 			createLandingPlan({
 				landingBranches: ["feature-a"],
 				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
+				descendantReconciliation: {
 					type: "auto",
 					branches: ["feature-c"],
 					targetBranches: ["feature-c"],
@@ -297,7 +297,7 @@ describe("Descendant reconciliation", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
+			phase: "post-merge-stack-reconciliation",
 			failure: {
 				failedBranch: "feature-c",
 				message: expect.stringContaining(
@@ -324,7 +324,7 @@ describe("Descendant reconciliation", () => {
 			createLandingPlan({
 				landingBranches: ["feature-a"],
 				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
+				descendantReconciliation: {
 					type: "auto",
 					branches: ["feature-c"],
 					targetBranches: ["feature-c"],
@@ -344,7 +344,7 @@ describe("Descendant reconciliation", () => {
 				parent: "main",
 			},
 		]);
-		expect(outcome).toMatchObject({ kind: "halt", phase: "descendant-maintenance" });
+		expect(outcome).toMatchObject({ kind: "halt", phase: "post-merge-stack-reconciliation" });
 	});
 
 	test("zero-exit submit with stale remote facts fails reconciliation", async () => {
@@ -373,7 +373,7 @@ describe("Descendant reconciliation", () => {
 			createLandingPlan({
 				landingBranches: ["feature-a"],
 				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
+				descendantReconciliation: {
 					type: "auto",
 					branches: ["feature-c"],
 					targetBranches: ["feature-c"],
@@ -388,7 +388,7 @@ describe("Descendant reconciliation", () => {
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
+			phase: "post-merge-stack-reconciliation",
 			failure: {
 				failedBranch: "feature-c",
 				failedPrNumber: 3,
@@ -447,7 +447,7 @@ describe("Descendant reconciliation", () => {
 			createLandingPlan({
 				landingBranches: ["feature-a"],
 				descendantBranches: ["feature-c"],
-				descendantMaintenance: {
+				descendantReconciliation: {
 					type: "auto",
 					branches: ["feature-c"],
 					targetBranches: ["feature-c"],
@@ -479,7 +479,7 @@ describe("Descendant reconciliation", () => {
 				branchParents: { "feature-c": "feature-a", "feature-d": "feature-a" },
 			},
 		});
-		const outcome = await runTwoRootMaintenance(fakes);
+		const outcome = await runTwoRootReconciliation(fakes);
 
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(
@@ -527,11 +527,11 @@ describe("Descendant reconciliation", () => {
 				},
 			},
 		});
-		const outcome = await runTwoRootMaintenance(fakes);
+		const outcome = await runTwoRootReconciliation(fakes);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
+			phase: "post-merge-stack-reconciliation",
 			failure: {
 				failedBranch: "feature-d",
 				displayCommand: commandDisplay,
@@ -550,13 +550,13 @@ describe("Descendant reconciliation", () => {
 
 	test("guards every descendant root before mutating any root", async () => {
 		const fakes = createTwoRootReconciliationContext();
-		const outcome = await runTwoRootMaintenance(fakes, {
+		const outcome = await runTwoRootReconciliation(fakes, {
 			expectedFeatureDSha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
 		});
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
-			phase: "descendant-maintenance",
+			phase: "post-merge-stack-reconciliation",
 			failure: { failedBranch: "feature-d", message: expect.stringContaining("moved from") },
 		});
 		expect(fakes.graphite.refreshBranchFromRemoteCalls).toEqual([]);
@@ -567,7 +567,7 @@ describe("Descendant reconciliation", () => {
 
 	test("prepares every descendant root before publishing the first root", async () => {
 		const fakes = createTwoRootReconciliationContext();
-		const outcome = await runTwoRootMaintenance(fakes);
+		const outcome = await runTwoRootReconciliation(fakes);
 
 		expect(outcome).toEqual({ kind: "proceed" });
 		expect(
@@ -609,7 +609,7 @@ describe("Descendant reconciliation", () => {
 				},
 			},
 		});
-		const outcome = await runTwoRootMaintenance(fakes);
+		const outcome = await runTwoRootReconciliation(fakes);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -640,7 +640,7 @@ describe("Descendant reconciliation", () => {
 				},
 			},
 		});
-		const outcome = await runTwoRootMaintenance(fakes);
+		const outcome = await runTwoRootReconciliation(fakes);
 
 		expect(outcome).toMatchObject({
 			kind: "halt",
@@ -711,7 +711,7 @@ function createTwoRootReconciliationContext(
 	});
 }
 
-async function runTwoRootMaintenance(
+async function runTwoRootReconciliation(
 	fakes: ReturnType<typeof createTwoRootReconciliationContext>,
 	options: { readonly expectedFeatureDSha?: string } = {},
 ): Promise<Awaited<ReturnType<typeof reconcilePostTargetSurvivors>>> {
@@ -720,7 +720,7 @@ async function runTwoRootMaintenance(
 		createLandingPlan({
 			landingBranches: ["feature-a"],
 			descendantBranches: ["feature-c", "feature-d"],
-			descendantMaintenance: {
+			descendantReconciliation: {
 				type: "auto",
 				branches: ["feature-c", "feature-d"],
 				targetBranches: ["feature-c", "feature-d"],

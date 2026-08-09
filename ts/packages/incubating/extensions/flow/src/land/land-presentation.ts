@@ -52,7 +52,7 @@ import type { RemainingCleanup } from "./execution/merge-loop.ts";
 import type { PostLandingSlotCleanupPreview } from "./execution/post-landing-cleanup.ts";
 import { formatConflict, formatSlotConflict, slotFreeArgs } from "./worktree-paths.ts";
 import type {
-	DescendantMaintenancePlan,
+	DescendantReconciliationPlan,
 	LandedPullRequest,
 	LandingPlan,
 	LandingWarning,
@@ -135,7 +135,7 @@ export function formatPlan(plan: LandingPlan): string {
 	});
 
 	lines.push("");
-	lines.push(...formatDescendantMaintenancePlan(plan.descendantMaintenance));
+	lines.push(...formatDescendantReconciliationPlan(plan.descendantReconciliation));
 
 	if (stack.warnings.length > 0) {
 		lines.push("", "Warnings:");
@@ -198,23 +198,25 @@ export function formatPlan(plan: LandingPlan): string {
 	return lines.join("\n");
 }
 
-function formatDescendantMaintenancePlan(maintenance: DescendantMaintenancePlan): string[] {
-	if (maintenance.type === "none") {
+function formatDescendantReconciliationPlan(
+	reconciliation: DescendantReconciliationPlan,
+): string[] {
+	if (reconciliation.type === "none") {
 		return ["No descendant PRs above the current branch will be merged."];
 	}
 
-	if (maintenance.type === "auto") {
+	if (reconciliation.type === "auto") {
 		return [
 			"Will leave open and, after target PRs land, restack/update with verified postconditions (required for full completion):",
-			...maintenance.branches.map((branch) => `  - ${branch}`),
+			...reconciliation.branches.map((branch) => `  - ${branch}`),
 		];
 	}
 
 	return [
 		"Descendant reconciliation is blocked: these descendants are checked out in other worktrees and will NOT be restacked or updated:",
-		...maintenance.conflicts.map((conflict) => `  - ${formatConflict(conflict)}`),
-		"Approving this landing (interactively or with --yes) accepts deferred descendant maintenance: the merge proceeds, the blocked descendants are left stale, and the command finishes nonzero with branch-specific repair steps.",
-		"Full completion is impossible until those worktrees are freed/detached or deferred maintenance is explicitly accepted.",
+		...reconciliation.conflicts.map((conflict) => `  - ${formatConflict(conflict)}`),
+		"Approving this landing (interactively or with --yes) accepts deferred descendant reconciliation: the merge proceeds, the blocked descendants are left stale, and the command finishes nonzero with branch-specific repair steps.",
+		"Full completion is impossible until those worktrees are freed/detached or deferred reconciliation is explicitly accepted.",
 	];
 }
 
@@ -224,7 +226,7 @@ export function usage(): string {
 		`/${COMMAND_NAME} ${landUsageTokens().join(" ")}`,
 		"",
 		"Lands the current PR or Graphite stack into gt trunk.",
-		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and maintains descendants when possible.",
+		"Fast path requires Graphite to prove a single-branch PR shape. Stack path lands bottom branch through current branch, one PR at a time, and reconciles descendants when possible.",
 		"Stack mode requires a clean repo, non-draft open PRs, bottom PR based on gt trunk, and no landing-branch manual worktree conflicts. Required survivor reconciliation fails nonzero when it cannot complete.",
 		"After successful landing and survivor reconciliation, this command keeps the current managed slot and landed local branches by default. In selector-capable interactive hosts, execute-mode managed-slot landings offer keep, free, or cancel before merge. Pass --free to clean safely cleanable landed branches and free the slot after reconciliation.",
 		"",
@@ -239,7 +241,7 @@ function formatUsageOptionRow(row: { aliases: readonly string[]; description: st
 
 interface FormatSuccessSummaryOptions {
 	readonly landed: readonly LandedPullRequest[];
-	readonly descendantMaintenance: DescendantMaintenancePlan;
+	readonly descendantReconciliation: DescendantReconciliationPlan;
 	readonly warnings: readonly LandingWarning[];
 	readonly cleanup: RemainingCleanup;
 }
@@ -254,25 +256,25 @@ export function formatSuccessSummary(options: FormatSuccessSummaryOptions): stri
 		`Landed ${options.landed.length} PR${options.landed.length === 1 ? "" : "s"}: ${landedText}.`,
 	];
 	if (
-		options.descendantMaintenance.type === "auto" &&
-		options.descendantMaintenance.branches.length > 0
+		options.descendantReconciliation.type === "auto" &&
+		options.descendantReconciliation.branches.length > 0
 	) {
-		if (hasDescendantMaintenanceDeferral(noteEntries)) {
+		if (hasDescendantReconciliationDeferral(noteEntries)) {
 			lines.push(
-				`Left open; restack/update deferred: ${options.descendantMaintenance.branches.join(", ")}.`,
+				`Left open; restack/update deferred: ${options.descendantReconciliation.branches.join(", ")}.`,
 			);
-		} else if (hasDescendantMaintenanceWarning(warningEntries)) {
+		} else if (hasDescendantReconciliationWarning(warningEntries)) {
 			lines.push(
-				`Left open; restack/update needs follow-up: ${options.descendantMaintenance.branches.join(", ")}.`,
+				`Left open; restack/update needs follow-up: ${options.descendantReconciliation.branches.join(", ")}.`,
 			);
 		} else {
-			lines.push(`Left open/restacked: ${options.descendantMaintenance.branches.join(", ")}.`);
+			lines.push(`Left open/restacked: ${options.descendantReconciliation.branches.join(", ")}.`);
 		}
-	} else if (options.descendantMaintenance.type === "blocked") {
+	} else if (options.descendantReconciliation.type === "blocked") {
 		lines.push(
-			`Left open; restack/update blocked: ${options.descendantMaintenance.branches.join(", ")}.`,
+			`Left open; restack/update blocked: ${options.descendantReconciliation.branches.join(", ")}.`,
 		);
-		lines.push(`Reason: ${options.descendantMaintenance.reason}.`);
+		lines.push(`Reason: ${options.descendantReconciliation.reason}.`);
 	}
 	lines.push("", "Remaining cleanup:");
 	lines.push("  - Remote branches were not deleted.");
@@ -308,11 +310,11 @@ function landingWarningLevel(warning: LandingWarning): "warning" | "info" {
 	return warning.level ?? "warning";
 }
 
-function hasDescendantMaintenanceWarning(warnings: LandingWarning[]): boolean {
+function hasDescendantReconciliationWarning(warnings: LandingWarning[]): boolean {
 	return warnings.some((warning) => warning.message.toLowerCase().includes("descendant"));
 }
 
-function hasDescendantMaintenanceDeferral(warnings: LandingWarning[]): boolean {
+function hasDescendantReconciliationDeferral(warnings: LandingWarning[]): boolean {
 	return warnings.some((warning) => {
 		const message = warning.message.toLowerCase();
 		return message.includes("descendant") && message.includes("deferred");

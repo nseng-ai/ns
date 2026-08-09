@@ -632,7 +632,11 @@ describe("land-stack pure helpers", () => {
 					type: "managed-slot",
 				},
 			],
-			descendantMaintenance: { type: "auto", branches: [DESCENDANT], targetBranches: [DESCENDANT] },
+			descendantReconciliation: {
+				type: "auto",
+				branches: [DESCENDANT],
+				targetBranches: [DESCENDANT],
+			},
 		};
 		const formatted = formatPlan(plan);
 		expect(formatted).toContain("Land Graphite stack path: main -> feature-a -> feature-b");
@@ -991,7 +995,7 @@ describe("land-stack pure helpers", () => {
 					warnings: [
 						{
 							level: "info",
-							message: "Deferred optional maintenance.",
+							message: "Deferred optional reconciliation.",
 							suggestedAction: "Restack later.",
 						},
 					],

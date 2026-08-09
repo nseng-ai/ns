@@ -105,14 +105,14 @@ reshaped stack.
   remain ordinary Git worktrees.
 - `land` uses GitHub squash merge and requires `gh` authentication with permission
   to merge the target PRs. The repository must allow squash merges. Other merge
-  strategies are not part of the current land contract. Landing always performs required
-  maintenance between selected PRs and reconciles the surviving stack after the final
-  selected PR. By default, successful landing preserves landed local branches and the
-  current managed slot after reconciliation. Selector-capable interactive hosts offer keep,
-  free, or cancel before merge. Pass `--free` to delete safely cleanable landed branches
-  after successful reconciliation and then free the slot. Reconciliation or branch-cleanup
-  failure reports nonzero partial completion, identifies PRs that already landed, and does
-  not free the slot.
+  strategies are not part of the current land contract. After each successful PR merge,
+  Flow performs Post-Merge Stack Reconciliation for the remaining stack before landing
+  proceeds or completes. By default, successful landing preserves landed local branches and
+  the current managed slot after reconciliation. Selector-capable interactive hosts offer
+  keep, free, or cancel before merge. Pass `--free` to run the separate Landed-Branch Cleanup
+  operation after successful reconciliation and then free the slot. Reconciliation or
+  cleanup failure reports nonzero partial completion, identifies PRs that already landed,
+  and does not free the slot.
 - The hidden agent-facing exec surface has one operation:
   `ns flow exec read-graphite-branch-metadata`, which reads Graphite's branch
   metadata database through a controlled `sqlite3` query.

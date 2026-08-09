@@ -143,7 +143,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 				],
 				cleanup: {
 					preMergeFreedSlots: [],
-					mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
+					landedBranchCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
 					postLandingSlotCleanup: { type: "not-applicable" },
 				},
 				plan: {
@@ -282,7 +282,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 		});
 	});
 
-	test("keeps managed landing-slot conflicts in the plan and marks blocked descendant maintenance", async () => {
+	test("keeps managed landing-slot conflicts in the plan and marks blocked descendant reconciliation", async () => {
 		const { context } = createInMemoryLandContext({
 			git: { localBranches: [{ name: "feature-a", sha: SHA_A }] },
 			graphite: {
@@ -313,7 +313,7 @@ describe("@nseng-ai/flow land stack preflight planning", () => {
 				managedSlotConflicts: [
 					{ type: "managed-slot", branch: "feature-a", path: "/slot-a", slotName: "slot-a" },
 				],
-				descendantMaintenance: {
+				descendantReconciliation: {
 					type: "blocked",
 					branches: ["feature-child"],
 					conflicts: [{ type: "managed-slot", branch: "feature-child", path: "/slot-child" }],

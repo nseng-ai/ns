@@ -7,7 +7,7 @@ import { operationInProgressLabel } from "./working-tree-operations.ts";
 
 import type {
 	BranchLandingPlan,
-	DescendantMaintenancePlan,
+	DescendantReconciliationPlan,
 	LandContext,
 	LandOutcome,
 	LandResult,
@@ -117,7 +117,7 @@ export async function buildStackLandingPlan(
 	if (submitRestackRequirements.type === "failure") return submitRestackRequirements;
 
 	const preflightWarnings = [...stack.warnings];
-	const descendantMaintenance = buildDescendantMaintenancePlan(
+	const descendantReconciliation = buildDescendantReconciliationPlan(
 		descendantBranches,
 		descendantConflicts.value,
 		stack.descendantRootBranches,
@@ -138,7 +138,7 @@ export async function buildStackLandingPlan(
 		managedSlotConflicts: landingConflicts.value.filter(
 			(conflict) => conflict.type === "managed-slot",
 		),
-		descendantMaintenance,
+		descendantReconciliation,
 	});
 }
 
@@ -374,7 +374,7 @@ export function validateOpenPrBasics(
 }
 
 /** Whether GitHub proves an open PR has the expected local head and base branch. */
-export function isMaintenancePrCurrent(options: {
+export function isReconciliationPrCurrent(options: {
 	readonly pr: PullRequestFacts;
 	readonly branch: string;
 	readonly localSha: string;
@@ -599,11 +599,11 @@ async function classifyConflict(
 	});
 }
 
-export function buildDescendantMaintenancePlan(
+export function buildDescendantReconciliationPlan(
 	descendantBranches: readonly string[],
 	conflicts: readonly WorktreeConflict[],
 	descendantRootBranches: readonly string[],
-): DescendantMaintenancePlan {
+): DescendantReconciliationPlan {
 	if (descendantBranches.length === 0) return { type: "none", branches: [] };
 	const targetBranches = [...descendantRootBranches];
 	const blockingConflicts = conflicts.filter((conflict) => conflict.type !== "current");

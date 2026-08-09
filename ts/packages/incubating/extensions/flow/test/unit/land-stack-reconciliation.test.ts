@@ -2,12 +2,12 @@ import { describe, expect, test } from "vitest";
 import { createInMemoryLandContext, pullRequestFacts } from "../../src/land/testing.ts";
 import {
 	cleanUpLandedBranches,
-	maintainBetweenLandingTargets,
-} from "../../src/land/execution/maintenance.ts";
+	reconcileStackAfterMerge,
+} from "../../src/land/execution/reconciliation.ts";
 import {
-	planGraphiteMaintenanceTargets,
+	planPostMergeStackReconciliationTargets,
 	refreshTargetsAfterMaintainedBranch,
-} from "../../src/land/execution/maintenance-plan.ts";
+} from "../../src/land/execution/reconciliation-plan.ts";
 import {
 	FEATURE_A_SHA,
 	FEATURE_B_SHA,
@@ -15,20 +15,20 @@ import {
 	createLandingPlan,
 	createMergeLoopState,
 	createProgressRecorder,
-} from "./land-maintenance-test-support.ts";
+} from "./land-reconciliation-test-support.ts";
 
-describe("Graphite maintenance planning", () => {
+describe("Graphite reconciliation planning", () => {
 	test("selects the next landing target before descendants", () => {
 		const plan = createLandingPlan({
 			landingBranches: ["feature-a", "feature-b"],
 			descendantBranches: ["feature-c"],
-			descendantMaintenance: {
+			descendantReconciliation: {
 				type: "auto",
 				branches: ["feature-c"],
 				targetBranches: ["feature-c"],
 			},
 		});
-		expect(planGraphiteMaintenanceTargets(plan, 0)).toEqual({
+		expect(planPostMergeStackReconciliationTargets(plan, 0)).toEqual({
 			mode: "required-next-landing",
 			branches: ["feature-b"],
 		});
@@ -40,8 +40,8 @@ describe("Graphite maintenance planning", () => {
 	});
 });
 
-describe("named landing maintenance operations", () => {
-	test("between-target maintenance refreshes, restacks, and submits without reparenting or deletion", async () => {
+describe("named landing reconciliation operations", () => {
+	test("Post-Merge Stack Reconciliation refreshes, restacks, and submits without reparenting or deletion", async () => {
 		const fakes = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -64,7 +64,7 @@ describe("named landing maintenance operations", () => {
 			["feature-a", FEATURE_A_SHA],
 			["feature-b", FEATURE_B_SHA],
 		]);
-		const outcome = await maintainBetweenLandingTargets(
+		const outcome = await reconcileStackAfterMerge(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
 			{
 				plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
@@ -86,7 +86,7 @@ describe("named landing maintenance operations", () => {
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
-	test("between-target maintenance guards the expected SHA before mutation", async () => {
+	test("Post-Merge Stack Reconciliation guards the expected SHA before mutation", async () => {
 		const movedSha = "cccccccccccccccccccccccccccccccccccccccc";
 		const fakes = createInMemoryLandContext({
 			git: {
@@ -96,7 +96,7 @@ describe("named landing maintenance operations", () => {
 				],
 			},
 		});
-		const outcome = await maintainBetweenLandingTargets(
+		const outcome = await reconcileStackAfterMerge(
 			{ land: fakes.context, progress: createProgressRecorder().progress },
 			{
 				plan: createLandingPlan({ landingBranches: ["feature-a", "feature-b"] }),
@@ -166,7 +166,7 @@ describe("named landing maintenance operations", () => {
 				branchChildrenFailure: {
 					type: "boundary",
 					source: "graphite",
-					phase: "merge-maintenance-cleanup",
+					phase: "landed-branch-cleanup",
 					code: "branch_children_failed",
 					message: "could not read Graphite metadata",
 				},

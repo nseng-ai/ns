@@ -180,10 +180,13 @@ function renderStackCompletion(caps: Caps, report: LandingExecutionReport): stri
 	const landed = report.landedChunks.flatMap((chunk) => [...chunk.landed]);
 	const summary = formatSuccessSummary({
 		landed,
-		descendantMaintenance: report.plan?.descendantMaintenance ?? { type: "none", branches: [] },
+		descendantReconciliation: report.plan?.descendantReconciliation ?? {
+			type: "none",
+			branches: [],
+		},
 		warnings: report.warnings,
 		cleanup: {
-			retainedLocalBranches: [...report.cleanup.mergeMaintenanceCleanup.retainedLocalBranches],
+			retainedLocalBranches: [...report.cleanup.landedBranchCleanup.retainedLocalBranches],
 		},
 	});
 	return renderSuccess(

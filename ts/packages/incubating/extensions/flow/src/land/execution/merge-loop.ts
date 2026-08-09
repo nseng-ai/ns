@@ -16,8 +16,11 @@ import {
 import type { LandExecutionContext } from "./execution-context.ts";
 import type { LandExecutionProgress, LandExecutionStep } from "./host-seams.ts";
 import { isVerifiedMergedPullRequest } from "./merged-pull-request-verification.ts";
-import { maintainBetweenLandingTargets } from "./maintenance.ts";
-import { planGraphiteMaintenanceTargets, type MaintenanceMode } from "./maintenance-plan.ts";
+import { reconcileStackAfterMerge } from "./reconciliation.ts";
+import {
+	planPostMergeStackReconciliationTargets,
+	type ReconciliationMode,
+} from "./reconciliation-plan.ts";
 
 export interface RemainingCleanup {
 	retainedLocalBranches: RetainedLocalBranchCleanup[];
@@ -53,8 +56,8 @@ export async function prepareMergeLoopState(
 	});
 }
 
-/** Observed descendant-maintenance outcome; never inferred from plan shape alone. */
-export type ObservedDescendantMaintenance =
+/** Observed post-merge-stack-reconciliation outcome; never inferred from plan shape alone. */
+export type ObservedStackReconciliation =
 	| { readonly type: "not-attempted" }
 	| { readonly type: "completed" }
 	| { readonly type: "skipped"; readonly reason: string };
@@ -66,20 +69,20 @@ export interface MergeLoopObservations {
 		readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
 	};
 	readonly deletedLocalBranches: readonly string[];
-	readonly descendantMaintenance: ObservedDescendantMaintenance;
+	readonly stackReconciliation: ObservedStackReconciliation;
 }
 
 export type MergeLoopResult =
 	| {
 			readonly type: "success";
 			readonly landed: readonly LandedPullRequest[];
-			readonly maintenanceState: MergeLoopState;
+			readonly reconciliationState: MergeLoopState;
 	  }
 	| {
 			readonly type: "failure";
 			readonly observations: MergeLoopObservations;
 			readonly failure: LandingFailure;
-			/** Truthful landing phase of the failure: post-merge maintenance failures are never `merge`. */
+			/** Truthful landing phase of the failure: post-merge reconciliation failures are never `merge`. */
 			readonly failedPhase: LandingPhase;
 	  };
 
@@ -114,7 +117,9 @@ export async function runMergeLoop(
 	const { plan } = options;
 	const { repoRoot, stack } = plan;
 	const landed: LandedPullRequest[] = [];
-	let observedDescendantMaintenance: ObservedDescendantMaintenance = { type: "not-attempted" };
+	let observedStackReconciliation: ObservedStackReconciliation = {
+		type: "not-attempted",
+	};
 	const preparedState = await prepareMergeLoopState({
 		context,
 		repoRoot,
@@ -135,7 +140,7 @@ export async function runMergeLoop(
 					cleanup: { retainedLocalBranches: [] },
 					deletedLocalBranches: [],
 				},
-				observedDescendantMaintenance,
+				observedStackReconciliation,
 			),
 			failure: preparedState.failure,
 			failedPhase: "merge",
@@ -167,7 +172,7 @@ export async function runMergeLoop(
 			},
 		});
 		if (gated.type === "failure") {
-			return mergeLoopFailure(gated.failure, landed, state, observedDescendantMaintenance);
+			return mergeLoopFailure(gated.failure, landed, state, observedStackReconciliation);
 		}
 		const currentPr = gated.value;
 		const merged = await withExecutionStep({
@@ -187,7 +192,7 @@ export async function runMergeLoop(
 			},
 		});
 		if (merged.type === "failure") {
-			return mergeLoopFailure(merged.failure, landed, state, observedDescendantMaintenance);
+			return mergeLoopFailure(merged.failure, landed, state, observedStackReconciliation);
 		}
 		const verified = await withExecutionStep({
 			progress,
@@ -231,7 +236,7 @@ export async function runMergeLoop(
 			},
 		});
 		if (verified.type === "failure") {
-			return mergeLoopFailure(verified.failure, landed, state, observedDescendantMaintenance);
+			return mergeLoopFailure(verified.failure, landed, state, observedStackReconciliation);
 		}
 		const prUrl = verified.value.url ?? currentPr.url;
 		const landedPullRequest = {
@@ -250,30 +255,30 @@ export async function runMergeLoop(
 			progress.setStep(branch, "restack", "skipped");
 			continue;
 		}
-		const maintenance = await maintainBetweenLandingTargets(executionContext, {
+		const reconciliation = await reconcileStackAfterMerge(executionContext, {
 			plan,
 			step: { index, branch, prNumber: currentPr.number, state },
 		});
-		observedDescendantMaintenance = reduceDescendantMaintenanceObservation(
-			observedDescendantMaintenance,
-			observeDescendantMaintenance(
-				planGraphiteMaintenanceTargets(plan, index).mode,
-				maintenance.kind,
+		observedStackReconciliation = reduceStackReconciliationObservation(
+			observedStackReconciliation,
+			observeStackReconciliation(
+				planPostMergeStackReconciliationTargets(plan, index).mode,
+				reconciliation.kind,
 			),
 		);
-		if (maintenance.kind === "halt") {
+		if (reconciliation.kind === "halt") {
 			progress.setStep(branch, "restack", "failed");
 			return mergeLoopFailure(
-				maintenance.failure,
+				reconciliation.failure,
 				landed,
 				state,
-				observedDescendantMaintenance,
-				maintenance.phase,
+				observedStackReconciliation,
+				reconciliation.phase,
 			);
 		}
-		if (maintenance.kind === "skip") {
+		if (reconciliation.kind === "skip") {
 			progress.setStep(branch, "restack", "skipped");
-			if (maintenance.warning !== undefined) state.warnings.push(maintenance.warning);
+			if (reconciliation.warning !== undefined) state.warnings.push(reconciliation.warning);
 		} else {
 			progress.setStep(branch, "restack", "done");
 		}
@@ -281,26 +286,26 @@ export async function runMergeLoop(
 	return {
 		type: "success",
 		landed: [...landed],
-		maintenanceState: state,
+		reconciliationState: state,
 	};
 }
 
-export function reduceDescendantMaintenanceObservation(
-	previous: ObservedDescendantMaintenance,
-	next: ObservedDescendantMaintenance | undefined,
-): ObservedDescendantMaintenance {
+export function reduceStackReconciliationObservation(
+	previous: ObservedStackReconciliation,
+	next: ObservedStackReconciliation | undefined,
+): ObservedStackReconciliation {
 	return next ?? previous;
 }
 
-function observeDescendantMaintenance(
-	mode: MaintenanceMode,
+function observeStackReconciliation(
+	mode: ReconciliationMode,
 	kind: "proceed" | "skip" | "halt",
-): ObservedDescendantMaintenance | undefined {
+): ObservedStackReconciliation | undefined {
 	switch (mode) {
 		case "required-next-landing":
 			return undefined;
 		case "none":
-			return { type: "skipped", reason: "no descendant branches require maintenance" };
+			return { type: "skipped", reason: "no descendant branches require reconciliation" };
 		case "blocked-descendants":
 			return undefined;
 		case "required-descendants":
@@ -317,14 +322,14 @@ interface MergeLoopObservationSource {
 function snapshotMergeLoopObservations(
 	landed: readonly LandedPullRequest[],
 	source: MergeLoopObservationSource,
-	descendantMaintenance: ObservedDescendantMaintenance,
+	stackReconciliation: ObservedStackReconciliation,
 ): MergeLoopObservations {
 	return {
 		landed: [...landed],
 		warnings: [...source.warnings],
 		cleanup: { retainedLocalBranches: [...source.cleanup.retainedLocalBranches] },
 		deletedLocalBranches: [...source.deletedLocalBranches],
-		descendantMaintenance,
+		stackReconciliation,
 	};
 }
 
@@ -332,7 +337,7 @@ function mergeLoopFailure(
 	failure: LandingFailure,
 	landed: readonly LandedPullRequest[],
 	state: MergeLoopState,
-	descendantMaintenance: ObservedDescendantMaintenance,
+	stackReconciliation: ObservedStackReconciliation,
 	failedPhase: LandingPhase = "merge",
 ): MergeLoopResult {
 	return {
@@ -344,7 +349,7 @@ function mergeLoopFailure(
 				cleanup: state.cleanup,
 				deletedLocalBranches: state.deletedBranches,
 			},
-			descendantMaintenance,
+			stackReconciliation,
 		),
 		failure,
 		failedPhase,

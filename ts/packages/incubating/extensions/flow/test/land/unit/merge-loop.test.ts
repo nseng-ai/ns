@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { nullLandExecutionProgress } from "../../../src/land/execution/host-seams.ts";
 import {
 	prepareMergeLoopState,
-	reduceDescendantMaintenanceObservation,
+	reduceStackReconciliationObservation,
 	runMergeLoop,
 } from "../../../src/land/execution/merge-loop.ts";
 import {
@@ -57,7 +57,7 @@ function plan(options: {
 	landingBranches: readonly string[];
 	remainingLandingBranches?: readonly string[];
 	descendantBranches?: readonly string[];
-	descendantMaintenance?: LandingPlan["descendantMaintenance"];
+	descendantReconciliation?: LandingPlan["descendantReconciliation"];
 }): LandingPlan {
 	const descendantBranches = options.descendantBranches ?? [];
 	return {
@@ -84,7 +84,7 @@ function plan(options: {
 		prSubmitRequirements: [],
 		submitRestackRequirements: [],
 		managedSlotConflicts: [],
-		descendantMaintenance: options.descendantMaintenance ?? { type: "none", branches: [] },
+		descendantReconciliation: options.descendantReconciliation ?? { type: "none", branches: [] },
 	};
 }
 
@@ -138,10 +138,10 @@ describe("merge loop preparation", () => {
 	});
 });
 
-describe("descendant maintenance observation reduction", () => {
+describe("descendant reconciliation observation reduction", () => {
 	test("later defined observation wins", () => {
 		expect(
-			reduceDescendantMaintenanceObservation(
+			reduceStackReconciliationObservation(
 				{ type: "skipped", reason: "earlier" },
 				{ type: "completed" },
 			),
@@ -150,7 +150,7 @@ describe("descendant maintenance observation reduction", () => {
 
 	test("later absent observation preserves the previous observation", () => {
 		const previous = { type: "completed" } as const;
-		expect(reduceDescendantMaintenanceObservation(previous, undefined)).toBe(previous);
+		expect(reduceStackReconciliationObservation(previous, undefined)).toBe(previous);
 	});
 });
 
@@ -180,7 +180,7 @@ describe("merge loop over LandContext", () => {
 				{ branch: "feature-a", number: 1, title: "Land feature-a" },
 				{ branch: "feature-b", number: 2, title: "Land feature-b" },
 			],
-			maintenanceState: {
+			reconciliationState: {
 				warnings: [WARNING],
 				cleanup: { retainedLocalBranches: [] },
 			},
@@ -202,14 +202,14 @@ describe("merge loop over LandContext", () => {
 			"github.pullRequestFacts:2",
 		]);
 		if (result.type !== "success") return;
-		expect([...result.maintenanceState.deletedBranches]).toEqual([]);
+		expect([...result.reconciliationState.deletedBranches]).toEqual([]);
 		expect(memory.git.snapshotBackupRefsCalls).toHaveLength(1);
 		const firstEventRead = memory.callEvents;
 		expect(memory.callEvents).not.toBe(firstEventRead);
 		expect(memory.callEvents[0]).not.toBe(firstEventRead[0]);
 	});
 
-	test("snapshots remaining landing branches before bounded landing maintenance", async () => {
+	test("snapshots remaining landing branches before bounded landing reconciliation", async () => {
 		const memory = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -265,7 +265,7 @@ describe("merge loop over LandContext", () => {
 				warnings: [],
 				cleanup: { retainedLocalBranches: [] },
 				deletedLocalBranches: [],
-				descendantMaintenance: { type: "not-attempted" },
+				stackReconciliation: { type: "not-attempted" },
 			},
 			failure: boundaryFailure("snapshot failed"),
 			failedPhase: "merge",
@@ -302,7 +302,7 @@ describe("merge loop over LandContext", () => {
 				warnings: [WARNING],
 				cleanup: { retainedLocalBranches: [] },
 				deletedLocalBranches: [],
-				descendantMaintenance: { type: "not-attempted" },
+				stackReconciliation: { type: "not-attempted" },
 			},
 			failure: { failedBranch: "feature-b", failedPrNumber: 2 },
 		});
@@ -401,7 +401,7 @@ describe("merge loop over LandContext", () => {
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
-	test("does not perform post-target descendant reconciliation", async () => {
+	test("does not perform Post-Merge Stack Reconciliation", async () => {
 		const memory = createInMemoryLandContext({
 			git: {
 				localBranches: [
@@ -427,7 +427,7 @@ describe("merge loop over LandContext", () => {
 				plan: plan({
 					landingBranches: ["feature-a"],
 					descendantBranches: ["descendant"],
-					descendantMaintenance: {
+					descendantReconciliation: {
 						type: "auto",
 						branches: ["descendant"],
 						targetBranches: ["descendant"],
@@ -447,7 +447,7 @@ describe("merge loop over LandContext", () => {
 		expect(memory.graphite.submitUpdateCalls).toEqual([]);
 	});
 
-	test("required maintenance halt stops after the landed branch", async () => {
+	test("required reconciliation halt stops after the landed branch", async () => {
 		const memory = createInMemoryLandContext({
 			git: {
 				localBranches: [

@@ -13,7 +13,7 @@ export function createLandingPlan(options: {
 	readonly landingBranches: readonly string[];
 	readonly remainingLandingBranches?: readonly string[];
 	readonly descendantBranches?: readonly string[];
-	readonly descendantMaintenance?: LandingPlan["descendantMaintenance"];
+	readonly descendantReconciliation?: LandingPlan["descendantReconciliation"];
 }): LandingPlan {
 	const firstLandingBranch = options.landingBranches[0] ?? "feature-a";
 	return {
@@ -39,7 +39,7 @@ export function createLandingPlan(options: {
 		prSubmitRequirements: [],
 		submitRestackRequirements: [],
 		managedSlotConflicts: [],
-		descendantMaintenance: options.descendantMaintenance ?? { type: "none", branches: [] },
+		descendantReconciliation: options.descendantReconciliation ?? { type: "none", branches: [] },
 	};
 }
 

@@ -223,7 +223,7 @@ describe("land-stack command scenarios", () => {
 			false,
 		);
 	});
-	test("--dry-run treats descendant sdl slot checkouts as skipped maintenance", async () => {
+	test("--dry-run treats descendant sdl slot checkouts as skipped reconciliation", async () => {
 		const descendantSlotPath = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-07";
 		const { pi, notifications, confirmations } = await runLandStack(
 			"--dry-run",
@@ -242,7 +242,7 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(notifications[0]?.message).toContain("slot-07 feature-c");
 		expect(notifications[0]?.message).toContain(
-			"Full completion is impossible until those worktrees are freed/detached or deferred maintenance is explicitly accepted.",
+			"Full completion is impossible until those worktrees are freed/detached or deferred reconciliation is explicitly accepted.",
 		);
 		expect(pi.execCalls.some((call) => call.command === "slot")).toBe(false);
 		expect(pi.execCalls.some((call) => call.command === "gh" && call.args[1] === "merge")).toBe(

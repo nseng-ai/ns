@@ -36,7 +36,7 @@ const LAND_API_RUNTIME_ALLOWLIST = [
 	"LAND_EXTENSION_METADATA",
 	"LAND_PACKAGE_NAME",
 	"boundaryFailureDiagnostics",
-	"buildDescendantMaintenancePlan",
+	"buildDescendantReconciliationPlan",
 	"buildStackLandingPlan",
 	"collectPrSubmitRequirements",
 	"collectSubmitRestackRequirements",

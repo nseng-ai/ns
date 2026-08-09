@@ -15,7 +15,7 @@ const LANDING_CANCELLED_MESSAGE = "Cancelled before merge; no PRs were landed.";
 
 export type PreMergeConfirmation = "prompt" | "already-approved";
 
-export interface PreMergeMaintenanceOptions {
+export interface PreMergeReconciliationOptions {
 	runtime: StackLandingRuntime;
 	ctx: LandStackCommandContext;
 	progress: LandProgressReporter;
@@ -75,7 +75,7 @@ export async function confirmLandStackAction(
 	return landOutcomeFailure(failure);
 }
 
-interface ConfirmPreMergeMaintenanceOptions {
+interface ConfirmPreMergeReconciliationOptions {
 	ctx: LandStackCommandContext;
 	confirmation?: PreMergeConfirmation;
 	title: string;
@@ -84,8 +84,8 @@ interface ConfirmPreMergeMaintenanceOptions {
 	nonInteractiveFailureOptions?: LandingExecutionFailureOptions;
 }
 
-export async function confirmPreMergeMaintenance(
-	options: ConfirmPreMergeMaintenanceOptions,
+export async function confirmPreMergeReconciliation(
+	options: ConfirmPreMergeReconciliationOptions,
 ): Promise<LandOutcome> {
 	return await confirmLandStackAction({
 		ctx: options.ctx,

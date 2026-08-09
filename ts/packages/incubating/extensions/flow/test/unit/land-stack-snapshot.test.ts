@@ -173,7 +173,7 @@ describe("loadStackSnapshot reconciles Graphite metadata against live local refs
 		).toBe(true);
 	});
 
-	test("does not maintain a live branch from a stale child link", async () => {
+	test("does not reconcile a live branch from a stale child link", async () => {
 		const dbRows = metadataDbJson([
 			{ branch: TRUNK, children: ["feature-a", "separate"], trunk: true },
 			{ branch: "feature-a", parent: TRUNK, children: ["feature-b"] },

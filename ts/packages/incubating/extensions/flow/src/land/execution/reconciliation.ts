@@ -1,8 +1,8 @@
-// Ordinary post-merge Graphite maintenance and workflow dispatch.
+// Ordinary post-merge Graphite reconciliation and workflow dispatch.
 
 import type { ExecResult } from "@nseng-ai/foundation/command";
 import { LAND_BACKUP_RECOVERY_HINT, parseGitCheckedOutElsewhere } from "../graphite-operations.ts";
-import { isMaintenancePrCurrent } from "../preflight.ts";
+import { isReconciliationPrCurrent } from "../preflight.ts";
 import { landingExecutionFailure } from "../results.ts";
 import type {
 	LandedPullRequest,
@@ -15,47 +15,44 @@ import type { LandExecutionContext } from "./execution-context.ts";
 import { reconcileDescendantRoots } from "./descendant-reconciliation.ts";
 import type { MergeLoopState } from "./merge-loop.ts";
 import {
-	blockedDescendantMaintenanceFailure,
+	blockedDescendantReconciliationFailure,
 	formatCheckedOutElsewhere,
 	formatRestackFailureMessage,
 	formatSubmitFailureMessage,
-	planGraphiteMaintenanceTargets,
-	planPostTargetMaintenance,
-	type RequiredNextLandingMaintenance,
-} from "./maintenance-plan.ts";
+	planPostMergeStackReconciliationTargets,
+	planPostMergeStackReconciliation,
+	type RequiredNextLandingReconciliation,
+} from "./reconciliation-plan.ts";
 import {
 	checkBranchBeforeDelete,
 	guardForcedRefresh,
 	localBranchDeletionFailure,
 	repairGraphiteBranchParent,
-} from "./maintenance-safety.ts";
+} from "./reconciliation-safety.ts";
 
-interface GraphiteMaintenanceStep {
+interface StackReconciliationStep {
 	readonly index: number;
 	readonly branch: string;
 	readonly prNumber: number;
 	readonly state: MergeLoopState;
 }
 
-/** Phase a post-merge maintenance halt is attributed to in the landing report. */
-export type MaintenanceHaltPhase =
-	| "post-target-maintenance"
-	| "descendant-maintenance"
-	| "merge-maintenance-cleanup";
+/** Phase a post-merge reconciliation halt is attributed to in the landing report. */
+export type ReconciliationHaltPhase = "post-merge-stack-reconciliation" | "landed-branch-cleanup";
 
-type GraphiteMaintenanceOutcome =
+type StackReconciliationOutcome =
 	| { kind: "proceed" }
 	| { kind: "skip"; warning?: LandingWarning }
 	| { kind: "halt"; failure: LandingExecutionFailure };
 
-export type PerformedGraphiteMaintenance =
+export type PerformedStackReconciliation =
 	| { kind: "proceed" }
 	| { kind: "skip"; warning?: LandingWarning }
-	| { kind: "halt"; failure: LandingExecutionFailure; phase: MaintenanceHaltPhase };
+	| { kind: "halt"; failure: LandingExecutionFailure; phase: ReconciliationHaltPhase };
 
 interface GraphiteRefreshFailureOptions {
 	prNumber: number;
-	maintenanceBranch: string;
+	reconciliationBranch: string;
 	getCommandDisplay: string;
 	got: ExecResult;
 }
@@ -63,15 +60,15 @@ interface GraphiteRefreshFailureOptions {
 function graphiteRefreshFailure(
 	failureOptions: GraphiteRefreshFailureOptions,
 ): LandingExecutionFailure {
-	const { prNumber, maintenanceBranch, getCommandDisplay, got } = failureOptions;
+	const { prNumber, reconciliationBranch, getCommandDisplay, got } = failureOptions;
 	const checkoutConflict = parseGitCheckedOutElsewhere(got);
 	if (checkoutConflict) {
 		return landingExecutionFailure(
-			`PR #${prNumber} merged, but Graphite could not refresh next landing branch ${maintenanceBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
+			`PR #${prNumber} merged, but Graphite could not refresh next landing branch ${reconciliationBranch}: ${formatCheckedOutElsewhere(checkoutConflict)}.`,
 			{
 				displayCommand: getCommandDisplay,
 				execResult: got,
-				failedBranch: maintenanceBranch,
+				failedBranch: reconciliationBranch,
 				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
 			},
 		);
@@ -80,54 +77,56 @@ function graphiteRefreshFailure(
 	return landingExecutionFailure(`PR #${prNumber} merged, but targeted Graphite refresh failed.`, {
 		displayCommand: getCommandDisplay,
 		execResult: got,
-		failedBranch: maintenanceBranch,
+		failedBranch: reconciliationBranch,
 		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
 	});
 }
 
-interface MaintenanceOperationInput {
+interface ReconciliationOperationInput {
 	readonly repoRoot: string;
 	readonly plan: LandingPlan;
 	readonly prNumber: number;
 	readonly landedBranch: string;
 	readonly state: MergeLoopState;
-	readonly maintenance: RequiredNextLandingMaintenance;
+	readonly reconciliation: RequiredNextLandingReconciliation;
 }
 
-interface MaintenanceBranchOperationInput extends MaintenanceOperationInput {
-	readonly maintenanceBranch: string;
+interface ReconciliationBranchOperationInput extends ReconciliationOperationInput {
+	readonly reconciliationBranch: string;
 }
 
-type SubmitMaintenanceCheckOutcome =
+type SubmitReconciliationCheckOutcome =
 	| { kind: "submit" }
 	| { kind: "skip-submit" }
 	| { kind: "halt"; failure: LandingExecutionFailure };
 
-function withMaintenanceBranch(
-	operationInput: MaintenanceOperationInput,
-	maintenanceBranch: string,
-): MaintenanceBranchOperationInput {
-	return { ...operationInput, maintenanceBranch };
+function withReconciliationBranch(
+	operationInput: ReconciliationOperationInput,
+	reconciliationBranch: string,
+): ReconciliationBranchOperationInput {
+	return { ...operationInput, reconciliationBranch };
 }
 
-export async function maintainBetweenLandingTargets(
+export async function reconcileStackAfterMerge(
 	executionContext: LandExecutionContext,
-	options: { readonly plan: LandingPlan; readonly step: GraphiteMaintenanceStep },
-): Promise<PerformedGraphiteMaintenance> {
+	options: { readonly plan: LandingPlan; readonly step: StackReconciliationStep },
+): Promise<PerformedStackReconciliation> {
 	const { plan, step } = options;
-	const maintenance = planGraphiteMaintenanceTargets(plan, step.index);
-	if (maintenance.mode !== "required-next-landing") {
-		throw new Error("Between-target maintenance requires a next selected landing branch.");
+	const reconciliation = planPostMergeStackReconciliationTargets(plan, step.index);
+	if (reconciliation.mode !== "required-next-landing") {
+		throw new Error("Post-merge stack reconciliation requires a next selected landing branch.");
 	}
-	const outcome = await maintainNextLandingBranches(executionContext, {
+	const outcome = await reconcileTargetBranches(executionContext, {
 		repoRoot: plan.repoRoot,
 		plan,
 		prNumber: step.prNumber,
 		landedBranch: step.branch,
 		state: step.state,
-		maintenance,
+		reconciliation,
 	});
-	return outcome.kind === "halt" ? { ...outcome, phase: "merge-maintenance-cleanup" } : outcome;
+	return outcome.kind === "halt"
+		? { ...outcome, phase: "post-merge-stack-reconciliation" }
+		: outcome;
 }
 
 export async function reconcilePostTargetSurvivors(
@@ -135,28 +134,28 @@ export async function reconcilePostTargetSurvivors(
 	plan: LandingPlan,
 	landed: readonly LandedPullRequest[],
 	state: MergeLoopState,
-): Promise<PerformedGraphiteMaintenance> {
+): Promise<PerformedStackReconciliation> {
 	const lastLanded = landed.at(-1);
 	if (lastLanded === undefined) return { kind: "proceed" };
-	const maintenance = planPostTargetMaintenance(plan);
-	if (maintenance.mode === "blocked-descendants") {
+	const reconciliation = planPostMergeStackReconciliation(plan);
+	if (reconciliation.mode === "blocked-descendants") {
 		return {
 			kind: "halt",
-			phase: "descendant-maintenance",
-			failure: blockedDescendantMaintenanceFailure(plan, lastLanded.branch, lastLanded.number),
+			phase: "post-merge-stack-reconciliation",
+			failure: blockedDescendantReconciliationFailure(plan, lastLanded.branch, lastLanded.number),
 		};
 	}
-	if (maintenance.mode === "required-descendants") {
+	if (reconciliation.mode === "required-descendants") {
 		return await reconcileDescendantRoots(executionContext, {
 			plan,
 			prNumber: lastLanded.number,
 			landedBranch: lastLanded.branch,
 			state,
-			maintenance,
+			reconciliation,
 		});
 	}
-	if (maintenance.mode === "none") return { kind: "proceed" };
-	const outcome = await maintainNextLandingBranches(
+	if (reconciliation.mode === "none") return { kind: "proceed" };
+	const outcome = await reconcileTargetBranches(
 		executionContext,
 		{
 			repoRoot: plan.repoRoot,
@@ -164,11 +163,13 @@ export async function reconcilePostTargetSurvivors(
 			prNumber: lastLanded.number,
 			landedBranch: lastLanded.branch,
 			state,
-			maintenance,
+			reconciliation,
 		},
-		"survivor-reconciliation",
+		"surviving-stack",
 	);
-	return outcome.kind === "halt" ? { ...outcome, phase: "post-target-maintenance" } : outcome;
+	return outcome.kind === "halt"
+		? { ...outcome, phase: "post-merge-stack-reconciliation" }
+		: outcome;
 }
 
 export async function cleanUpLandedBranches(
@@ -176,10 +177,10 @@ export async function cleanUpLandedBranches(
 	plan: LandingPlan,
 	landed: readonly LandedPullRequest[],
 	state: MergeLoopState,
-): Promise<PerformedGraphiteMaintenance> {
+): Promise<PerformedStackReconciliation> {
 	const selectedLandedBranches = new Set([
 		...landed.map((landedPullRequest) => landedPullRequest.branch),
-		...planPostTargetMaintenance(plan).branches,
+		...planPostMergeStackReconciliation(plan).branches,
 	]);
 	for (const landedPullRequest of landed) {
 		const cleanup = await cleanUpLandedBranchBestEffort(executionContext, {
@@ -190,7 +191,7 @@ export async function cleanUpLandedBranches(
 			state,
 			allowedChildren: selectedLandedBranches,
 		});
-		if (cleanup.kind === "halt") return { ...cleanup, phase: "merge-maintenance-cleanup" };
+		if (cleanup.kind === "halt") return { ...cleanup, phase: "landed-branch-cleanup" };
 		if (cleanup.kind === "skip" && cleanup.warning !== undefined) {
 			state.warnings.push(cleanup.warning);
 		}
@@ -198,108 +199,108 @@ export async function cleanUpLandedBranches(
 	return { kind: "proceed" };
 }
 
-/** Required next-landing maintenance: refresh/restack/submit. */
-async function maintainNextLandingBranches(
+/** Required target reconciliation: refresh/restack/submit. */
+async function reconcileTargetBranches(
 	executionContext: LandExecutionContext,
-	operationInput: MaintenanceOperationInput,
-	operation: "between-target" | "survivor-reconciliation" = "between-target",
-): Promise<GraphiteMaintenanceOutcome> {
+	operationInput: ReconciliationOperationInput,
+	operation: "next-selected-branch" | "surviving-stack" = "next-selected-branch",
+): Promise<StackReconciliationOutcome> {
 	const { progress } = executionContext;
-	const { maintenance } = operationInput;
-	for (const maintenanceBranch of maintenance.branches) {
-		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
-		const guard = await guardMaintenanceBranch(executionContext, branchOperationContext);
+	const { reconciliation } = operationInput;
+	for (const reconciliationBranch of reconciliation.branches) {
+		const branchOperationContext = withReconciliationBranch(operationInput, reconciliationBranch);
+		const guard = await guardReconciliationBranch(executionContext, branchOperationContext);
 		if (guard !== undefined) return guard;
-		const refresh = await refreshMaintenanceBranch(executionContext, branchOperationContext);
+		const refresh = await refreshReconciliationBranch(executionContext, branchOperationContext);
 		if (refresh !== undefined) return refresh;
 	}
 
-	if (operation === "survivor-reconciliation") {
-		for (const maintenanceBranch of maintenance.branches) {
+	if (operation === "surviving-stack") {
+		for (const reconciliationBranch of reconciliation.branches) {
 			const repairFailure = await repairGraphiteBranchParent(executionContext, {
 				repoRoot: operationInput.repoRoot,
 				prNumber: operationInput.prNumber,
-				branch: maintenanceBranch,
+				branch: reconciliationBranch,
 				parent: operationInput.plan.stack.trunk,
-				failureSubject: maintenanceBranch,
+				failureSubject: reconciliationBranch,
 			});
 			if (repairFailure !== undefined) return { kind: "halt", failure: repairFailure };
 		}
 	}
 
-	for (const maintenanceBranch of maintenance.branches) {
-		const branchOperationContext = withMaintenanceBranch(operationInput, maintenanceBranch);
-		const restacked = await restackMaintenanceBranch(executionContext, branchOperationContext);
+	for (const reconciliationBranch of reconciliation.branches) {
+		const branchOperationContext = withReconciliationBranch(operationInput, reconciliationBranch);
+		const restacked = await restackReconciliationBranch(executionContext, branchOperationContext);
 		if (restacked.kind !== "proceed") return restacked;
-		if (operation === "survivor-reconciliation") {
-			const topologyProof = await verifyMaintenanceBranchParent(
+		if (operation === "surviving-stack") {
+			const topologyProof = await verifyReconciliationBranchParent(
 				executionContext,
 				branchOperationContext,
 			);
 			if (topologyProof !== undefined) return topologyProof;
 		}
 
-		const submitCheck = await checkSubmitMaintenanceBranch(
+		const submitCheck = await checkSubmitReconciliationBranch(
 			executionContext,
 			branchOperationContext,
 		);
 		if (submitCheck.kind === "halt") return submitCheck;
 
 		if (submitCheck.kind === "skip-submit") {
-			progress.note(`Skipped gt submit for ${maintenanceBranch}; PR metadata already current.`);
+			progress.note(`Skipped gt submit for ${reconciliationBranch}; PR metadata already current.`);
 			continue;
 		}
 
-		progress.setStatus(`submitting ${maintenanceBranch}...`);
-		const submitted = await submitMaintenanceBranch(executionContext, branchOperationContext);
+		progress.setStatus(`submitting ${reconciliationBranch}...`);
+		const submitted = await submitReconciliationBranch(executionContext, branchOperationContext);
 		if (submitted.kind !== "proceed") return submitted;
 	}
 
 	return { kind: "proceed" };
 }
 
-async function verifyMaintenanceBranchParent(
+async function verifyReconciliationBranchParent(
 	executionContext: LandExecutionContext,
-	options: MaintenanceBranchOperationInput,
+	options: ReconciliationBranchOperationInput,
 ): Promise<{ kind: "halt"; failure: LandingExecutionFailure } | undefined> {
-	const { repoRoot, plan, prNumber, maintenanceBranch } = options;
+	const { repoRoot, plan, prNumber, reconciliationBranch } = options;
 	const expectedParent = plan.stack.trunk;
 	const providerParent = await executionContext.land.graphite.branchParent({
 		repoRoot,
 		metadataDbPath: plan.metadataDbPath,
-		branch: maintenanceBranch,
+		branch: reconciliationBranch,
 	});
 	if (providerParent.type === "success" && providerParent.value === expectedParent)
 		return undefined;
 
 	const message =
 		providerParent.type === "failure"
-			? `PR #${prNumber} merged, but could not verify provider topology for ${maintenanceBranch} after reconciliation.\n${providerParent.failure.message}`
-			: `PR #${prNumber} merged, but provider topology still reports ${maintenanceBranch} parented on ${providerParent.value ?? "(untracked)"}, expected ${expectedParent}.`;
+			? `PR #${prNumber} merged, but could not verify provider topology for ${reconciliationBranch} after reconciliation.\n${providerParent.failure.message}`
+			: `PR #${prNumber} merged, but provider topology still reports ${reconciliationBranch} parented on ${providerParent.value ?? "(untracked)"}, expected ${expectedParent}.`;
 	return {
 		kind: "halt",
 		failure: landingExecutionFailure(message, {
-			failedBranch: maintenanceBranch,
-			suggestedAction: `Inspect the stack topology for ${maintenanceBranch}, reparent it onto ${expectedParent}, restack/update it, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+			failedBranch: reconciliationBranch,
+			suggestedAction: `Inspect the stack topology for ${reconciliationBranch}, reparent it onto ${expectedParent}, restack/update it, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 		}),
 	};
 }
 
-async function checkSubmitMaintenanceBranch(
+async function checkSubmitReconciliationBranch(
 	executionContext: LandExecutionContext,
-	options: MaintenanceBranchOperationInput,
-): Promise<SubmitMaintenanceCheckOutcome> {
+	options: ReconciliationBranchOperationInput,
+): Promise<SubmitReconciliationCheckOutcome> {
 	const { land: landContext } = executionContext;
-	const { repoRoot, plan, prNumber, maintenanceBranch } = options;
-	const localSha = await landContext.git.localBranchSha({ repoRoot, branch: maintenanceBranch });
+	const { repoRoot, plan, prNumber, reconciliationBranch } = options;
+	const localSha = await landContext.git.localBranchSha({ repoRoot, branch: reconciliationBranch });
 	if (localSha.type === "failure") {
 		return {
 			kind: "halt",
 			failure: landingExecutionFailure(
-				`PR #${prNumber} merged, but could not re-read local branch ${maintenanceBranch} after restack.\n${localSha.failure.message}`,
+				`PR #${prNumber} merged, but could not re-read local branch ${reconciliationBranch} after restack.\n${localSha.failure.message}`,
 				{
-					failedBranch: maintenanceBranch,
-					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+					failedBranch: reconciliationBranch,
+					suggestedAction: `Inspect local branch ${reconciliationBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
 				},
 			),
 		};
@@ -307,24 +308,24 @@ async function checkSubmitMaintenanceBranch(
 
 	const pr = await landContext.github.pullRequestFacts({
 		repoRoot,
-		branchOrNumber: maintenanceBranch,
+		branchOrNumber: reconciliationBranch,
 	});
 	if (pr.type === "failure") {
 		return {
 			kind: "halt",
 			failure: landingExecutionFailure(
-				`PR #${prNumber} merged, but could not verify PR metadata for ${maintenanceBranch} after restack.\n${pr.failure.message}`,
+				`PR #${prNumber} merged, but could not verify PR metadata for ${reconciliationBranch} after restack.\n${pr.failure.message}`,
 				{
-					failedBranch: maintenanceBranch,
-					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed.`,
+					failedBranch: reconciliationBranch,
+					suggestedAction: `Inspect PR metadata for ${reconciliationBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed.`,
 				},
 			),
 		};
 	}
 
-	return isMaintenancePrCurrent({
+	return isReconciliationPrCurrent({
 		pr: pr.value,
-		branch: maintenanceBranch,
+		branch: reconciliationBranch,
 		localSha: localSha.value,
 		expectedBase: plan.stack.trunk,
 	})
@@ -332,17 +333,17 @@ async function checkSubmitMaintenanceBranch(
 		: { kind: "submit" };
 }
 
-async function submitMaintenanceBranch(
+async function submitReconciliationBranch(
 	executionContext: LandExecutionContext,
-	options: MaintenanceBranchOperationInput,
-): Promise<GraphiteMaintenanceOutcome> {
+	options: ReconciliationBranchOperationInput,
+): Promise<StackReconciliationOutcome> {
 	const { land: landContext } = executionContext;
-	const { repoRoot, plan, prNumber, maintenanceBranch } = options;
-	// Post-merge maintenance restacks after a landed PR, so the remote PR branch may
+	const { repoRoot, plan, prNumber, reconciliationBranch } = options;
+	// Post-merge reconciliation restacks after a landed PR, so the remote PR branch may
 	// still be on old stack history; keep pre-merge submit/update conservative.
 	const submitted = await landContext.graphite.submitUpdate({
 		repoRoot,
-		branch: maintenanceBranch,
+		branch: reconciliationBranch,
 		force: true,
 	});
 	if (submitted.type === "success") return { kind: "proceed" };
@@ -350,42 +351,42 @@ async function submitMaintenanceBranch(
 	return {
 		kind: "halt",
 		failure: landingExecutionFailure(
-			formatSubmitFailureMessage(prNumber, maintenanceBranch, true),
+			formatSubmitFailureMessage(prNumber, reconciliationBranch, true),
 			{
 				displayCommand: submitted.commandDisplay,
 				execResult: submitted.result,
-				failedBranch: maintenanceBranch,
-				suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:land if appropriate.`,
+				failedBranch: reconciliationBranch,
+				suggestedAction: `Update PR for ${reconciliationBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:land if appropriate.`,
 			},
 		),
 	};
 }
 
-async function guardMaintenanceBranch(
+async function guardReconciliationBranch(
 	executionContext: LandExecutionContext,
-	options: MaintenanceBranchOperationInput,
+	options: ReconciliationBranchOperationInput,
 ): Promise<{ kind: "halt"; failure: LandingExecutionFailure } | undefined> {
-	const { repoRoot, prNumber, maintenanceBranch, state } = options;
+	const { repoRoot, prNumber, reconciliationBranch, state } = options;
 	const failure = await guardForcedRefresh(executionContext, {
 		repoRoot,
 		prNumber,
-		branch: maintenanceBranch,
-		expectedSha: state.expectedShas.get(maintenanceBranch),
+		branch: reconciliationBranch,
+		expectedSha: state.expectedShas.get(reconciliationBranch),
 	});
 	return failure === undefined ? undefined : { kind: "halt", failure };
 }
 
-async function refreshMaintenanceBranch(
+async function refreshReconciliationBranch(
 	executionContext: LandExecutionContext,
-	options: MaintenanceBranchOperationInput,
+	options: ReconciliationBranchOperationInput,
 ): Promise<{ kind: "halt"; failure: LandingExecutionFailure } | undefined> {
 	const { land: landContext, progress } = executionContext;
-	const { repoRoot, prNumber, maintenanceBranch } = options;
-	progress.note(`Refreshing stack through ${maintenanceBranch}...`);
-	progress.setStatus(`refreshing stack through ${maintenanceBranch}...`);
+	const { repoRoot, prNumber, reconciliationBranch } = options;
+	progress.note(`Refreshing stack through ${reconciliationBranch}...`);
+	progress.setStatus(`refreshing stack through ${reconciliationBranch}...`);
 	const refresh = await landContext.graphite.refreshBranchFromRemote({
 		repoRoot,
-		branch: maintenanceBranch,
+		branch: reconciliationBranch,
 		checkedOutConflictHandling: "fail",
 	});
 	if (refresh.type === "success") return undefined;
@@ -394,23 +395,23 @@ async function refreshMaintenanceBranch(
 		kind: "halt",
 		failure: graphiteRefreshFailure({
 			prNumber,
-			maintenanceBranch,
+			reconciliationBranch,
 			getCommandDisplay: refresh.commandDisplay,
 			got: refresh.result,
 		}),
 	};
 }
 
-async function restackMaintenanceBranch(
+async function restackReconciliationBranch(
 	executionContext: LandExecutionContext,
-	options: MaintenanceBranchOperationInput,
-): Promise<GraphiteMaintenanceOutcome> {
+	options: ReconciliationBranchOperationInput,
+): Promise<StackReconciliationOutcome> {
 	const { land: landContext, progress } = executionContext;
-	const { repoRoot, prNumber, maintenanceBranch } = options;
-	progress.setStatus(`restacking ${maintenanceBranch}...`);
+	const { repoRoot, prNumber, reconciliationBranch } = options;
+	progress.setStatus(`restacking ${reconciliationBranch}...`);
 	const restacked = await landContext.graphite.restack({
 		repoRoot,
-		branch: maintenanceBranch,
+		branch: reconciliationBranch,
 		scope: "branch-only",
 	});
 	if (restacked.type !== "failure") return { kind: "proceed" };
@@ -418,12 +419,12 @@ async function restackMaintenanceBranch(
 	return {
 		kind: "halt",
 		failure: landingExecutionFailure(
-			formatRestackFailureMessage(prNumber, maintenanceBranch, true),
+			formatRestackFailureMessage(prNumber, reconciliationBranch, true),
 			{
 				displayCommand: restacked.commandDisplay,
 				execResult: restacked.result,
-				failedBranch: maintenanceBranch,
-				suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ns:flow:land if appropriate.`,
+				failedBranch: reconciliationBranch,
+				suggestedAction: `Resolve restack failures for ${reconciliationBranch}, run gt submit/update, then rerun /ns:flow:land if appropriate.`,
 			},
 		),
 	};
@@ -439,7 +440,7 @@ async function cleanUpLandedBranchBestEffort(
 		readonly state: MergeLoopState;
 		readonly allowedChildren?: ReadonlySet<string>;
 	},
-): Promise<GraphiteMaintenanceOutcome> {
+): Promise<StackReconciliationOutcome> {
 	const allowedChildren = new Set([
 		...options.state.deletedBranches,
 		...(options.allowedChildren ?? []),

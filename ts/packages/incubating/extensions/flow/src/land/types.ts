@@ -29,7 +29,7 @@ export interface LandingPreflightMode {
 /**
  * Closed post-landing cleanup policy for local branches and the current managed-slot worktree.
  *
- * Reconciliation is invariant: required maintenance runs between selected PRs and after the final
+ * Reconciliation is invariant: required reconciliation runs between selected PRs and after the final
  * selected PR under both policies.
  *
  * - `preserve` (default): keep every landed local branch and the current slot after reconciliation.
@@ -66,9 +66,8 @@ export type LandingPhase =
 	| "submit-preparation"
 	| "dry-run"
 	| "merge"
-	| "post-target-maintenance"
-	| "descendant-maintenance"
-	| "merge-maintenance-cleanup"
+	| "post-merge-stack-reconciliation"
+	| "landed-branch-cleanup"
 	| "post-landing-cleanup";
 
 export type LandingFailure =
@@ -109,7 +108,7 @@ export type LandingDomainFailureReason =
 	| "pull-request-head-mismatch"
 	| "pull-request-base-mismatch"
 	| "manual-worktree-conflict"
-	| "descendant-maintenance-blocked";
+	| "post-merge-stack-reconciliation-blocked";
 
 export type NotifyLevel = "info" | "success" | "warning" | "error";
 
@@ -185,12 +184,12 @@ export type LandingPhaseOutcome =
 
 export interface LandingCleanupReport {
 	readonly preMergeFreedSlots: readonly ManagedSlotWorktree[];
-	readonly mergeMaintenanceCleanup: MergeMaintenanceCleanupReport;
+	readonly landedBranchCleanup: LandedBranchCleanupReport;
 	readonly postLandingSlotCleanup: PostLandingSlotCleanupReport;
 }
 
-/** Local-branch cleanup observed during per-merge Graphite maintenance. */
-export interface MergeMaintenanceCleanupReport {
+/** Local-branch cleanup observed after Post-Merge Stack Reconciliation. */
+export interface LandedBranchCleanupReport {
 	readonly deletedLocalBranches: readonly string[];
 	readonly retainedLocalBranches: readonly RetainedLocalBranchCleanup[];
 }
@@ -242,7 +241,7 @@ export interface LandingPlan {
 	readonly prSubmitRequirements: readonly PrSubmitRequirement[];
 	readonly submitRestackRequirements: readonly RestackRequirement[];
 	readonly managedSlotConflicts: readonly ManagedSlotWorktree[];
-	readonly descendantMaintenance: DescendantMaintenancePlan;
+	readonly descendantReconciliation: DescendantReconciliationPlan;
 }
 
 export interface BranchLandingPlan {
@@ -325,7 +324,7 @@ export interface ManualWorktreeConflict {
  *   with explicit main-landing consent (interactive approval or `--yes`), then fails nonzero after
  *   selected merges because required reconciliation could not complete.
  */
-export type DescendantMaintenancePlan =
+export type DescendantReconciliationPlan =
 	| { readonly type: "none"; readonly branches: readonly [] }
 	| {
 			readonly type: "auto";

@@ -308,7 +308,7 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("targeted Graphite refresh failed");
 		expect(streamText).not.toContain("Left open/restacked: feature-c, feature-d.");
 	});
-	test("descendant managed slot lands with consent and fails with deferred descendant maintenance", async () => {
+	test("descendant managed slot lands with consent and fails with deferred descendant reconciliation", async () => {
 		const descendantSlotPath = "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-07";
 		const script = [
 			...featureStackPreflight({
@@ -363,13 +363,13 @@ describe("land-stack command scenarios", () => {
 		expect(streamText).toContain("land stopped.");
 		expect(streamText).toContain("Already landed:");
 		expect(streamText).toContain(
-			"descendant maintenance was deferred because descendant branches are checked out elsewhere",
+			"descendant reconciliation was deferred because descendant branches are checked out elsewhere",
 		);
 		expect(streamText).toContain("the landing is only partially complete");
 		expect(streamText).toContain("Free slot-07 for feature-c; then restack/update feature-c.");
 		expect(streamText).toContain("slot-07 feature-c");
 	});
-	test("descendant manual worktree lands with consent and fails with deferred descendant maintenance", async () => {
+	test("descendant manual worktree lands with consent and fails with deferred descendant reconciliation", async () => {
 		const script = [
 			...featureStackPreflight({
 				worktrees: worktreeOutput([
@@ -481,7 +481,7 @@ describe("land-stack command scenarios", () => {
 				.map((call) => call.args[2]),
 		).toEqual(["101", "102"]);
 	});
-	test("late descendant gt get checkout conflict fails with deferred maintenance", async () => {
+	test("late descendant gt get checkout conflict fails with deferred reconciliation", async () => {
 		const getArgs = [
 			"get",
 			DESCENDANT,
@@ -606,7 +606,7 @@ describe("land-stack command scenarios", () => {
 			"→ Skipped gt submit for feature-b; PR metadata already current.",
 		);
 	});
-	test("post-restack PR read failure halts required next-landing maintenance", async () => {
+	test("post-restack PR read failure halts required next-landing reconciliation", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_TO_CURRENT }),
 			...backupRefSteps(["feature-a", "feature-b"]),

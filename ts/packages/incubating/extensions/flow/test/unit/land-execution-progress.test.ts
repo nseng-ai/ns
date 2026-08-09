@@ -117,7 +117,7 @@ function landingPlan(): LandingPlan {
 		prSubmitRequirements: [],
 		submitRestackRequirements: [],
 		managedSlotConflicts: [],
-		descendantMaintenance: {
+		descendantReconciliation: {
 			type: "none",
 			branches: [],
 		},

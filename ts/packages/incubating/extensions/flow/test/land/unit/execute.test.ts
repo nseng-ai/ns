@@ -60,15 +60,10 @@ describe("land execute mode over in-memory gateways", () => {
 					{ type: "completed", phase: "merge" },
 					{
 						type: "skipped",
-						phase: "post-target-maintenance",
-						reason: "no remaining landing branches require maintenance",
+						phase: "post-merge-stack-reconciliation",
+						reason: "no surviving branches require reconciliation",
 					},
-					{
-						type: "skipped",
-						phase: "descendant-maintenance",
-						reason: "no descendant branches require maintenance",
-					},
-					{ type: "completed", phase: "merge-maintenance-cleanup" },
+					{ type: "completed", phase: "landed-branch-cleanup" },
 					{
 						type: "skipped",
 						phase: "post-landing-cleanup",
@@ -84,7 +79,7 @@ describe("land execute mode over in-memory gateways", () => {
 				],
 				cleanup: {
 					preMergeFreedSlots: [],
-					mergeMaintenanceCleanup: {
+					landedBranchCleanup: {
 						deletedLocalBranches: [BRANCH],
 						retainedLocalBranches: [],
 					},
@@ -92,19 +87,14 @@ describe("land execute mode over in-memory gateways", () => {
 				},
 			},
 		});
-		expect(maintenancePhases(outcome.report)).toEqual([
+		expect(reconciliationPhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
 			{
 				type: "skipped",
-				phase: "post-target-maintenance",
-				reason: "no remaining landing branches require maintenance",
+				phase: "post-merge-stack-reconciliation",
+				reason: "no surviving branches require reconciliation",
 			},
-			{
-				type: "skipped",
-				phase: "descendant-maintenance",
-				reason: "no descendant branches require maintenance",
-			},
-			{ type: "completed", phase: "merge-maintenance-cleanup" },
+			{ type: "completed", phase: "landed-branch-cleanup" },
 		]);
 		expect(memory.git.resolveRepoRootCalls).toEqual([{ cwd: ROOT }]);
 		// Cross-check: `land-stack-command-scenarios/`, scenario
@@ -460,7 +450,7 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			failedPhase: "descendant-maintenance",
+			failedPhase: "post-merge-stack-reconciliation",
 			failure: {
 				type: "execution",
 				failedBranch: BRANCH,
@@ -476,16 +466,11 @@ describe("land execute mode over in-memory gateways", () => {
 				landed: [{ branch: BRANCH, number: 101, title: "PR 101" }],
 			},
 		]);
-		expect(maintenancePhases(outcome.report)).toEqual([
+		expect(reconciliationPhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
 			{
-				type: "skipped",
-				phase: "post-target-maintenance",
-				reason: "no remaining landing branches require maintenance",
-			},
-			{
 				type: "failed",
-				phase: "descendant-maintenance",
+				phase: "post-merge-stack-reconciliation",
 				failure: outcome.failure,
 			},
 		]);
@@ -552,19 +537,22 @@ describe("land execute mode over in-memory gateways", () => {
 			host: approvedHost(),
 		});
 
-		expect(outcome).toMatchObject({ type: "failed", failedPhase: "merge-maintenance-cleanup" });
+		expect(outcome).toMatchObject({
+			type: "failed",
+			failedPhase: "post-merge-stack-reconciliation",
+		});
 		if (outcome.type !== "failed") return;
 		expect(mergeLoopPhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
 			{
 				type: "failed",
-				phase: "merge-maintenance-cleanup",
+				phase: "post-merge-stack-reconciliation",
 				failure: outcome.failure,
 			},
 		]);
 	});
 
-	test("reports completed descendant maintenance from observed operations", async () => {
+	test("reports completed descendant reconciliation from observed operations", async () => {
 		const descendant = "feature-child";
 		const descendantSha = "cccccccccccccccccccccccccccccccccccccccc";
 		const memory = createInMemoryLandContext(
@@ -606,20 +594,15 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({ type: "completed" });
 		if (outcome.type !== "completed") return;
-		expect(maintenancePhases(outcome.report)).toEqual([
+		expect(reconciliationPhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
-			{
-				type: "skipped",
-				phase: "post-target-maintenance",
-				reason: "no remaining landing branches require maintenance",
-			},
-			{ type: "completed", phase: "descendant-maintenance" },
-			{ type: "completed", phase: "merge-maintenance-cleanup" },
+			{ type: "completed", phase: "post-merge-stack-reconciliation" },
+			{ type: "completed", phase: "landed-branch-cleanup" },
 		]);
-		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([BRANCH]);
+		expect(outcome.report.cleanup.landedBranchCleanup.deletedLocalBranches).toEqual([BRANCH]);
 	});
 
-	test("post-target free cleanup reports earlier deletions when a later deletion fails", async () => {
+	test("post-merge free cleanup reports earlier deletions when a later deletion fails", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 		const memory = createInMemoryLandContext({
@@ -675,10 +658,10 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			failedPhase: "merge-maintenance-cleanup",
+			failedPhase: "landed-branch-cleanup",
 			report: {
 				cleanup: {
-					mergeMaintenanceCleanup: {
+					landedBranchCleanup: {
 						deletedLocalBranches: [BRANCH],
 						retainedLocalBranches: [],
 					},
@@ -690,13 +673,13 @@ describe("land execute mode over in-memory gateways", () => {
 			branchB,
 		]);
 		if (outcome.type !== "failed") return;
-		expect(phaseByName(outcome.report, "merge-maintenance-cleanup")).toMatchObject({
+		expect(phaseByName(outcome.report, "landed-branch-cleanup")).toMatchObject({
 			type: "failed",
-			phase: "merge-maintenance-cleanup",
+			phase: "landed-branch-cleanup",
 		});
 		expect(
 			outcome.report.phases.some(
-				(phase) => phase.type === "completed" && phase.phase === "merge-maintenance-cleanup",
+				(phase) => phase.type === "completed" && phase.phase === "landed-branch-cleanup",
 			),
 		).toBe(false);
 		if (outcome.failure.type === "execution") {
@@ -760,10 +743,10 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			failedPhase: "merge-maintenance-cleanup",
+			failedPhase: "landed-branch-cleanup",
 			report: {
 				cleanup: {
-					mergeMaintenanceCleanup: {
+					landedBranchCleanup: {
 						deletedLocalBranches: [BRANCH],
 						retainedLocalBranches: [],
 					},
@@ -776,8 +759,8 @@ describe("land execute mode over in-memory gateways", () => {
 		]);
 		if (outcome.type !== "failed") return;
 		expect(
-			outcome.report.phases.filter((phase) => phase.phase === "merge-maintenance-cleanup"),
-		).toEqual([{ type: "failed", phase: "merge-maintenance-cleanup", failure: outcome.failure }]);
+			outcome.report.phases.filter((phase) => phase.phase === "landed-branch-cleanup"),
+		).toEqual([{ type: "failed", phase: "landed-branch-cleanup", failure: outcome.failure }]);
 	});
 
 	test("propagates retained local-branch cleanup", async () => {
@@ -801,7 +784,7 @@ describe("land execute mode over in-memory gateways", () => {
 			type: "completed",
 			report: {
 				cleanup: {
-					mergeMaintenanceCleanup: {
+					landedBranchCleanup: {
 						retainedLocalBranches: [{ branch: BRANCH, path: ROOT }],
 					},
 				},
@@ -859,13 +842,13 @@ describe("land execute mode over in-memory gateways", () => {
 				expectedDeletedBranches,
 			);
 			if (outcome.type !== "completed") return;
-			expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual(
+			expect(outcome.report.cleanup.landedBranchCleanup.deletedLocalBranches).toEqual(
 				expectedDeletedBranches,
 			);
 		},
 	);
 
-	test("two selected PRs require maintenance between targets for both cleanup policies", async () => {
+	test("two selected PRs require reconciliation between targets for both cleanup policies", async () => {
 		const run = async (cleanup: LandingCleanupPolicy) => {
 			const branchB = "feature-b";
 			const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -921,7 +904,7 @@ describe("land execute mode over in-memory gateways", () => {
 		}
 	});
 
-	test("default preserve reconciles every post-target survivor and retains landed branches", async () => {
+	test("default preserve reconciles every surviving stack and retains landed branches", async () => {
 		const branchB = "feature-b";
 		const branchC = "feature-c";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -981,23 +964,18 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(memory.graphite.submitUpdateCalls.map((call) => call.branch)).toEqual([branchB]);
 		expect(memory.graphite.deleteLocalBranchCalls).toEqual([]);
 		if (outcome.type !== "completed") return;
-		expect(maintenancePhases(outcome.report)).toEqual([
+		expect(reconciliationPhases(outcome.report)).toEqual([
 			{ type: "completed", phase: "merge" },
-			{ type: "completed", phase: "post-target-maintenance" },
+			{ type: "completed", phase: "post-merge-stack-reconciliation" },
 			{
 				type: "skipped",
-				phase: "descendant-maintenance",
-				reason: "no descendant branches require maintenance",
-			},
-			{
-				type: "skipped",
-				phase: "merge-maintenance-cleanup",
+				phase: "landed-branch-cleanup",
 				reason: "cleanup policy preserves landed local branches",
 			},
 		]);
 	});
 
-	test("bounded free landing snapshots and maintains the first remaining branch", async () => {
+	test("bounded free landing snapshots and reconciles the first remaining branch", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 		const memory = createInMemoryLandContext({
@@ -1056,9 +1034,9 @@ describe("land execute mode over in-memory gateways", () => {
 			branchB,
 		]);
 		if (outcome.type !== "completed") return;
-		expect(phaseByName(outcome.report, "post-target-maintenance")).toEqual({
+		expect(phaseByName(outcome.report, "post-merge-stack-reconciliation")).toEqual({
 			type: "completed",
-			phase: "post-target-maintenance",
+			phase: "post-merge-stack-reconciliation",
 		});
 		expect(memory.graphite.reparentBranchCalls).toEqual([
 			{ repoRoot: ROOT, branch: branchB, parent: "main" },
@@ -1071,7 +1049,7 @@ describe("land execute mode over in-memory gateways", () => {
 		).toEqual([101]);
 	});
 
-	test("attributes remaining landing branch reconciliation failure to post-target maintenance", async () => {
+	test("attributes remaining landing branch reconciliation failure to Post-Merge Stack Reconciliation", async () => {
 		const branchB = "feature-b";
 		const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 		const memory = createInMemoryLandContext({
@@ -1126,18 +1104,20 @@ describe("land execute mode over in-memory gateways", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			failedPhase: "post-target-maintenance",
+			failedPhase: "post-merge-stack-reconciliation",
 		});
 		expect(outcome.report.phases).toEqual(
 			expect.arrayContaining([
 				{ type: "completed", phase: "merge" },
-				expect.objectContaining({ type: "failed", phase: "post-target-maintenance" }),
+				expect.objectContaining({ type: "failed", phase: "post-merge-stack-reconciliation" }),
 			]),
 		);
 		if (outcome.type !== "failed") return;
 		expect(
-			outcome.report.phases.filter((phase) => phase.phase === "post-target-maintenance"),
-		).toEqual([{ type: "failed", phase: "post-target-maintenance", failure: outcome.failure }]);
+			outcome.report.phases.filter((phase) => phase.phase === "post-merge-stack-reconciliation"),
+		).toEqual([
+			{ type: "failed", phase: "post-merge-stack-reconciliation", failure: outcome.failure },
+		]);
 	});
 
 	test("retains the first landed chunk without cleanup when a later merge fails", async () => {
@@ -1185,7 +1165,7 @@ describe("land execute mode over in-memory gateways", () => {
 		expect(outcome.report.landedChunks).toMatchObject([
 			{ landed: [{ branch: BRANCH, number: 101 }] },
 		]);
-		expect(outcome.report.cleanup.mergeMaintenanceCleanup.deletedLocalBranches).toEqual([]);
+		expect(outcome.report.cleanup.landedBranchCleanup.deletedLocalBranches).toEqual([]);
 		expect(mergeLoopPhases(outcome.report)).toEqual([
 			{ type: "failed", phase: "merge", failure: outcome.failure },
 		]);
@@ -1460,7 +1440,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		expect(postCleanup.type === "failed" && postCleanup.freedSlot === undefined).toBe(true);
 	});
 
-	test("post-target branch deletion failure stops before slot cleanup", async () => {
+	test("post-merge branch deletion failure stops before slot cleanup", async () => {
 		const memory = createInMemoryLandContext(
 			managedSlotState({
 				graphite: {
@@ -1491,14 +1471,14 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 
 		expect(outcome).toMatchObject({
 			type: "failed",
-			failedPhase: "merge-maintenance-cleanup",
+			failedPhase: "landed-branch-cleanup",
 			failure: {
 				message: expect.stringContaining("deleting the local Graphite branch feature-a failed"),
 			},
 			report: {
 				landedChunks: [{ landed: [{ number: 101 }] }],
 				cleanup: {
-					mergeMaintenanceCleanup: {
+					landedBranchCleanup: {
 						deletedLocalBranches: [],
 						retainedLocalBranches: [],
 					},
@@ -1510,7 +1490,7 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 		if (outcome.type !== "failed") return;
 		expect(
 			outcome.report.phases.some(
-				(phase) => phase.type === "completed" && phase.phase === "merge-maintenance-cleanup",
+				(phase) => phase.type === "completed" && phase.phase === "landed-branch-cleanup",
 			),
 		).toBe(false);
 	});
@@ -1685,20 +1665,24 @@ describe("post-landing managed-slot cleanup under canonical execution", () => {
 	});
 });
 
-const MERGE_LOOP_PHASES = new Set(["merge", "descendant-maintenance", "merge-maintenance-cleanup"]);
-const MAINTENANCE_PHASES = new Set([
+const MERGE_LOOP_PHASES = new Set([
 	"merge",
-	"post-target-maintenance",
-	"descendant-maintenance",
-	"merge-maintenance-cleanup",
+	"post-merge-stack-reconciliation",
+	"landed-branch-cleanup",
+]);
+const RECONCILIATION_PHASES = new Set([
+	"merge",
+	"post-merge-stack-reconciliation",
+	"post-merge-stack-reconciliation",
+	"landed-branch-cleanup",
 ]);
 
 function mergeLoopPhases(report: LandingExecutionReport): LandingExecutionReport["phases"] {
 	return report.phases.filter((entry) => MERGE_LOOP_PHASES.has(entry.phase));
 }
 
-function maintenancePhases(report: LandingExecutionReport): LandingExecutionReport["phases"] {
-	return report.phases.filter((entry) => MAINTENANCE_PHASES.has(entry.phase));
+function reconciliationPhases(report: LandingExecutionReport): LandingExecutionReport["phases"] {
+	return report.phases.filter((entry) => RECONCILIATION_PHASES.has(entry.phase));
 }
 
 function phaseByName(

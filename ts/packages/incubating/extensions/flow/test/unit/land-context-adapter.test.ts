@@ -354,7 +354,7 @@ describe("land context adapter facts", () => {
 		pi.assertDone();
 	});
 
-	test("runs post-merge Graphite maintenance methods with the existing argv", async () => {
+	test("runs post-merge Graphite reconciliation methods with the existing argv", async () => {
 		const pi = new FakeLandExecutionApi([
 			step("gt", REFRESH_ARGS),
 			step("gt", ["delete", "feature-a", "-f", "-q"], {

@@ -107,7 +107,7 @@ export async function executeStackLanding(
 				warnings: [],
 				cleanup: {
 					preMergeFreedSlots: [],
-					mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
+					landedBranchCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
 					postLandingSlotCleanup: { type: "not-run", reason: "unexpected workflow failure" },
 				},
 			},

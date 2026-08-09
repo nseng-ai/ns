@@ -34,7 +34,7 @@ export async function executeLanding(
 export type { LandingExecutionSource, LandStackExecutionHost } from "./execution/execute.ts";
 
 export {
-	buildDescendantMaintenancePlan,
+	buildDescendantReconciliationPlan,
 	buildStackLandingPlan,
 	collectPrSubmitRequirements,
 	collectSubmitRestackRequirements,
@@ -75,7 +75,7 @@ export type {
 export type {
 	BranchLandingPlan,
 	CurrentWorktreeConflict,
-	DescendantMaintenancePlan,
+	DescendantReconciliationPlan,
 	SingleBranchPullRequestLandingTarget,
 	LandCommandResult,
 	LandContext,
@@ -118,7 +118,7 @@ export type {
 	LocalBranchTip,
 	ManagedSlotWorktree,
 	ManualWorktreeConflict,
-	MergeMaintenanceCleanupReport,
+	LandedBranchCleanupReport,
 	NotifyLevel,
 	PostLandingSlotCleanupReport,
 	PrSubmitRequirement,

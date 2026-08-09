@@ -246,7 +246,7 @@ export function detectForkViolations(
 ): ForkViolation[] {
 	// Forks inside the landing path are unsafe because gt restack/delete would
 	// rewrite a sibling stack. Forks from the current landing tip are descendant
-	// roots, so they are allowed and handled by descendant maintenance.
+	// roots, so they are allowed and handled by descendant reconciliation.
 	return detectGraphiteForkViolations(topology, landingPath).filter(hasExpectedChild);
 }
 

@@ -1,56 +1,60 @@
 import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
-import type { DescendantMaintenancePlan, LandingExecutionFailure, LandingPlan } from "../types.ts";
+import type {
+	DescendantReconciliationPlan,
+	LandingExecutionFailure,
+	LandingPlan,
+} from "../types.ts";
 import { landingExecutionFailure } from "../results.ts";
 import type { CheckedOutElsewhere } from "../graphite-operations.ts";
 import { formatConflict, slotNameFromPath } from "../worktree-paths.ts";
 
-export type MaintenanceMode =
+export type ReconciliationMode =
 	| "required-next-landing"
 	| "required-descendants"
 	| "none"
 	| "blocked-descendants";
 
-export type MaintenanceTargetPlan =
+export type ReconciliationTargetPlan =
 	| { readonly mode: "required-next-landing"; readonly branches: readonly string[] }
 	| { readonly mode: "required-descendants"; readonly branches: readonly string[] }
 	| { readonly mode: "none"; readonly branches: readonly [] }
 	| { readonly mode: "blocked-descendants"; readonly branches: readonly [] };
 
-export type RequiredNextLandingMaintenance = Extract<
-	MaintenanceTargetPlan,
+export type RequiredNextLandingReconciliation = Extract<
+	ReconciliationTargetPlan,
 	{ mode: "required-next-landing" }
 >;
 
-export type RequiredDescendantMaintenance = Extract<
-	MaintenanceTargetPlan,
+export type RequiredDescendantReconciliation = Extract<
+	ReconciliationTargetPlan,
 	{ mode: "required-descendants" }
 >;
 
-export type NoMaintenance = Extract<MaintenanceTargetPlan, { mode: "none" }>;
+export type NoReconciliation = Extract<ReconciliationTargetPlan, { mode: "none" }>;
 
-export function planGraphiteMaintenanceTargets(
+export function planPostMergeStackReconciliationTargets(
 	plan: LandingPlan,
 	index: number,
-): MaintenanceTargetPlan {
+): ReconciliationTargetPlan {
 	const nextLandingBranch = plan.stack.landingBranches[index + 1];
 	if (nextLandingBranch !== undefined) {
 		return { mode: "required-next-landing", branches: [nextLandingBranch] };
 	}
-	return planPostTargetMaintenance(plan);
+	return planPostMergeStackReconciliation(plan);
 }
 
-export function planPostTargetMaintenance(plan: LandingPlan): MaintenanceTargetPlan {
+export function planPostMergeStackReconciliation(plan: LandingPlan): ReconciliationTargetPlan {
 	const nextFutureLandingBranch = plan.stack.remainingLandingBranches[0];
 	if (nextFutureLandingBranch !== undefined) {
 		return { mode: "required-next-landing", branches: [nextFutureLandingBranch] };
 	}
-	if (plan.descendantMaintenance.type === "auto") {
+	if (plan.descendantReconciliation.type === "auto") {
 		return {
 			mode: "required-descendants",
-			branches: plan.descendantMaintenance.targetBranches,
+			branches: plan.descendantReconciliation.targetBranches,
 		};
 	}
-	if (plan.descendantMaintenance.type === "blocked") {
+	if (plan.descendantReconciliation.type === "blocked") {
 		return { mode: "blocked-descendants", branches: [] };
 	}
 	return { mode: "none", branches: [] };
@@ -58,15 +62,15 @@ export function planPostTargetMaintenance(plan: LandingPlan): MaintenanceTargetP
 
 export function refreshTargetsAfterMaintainedBranch(
 	plan: LandingPlan,
-	maintainedBranch: string,
+	reconciledBranch: string,
 ): readonly string[] {
 	const refreshOrder = refreshTargetOrder(plan);
-	const maintainedIndex = refreshOrder.indexOf(maintainedBranch);
-	if (maintainedIndex < 0) return [];
-	const downstreamTargets = refreshOrder.slice(maintainedIndex + 1);
+	const reconciledIndex = refreshOrder.indexOf(reconciledBranch);
+	if (reconciledIndex < 0) return [];
+	const downstreamTargets = refreshOrder.slice(reconciledIndex + 1);
 	if (downstreamTargets.length === 0) return [];
 
-	if (isDescendantMaintenanceRoot(plan, maintainedBranch)) {
+	if (isDescendantReconciliationRoot(plan, reconciledBranch)) {
 		// Descendant roots are siblings above the landed branch. Restacking one root
 		// should not rewrite another root's local SHA expectation.
 		return [];
@@ -74,7 +78,7 @@ export function refreshTargetsAfterMaintainedBranch(
 
 	const next = downstreamTargets[0];
 	if (next === undefined) return [];
-	if (isDescendantMaintenanceRoot(plan, next)) return downstreamTargets;
+	if (isDescendantReconciliationRoot(plan, next)) return downstreamTargets;
 	return [next];
 }
 
@@ -84,13 +88,13 @@ export function refreshTargetsAfterMaintainedBranch(
  * partially complete: nothing was mutated in the blocked checkouts and the landed local branch
  * was retained.
  */
-export function blockedDescendantMaintenanceFailure(
+export function blockedDescendantReconciliationFailure(
 	plan: LandingPlan,
 	branch: string,
 	prNumber: number,
 ): LandingExecutionFailure {
-	const maintenance = plan.descendantMaintenance;
-	if (maintenance.type !== "blocked") {
+	const reconciliation = plan.descendantReconciliation;
+	if (reconciliation.type !== "blocked") {
 		return landingExecutionFailure(
 			`PR #${prNumber} merged, but required descendant reconciliation for ${branch} could not run.`,
 			{
@@ -101,13 +105,13 @@ export function blockedDescendantMaintenanceFailure(
 		);
 	}
 
-	const conflictText = maintenance.conflicts.map(formatConflict).join("; ");
+	const conflictText = reconciliation.conflicts.map(formatConflict).join("; ");
 	return landingExecutionFailure(
-		`PR #${prNumber} merged, but descendant maintenance was deferred because ${maintenance.reason}: ${conflictText}. Descendant branches ${maintenance.branches.join(", ")} were not restacked or updated, and local branch ${branch} was retained; the landing is only partially complete.`,
+		`PR #${prNumber} merged, but descendant reconciliation was deferred because ${reconciliation.reason}: ${conflictText}. Descendant branches ${reconciliation.branches.join(", ")} were not restacked or updated, and local branch ${branch} was retained; the landing is only partially complete.`,
 		{
 			failedBranch: branch,
 			failedPrNumber: prNumber,
-			suggestedAction: `${blockedDescendantRepairAction(maintenance)} Then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
+			suggestedAction: `${blockedDescendantRepairAction(reconciliation)} Then delete local branch ${branch} manually when safe. ${LAND_BACKUP_RECOVERY_HINT}`,
 		},
 	);
 }
@@ -121,7 +125,7 @@ export function formatRestackFailureMessage(
 	branch: string,
 	shouldStopBeforeAnotherMerge: boolean,
 ): string {
-	return formatMaintenanceFailureMessage({
+	return formatReconciliationFailureMessage({
 		operation: "Restack",
 		manualAction: "manual restack/update",
 		previousPrNumber,
@@ -135,7 +139,7 @@ export function formatSubmitFailureMessage(
 	branch: string,
 	shouldStopBeforeAnotherMerge: boolean,
 ): string {
-	return formatMaintenanceFailureMessage({
+	return formatReconciliationFailureMessage({
 		operation: "Submit/update",
 		manualAction: "manual PR update",
 		previousPrNumber,
@@ -144,7 +148,7 @@ export function formatSubmitFailureMessage(
 	});
 }
 
-function formatMaintenanceFailureMessage(input: {
+function formatReconciliationFailureMessage(input: {
 	operation: "Restack" | "Submit/update";
 	manualAction: "manual restack/update" | "manual PR update";
 	previousPrNumber: number;
@@ -157,10 +161,10 @@ function formatMaintenanceFailureMessage(input: {
 	return `${input.operation} failed after merging #${input.previousPrNumber}; descendant branch ${input.branch} was left for ${input.manualAction}.`;
 }
 
-function isDescendantMaintenanceRoot(plan: LandingPlan, branch: string): boolean {
+function isDescendantReconciliationRoot(plan: LandingPlan, branch: string): boolean {
 	return (
-		plan.descendantMaintenance.type === "auto" &&
-		plan.descendantMaintenance.targetBranches.includes(branch)
+		plan.descendantReconciliation.type === "auto" &&
+		plan.descendantReconciliation.targetBranches.includes(branch)
 	);
 }
 
@@ -168,23 +172,23 @@ function refreshTargetOrder(plan: LandingPlan): readonly string[] {
 	return [
 		...plan.stack.landingBranches,
 		...plan.stack.remainingLandingBranches,
-		...(plan.descendantMaintenance.type === "auto"
-			? plan.descendantMaintenance.targetBranches
+		...(plan.descendantReconciliation.type === "auto"
+			? plan.descendantReconciliation.targetBranches
 			: []),
 	];
 }
 
 export function blockedDescendantRepairAction(
-	maintenance: Extract<DescendantMaintenancePlan, { type: "blocked" }>,
+	reconciliation: Extract<DescendantReconciliationPlan, { type: "blocked" }>,
 ): string {
-	const branches = maintenance.branches.join(", ");
-	const conflict = maintenance.conflicts[0];
+	const branches = reconciliation.branches.join(", ");
+	const conflict = reconciliation.conflicts[0];
 	if (conflict === undefined) {
 		return `Restack/update ${branches}.`;
 	}
 
-	if (maintenance.conflicts.length > 1) {
-		return `Free/detach ${maintenance.conflicts.length} descendant worktrees; then restack/update ${branches}.`;
+	if (reconciliation.conflicts.length > 1) {
+		return `Free/detach ${reconciliation.conflicts.length} descendant worktrees; then restack/update ${branches}.`;
 	}
 
 	if (conflict.type === "managed-slot") {
