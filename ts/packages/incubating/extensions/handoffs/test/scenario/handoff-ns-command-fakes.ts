@@ -154,14 +154,14 @@ export async function getHandoffContent(
 export function fakeHandoffInteraction(
 	options: {
 		isInteractive?: boolean;
-		confirmations?: ReadonlyArray<"confirmed" | "declined" | "aborted">;
+		confirmations?: ReadonlyArray<"confirmed" | "declined" | "cancelled">;
 	} = {},
 ): ClinkrInteraction {
 	const confirmations = [...(options.confirmations ?? [])];
 	return {
 		isInteractive: () => options.isInteractive ?? true,
 		confirm: async () => {
-			const next = confirmations.shift() ?? "aborted";
+			const next = confirmations.shift() ?? "cancelled";
 			return { type: next };
 		},
 	};

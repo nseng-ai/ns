@@ -308,7 +308,7 @@ describe("reset-public-package-release CLI", () => {
 
 	it.each([
 		["declined", { type: "declined" } as const],
-		["aborted", { type: "aborted" } as const],
+		["aborted", { type: "cancelled" } as const],
 	])("maps %s confirmation to an unchanged declined plan", async (_name, confirmation) => {
 		const gateway = new FakeReleaseResetGateway();
 		const interaction = createFakeClinkrInteraction({

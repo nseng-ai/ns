@@ -107,7 +107,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 			}),
 			defaultAnswer: "yes",
 		});
-		if (accepted.type === "aborted") return failure("aborted", "Aborted!");
+		if (accepted.type === "cancelled") return failure("aborted", "Aborted!");
 		if (accepted.type === "declined")
 			return ok(
 				toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false, cleanup }), {

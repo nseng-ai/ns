@@ -31,8 +31,10 @@ interface GatewayContextFixture {
 
 function createGatewayContext(options: {
 	readonly hasUI: boolean;
-	readonly shouldConfirm?: boolean;
-	readonly selected?: string | undefined;
+	readonly confirmation?: "confirmed" | "declined" | "cancelled";
+	readonly selection?:
+		| { readonly type: "selected"; readonly value: string }
+		| { readonly type: "cancelled" };
 	readonly hasSelect?: boolean;
 }): GatewayContextFixture {
 	const confirmations: GatewayContextFixture["confirmations"][number][] = [];
@@ -51,13 +53,13 @@ function createGatewayContext(options: {
 					message,
 					...(confirmOptions === undefined ? {} : { options: confirmOptions }),
 				});
-				return options.shouldConfirm ?? true;
+				return { type: options.confirmation ?? "confirmed" };
 			},
 			...(options.hasSelect === true
 				? {
 						async select(title: string, selectOptions: readonly string[]) {
 							selections.push({ title, options: selectOptions });
-							return options.selected;
+							return options.selection ?? { type: "cancelled" };
 						},
 					}
 				: {}),
@@ -201,7 +203,7 @@ describe("flow land confirmation gateway", () => {
 	});
 
 	test.each(requestTable)("$name maps an interactive decline to declined", async (entry) => {
-		const fixture = createGatewayContext({ hasUI: true, shouldConfirm: false });
+		const fixture = createGatewayContext({ hasUI: true, confirmation: "declined" });
 		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
 
 		await expect(gateway.confirm(entry.request)).resolves.toEqual({ type: "declined" });
@@ -220,7 +222,7 @@ describe("flow land confirmation gateway", () => {
 		const fixture = createGatewayContext({
 			hasUI: true,
 			hasSelect: true,
-			selected: selection.selected,
+			selection: { type: "selected", value: selection.selected },
 		});
 		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
 
@@ -247,22 +249,29 @@ describe("flow land confirmation gateway", () => {
 		});
 	});
 
-	test.each([undefined, "Cancel landing"])(
-		"selector cancellation declines for %s",
-		async (selected) => {
-			const fixture = createGatewayContext({ hasUI: true, hasSelect: true, selected });
-			const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+	test.each([
+		["explicit cancel-label selection", { type: "selected", value: "Cancel landing" }],
+		["host cancellation", { type: "cancelled" }],
+	] as const)("selector declines for %s", async (_observation, selection) => {
+		const fixture = createGatewayContext({ hasUI: true, hasSelect: true, selection });
+		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
 
-			await expect(
-				gateway.confirm({
-					kind: "main-landing",
-					plan: landingPlan(),
-					cleanupChoice: cleanupPreview,
-				}),
-			).resolves.toEqual({ type: "declined" });
-			expect(fixture.confirmations).toEqual([]);
-		},
-	);
+		await expect(
+			gateway.confirm({
+				kind: "main-landing",
+				plan: landingPlan(),
+				cleanupChoice: cleanupPreview,
+			}),
+		).resolves.toEqual({ type: "declined" });
+		expect(fixture.confirmations).toEqual([]);
+	});
+
+	test.each(requestTable)("$name maps interactive cancellation to declined", async (entry) => {
+		const fixture = createGatewayContext({ hasUI: true, confirmation: "cancelled" });
+		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+
+		await expect(gateway.confirm(entry.request)).resolves.toEqual({ type: "declined" });
+	});
 
 	test.each(requestTable)(
 		"$name refuses non-interactively with a fully worded failure",

@@ -448,7 +448,7 @@ async function executeSandboxLanding(
 				notifications.push({ message, level });
 			},
 			async confirm() {
-				return true;
+				return { type: "confirmed" };
 			},
 			setStatus() {},
 		},

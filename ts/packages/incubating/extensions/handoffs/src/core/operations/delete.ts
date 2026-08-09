@@ -46,7 +46,7 @@ export async function runDelete(ctx: HandoffCliContext, request: DeleteRequest) 
 		});
 		if (confirmed.type === "gateFailure") return confirmed.exit;
 		if (confirmed.type === "declined") return ok(cancelledResult(target.value));
-		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+		if (confirmed.type === "cancelled") return failure("aborted", "Aborted!");
 	}
 
 	const deleted = await deleteHandoffArtifact(

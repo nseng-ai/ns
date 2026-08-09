@@ -1,5 +1,6 @@
-import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/sdk";
+import type { ConfirmationResult, SelectionResult } from "@nseng-ai/clinkr";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { NsCommandIo, NsConfirmOptions } from "@nseng-ai/sdk";
 
 import {
 	createLandCommandIo,
@@ -35,12 +36,12 @@ export type LandConfirmPrompt = (
 	title: string,
 	message: string,
 	options?: NsConfirmOptions,
-) => Promise<boolean> | boolean;
+) => Promise<ConfirmationResult> | ConfirmationResult;
 
 export type LandSelectPrompt = (
 	title: string,
 	options: readonly string[],
-) => Promise<string | undefined> | string | undefined;
+) => Promise<SelectionResult<string>> | SelectionResult<string>;
 
 export interface RunLandWorkflowInput extends FlowLandObservabilityChannels {
 	readonly cwd: string;
@@ -68,7 +69,9 @@ export async function runLandWorkflow(
 				progressIo?.notify(message, level === "success" ? "info" : level);
 			},
 			confirm: async (title, message, options) =>
-				input.confirm === undefined ? false : await input.confirm(title, message, options),
+				input.confirm === undefined
+					? { type: "cancelled" }
+					: await input.confirm(title, message, options),
 			...optionalEntry("select", input.select),
 			setStatus: (_key, value) => {
 				if (value !== undefined) progressIo?.phase(value);

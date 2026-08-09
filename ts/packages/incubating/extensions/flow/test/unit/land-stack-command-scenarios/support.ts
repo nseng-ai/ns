@@ -157,9 +157,9 @@ export function createContext(
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
 			},
-			async confirm(title: string, message: string): Promise<boolean> {
+			async confirm(title: string, message: string) {
 				confirmations.push({ title, message });
-				return confirmAnswers.shift() ?? false;
+				return { type: (confirmAnswers.shift() ?? false) ? "confirmed" : "declined" } as const;
 			},
 			setStatus(key: string, value: string | undefined): void {
 				statuses.push({ key, value });

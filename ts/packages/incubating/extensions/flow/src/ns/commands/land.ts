@@ -126,11 +126,8 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 								...optionalEntry("landMatrix", progress.landMatrix),
 								externalCallTelemetry: telemetry.sink,
 								confirm: async (title, message, options) =>
-									(await ctx.confirm(title, message, options)).type === "confirmed",
-								select: async (title, options) => {
-									const result = await ctx.select(title, options);
-									return result.type === "selected" ? result.value : undefined;
-								},
+									await ctx.confirm(title, message, options),
+								select: async (title, options) => await ctx.select(title, options),
 							}),
 					),
 			});

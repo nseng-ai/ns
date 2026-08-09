@@ -67,7 +67,7 @@ export async function runResetPublicPackageRelease(
 		if (confirmation.type !== "confirmed") {
 			const declined = declinedResult(planned);
 			return negative(
-				confirmation.type === "aborted"
+				confirmation.type === "cancelled"
 					? "Release reset confirmation was aborted; no reset effects ran."
 					: "Release reset was declined; no reset effects ran.",
 				{ data: declined, human: renderResetPublicPackageRelease(declined) },

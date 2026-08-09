@@ -66,7 +66,7 @@ async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 					cancelled: true,
 					commit: null,
 				} satisfies DeleteResult),
-			onAborted: () => failure("aborted", "Aborted!"),
+			onCancelled: () => failure("aborted", "Aborted!"),
 		});
 		if (confirmation.status !== "confirmed") return confirmation;
 	}

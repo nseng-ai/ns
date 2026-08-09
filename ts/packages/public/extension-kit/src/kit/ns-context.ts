@@ -24,21 +24,9 @@ export function createNsClinkrInteraction(
 ): ClinkrInteraction {
 	return {
 		confirm: async (request) => {
-			const result = await ctx.confirm(
-				options.title,
-				formatNsConfirmationMessage(options, request),
-				{
-					defaultAnswer: request.defaultAnswer,
-				},
-			);
-			switch (result.type) {
-				case "confirmed":
-					return { type: "confirmed" };
-				case "declined":
-					return { type: "declined" };
-				case "cancelled":
-					return { type: "aborted" };
-			}
+			return await ctx.confirm(options.title, formatNsConfirmationMessage(options, request), {
+				defaultAnswer: request.defaultAnswer,
+			});
 		},
 		isInteractive: () => true,
 	};
