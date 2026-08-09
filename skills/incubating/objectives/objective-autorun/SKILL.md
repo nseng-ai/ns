@@ -209,7 +209,6 @@ Stop and state why when any applies:
 - a child stop reason survives parent judgment;
 - branch, HEAD, scope, trust, compatibility, or external-write evidence is ambiguous;
 - a recovery fails twice for the same step;
-- a verification gate fails twice after reasonable local attempts;
 - repeated dispatch or bookend malfunctions occur;
 - continuing would require silent reset, scope expansion, mode weakening, or unapproved external action.
 

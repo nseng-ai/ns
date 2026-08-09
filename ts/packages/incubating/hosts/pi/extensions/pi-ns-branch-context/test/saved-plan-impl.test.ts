@@ -181,6 +181,17 @@ describe("saved-plan implementation command", () => {
 
 		expect(prompt).toContain("# Saved Plan implementation");
 		expect(prompt).toContain("No Branch Context was created");
+		expect(prompt).toContain(
+			"universal STOP triggers: excerpt mismatch; ambiguity or internal inconsistency; implementation requires touching an out-of-scope file/area; or the plan asks for mutating Branch Memory",
+		);
+		expect(prompt).not.toContain("verification gate fails twice");
+		expect(prompt).not.toContain("fails twice after reasonable local attempts");
+		expect(prompt).toContain(
+			"Investigate validation failures, rerun appropriate gates after fixes, and report unresolved failures accurately",
+		);
+		expect(prompt).toContain(
+			"Report implemented changes, files changed/tree state, validation results",
+		);
 		expect(prompt).toContain("----- BEGIN SAVED PLAN -----\n# Demo");
 		expect(prompt).toContain("----- END SAVED PLAN -----");
 	});
