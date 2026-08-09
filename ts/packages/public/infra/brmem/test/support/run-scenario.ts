@@ -81,7 +81,7 @@ export function runScenario(
 		context,
 		cwd,
 		env: options.env ?? { PATH: "/fake/bin" },
-		readStructuredRequest: async () => options.requestStdin ?? "",
+		readJsonInput: async () => options.requestStdin ?? "",
 		sourceReader: context.sourceReader,
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),

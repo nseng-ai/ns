@@ -30,7 +30,7 @@ export type {
 } from "./clinkr-app-cli.ts";
 export { isDirectCliInvocation } from "./direct-invocation.ts";
 export type { CliPackageMetadata, CliRuntime } from "./package-metadata.ts";
-export { readStructuredRequest, readStdinLine } from "./stdin.ts";
+export { readJsonInput, readStdinLine } from "./stdin.ts";
 
 export interface CliEntrypointDeps {
 	readonly cwd?: string;

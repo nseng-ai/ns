@@ -15,7 +15,6 @@
 		"./command-runner": "./src/kit/command-runner.ts",
 		"./content-slug": "./src/kit/content-slug.ts",
 		"./gateway-result": "./src/kit/gateway-result.ts",
-		"./json-input": "./src/kit/json-input.ts",
 		"./machine-envelope-exec": "./src/kit/machine-envelope-exec.ts",
 		"./pi-launch": "./src/kit/pi-launch.ts",
 		"./pi-types": "./src/kit/pi-types.ts",

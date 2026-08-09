@@ -157,7 +157,7 @@ test("README greet accepts its complete request as JSON before the root route", 
 		await (await import("./fixtures/readme-greet/app.ts")).app(),
 		["--input-json", "--format", "json"],
 		{
-			readStructuredRequest: async () => '{"name":"Ada","enthusiastic":true}',
+			readJsonInput: async () => '{"name":"Ada","enthusiastic":true}',
 		},
 	);
 	expect(run).toEqual({
@@ -182,7 +182,7 @@ for (const [label, structuredRequest, errorType] of [
 			await (await import("./fixtures/readme-greet/app.ts")).app(),
 			["--format", "json", "--input-json"],
 			{
-				readStructuredRequest: async () => structuredRequest,
+				readJsonInput: async () => structuredRequest,
 			},
 		);
 		expect(run.exitCode).toBe(2);
@@ -196,7 +196,7 @@ test("README JSON input cannot mix with argv request fields", async () => {
 		await (await import("./fixtures/readme-greet/app.ts")).app(),
 		["Ada", "--input-json", "--format", "json"],
 		{
-			readStructuredRequest: async () => '{"name":"Grace"}',
+			readJsonInput: async () => '{"name":"Grace"}',
 		},
 	);
 	expect(JSON.parse(run.stdout)).toMatchObject({
@@ -211,7 +211,7 @@ test("README JSON input cannot be repeated or mixed across source forms", async 
 		await (await import("./fixtures/readme-greet/app.ts")).app(),
 		["--input-json", "--format=json", "--input-json"],
 		{
-			readStructuredRequest: async () => '{"name":"Ada"}',
+			readJsonInput: async () => '{"name":"Ada"}',
 		},
 	);
 	expect(JSON.parse(run.stdout)).toMatchObject({

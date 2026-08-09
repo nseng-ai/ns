@@ -13,7 +13,7 @@ import {
 	prFeedbackFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
-import { loadJsonInput } from "@nseng-ai/extension-kit/json-input";
+import { loadJsonInput } from "@nseng-ai/clinkr/app";
 import { branchesValidationMessage } from "./map-branch-prs.ts";
 import { branchPrChecksResultSchema } from "./operation-schemas/collection.ts";
 
@@ -50,7 +50,7 @@ async function runBranchPrChecksOperation(
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",
 		schema: branchPrChecksInputSchema,
-		readStructuredRequest: ctx.readStructuredRequest,
+		readJsonInput: ctx.readJsonInput,
 	});
 	if (payloadResult.type === "error")
 		return failure(payloadResult.error.errorType, payloadResult.error.message);

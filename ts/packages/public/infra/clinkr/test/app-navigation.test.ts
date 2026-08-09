@@ -183,7 +183,7 @@ test("input-json works before and after nested routes and stdin is read only for
 	]) {
 		const run = await runForCliTest(recursiveApp(), argv, {
 			context,
-			readStructuredRequest: async () => '{"name":"Lin"}',
+			readJsonInput: async () => '{"name":"Lin"}',
 		});
 		expect(JSON.parse(run.stdout)).toEqual({ value: "ctx:Lin" });
 	}
@@ -194,9 +194,9 @@ test("input-json works before and after nested routes and stdin is read only for
 		["people", "find", "--input-json", "--name", "Ada"],
 		["people", "find", "--input-json", "--input-json"],
 	]) {
-		const readStructuredRequest = vi.fn(async () => '{"name":"should-not-read"}');
-		await app.run(argv, { context, readStructuredRequest, canEmitAnsi: false });
-		expect(readStructuredRequest).not.toHaveBeenCalled();
+		const readJsonInput = vi.fn(async () => '{"name":"should-not-read"}');
+		await app.run(argv, { context, readJsonInput, canEmitAnsi: false });
+		expect(readJsonInput).not.toHaveBeenCalled();
 	}
 	stdout.mockRestore();
 	stderr.mockRestore();

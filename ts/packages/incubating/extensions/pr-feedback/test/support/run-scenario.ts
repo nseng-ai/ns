@@ -38,7 +38,7 @@ export function runScenario(
 			context: fakePrAddressContext(overrides),
 			cwd: options.cwd ?? "/repo",
 			env: options.env ?? { PATH: "/fake/bin" },
-			readStructuredRequest: typeof stdin === "function" ? stdin : async () => stdin ?? "",
+			readJsonInput: typeof stdin === "function" ? stdin : async () => stdin ?? "",
 			...optionalEntry("operations", options.operations),
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),

@@ -1,4 +1,12 @@
 export { createClinkrApp } from "./app.ts";
+export { loadJsonInput, parseJsonInputText } from "./json-input.ts";
+export type {
+	JsonInputError,
+	JsonInputResult,
+	LoadJsonInputOptions,
+	ParseJsonInputTextOptions,
+	ReadJsonInputTextOptions,
+} from "./json-input.ts";
 export { resolveClinkrOutputFormat } from "./framework-arguments.ts";
 export type { OutputFormat } from "./framework-arguments.ts";
 export type {

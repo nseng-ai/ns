@@ -35,7 +35,7 @@ describe("runRecordFindings", () => {
 				}),
 				localDiff: diffGateway("trunk"),
 				reviewLog,
-				readStructuredRequest: async () => JSON.stringify({ findings: [FINDING] }),
+				readJsonInput: async () => JSON.stringify({ findings: [FINDING] }),
 				stderr: (text) => stderr.push(text),
 			}),
 		);
@@ -65,7 +65,7 @@ describe("runRecordFindings", () => {
 	test("rejects malformed JSON without writing a log", async () => {
 		const reviewLog = new FakeReviewLogGateway();
 		const ctx = createReviewsRuntime(
-			fakeReviewsContext({ readStructuredRequest: async () => "not json", reviewLog }),
+			fakeReviewsContext({ readJsonInput: async () => "not json", reviewLog }),
 		);
 
 		const exit = await runRecordFindings(ctx, { reviewKey: "typescript-style" });
@@ -80,7 +80,7 @@ describe("runRecordFindings", () => {
 		const reviewLog = new FakeReviewLogGateway();
 		const ctx = createReviewsRuntime(
 			fakeReviewsContext({
-				readStructuredRequest: async () => JSON.stringify({ findings: [{ summary: "bad" }] }),
+				readJsonInput: async () => JSON.stringify({ findings: [{ summary: "bad" }] }),
 				reviewLog,
 			}),
 		);
@@ -99,7 +99,7 @@ describe("runRecordFindings", () => {
 			fakeReviewsContext({
 				reviewCatalog: new FakeReviewCatalogGateway(),
 				reviewLog,
-				readStructuredRequest: async () => JSON.stringify({ findings: [FINDING] }),
+				readJsonInput: async () => JSON.stringify({ findings: [FINDING] }),
 			}),
 		);
 
@@ -122,7 +122,7 @@ describe("runRecordFindings", () => {
 				}),
 				localDiff: diffGateway("main"),
 				reviewLog,
-				readStructuredRequest: async () => JSON.stringify({ findings: [FINDING] }),
+				readJsonInput: async () => JSON.stringify({ findings: [FINDING] }),
 			}),
 		);
 

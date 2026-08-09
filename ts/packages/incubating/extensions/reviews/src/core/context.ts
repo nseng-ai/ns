@@ -44,7 +44,7 @@ export interface ReviewsContext extends ReviewsGateways {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
-	readonly readStructuredRequest: () => Promise<string>;
+	readonly readJsonInput: () => Promise<string>;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 }
@@ -52,7 +52,7 @@ export interface ReviewsContext extends ReviewsGateways {
 export interface CreateRealReviewsContextOptions {
 	readonly cwd: string;
 	readonly env: NodeJS.ProcessEnv;
-	readonly readStructuredRequest: () => Promise<string>;
+	readonly readJsonInput: () => Promise<string>;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
@@ -81,7 +81,7 @@ export interface ReviewsCatalogOptions {
 
 export interface ReviewsRuntime extends ReviewsGateways {
 	readonly runScope: ReviewsRunScope;
-	readonly readStructuredRequest: () => Promise<string>;
+	readonly readJsonInput: () => Promise<string>;
 	readonly stderr: (text: string) => void;
 }
 
@@ -105,7 +105,7 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 		cwd: options.cwd,
 		env: options.env,
 		...optionalEntry("signal", options.signal),
-		readStructuredRequest: options.readStructuredRequest,
+		readJsonInput: options.readJsonInput,
 		stdout: options.stdout,
 		stderr: options.stderr,
 	};

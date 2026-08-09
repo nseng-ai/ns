@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
-import {
-	defineCli,
-	readStructuredRequest,
-	type CliEntrypointDeps,
-} from "@nseng-ai/foundation/cli-runtime";
+import { defineCli, readJsonInput, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 
 import { createRealPrAddressContext, type PrAddressContext } from "./context.ts";
 import { EXEC_OPERATIONS } from "./exec-commands.ts";
@@ -13,7 +9,7 @@ import type { ExecOperation, PrAddressExecContext } from "./exec-operation.ts";
 export interface CliDeps extends CliEntrypointDeps {
 	context?: PrAddressContext;
 	operations?: readonly ExecOperation[];
-	readStructuredRequest?: () => Promise<string>;
+	readJsonInput?: () => Promise<string>;
 }
 
 const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>({
@@ -27,7 +23,7 @@ const entry = defineCli<PrAddressExecContext, CliDeps, readonly ExecOperation[]>
 			context,
 			cwd: deps.cwd ?? cwd,
 			env: deps.env ?? env,
-			readStructuredRequest: deps.readStructuredRequest ?? readStructuredRequest,
+			readJsonInput: deps.readJsonInput ?? readJsonInput,
 		};
 		return { type: "run", context: execContext, buildState: operations };
 	},

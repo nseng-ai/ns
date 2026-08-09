@@ -13,7 +13,7 @@ import {
 	prFeedbackFailureExit,
 	type PrAddressExecContext,
 } from "./exec-operation.ts";
-import { loadJsonInput } from "@nseng-ai/extension-kit/json-input";
+import { loadJsonInput } from "@nseng-ai/clinkr/app";
 import { mapBranchPrsResultSchema } from "./operation-schemas/collection.ts";
 
 export const mapBranchPrsInputSchema = z.looseObject({
@@ -51,7 +51,7 @@ async function runMapBranchPrsOperation(
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",
 		schema: mapBranchPrsInputSchema,
-		readStructuredRequest: ctx.readStructuredRequest,
+		readJsonInput: ctx.readJsonInput,
 	});
 	if (payloadResult.type === "error")
 		return failure(payloadResult.error.errorType, payloadResult.error.message);
