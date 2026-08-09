@@ -28,7 +28,7 @@ export function createNsClinkrInteraction(
 				defaultAnswer: request.defaultAnswer,
 			});
 		},
-		isInteractive: () => true,
+		isInteractive: () => ctx.isInteractive(),
 	};
 }
 

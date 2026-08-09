@@ -85,6 +85,7 @@ export async function runNsCliWithFakeContext(
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		isInteractive: () => false,
 		confirm: () => {
 			throw new Error("Default host contract unexpectedly requested confirmation.");
 		},

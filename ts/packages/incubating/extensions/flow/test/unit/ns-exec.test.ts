@@ -54,6 +54,7 @@ function createFakeApi(results: readonly ExecResult[]): {
 			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,
+			isInteractive: () => false,
 			confirm: () => {
 				throw new Error("Unexpected confirmation prompt in test.");
 			},

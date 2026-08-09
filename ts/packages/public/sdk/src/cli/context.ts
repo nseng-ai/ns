@@ -38,7 +38,11 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 	const execEnv = options.execEnv ?? env;
 	const homeDir = resolveHomeDir(options.homeDir, env);
 	const confirm = createTerminalConfirmPrompt();
-	const select = createUnsupportedTerminalSelectPrompt();
+	const select = createTerminalSelectPrompt({
+		stdin: readStdinLine,
+		stderr: (text) => process.stderr.write(text),
+		isInteractive: () => process.stdin.isTTY === true && process.stderr.isTTY === true,
+	});
 	const stdout = (text: string) => process.stdout.write(text);
 	const stderr = (text: string) => process.stderr.write(text);
 	const commandIo = createCliCommandIo({ stdout, stderr });
@@ -53,6 +57,7 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 		outputFormat: "human",
 		stdout,
 		stderr,
+		isInteractive: () => process.stdin.isTTY === true && process.stderr.isTTY === true,
 		exec: async (command, args, execOptions = {}) => {
 			return await runCommand(command, args, {
 				cwd: execOptions.cwd ?? cwd,
@@ -93,9 +98,31 @@ export function createTerminalConfirmPrompt(): NsConfirmPrompt {
 	};
 }
 
-function createUnsupportedTerminalSelectPrompt(): NsExtensionApi["select"] {
-	return () => {
-		throw new Error("Standalone selection UI is unavailable.");
+export function createTerminalSelectPrompt(options: {
+	stdin: () => Promise<string | null>;
+	stderr: (text: string) => void;
+	isInteractive: () => boolean;
+}): NsExtensionApi["select"] {
+	return async (title, selectOptions) => {
+		if (!options.isInteractive()) throw new Error("Standalone selection UI is unavailable.");
+		if (selectOptions.length === 0) return { type: "cancelled" };
+		const choices = selectOptions
+			.map((option, index) => `${String(index + 1)}. ${option}`)
+			.join("\n");
+		const prompt = `${title}\n\n${choices}\n\nSelect an option [1-${String(selectOptions.length)}] (blank to cancel): `;
+		for (;;) {
+			options.stderr(prompt);
+			const input = await options.stdin();
+			if (input === null || input.trim() === "") return { type: "cancelled" };
+			const value = input.trim();
+			if (/^\d+$/.test(value)) {
+				const selected = selectOptions[Number.parseInt(value, 10) - 1];
+				if (selected !== undefined) return { type: "selected", value: selected };
+			}
+			options.stderr(
+				`Error: enter a number from 1 to ${String(selectOptions.length)}, or press Enter to cancel.\n`,
+			);
+		}
 	};
 }
 

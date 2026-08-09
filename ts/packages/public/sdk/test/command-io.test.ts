@@ -25,6 +25,7 @@ function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,
+		isInteractive: () => false,
 		confirm: () => {
 			throw new Error("Unexpected confirmation prompt in command I/O test.");
 		},

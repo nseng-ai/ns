@@ -82,6 +82,8 @@ export interface CliCommandRunDeps {
 	 * stdout/stderr for output that should remain visible after the command ends.
 	 */
 	onProgress?: (event: NsProgressPhaseEvent) => void;
+	/** Whether this invocation can elicit an interactive confirmation from the user. */
+	isInteractive: () => boolean;
 	/** Semantic confirmation owned by the Pi host. Throws when no confirmation UI exists. */
 	confirm: CliCommandConfirmPrompt;
 	/** Semantic selection owned by the Pi host. Throws when no selection UI exists. */
@@ -468,6 +470,8 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			},
 			// Give each invocation an owned environment without mutating process.env.
 			env: { ...(spec.env ?? process.env) },
+			isInteractive: () =>
+				ctx.hasUI === true && ctx.ui.confirm !== undefined && ctx.ui.select !== undefined,
 			onProgress: (event) => {
 				activity.applyPhaseEvent(event);
 			},

@@ -554,6 +554,7 @@ class FakeHerdrNsApi implements NsExtensionApi {
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
+	readonly isInteractive = () => false;
 	readonly confirm = () => {
 		throw new Error("Unexpected confirmation prompt in Herdr test.");
 	};
