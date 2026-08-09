@@ -28,10 +28,13 @@ It should not virtualize general stdin, a terminal session, raw mode, key events
 - Retain Pi `/ns:plan:save`, Pi `/ns:plan:grill-and-save`, the structured `write_saved_plan_file` tool, the `writeSavedPlanFile()` domain operation, and Saved Plan listing, resolution, selection, and attachment.
 - Inventory every remaining whole-payload stdin consumer and prove that the shared cases are finite JSON requests. Replace Clinkr `readStdin` and SDK `stdin()` with a JSON-specific input contract rather than a general stdin abstraction. Prefer passing finite JSON text directly when lazy acquisition has no demonstrated value; keep parsing, schema validation, and command-specific errors with Clinkr or the owning command.
 - Keep interactive input separate from request input. Commands depend on semantic confirmation and selection capabilities, not line readers or terminal streams. A standalone terminal adapter may implement those capabilities with an opt-in rich CLI interaction library; Pi implements them through `ctx.ui`; tests use strict fakes.
-- Keep output invocation-scoped. Standalone adapters may default to process output, while embedded and test hosts provide explicit sinks. Do not require a new semantic Response/event ontology merely to stop ambient writes.
+- Keep output invocation-scoped. Structured commands program to a narrow presentation seam whose demonstrated operations are primary durable result rendering (`renderResult`) and auxiliary human text (`echo`), or equivalently precise names. Standalone adapters map those operations to stdout and stderr; embedded and test hosts capture them per invocation. Physical stdout/stderr vocabulary remains at terminal adapters, subprocess and raw-command boundaries, and compatibility surfaces rather than defining the structured host API. Do not require a new semantic Response/event ontology merely to stop ambient writes.
 - Make Pi's in-process extension-command execution explicit and reliable:
-  - provide the supported request-input policy, output sinks, rendering capabilities, and semantic interaction adapters per invocation;
-  - prevent structured embedded commands from reading process stdin or deriving terminal capabilities from the physical process terminal;
+  - provide the supported request-input policy, presentation operations, rendering capabilities, structured progress listener, and semantic interaction adapters per invocation;
+  - prevent structured embedded commands from reading process stdin, writing process stdout/stderr, or deriving terminal capabilities from the physical process terminal;
+  - map `renderResult` and `echo` to invocation capture and deferred completion presentation rather than pretending Pi has live terminal streams;
+  - route typed progress to Pi's status renderer exactly once, without also persisting terminal phase frames as deferred echo output;
+  - migrate bounded textual phase users whose transient text currently falls through to deferred stderr capture;
   - sanitize captured terminal controls at the Pi presentation seam before content reaches Pi's TUI renderer;
   - define explicit fail-closed behavior for interaction when Pi has no applicable UI;
   - preserve Pi lifecycle rules such as waiting for idle and not using stale session contexts.
@@ -44,7 +47,7 @@ It should not virtualize general stdin, a terminal session, raw mode, key events
 - General stdin, readable-stream, terminal-session, PTY, raw-mode, key-event, cursor, screen-state, or resize virtualization.
 - Running arbitrary terminal-oriented interaction libraries inside Pi. Pi interaction uses Pi's runtime extension UI capabilities.
 - A mandatory `ClinkrResponse`, `ClinkrFinalPresentation`, or event protocol.
-- Eliminating stdout/stderr vocabulary from process adapters, subprocess results, raw commands, compatibility types, or test capture results.
+- Eliminating stdout/stderr vocabulary from process adapters, subprocess results, raw commands, compatibility types, or terminal-oriented test capture results. Retaining that vocabulary at those boundaries does not require exposing it in the structured invocation presentation API.
 - Redesigning raw commands. They remain an explicit escape hatch with separately owned byte and input behavior.
 - Repository-wide migration of legacy Clinkr construction, output, or interaction APIs.
 - Click or multi-framework prior-art research as a completion gate.
@@ -58,8 +61,10 @@ It should not virtualize general stdin, a terminal session, raw mode, key events
 - Production shared command interfaces no longer expose a general whole-stream `readStdin` or `stdin()` capability. Remaining structured whole-payload input is represented by a finite JSON-specific contract with clear ownership of acquisition, parsing, schema validation, and errors.
 - Ordinary argv execution, help, version/runtime, schema, completion, and rejected argument combinations do not acquire JSON input. Tests prove the input capability is called only when required.
 - Semantic interaction is host-provided and limited to demonstrated operations. Standalone execution can opt into a rich-library adapter without making that library a Clinkr core dependency; Pi uses `ctx.ui`; tests use strict fakes.
-- Structured command output and rendering capability are invocation-scoped for embedded and test execution. Standalone process-backed defaults remain adapter behavior rather than command behavior.
-- A representative Pi extension-command suite proves success and failure output, confirmation or selection, explicit headless behavior, absence of ambient process input/output, non-ANSI embedded rendering, and terminal-control sanitization before TUI presentation.
+- Structured command presentation and rendering capability are invocation-scoped for embedded and test execution. The bounded modern path uses primary-result and auxiliary-text operations instead of physical stream names; standalone adapters preserve stdout/stderr CLI conventions.
+- Existing direct writes on the bounded path are classified rather than mechanically renamed: primary output becomes `renderResult`; genuinely unclassified auxiliary human text becomes `echo`; progress, notifications, rich messages, interaction, and command outcomes retain their more precise APIs.
+- Pi consumes structured progress through its status renderer exactly once. Transient textual phases do not appear in final echo output, and Flow's terminal phase renderer does not duplicate typed progress as a settled Pi result.
+- A representative Pi extension-command suite proves success and failure output, confirmation or selection, explicit headless behavior, absence of ambient process input/output, fully settled non-TTY capabilities, non-ANSI embedded rendering, terminal-control sanitization before TUI presentation, and preserved completion-hook behavior.
 - Existing finite JSON request workflows continue to work through standalone execution and fake-driven tests after the generic stdin surface is removed.
 - Relevant package, type, test, formatting, and repository checks pass.
 - A final follow-up document captures plausible future expansions, their motivating evidence thresholds, and why they are deferred. No deferred direction remains an implicit closure requirement.
@@ -77,7 +82,9 @@ Risks:
 
 - **Hidden text consumer.** A production command may still consume arbitrary stdin text. Mitigation: inventory call sites before changing the interface; split a genuinely required domain-specific input capability rather than restoring generic stdin.
 - **Rename-only abstraction.** `readJsonInput()` could preserve ambient process fallback under a narrower name. Mitigation: keep the JSON reader explicit and lazy at the invocation seam; only the standalone adapter binds it to process stdin, while reusable source selection and JSON parsing/validation live in Clinkr.
-- **Terminal leakage.** A default process capability or writer can leak through SDK/Foundation composition into Pi. Mitigation: test the real in-process Pi composition and assert no process reader/writer is touched.
+- **Terminal leakage.** A default process capability or writer can leak through SDK/Foundation composition into Pi. Overriding only `canEmitAnsi` is insufficient if inherited physical TTY `caps` can still select an in-place writer. Mitigation: give Pi fully settled non-TTY capabilities, test the real in-process composition, and assert no process reader/writer is touched.
+- **Semantic relabeling.** Renaming every stderr write to `echo` would preserve the current conflation of progress, warnings, prompts, previews, and failures under a new name. Mitigation: classify touched writes and retain structured progress, notification, message, interaction, and outcome APIs where they express the real semantics.
+- **Duplicate progress.** Flow can forward typed phase events to Pi while its non-TTY terminal renderer also emits a settled phase frame through deferred capture. Mitigation: make progress rendering host-owned and suppress the terminal renderer when a structured host consumes the events.
 - **Renderer corruption.** Captured ANSI or control sequences can reach the physical terminal behind Pi and desynchronize its differential renderer. Mitigation: disable ANSI for embedded structured execution and sanitize at the Pi presentation seam.
 - **Interaction inflation.** Choosing a rich terminal library can pull its raw terminal model into shared command types. Mitigation: keep library-specific streams, raw mode, lifecycle, and cleanup inside the standalone adapter.
 - **Compatibility drag.** Legacy stdin/output fields may linger indefinitely after the new path exists. Mitigation: this Objective requires deletion of the generic shared surface for the bounded modern path; explicitly record any unavoidable compatibility residue and owner.
@@ -86,6 +93,7 @@ Risks:
 
 - Should the JSON-specific invocation contract carry finite JSON text or an already parsed unknown value? Default to text so the command's schema remains authoritative, but choose the smaller interface after the consumer inventory.
 - Does any demonstrated JSON consumer require lazy acquisition, or can every embedded/test host pass the finite payload value directly?
-- What is the smallest output interface that preserves standalone stream behavior and Pi-safe capture without introducing a semantic Response model?
+- Are `renderResult(text)` and `echo(text)` the final names for the smallest presentation seam, or does an existing Clinkr-owned output object provide equally precise vocabulary without duplicating the SDK boundary?
+- Which captured-output policies still require compatibility metadata during migration—especially usage-error detection, Flow submit recovery, trace previews, and completion hooks—and which should move to structured outcome data?
 - Which optional terminal interaction library, if any, provides the smallest concrete adapter proof? A documented adapter contract may be sufficient if adding a dependency would not improve production behavior.
 - Should raw commands be rejected by the Pi bridge or supported through their existing explicit byte sinks? Decide from current Pi-exposed raw-command inventory; do not broaden raw input virtualization.
