@@ -95,6 +95,8 @@ export interface ContextfulClinkrCompletionConfig<TContext> {
 
 export interface ClinkrContextFreeApp {
 	readonly requiresContext: false;
+	/** Run as a standalone process-backed CLI using process argv and finite JSON stdin. */
+	runCli(): Promise<number>;
 	run(argv: readonly string[], options?: ClinkrContextFreeRunOptions): Promise<number>;
 	complete(
 		request: ClinkrCompletionRequest,
@@ -104,6 +106,8 @@ export interface ClinkrContextFreeApp {
 
 export interface ClinkrContextfulApp<TContext> {
 	readonly requiresContext: true;
+	/** Run as a standalone process-backed CLI using process argv and finite JSON stdin. */
+	runCli(options: { readonly context: TContext }): Promise<number>;
 	run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number>;
 	complete(
 		request: ClinkrCompletionRequest,
@@ -176,6 +180,13 @@ function requireRunContext<TContext>(
 
 async function rejectUnsupportedJsonInput(): Promise<string> {
 	throw new Error("clinkr: invocation host does not support JSON input");
+}
+
+async function readProcessJsonInput(): Promise<string> {
+	let content = "";
+	process.stdin.setEncoding("utf8");
+	for await (const chunk of process.stdin) content += chunk;
+	return content;
 }
 
 const SUCCESS_EXIT_CODE = exitCodeFor("success");
@@ -306,6 +317,13 @@ class TopologyClinkrApp<TContext> {
 						emitTopologyIssues: (issues, invocationOptions) =>
 							emitTopologyIssues(issues, resolveOutput(invocationOptions.output)),
 					});
+	}
+
+	async runCli(options: { readonly context?: TContext } = {}): Promise<number> {
+		return await this.run(process.argv.slice(2), {
+			...options,
+			readJsonInput: readProcessJsonInput,
+		});
 	}
 
 	async run(

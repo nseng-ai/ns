@@ -1,6 +1,5 @@
 // src/cli/app.ts
 import { createClinkrApp } from "@nseng-ai/clinkr/app";
-import { readJsonInput } from "@nseng-ai/foundation/cli-runtime";
 
 export async function app() {
   return createClinkrApp({
@@ -11,5 +10,5 @@ export async function app() {
 
 if (import.meta.main) {
   const clinkr = await app();
-  process.exitCode = await clinkr.run(process.argv.slice(2), { readJsonInput });
+  process.exitCode = await clinkr.runCli();
 }
