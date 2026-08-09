@@ -110,7 +110,6 @@ export async function executeStackLanding(
 					mergeMaintenanceCleanup: { deletedLocalBranches: [], retainedLocalBranches: [] },
 					postLandingSlotCleanup: { type: "not-run", reason: "unexpected workflow failure" },
 				},
-				continuation: { type: "not-requested" },
 			},
 		};
 	} finally {
@@ -135,7 +134,6 @@ export function parseArgs(argsText: string): LandResult<ParsedArgs> {
 		shouldSkipConfirmation: false,
 		isDryRun: false,
 		shouldFreeSlot: false,
-		shouldContinueUpstack: false,
 		shouldShowHelp: false,
 		shouldStreamVerboseOutput: false,
 	};

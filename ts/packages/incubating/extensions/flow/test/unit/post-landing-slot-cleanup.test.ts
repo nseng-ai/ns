@@ -100,9 +100,6 @@ describe("parsed-args to cleanup policy mapping", () => {
 	test.each([
 		{ rawArgs: "", policy: "preserve", mode: "execute" },
 		{ rawArgs: "--free", policy: "free", mode: "execute" },
-		// --up slot preservation is continuation policy, not a cleanup policy.
-		{ rawArgs: "--up", policy: "preserve", mode: "execute" },
-		{ rawArgs: "--up --free", policy: "free", mode: "execute" },
 		// --yes is approval state, not a cleanup policy.
 		{ rawArgs: "--yes", policy: "preserve", mode: "execute" },
 		{ rawArgs: "--dry-run", policy: "preserve", mode: "dry-run" },
@@ -166,8 +163,13 @@ describe("post-landing slot cleanup defaults", () => {
 			}),
 		).toBeUndefined();
 		expect(
-			planPostLandingSlotCleanup({ args: expectParsed("--up --free"), shape: managedShape() }),
-		).toBeUndefined();
+			planPostLandingSlotCleanup({ args: expectParsed("--free"), shape: managedShape() }),
+		).toEqual({
+			branch: BRANCH,
+			repoRoot: SLOT_ROOT,
+			slotName: "slot-02",
+			localBranchDisposition: "delete",
+		});
 	});
 
 	test("a selected free override replaces the default preserve policy", async () => {

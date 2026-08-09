@@ -14,7 +14,6 @@ import {
 import type { FlowLandWorkflowResult } from "./landing-dispatch.ts";
 import type {
 	LandedChunk,
-	LandingContinuationReport,
 	LandingExecutionReport,
 	LandingFailure,
 	PostLandingSlotCleanupReport,
@@ -38,7 +37,6 @@ export type LandCommandSuccess =
 					readonly pullRequestNumber: number;
 				}[];
 			};
-			readonly continuation: LandingContinuationReport;
 	  }
 	| {
 			readonly type: "stack-completed" | "cleanup-only";
@@ -46,7 +44,6 @@ export type LandCommandSuccess =
 			readonly landedChunks: readonly LandedChunk[];
 			readonly warnings: readonly string[];
 			readonly cleanup: PostLandingSlotCleanupReport;
-			readonly continuation: LandingContinuationReport;
 	  }
 	| {
 			readonly type: "single-branch-landed";
@@ -70,7 +67,6 @@ export function landCommandSuccess(result: FlowLandWorkflowResult): LandCommandS
 				branch: result.pullRequest.headRefName,
 				base: result.pullRequest.baseRefName,
 			},
-			continuation: { type: "not-requested" },
 		};
 	}
 	if (result.type === "single-branch-landed") {
@@ -105,7 +101,6 @@ export function landCommandSuccess(result: FlowLandWorkflowResult): LandCommandS
 							})),
 						},
 					}),
-			continuation: report.continuation,
 		};
 	}
 	return {
@@ -114,7 +109,6 @@ export function landCommandSuccess(result: FlowLandWorkflowResult): LandCommandS
 		landedChunks: report.landedChunks,
 		warnings: report.warnings.map((warning) => warning.message),
 		cleanup: report.cleanup.postLandingSlotCleanup,
-		continuation: report.continuation,
 	};
 }
 
@@ -191,7 +185,6 @@ function renderStackCompletion(caps: Caps, report: LandingExecutionReport): stri
 		cleanup: {
 			retainedLocalBranches: [...report.cleanup.mergeMaintenanceCleanup.retainedLocalBranches],
 		},
-		continuation: report.continuation,
 	});
 	return renderSuccess(
 		caps,

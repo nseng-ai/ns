@@ -60,9 +60,6 @@ export async function runFlowStackLanding(
 		mode: parsedArgs.isDryRun ? ("dry-run" as const) : ("execute" as const),
 		preflight: { shouldAllowSubmitRequiredState: true },
 		cleanup: landingCleanupPolicyFromArgs(parsedArgs),
-		continuation: parsedArgs.shouldContinueUpstack
-			? ({ type: "upstack" } as const)
-			: ({ type: "none" } as const),
 	};
 	return await executeLanding({
 		context: runtime.landContext,

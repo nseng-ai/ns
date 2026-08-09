@@ -49,7 +49,6 @@ function args(overrides: Partial<ParsedArgs> = {}): ParsedArgs {
 		shouldSkipConfirmation: false,
 		isDryRun: false,
 		shouldFreeSlot: false,
-		shouldContinueUpstack: false,
 		shouldShowHelp: false,
 		shouldStreamVerboseOutput: false,
 		...overrides,

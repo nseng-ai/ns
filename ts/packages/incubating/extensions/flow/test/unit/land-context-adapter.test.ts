@@ -58,7 +58,6 @@ const REFRESH_ARGS = [
 	"--no-interactive",
 ];
 const DELETE_ARGS = ["delete", "feature-a", "-f", "-q"];
-const CHECKOUT_ARGS = ["checkout", "feature-b"];
 const RESTACK_ARGS = ["restack", "--branch", "feature-b", "--upstack", "--no-interactive"];
 const RESTACK_ONLY_ARGS = ["restack", "--branch", "feature-b", "--only", "--no-interactive"];
 const REPARENT_ARGS = ["track", "feature-b", "--parent", "main", "--no-interactive"];
@@ -351,37 +350,6 @@ describe("land context adapter facts", () => {
 				args: backupSnapshotFetchArgs,
 				options: { cwd: ROOT, timeout: 30000 },
 			},
-		]);
-		pi.assertDone();
-	});
-
-	test("checks out a continuation branch through the foundation Git gateway", async () => {
-		const pi = new FakeLandExecutionApi([
-			step("git", CHECKOUT_ARGS),
-			step("git", CHECKOUT_ARGS, { code: 1, stderr: "checkout rejected\n" }),
-		]);
-		const context = createTestLandContext(pi);
-
-		await expect(
-			context.git.checkoutBranch({ repoRoot: ROOT, branch: "feature-b" }),
-		).resolves.toEqual({ type: "completed" });
-		await expect(
-			context.git.checkoutBranch({ repoRoot: ROOT, branch: "feature-b" }),
-		).resolves.toMatchObject({
-			type: "failure",
-			failure: {
-				type: "boundary",
-				phase: "upstack-continuation",
-				source: "git",
-				code: "checkout_branch_failed",
-				displayCommand: "git checkout feature-b",
-				message:
-					"Could not check out continuation branch feature-b.\ngit checkout failed (exit code 1).\n\nCommand: git checkout feature-b\n\n----- stdout tail -----\n(empty)\n\n----- stderr tail -----\ncheckout rejected",
-			},
-		});
-		expect(pi.execCalls).toEqual([
-			{ command: "git", args: CHECKOUT_ARGS, options: { cwd: ROOT, timeout: 10_000 } },
-			{ command: "git", args: CHECKOUT_ARGS, options: { cwd: ROOT, timeout: 10_000 } },
 		]);
 		pi.assertDone();
 	});

@@ -27,8 +27,7 @@ export type { PostLandingSlotCleanupPreview };
 
 /**
  * Deterministic flag-to-policy mapping: `preserve` is the default and `--free` opts into freeing
- * the current managed slot. `--up` slot preservation is continuation policy rather than cleanup
- * policy; `--yes` stays approval state, not a cleanup policy.
+ * the current managed slot. `--yes` stays approval state, not a cleanup policy.
  */
 export function landingCleanupPolicyFromArgs(
 	args: Pick<ParsedArgs, "shouldFreeSlot">,
@@ -49,7 +48,6 @@ export function planPostLandingSlotCleanup(options: {
 	readonly args: ParsedArgs;
 	readonly shape: LandingShape;
 }): PostLandingSlotCleanupPreview | undefined {
-	if (options.args.shouldContinueUpstack) return undefined;
 	return planManagedSlotPostLandingCleanup({
 		cleanup: postLandingCleanupRequestFromArgs(options.args),
 		shape: options.shape,

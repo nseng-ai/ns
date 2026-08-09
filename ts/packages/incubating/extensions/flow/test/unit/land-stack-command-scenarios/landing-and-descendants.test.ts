@@ -186,6 +186,43 @@ describe("land-stack command scenarios", () => {
 		);
 		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c.");
 	});
+	test("default preserve reconciles survivors and retains landed branches", async () => {
+		const script = [
+			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
+			...backupRefSteps(["feature-a", "feature-b", DESCENDANT, "feature-d"], {
+				shas: BRANCH_SHAS,
+			}),
+			...mergeFeatureA(),
+			...mergeFeatureBWithForkedDescendants().slice(0, -4),
+		];
+		const { pi, notifications, messages } = await runLandStack("--yes", script, {
+			cleanupPolicy: "preserve",
+		});
+
+		pi.assertDone();
+		expect(
+			pi.execCalls
+				.filter(
+					(call) => call.command === "gh" && call.args[0] === "pr" && call.args[1] === "merge",
+				)
+				.map((call) => call.args[2]),
+		).toEqual(["101", "102"]);
+		for (const branch of [DESCENDANT, "feature-d"]) {
+			expect(
+				pi.execCalls.some(
+					(call) =>
+						call.command === "gt" &&
+						["restack", "submit"].includes(call.args[0] ?? "") &&
+						call.args[2] === branch,
+				),
+			).toBe(true);
+		}
+		expect(pi.execCalls.some((call) => call.command === "gt" && call.args[0] === "delete")).toBe(
+			false,
+		);
+		expect(notifications.at(-1)?.level).toBe("success");
+		expect(commandMessagesText(messages)).toContain("Left open/restacked: feature-c, feature-d.");
+	});
 	test("happy path restacks and updates multiple descendant roots above the current branch", async () => {
 		const script = [
 			...featureStackPreflight({ dbRows: DB_FORKED_CURRENT }),
@@ -758,7 +795,6 @@ describe("land-stack command scenarios", () => {
 				shouldSkipConfirmation: false,
 				isDryRun: false,
 				shouldFreeSlot: false,
-				shouldContinueUpstack: false,
 				shouldShowHelp: false,
 				shouldStreamVerboseOutput: false,
 			},
