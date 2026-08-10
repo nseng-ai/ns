@@ -1,12 +1,15 @@
 import { resolveClinkrInteraction, type ConfirmationResult } from "@nseng-ai/clinkr";
-import { createClinkrApp } from "@nseng-ai/clinkr/app";
+import { createClinkrApp, resolveClinkrOutputFormat } from "@nseng-ai/clinkr/app";
 import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import { noopNsCommandIo, noopNsProgress, type NsExtensionApi } from "@nseng-ai/sdk";
 
 import type { SlotCliContext } from "../../src/core/context.ts";
-import { FakeClipboardGateway } from "../../src/core/gateways/clipboard.ts";
+import {
+	FakeClipboardGateway,
+	type ClipboardCopyResult,
+} from "../../src/core/gateways/clipboard.ts";
 import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 import { FakeGraphiteStackGateway } from "@nseng-ai/extension-kit/graphite/testing";
@@ -22,6 +25,8 @@ export interface FilesystemScenarioOptions {
 	readonly git?: ConstructorParameters<typeof FakeSlotRepositoryGateway>[0];
 	readonly confirmations?: readonly ConfirmationResult[];
 	readonly provisionFiles?: FakeSlotProvisionFilesGatewayOptions;
+	readonly clipboardResult?: ClipboardCopyResult;
+	readonly env?: NodeJS.ProcessEnv;
 	readonly renderCapabilities?: RenderCapabilities;
 }
 
@@ -45,7 +50,7 @@ export function runFilesystemScenario(
 ): FilesystemScenarioRun {
 	const fixture = createFilesystemFixture(options);
 	const exit = buildFilesystemSlotApp().run(["slot", ...args], {
-		context: fixture.api,
+		context: { ...fixture.api, outputFormat: resolveClinkrOutputFormat(args) },
 		output: {
 			stdout: (text) => fixture.stdout.push(text),
 			stderr: (text) => fixture.stderr.push(text),
@@ -108,7 +113,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		pr: new FakeSlotPrGateway(),
 		storage: new FakeSlotStorageGateway(),
 		provisionFiles,
-		clipboard: new FakeClipboardGateway(),
+		clipboard: new FakeClipboardGateway(options.clipboardResult),
 		command: new FakeSlotCommandGateway(),
 		clock: createManualClock(Date.UTC(2026, 6, 12, 12)).clock,
 		cwd: "/repo",
@@ -117,7 +122,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 			fakeInteraction?.interaction ??
 			resolveClinkrInteraction({ stdin, stderr: (text) => stderr.push(text) }),
 		stderr: (text) => stderr.push(text),
-		env: { PATH: "/fake/bin" },
+		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
 		shouldWriteCdDirective: true,
 	};

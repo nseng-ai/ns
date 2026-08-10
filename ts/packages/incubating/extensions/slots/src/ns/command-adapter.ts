@@ -11,14 +11,15 @@ interface SlotCommandContextOverrides {
 /** Route-neutral adaptation from the ns host API to the Slot command context. */
 export async function createSlotCliContext(ctx: NsExtensionApi): Promise<SlotCliContext> {
 	const overrides = readSlotCommandContextOverrides(ctx);
-	if (overrides !== undefined) return overrides.context;
+	const shouldWriteCdDirective = ctx.outputFormat === undefined || ctx.outputFormat === "human";
+	if (overrides !== undefined) return { ...overrides.context, shouldWriteCdDirective };
 	return await createRealSlotContext({
 		cwd: ctx.cwd,
 		env: ctx.env,
 		...optionalEntry("stderr", ctx.stderr),
 		renderCapabilities: ctx.renderCapabilities,
 		...optionalEntry("extensions", ctx.extensions),
-		shouldWriteCdDirective: true,
+		shouldWriteCdDirective,
 	});
 }
 

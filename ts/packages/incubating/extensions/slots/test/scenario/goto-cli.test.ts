@@ -7,7 +7,8 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { SLOT_CD_DIRECTIVE_FILE } from "../../src/core/shell/cd-directive.ts";
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
 
 const directiveRoots: string[] = [];
 
@@ -19,11 +20,11 @@ afterEach(async () => {
 
 describe("slot goto CLI", () => {
 	it("goes to assigned slot by number", async () => {
-		const run = runScenario(["goto", "-n", "1", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "-n", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				slotName: "slot-01",
 				branchName: "feature/a",
@@ -34,7 +35,7 @@ describe("slot goto CLI", () => {
 	});
 
 	it("renders house-style human navigation output", async () => {
-		const run = runScenario(["goto", "-n", "1"], {
+		const run = runFilesystemScenario(["goto", "-n", "1"], {
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
 		expect(await run.exit).toBe(0);
@@ -47,7 +48,7 @@ describe("slot goto CLI", () => {
 
 	it("renders operation state in human navigation output", async () => {
 		const path = "/slots/repos/repo/worktrees/slot-01";
-		const run = runScenario(["goto", "--wt", "slot-01"], {
+		const run = runFilesystemScenario(["goto", "--wt", "slot-01"], {
 			git: {
 				worktrees: [{ path, branch: "feature/a" }],
 				branchOccupancies: [{ path, branch: "feature/a", operation: "rebase" }],
@@ -60,7 +61,7 @@ describe("slot goto CLI", () => {
 	});
 
 	it("renders clipboard failure as non-fatal human navigation guidance", async () => {
-		const run = runScenario(["goto", "-n", "1"], {
+		const run = runFilesystemScenario(["goto", "-n", "1"], {
 			clipboardResult: { type: "failure", reason: "backend-missing", detail: "missing pbcopy" },
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
@@ -73,32 +74,32 @@ describe("slot goto CLI", () => {
 	});
 
 	it("goes to assigned slot by worktree name", async () => {
-		const run = runScenario(["goto", "--wt", "slot-02", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "--wt", "slot-02", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "a"), slotWorktree("slot-02", "b")],
 				localBranches: ["a", "b"],
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: { slotName: "slot-02", branchName: "b" },
 		});
 	});
 
 	it("rejects conflicting selectors", async () => {
-		const run = runScenario(["goto", "-n", "1", "--wt", "slot-01", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "-n", "1", "--wt", "slot-01", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", "a")] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting-slot-args" });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ errorType: "conflicting-slot-args" });
 	});
 
 	it("goes to an unassigned slot by number", async () => {
-		const run = runScenario(["goto", "-n", "1", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "-n", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				slotName: "slot-01",
 				branchName: null,
@@ -109,17 +110,17 @@ describe("slot goto CLI", () => {
 	});
 
 	it("goes to an unassigned slot by worktree name", async () => {
-		const run = runScenario(["goto", "--wt", "slot-02", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "--wt", "slot-02", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", "a"), slotWorktree("slot-02")] },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: { slotName: "slot-02", branchName: null },
 		});
 	});
 
 	it("renders an unassigned slot as available in human navigation output", async () => {
-		const run = runScenario(["goto", "-n", "1"], {
+		const run = runFilesystemScenario(["goto", "-n", "1"], {
 			git: { worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(0);
@@ -131,11 +132,11 @@ describe("slot goto CLI", () => {
 	});
 
 	it("returns negative for a slot outside the managed pool", async () => {
-		const run = runScenario(["goto", "--wt", "slot-02", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "--wt", "slot-02", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exitCode: 1,
 			message: "slot-02 is not in the managed slot pool. Run `slot list` to see the pool.",
 		});
@@ -143,23 +144,23 @@ describe("slot goto CLI", () => {
 
 	it("surfaces operation state", async () => {
 		const path = "/slots/repos/repo/worktrees/slot-01";
-		const run = runScenario(["goto", "--wt", "slot-01", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "--wt", "slot-01", "--format", "json"], {
 			git: {
 				worktrees: [{ path, branch: "feature/a" }],
 				branchOccupancies: [{ path, branch: "feature/a", operation: "rebase" }],
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { operation: "rebase" } });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ data: { operation: "rebase" } });
 	});
 
 	it("treats clipboard failure as non-fatal and still emits the cd command", async () => {
-		const run = runScenario(["goto", "-n", "1", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "-n", "1", "--format", "json"], {
 			clipboardResult: { type: "failure", reason: "backend-missing", detail: "missing pbcopy" },
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				cdCommand: "cd /slots/repos/repo/worktrees/slot-01",
 				clipboardCopied: false,
@@ -171,11 +172,11 @@ describe("slot goto CLI", () => {
 	});
 
 	it("marks clipboard as skipped with --no-clipboard", async () => {
-		const run = runScenario(["goto", "-n", "1", "--no-clipboard", "--format", "json"], {
+		const run = runFilesystemScenario(["goto", "-n", "1", "--no-clipboard", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				clipboardCopied: false,
 				clipboardSkipped: true,
@@ -187,7 +188,7 @@ describe("slot goto CLI", () => {
 
 	it("writes the shell cd directive for human output", async () => {
 		const directivePath = await makeDirectivePath();
-		const run = runScenario(["goto", "-n", "1"], {
+		const run = runFilesystemScenario(["goto", "-n", "1"], {
 			env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
@@ -197,22 +198,19 @@ describe("slot goto CLI", () => {
 		);
 	});
 
-	it.each(["json", "markdown", "md"])(
-		"does not write the shell cd directive for %s output",
-		async (format) => {
-			const directivePath = await makeDirectivePath();
-			const run = runScenario(["goto", "-n", "1", "--format", format], {
-				env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
-				git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
-			});
-			expect(await run.exit).toBe(0);
-			await expect(readDirectiveFile(directivePath)).resolves.toBeNull();
-		},
-	);
+	it.each(["json", "md"])("does not write the shell cd directive for %s output", async (format) => {
+		const directivePath = await makeDirectivePath();
+		const run = runFilesystemScenario(["goto", "-n", "1", "--format", format], {
+			env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
+			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
+		});
+		expect(await run.exit).toBe(0);
+		await expect(readDirectiveFile(directivePath)).resolves.toBeNull();
+	});
 
 	it("does not write the shell cd directive for json schema output", async () => {
 		const directivePath = await makeDirectivePath();
-		const run = runScenario(["goto", "--json-schema"], {
+		const run = runFilesystemScenario(["goto", "--json-schema"], {
 			env: { PATH: "/fake/bin", [SLOT_CD_DIRECTIVE_FILE]: directivePath },
 			git: { worktrees: [slotWorktree("slot-01", "feature/a")], localBranches: ["feature/a"] },
 		});
