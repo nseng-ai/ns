@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { renderList, type ListResult } from "../../src/lifecycle/operations/list.ts";
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
 
 const nonEmptyListGit = {
 	worktrees: [
@@ -45,14 +46,14 @@ const sampleListResult: ListResult = {
 
 describe("slot list command group", () => {
 	it("shows list, ls, init, and resize in help", async () => {
-		const run = runScenario(["--help"]);
+		const run = runFilesystemScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		const help = run.stdout.join("");
 		for (const command of ["list", "ls", "init", "resize"]) expect(help).toContain(command);
 	});
 
 	it("renders an empty pool in human mode", async () => {
-		const run = runScenario(["list"], {
+		const run = runFilesystemScenario(["list"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }] },
 		});
 		expect(await run.exit).toBe(0);
@@ -60,7 +61,7 @@ describe("slot list command group", () => {
 	});
 
 	it("renders assigned, available, and operation rows in human mode", async () => {
-		const run = runScenario(["ls"], { git: nonEmptyListGit });
+		const run = runFilesystemScenario(["ls"], { git: nonEmptyListGit });
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Slots for repo");
@@ -84,9 +85,9 @@ describe("slot list command group", () => {
 	});
 
 	it("renders assigned, available, and operation rows as JSON", async () => {
-		const run = runScenario(["ls", "--format", "json"], { git: nonEmptyListGit });
+		const run = runFilesystemScenario(["ls", "--format", "json"], { git: nonEmptyListGit });
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			exitCode: 0,
 			data: {
 				poolSize: 3,
@@ -106,7 +107,7 @@ describe("slot list command group", () => {
 	});
 
 	it("prints a JSON schema for machine consumers", async () => {
-		const run = runScenario(["list", "--json-schema"]);
+		const run = runFilesystemScenario(["list", "--json-schema"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("poolSize");
 	});

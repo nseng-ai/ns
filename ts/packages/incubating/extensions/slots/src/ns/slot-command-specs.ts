@@ -49,8 +49,6 @@ import {
 	gtUpRequestSchema,
 	initRequestSchema,
 	initResultSchema,
-	listRequestSchema,
-	listResultSchema,
 	provisionApplyRequestSchema,
 	provisionApplyResultSchema,
 	provisionImportRequestSchema,
@@ -68,7 +66,6 @@ import {
 	renderGtRestackPreflight,
 	renderGtUpNavigation,
 	renderInit,
-	renderList,
 	renderProvisionApply,
 	renderProvisionImport,
 	renderBackupRefs,
@@ -93,7 +90,6 @@ import {
 	runGtStackMapBranches,
 	runGtUp,
 	runInit,
-	runList,
 	runProvisionApply,
 	runProvisionImport,
 	runResize,
@@ -172,26 +168,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "list",
-		summary: "List worktree pool slots derived from Git worktree state.",
-		description: "List worktree pool slots derived from Git worktree state.",
-		schema: listRequestSchema,
-		resultSchema: listResultSchema,
-		handler: runList,
-		renderHuman: renderList,
-	}),
-	slotCommandSpec({
-		group: "root",
-		name: "ls",
-		summary: "Alias for list.",
-		description: "Alias for list.",
-		schema: listRequestSchema,
-		resultSchema: listResultSchema,
-		handler: runList,
-		renderHuman: renderList,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "checkout",

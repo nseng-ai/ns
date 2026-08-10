@@ -1,6 +1,7 @@
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 describe("slot gt navigation CLI", () => {
@@ -19,7 +20,7 @@ describe("slot gt navigation CLI", () => {
 	});
 
 	it("does not invoke the Graphite gateway for plain commands", async () => {
-		const run = runScenario(["list", "--format", "json"], {
+		const run = runFilesystemScenario(["list", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(0);
