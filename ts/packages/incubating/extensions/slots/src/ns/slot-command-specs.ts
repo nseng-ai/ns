@@ -4,7 +4,6 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	checkoutOptionSpecs,
 	foreachOptionSpecs,
 	freeOptionSpecs,
 	gcOptionSpecs,
@@ -16,8 +15,6 @@ import {
 } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
-	checkoutRequestSchema,
-	checkoutResultSchema,
 	claimRequestSchema,
 	claimResultSchema,
 	foreachRequestSchema,
@@ -53,7 +50,6 @@ import {
 	provisionApplyResultSchema,
 	provisionImportRequestSchema,
 	provisionImportResultSchema,
-	renderCheckout,
 	renderClaim,
 	renderForeach,
 	renderFree,
@@ -74,7 +70,6 @@ import {
 	renderStackMapBranches,
 	resizeRequestSchema,
 	resizeResultSchema,
-	runCheckout,
 	runClaim,
 	runForeach,
 	runFree,
@@ -168,32 +163,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "checkout",
-		summary: "Check out a branch into an available pool slot worktree.",
-		description: "Check out a branch into an available pool slot worktree.",
-		schema: checkoutRequestSchema,
-		positionals: { branchName: { position: 0 }, base: { position: 1 } },
-		options: checkoutOptionSpecs,
-		completionKind: "checkout-branches",
-		resultSchema: checkoutResultSchema,
-		handler: runCheckout,
-		renderHuman: renderCheckout,
-	}),
-	slotCommandSpec({
-		group: "root",
-		name: "co",
-		summary: "Alias for checkout.",
-		description: "Alias for checkout.",
-		schema: checkoutRequestSchema,
-		positionals: { branchName: { position: 0 }, base: { position: 1 } },
-		options: checkoutOptionSpecs,
-		completionKind: "checkout-branches",
-		resultSchema: checkoutResultSchema,
-		handler: runCheckout,
-		renderHuman: renderCheckout,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "goto",

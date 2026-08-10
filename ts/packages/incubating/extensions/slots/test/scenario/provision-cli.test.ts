@@ -1,6 +1,7 @@
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
 import {
 	parseJsonOutput,
 	repoContext,
@@ -285,7 +286,7 @@ describe("placement provisioning", () => {
 	});
 
 	it("provisions the target slot during checkout, including reuse", async () => {
-		const fresh = runScenario(["checkout", "feature/a", "--format", "json"], {
+		const fresh = runFilesystemScenario(["checkout", "feature/a", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
@@ -296,14 +297,14 @@ describe("placement provisioning", () => {
 			},
 		});
 		expect(await fresh.exit).toBe(0);
-		expect(parseJsonOutput(fresh)).toMatchObject({
+		expect(JSON.parse(fresh.stdout.join(""))).toMatchObject({
 			data: {
 				slotName: "slot-01",
 				provision: { copied: [{ slotName: "slot-01", path: ".env.local" }], notices: [] },
 			},
 		});
 
-		const reuse = runScenario(["checkout", "feature/a", "--format", "json"], {
+		const reuse = runFilesystemScenario(["checkout", "feature/a", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
@@ -314,7 +315,7 @@ describe("placement provisioning", () => {
 			},
 		});
 		expect(await reuse.exit).toBe(0);
-		expect(parseJsonOutput(reuse)).toMatchObject({
+		expect(JSON.parse(reuse.stdout.join(""))).toMatchObject({
 			data: {
 				alreadyAssigned: true,
 				provision: { copied: [{ slotName: "slot-01", path: ".env.local" }], notices: [] },
@@ -323,7 +324,7 @@ describe("placement provisioning", () => {
 	});
 
 	it("does not provision when the branch lives in the main worktree", async () => {
-		const run = runScenario(["checkout", "master", "--format", "json"], {
+		const run = runFilesystemScenario(["checkout", "master", "--format", "json"], {
 			git: {
 				localBranches: ["master"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
@@ -334,7 +335,7 @@ describe("placement provisioning", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { provision: null } });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ data: { provision: null } });
 		expect(run.provisionFiles.operations()).toEqual([]);
 	});
 
@@ -395,7 +396,7 @@ describe("placement provisioning", () => {
 	});
 
 	it("keeps human placement output stable when nothing is declared", async () => {
-		const run = runScenario(["checkout", "feature/a"], {
+		const run = runFilesystemScenario(["checkout", "feature/a"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
@@ -410,7 +411,7 @@ describe("placement provisioning", () => {
 	});
 
 	it("renders provisioned lines in human placement output", async () => {
-		const run = runScenario(["checkout", "feature/a"], {
+		const run = runFilesystemScenario(["checkout", "feature/a"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],

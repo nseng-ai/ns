@@ -2,22 +2,21 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import {
-	completeScenario,
-	parseJsonOutput,
-	runScenario,
-	slotWorktree,
-} from "../support/run-scenario.ts";
+	completeFilesystemScenario,
+	runFilesystemScenario,
+} from "../support/run-filesystem-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
 
 describe("slot checkout CLI", () => {
 	it("appears in root help with co alias", async () => {
-		const run = runScenario(["--help"]);
+		const run = runFilesystemScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("checkout");
 		expect(run.stdout.join("")).toContain("co");
 	});
 
 	it("checks out an existing branch into the lowest available slot", async () => {
-		const run = runScenario(["checkout", "feature/a", "--format", "json"], {
+		const run = runFilesystemScenario(["checkout", "feature/a", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [
@@ -28,7 +27,7 @@ describe("slot checkout CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				slotName: "slot-01",
 				branchName: "feature/a",
@@ -44,7 +43,7 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("co alias routes through the checkout human renderer", async () => {
-		const run = runScenario(["co", "feature/a"], {
+		const run = runFilesystemScenario(["co", "feature/a"], {
 			git: { localBranches: ["master", "feature/a"], worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(0);
@@ -56,7 +55,7 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("renders house-style human navigation output", async () => {
-		const run = runScenario(["checkout", "feature/a"], {
+		const run = runFilesystemScenario(["checkout", "feature/a"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
@@ -71,7 +70,7 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("renders --current redirect notes before the bare cd line", async () => {
-		const run = runScenario(["checkout", "--current"], {
+		const run = runFilesystemScenario(["checkout", "--current"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [
@@ -91,7 +90,7 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("preserves distinct already-assigned human headlines", async () => {
-		const main = runScenario(["checkout", "feature/a"], {
+		const main = runFilesystemScenario(["checkout", "feature/a"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "feature/a" }, slotWorktree("slot-01")],
@@ -102,7 +101,7 @@ describe("slot checkout CLI", () => {
 			"✓ feature/a is already checked out in the main worktree at /repo",
 		);
 
-		const slot = runScenario(["checkout", "feature/a"], {
+		const slot = runFilesystemScenario(["checkout", "feature/a"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
@@ -115,20 +114,23 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("reports missing branch without mutation", async () => {
-		const run = runScenario(["checkout", "feature/missing", "--format", "json"], {
+		const run = runFilesystemScenario(["checkout", "feature/missing", "--format", "json"], {
 			git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch-missing" });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ errorType: "branch-missing" });
 		expect(run.git.operations()).toEqual([]);
 	});
 
 	it("creates a new branch from base before assigning it", async () => {
-		const run = runScenario(["checkout", "feature/new", "master", "-b", "--format", "json"], {
-			git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
-		});
+		const run = runFilesystemScenario(
+			["checkout", "feature/new", "master", "-b", "--format", "json"],
+			{
+				git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
+			},
+		);
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: { createdBranch: true, branchName: "feature/new" },
 		});
 		expect(run.git.operations()).toEqual([
@@ -142,7 +144,7 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("refuses branch in use by another worktree", async () => {
-		const run = runScenario(["checkout", "feature/a", "--format", "json"], {
+		const run = runFilesystemScenario(["checkout", "feature/a", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [
@@ -153,11 +155,11 @@ describe("slot checkout CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "branch-in-use" });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ errorType: "branch-in-use" });
 	});
 
 	it("--current redirects only after allocation is executable", async () => {
-		const run = runScenario(["checkout", "--current", "--format", "json"], {
+		const run = runFilesystemScenario(["checkout", "--current", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "feature/a" }, slotWorktree("slot-01")],
@@ -172,19 +174,19 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("rejects invalid argument combinations", async () => {
-		const run = runScenario(["checkout", "feature/a", "base", "--format", "json"]);
+		const run = runFilesystemScenario(["checkout", "feature/a", "base", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "base-without-new" });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ errorType: "base-without-new" });
 	});
 
 	it("completes local branches for checkout branch and base positionals", async () => {
-		const branchRun = completeScenario(["checkout", "f"], {
+		const branchRun = completeFilesystemScenario(["checkout", "f"], {
 			git: { localBranches: ["master", "feature/a", "feature/b", "topic/a"] },
 		});
 		expect(await branchRun.values).toEqual(["feature/a", "feature/b"]);
 		expect(branchRun.git.operations()).toEqual([]);
 
-		const baseRun = completeScenario(["checkout", "-b", "new-branch", "m"], {
+		const baseRun = completeFilesystemScenario(["checkout", "-b", "new-branch", "m"], {
 			git: { localBranches: ["master", "main", "feature/a"] },
 		});
 		expect(await baseRun.values).toEqual(["master", "main"]);
@@ -192,7 +194,7 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("completes local branches for co alias", async () => {
-		const run = completeScenario(["co", "f"], {
+		const run = completeFilesystemScenario(["co", "f"], {
 			git: { localBranches: ["master", "feature/a", "topic/a"] },
 		});
 
@@ -201,7 +203,7 @@ describe("slot checkout CLI", () => {
 	});
 
 	it("keeps static options available during checkout completion", async () => {
-		const run = completeScenario(["checkout", "--"], {
+		const run = completeFilesystemScenario(["checkout", "--"], {
 			git: { localBranches: ["master", "feature/a"] },
 		});
 
