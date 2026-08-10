@@ -67,6 +67,8 @@ For every step:
 4. Judge Semantic Update need between steps. The implementation child must not edit Objective tracking. Use `objective-update` when installed; otherwise follow the checked-in Objective Markdown rules directly. Commit material tracking separately and report it separately.
 5. Start another step only after the previous attempt has been judged.
 
+**Mandatory continuation rule:** After an accepted step, stopping is forbidden unless exactly one documented Stop Condition applies and the final digest names that condition with concrete evidence. If the selected scope remains incomplete, budget remains, and no blocker or safety boundary survives parent judgment, dispatch the next step. “Coherent checkpoint,” progress volume, commit count, PR boundary, elapsed work, and context consumption are never stop conditions.
+
 Implementation children inherit the parent's provider, model, and thinking policy by default. An approved provider-local `cheap` route may be selected only before dispatch. A launch failure or malfunction never authorizes reactive model or provider switching.
 
 ## `ns-bookended` mode
