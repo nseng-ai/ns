@@ -83,6 +83,7 @@ export interface NsCliDeps {
 	readonly homeDir?: string;
 	readonly onOutput?: (stream: NsOutputStream, text: string) => void;
 	readonly onProgress?: NsProgressPhaseListener;
+	readonly isInteractive?: () => boolean;
 	readonly confirm?: NsConfirmPrompt;
 	readonly select?: NsSelectPrompt;
 	readonly preinstalledSources?: PreinstalledNsCommandSourceLoader;
@@ -153,6 +154,7 @@ const entryOptions = {
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
 			readJsonInput: base.readJsonInput ?? readJsonInput,
+			isInteractive: deps.isInteractive ?? base.isInteractive.bind(base),
 			...optionalEntries({
 				onOutput: deps.onOutput ?? base.onOutput,
 				extensions: base.extensions,

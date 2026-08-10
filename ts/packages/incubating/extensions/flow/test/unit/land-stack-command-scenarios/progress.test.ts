@@ -47,6 +47,7 @@ describe("flow land matrix progress forwarding", () => {
 			progress,
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,
+			isInteractive: () => false,
 			confirm: () => {
 				throw new Error("Unexpected confirmation prompt in test.");
 			},

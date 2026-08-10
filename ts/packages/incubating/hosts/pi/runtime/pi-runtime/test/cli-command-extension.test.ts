@@ -730,6 +730,66 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "selection=cancelled\n");
 	});
 
+	test.each([
+		{
+			name: "confirmation is unavailable",
+			options: { select: () => "one" },
+		},
+		{
+			name: "selection is unavailable",
+			options: { confirm: () => true },
+		},
+	])("reports non-interactive when $name", async ({ options }) => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stdout(`interactive=${String(deps.isInteractive())}\n`);
+				return 0;
+			},
+		});
+		const { ctx } = createContext([], options);
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(pi, "interactive=false\n");
+	});
+
+	test("reports non-interactive when the host reports no UI", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stdout(`interactive=${String(deps.isInteractive())}\n`);
+				return 0;
+			},
+		});
+		const { ctx } = createContext([], {
+			hasUI: false,
+			confirm: () => true,
+			select: () => "one",
+		});
+
+		const writes = await captureProcessWrites(async () => {
+			await commandFor(pi, "dev:preview-status").handler("", ctx);
+		});
+
+		expect(writes).toEqual({ stdout: "interactive=false\n", stderr: "" });
+	});
+
+	test("reports interactive only when Pi provides confirmation and selection UI", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stdout(`interactive=${String(deps.isInteractive())}\n`);
+				return 0;
+			},
+		});
+		const { ctx } = createContext([], { confirm: () => true, select: () => "one" });
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(pi, "interactive=true\n");
+	});
+
 	test("reports an error when Pi has no applicable confirmation UI", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {

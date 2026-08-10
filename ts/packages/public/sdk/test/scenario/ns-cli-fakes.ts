@@ -81,6 +81,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities: RenderCapabilities & { readonly caps?: Caps };
+	readonly isInteractive = () => false;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;

@@ -23,6 +23,7 @@ describe("fresh ns CLI runner", () => {
 			env: {},
 			stdout() {},
 			stderr() {},
+			isInteractive: () => true,
 			confirm: () => ({ type: "declined" as const }),
 			select: () => ({ type: "cancelled" as const }),
 		};

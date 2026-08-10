@@ -10,6 +10,14 @@ import {
 } from "@nseng-ai/extension-kit/ns-context";
 
 describe("ns context adapters", () => {
+	test("preserves the host interactivity signal", () => {
+		const interaction = createNsClinkrInteraction(fakeApi({ isInteractive: () => false }), {
+			title: "Confirm",
+		});
+
+		expect(interaction.isInteractive()).toBe(false);
+	});
+
 	test("preserves confirmed ns confirmation results", async () => {
 		const prompts: Array<{ title: string; message: string; defaultAnswer: "yes" | "no" }> = [];
 		const interaction = createNsClinkrInteraction(
@@ -98,6 +106,7 @@ function fakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,
+		isInteractive: () => true,
 		confirm: () => {
 			throw new Error("Unexpected confirmation prompt in Extension Kit test.");
 		},

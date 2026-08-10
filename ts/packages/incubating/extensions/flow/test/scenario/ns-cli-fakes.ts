@@ -89,6 +89,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	readonly progress: NsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
+	readonly isInteractive: () => boolean;
 	stdout?: (text: string) => void;
 	stderr?: (text: string) => void;
 	onOutput?: (stream: "stdout" | "stderr", text: string) => void;
@@ -108,6 +109,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;
+		this.isInteractive = () => state.confirm !== undefined;
 		this.confirm =
 			state.confirm ??
 			(() => {
