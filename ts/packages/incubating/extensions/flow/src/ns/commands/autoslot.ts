@@ -14,6 +14,7 @@ import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 import { resolveFlowModelSelection } from "../model-policy.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
+import { createTextPhaseProgress } from "../../phase-stream/text-phase-progress.ts";
 
 const autoslotSchema = z.object({
 	slug: z
@@ -58,7 +59,32 @@ export function createFlowAutoslotCommand(
 			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			const io = commandIoFromNsExtensionApi(ctx);
-			return await runWithNsCommandIo(io, async (io) => {
+			const progress = createTextPhaseProgress(ctx, {
+				title: "ns flow autoslot",
+				phases: [
+					{ key: "inspect", name: "Inspect", label: "Inspecting worktree…" },
+					{ key: "derive", name: "Branch", label: "Deriving branch name…" },
+					{ key: "draft", name: "Checkpoint", label: "Drafting checkpoint message…" },
+					{ key: "create", name: "Create", label: "Creating Graphite branch and checkpoint…" },
+					{ key: "slot", name: "Slot", label: "Checking out branch slot…" },
+				],
+			});
+			const commandResult = await runWithNsCommandIo(io, async (io) => {
+				const progressIo = {
+					...io,
+					phase: (message: string) => {
+						const key = message.startsWith("Inspecting")
+							? "inspect"
+							: message.startsWith("Deriving")
+								? "derive"
+								: message.startsWith("Drafting")
+									? "draft"
+									: message.startsWith("Checking out")
+										? "slot"
+										: "create";
+						progress.phase(key, message);
+					},
+				};
 				const result = await createAutoslotFlow({
 					cwd: ctx.cwd,
 					modelSelection: model.modelSelection,
@@ -73,11 +99,13 @@ export function createFlowAutoslotCommand(
 							ctx.cwd,
 							message,
 						),
-					io,
+					io: progressIo,
 					slotClient: dependencies.createSlotClient({ cwd: ctx.cwd, env: ctx.env }),
 				});
 				return autoslotCommandExit(caps, result);
 			});
+			progress.finish(commandResult.status !== "success");
+			return commandResult;
 		},
 	});
 }

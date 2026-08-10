@@ -52,11 +52,10 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 		...optionalEntry("homeDir", homeDir),
 		textGenerator: options.textGenerator,
 		commandIo,
+		resultOutput: { write: stdout },
 		progress: noopNsProgress,
 		renderCapabilities: renderCapabilitiesForTerminal(resolveProcessCaps()),
 		outputFormat: "human",
-		stdout,
-		stderr,
 		isInteractive: () => process.stdin.isTTY === true && process.stderr.isTTY === true,
 		exec: async (command, args, execOptions = {}) => {
 			return await runCommand(command, args, {

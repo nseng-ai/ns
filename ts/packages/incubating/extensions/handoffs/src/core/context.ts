@@ -9,6 +9,7 @@ import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
+import type { NsCommandIo } from "@nseng-ai/sdk";
 
 export interface HandoffCliContext {
 	cwd: string;
@@ -17,8 +18,7 @@ export interface HandoffCliContext {
 	brmem: BrmemGateway;
 	sourceReader: BrmemSourceReader;
 	interaction: ClinkrInteraction;
-	// Interactive prompt/status sink; Clinkr framework stderr is supplied separately by command runners.
-	stderr: (text: string) => void;
+	commandIo: NsCommandIo;
 }
 
 export function createRealHandoffContext(
@@ -39,6 +39,11 @@ export function createRealHandoffContext(
 			stdin: readStdinLine,
 			stderr,
 		}),
-		stderr,
+		commandIo: {
+			phase: (message) => stderr(`${message}\n`),
+			notify: (message) => stderr(`${message.trimEnd()}\n`),
+			message: (message) => stderr(`${message}\n`),
+			clearPhase: () => {},
+		},
 	};
 }

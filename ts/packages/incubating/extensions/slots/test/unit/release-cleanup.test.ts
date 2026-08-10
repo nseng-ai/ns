@@ -1,5 +1,6 @@
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { noopNsCommandIo } from "@nseng-ai/sdk";
 import { describe, expect, it } from "vitest";
 
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";
@@ -76,7 +77,7 @@ function context(options: {
 		cwd: "/repo",
 		renderCapabilities: { canEmitAnsi: false },
 		interaction: createFakeClinkrInteraction().interaction,
-		stderr: () => {},
+		commandIo: noopNsCommandIo,
 		env: { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
 		shouldWriteCdDirective: false,

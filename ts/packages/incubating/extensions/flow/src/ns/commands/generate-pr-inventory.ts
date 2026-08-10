@@ -27,6 +27,7 @@ import {
 } from "../../submit/index.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { resolveFlowModelSelection } from "../model-policy.ts";
+import { createTextPhaseProgress } from "../../phase-stream/text-phase-progress.ts";
 
 const generatePrInventorySchema = z.object({
 	yes: z
@@ -61,7 +62,15 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 				].join("\n"),
 			}),
 		handler: async (ctx: NsExtensionApi, request: GeneratePrInventoryRequest) => {
-			return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
+			const progress = createTextPhaseProgress(ctx, {
+				title: "ns flow generate-pr-inventory",
+				phases: [
+					{ key: "prepare", name: "Prepare", label: "Preparing complete PR metadata replacement…" },
+					{ key: "generate", name: "Generate", label: "Generating PR inventory…" },
+					{ key: "replace", name: "Replace", label: "Replacing PR title and body on GitHub…" },
+				],
+			});
+			const commandResult = await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async () => {
 				const caps = resolveFlowStreamCaps(ctx);
 				if (!request.yes) {
 					const confirmationMessage = [
@@ -111,7 +120,7 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 					);
 				}
 
-				io.phase("Preparing complete PR metadata replacement…");
+				progress.phase("prepare", "Preparing complete PR metadata replacement…");
 				const prepared: PrMetadataReplacementResult =
 					await preparePrMetadataReplacementForCurrentBranch({
 						cwd: ctx.cwd,
@@ -122,7 +131,7 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 						modelSelection: model.modelSelection,
 						textGenerator: ctx.textGenerator,
 						source: "generate-pr-inventory",
-						progress: { onProgress: (message) => io.phase(message) },
+						progress: { onProgress: (message) => progress.phase("generate", message) },
 					});
 				if (prepared.type === "failed") {
 					return negative(
@@ -135,7 +144,7 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 					);
 				}
 
-				io.phase(`Replacing PR #${prepared.pr.number} title and body on GitHub…`);
+				progress.phase("replace", `Replacing PR #${prepared.pr.number} title and body on GitHub…`);
 				const edited = await applyPreparedPrMetadataReplacement({
 					cwd: ctx.cwd,
 					githubPr: runtime.githubPr,
@@ -159,6 +168,8 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 					promptSource: formatPromptSourceLabel(prepared.promptSource),
 				});
 			});
+			progress.finish(commandResult.status !== "success");
+			return commandResult;
 		},
 	});
 

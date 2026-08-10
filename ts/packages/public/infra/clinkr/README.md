@@ -10,11 +10,12 @@ Request input is not interactive input. Commands ask for demonstrated user inten
 
 Each invocation may provide:
 
-- `output` for framework and structured text;
+- `presentation.renderResult(text)` for primary durable structured results, including help, schema, completion, and rendered outcomes;
+- `presentation.echo(text)` for auxiliary human text and framework diagnostics;
 - `rawOutput` for exact bytes from raw commands; and
 - `canEmitAnsi` to tell renderers whether terminal styling is safe.
 
-Standalone execution defaults to process-backed adapters. Embedded and test hosts should provide invocation-scoped sinks. A custom text sink defaults to non-ANSI output unless the host explicitly enables ANSI. Commands must not infer rendering support from the physical process terminal.
+`ClinkrPresentation` deliberately does not expose physical stream names. Standalone execution defaults to process-backed adapters that map `renderResult` to stdout and `echo` to stderr. Embedded and test hosts provide invocation-scoped presentation. A custom presentation defaults to non-ANSI output unless the host explicitly enables ANSI. Commands must not infer rendering support from the physical process terminal.
 
 Raw commands remain an explicit escape hatch. They own their argv tail and byte output and do not receive the structured JSON request contract.
 

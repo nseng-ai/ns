@@ -83,6 +83,7 @@ export async function runNsCliWithFakeContext(
 		homeDir,
 		env,
 		commandIo: noopNsCommandIo,
+		resultOutput: { write: (text) => stdout.push(text) },
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		isInteractive: () => false,

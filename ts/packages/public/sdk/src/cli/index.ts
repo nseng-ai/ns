@@ -9,6 +9,7 @@ import {
 	type ClinkrContextfulApp,
 	type ClinkrScope,
 } from "@nseng-ai/clinkr/app";
+import type { Caps } from "@nseng-ai/clinkr";
 import {
 	defineClinkrAppCli,
 	readJsonInput,
@@ -17,7 +18,7 @@ import {
 } from "@nseng-ai/foundation/cli-runtime";
 import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
-import { createNsCliInteraction, type NsCliBaseContext } from "./context.ts";
+import type { NsCliBaseContext } from "./context.ts";
 import {
 	renderNsShellInstall,
 	renderNsShellShow,
@@ -75,9 +76,18 @@ export interface NsCliDeps {
 	readonly context: NsCliBaseContext;
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
+	/** Structured primary-result presentation supplied by embedded hosts. */
+	readonly renderResult?: (text: string) => void;
+	/** Structured auxiliary-text presentation supplied by embedded hosts. */
+	readonly echo?: (text: string) => void;
+	/** Standalone host physical sink; not exposed on extension contexts. */
 	readonly stdout?: (text: string) => void;
+	/** Standalone host physical sink; not exposed on extension contexts. */
 	readonly stderr?: (text: string) => void;
 	readonly readJsonInput?: () => Promise<string>;
+	/** Explicit host capabilities replace base capabilities for this invocation. */
+	readonly renderCapabilities?: { readonly canEmitAnsi: boolean; readonly caps?: Caps };
+	/** Standalone compatibility override when no complete host capabilities are supplied. */
 	readonly canEmitAnsi?: boolean;
 	readonly entryMetaUrl?: string;
 	readonly homeDir?: string;
@@ -106,8 +116,8 @@ const entryOptions = {
 		deps,
 		cwd,
 		env,
-		stdout,
 		stderr,
+		presentation,
 	}: ClinkrAppCliPrepareRunInput<NsCliDeps>) => {
 		const base = deps.context;
 		if (base === undefined) throw new Error("Ns CLI context is required.");
@@ -125,23 +135,29 @@ const entryOptions = {
 		for (const diagnostic of inventory.diagnostics) {
 			stderr(`${diagnostic.severity === "error" ? "Warning: " : ""}${diagnostic.message}\n`);
 		}
-		const resolvedStdout = deps.stdout ?? base.stdout ?? stdout;
-		const resolvedStderr = deps.stderr ?? base.stderr ?? stderr;
+		const resolvedStdout = deps.renderResult ?? deps.stdout ?? presentation.renderResult;
+		const resolvedStderr = deps.echo ?? deps.stderr ?? presentation.echo;
+		const invocationPresentation = {
+			renderResult: resolvedStdout,
+			echo: resolvedStderr,
+		};
 		const commandIo = createCliCommandIo({
 			stdout: resolvedStdout,
 			stderr: resolvedStderr,
 			...optionalEntry("onOutput", deps.onOutput ?? base.onOutput),
 		});
-		const renderCapabilities = {
-			...base.renderCapabilities,
-			canEmitAnsi: deps.canEmitAnsi ?? base.renderCapabilities.canEmitAnsi,
-		};
+		const renderCapabilities =
+			deps.renderCapabilities ??
+			(deps.canEmitAnsi === undefined
+				? base.renderCapabilities
+				: { ...base.renderCapabilities, canEmitAnsi: deps.canEmitAnsi });
 		const context: NsExtensionApi = {
 			cwd: resolvedCwd,
 			env: resolvedEnv,
 			...optionalEntry("homeDir", homeDir),
 			textGenerator: base.textGenerator,
 			commandIo,
+			resultOutput: { write: invocationPresentation.renderResult },
 			progress:
 				deps.onProgress === undefined ? noopNsProgress : { isLive: true, phase: deps.onProgress },
 			renderCapabilities,
@@ -151,8 +167,6 @@ const entryOptions = {
 			installedExtensionPackageNames: [...inventory.extensionPackageNames]
 				.filter((name) => !inventory.builtInPackageNames.has(name))
 				.sort(),
-			stdout: resolvedStdout,
-			stderr: resolvedStderr,
 			readJsonInput: base.readJsonInput ?? readJsonInput,
 			isInteractive: deps.isInteractive ?? base.isInteractive.bind(base),
 			...optionalEntries({
@@ -169,6 +183,8 @@ const entryOptions = {
 				inventory,
 				includeSdkExtensionCommands: deps.includeSdkExtensionCommands !== false,
 			},
+			presentation: invocationPresentation,
+			canEmitAnsi: renderCapabilities.canEmitAnsi,
 		};
 	},
 	buildApp: ({ name, version, runtimeInfo, buildState }: ClinkrAppCliBuildInput<NsCliBuildState>) =>
@@ -345,14 +361,19 @@ async function toModernOutcome<T>(
 }
 
 function shellContext(context: NsExtensionApi) {
-	const stderr = context.stderr ?? (() => {});
 	return {
 		context,
 		cwd: context.cwd,
 		env: context.env,
-		interaction: createNsCliInteraction({ stderr }),
-		stdout: context.stdout ?? (() => {}),
-		stderr,
+		interaction: {
+			confirm: async (request: { message: string; defaultAnswer: "yes" | "no" }) =>
+				await context.confirm("Shell integration confirmation", request.message, {
+					defaultAnswer: request.defaultAnswer,
+				}),
+			isInteractive: context.isInteractive,
+		},
+		stdout: context.resultOutput.write,
+		stderr: (text: string) => context.commandIo.notify(text, "error"),
 	};
 }
 

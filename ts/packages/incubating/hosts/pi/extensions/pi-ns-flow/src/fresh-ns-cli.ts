@@ -27,6 +27,11 @@ export function createFreshNsCliRunner(
 ): CliCommandExtensionSpec["runCli"] {
 	return async (args, deps) => {
 		const { runNsCli } = await loader.load();
-		return await runNsCli(args, deps);
+		return await runNsCli(args, {
+			...deps,
+			renderResult: deps.renderResult,
+			echo: deps.echo,
+			renderCapabilities: deps.renderCapabilities,
+		});
 	};
 }

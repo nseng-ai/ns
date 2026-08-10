@@ -26,6 +26,8 @@ export type {
 	NsExecOptions,
 	NsExtensionApi,
 	NsOutputStream,
+	NsRenderCapabilities,
+	NsResultOutput,
 } from "./execution.ts";
 export {
 	normalizeTextOutput,

@@ -93,7 +93,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 					}
 
 					for (const warning of result.warnings) {
-						ctx.stderr?.(`${warning.trimEnd()}\n`);
+						ctx.commandIo.notify(warning, "warning");
 					}
 					return ok({ cwd: dispatched.snapshot.root, summary: result.summary.trimEnd() });
 				}

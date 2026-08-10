@@ -29,7 +29,7 @@ async function createSlotExtensionContext(ctx: NsExtensionApi): Promise<SlotCliC
 	return await createRealSlotContext({
 		cwd: ctx.cwd,
 		env: ctx.env,
-		...optionalEntry("stderr", ctx.stderr),
+		commandIo: ctx.commandIo,
 		renderCapabilities: ctx.renderCapabilities,
 		...optionalEntry("extensions", ctx.extensions),
 		shouldWriteCdDirective: true,

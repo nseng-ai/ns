@@ -551,6 +551,7 @@ class FakeHerdrNsApi implements NsExtensionApi {
 	readonly cwd = "/repo";
 	readonly env = { HOME: "/home/test" };
 	readonly commandIo = noopNsCommandIo;
+	readonly resultOutput = { write: () => {} };
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;

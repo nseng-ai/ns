@@ -286,22 +286,24 @@ async function loadPriorFindingsPromptContext(
 		cap: priorFindingsCap,
 	});
 	if (result.type === "without-context") {
-		ctx.stderr(`prior-findings context: ${result.message} Continuing with context-free review.\n`);
+		ctx.commandIo.message(
+			`prior-findings context: ${result.message} Continuing with context-free review.\n`,
+		);
 		return undefined;
 	}
 
-	ctx.stderr(
+	ctx.commandIo.message(
 		`prior-findings context: loaded ${result.context.findings.length} findings for PR #${result.context.prNumber} review ${result.context.reviewName}.\n`,
 	);
 	return priorFindingsPromptContextSchema.parse(result.context);
 }
 
 export function commandExitFromReviewRunOutcome(
-	ctx: Pick<ReviewsRuntime, "stderr">,
+	ctx: Pick<ReviewsRuntime, "commandIo">,
 	outcome: Awaited<ReturnType<typeof runReview>>,
 ): CommandExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromReview(outcome.error);
-	ctx.stderr(
+	ctx.commandIo.message(
 		`resolved model=${outcome.progress.model} model_profile=${outcome.progress.modelProfile} base_ref=${outcome.progress.baseRef} changed_paths=${outcome.progress.changedPathCount}\n`,
 	);
 	if (outcome.type === "completed_log_failed") {
@@ -381,7 +383,7 @@ export async function recordSameSessionFindings(
 }
 
 export function commandExitFromRecordFindingsOutcome(
-	ctx: Pick<ReviewsRuntime, "stderr">,
+	ctx: Pick<ReviewsRuntime, "commandIo">,
 	outcome: RecordFindingsOutcome,
 ): CommandExit<ReviewRunResult> {
 	if (outcome.type === "failed") return failureFromReview(outcome.error);
@@ -391,7 +393,7 @@ export function commandExitFromRecordFindingsOutcome(
 			{ data: outcome.result },
 		);
 	}
-	ctx.stderr(`recorded review log: ${outcome.logEntry.key}\n`);
+	ctx.commandIo.message(`recorded review log: ${outcome.logEntry.key}\n`);
 	return ok(outcome.result);
 }
 
@@ -473,7 +475,7 @@ export async function runPublishFindings(
 	const result = await publishFindingsFromRequest(ctx, request);
 	if (!result.ok) return stderrFailure(ctx, `publish-findings: ${result.error.message}\n`);
 
-	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
+	ctx.commandIo.message(renderPublishFindingsDiagnostics(result.value));
 	return 0;
 }
 
@@ -485,12 +487,12 @@ export async function runPublishFindingsCommand(
 }
 
 export function commandExitFromPublishFindingsResult(
-	ctx: Pick<ReviewsRuntime, "stderr">,
+	ctx: Pick<ReviewsRuntime, "commandIo">,
 	result: PublishFindingsResult,
 ): CommandExit<PublishFindingsCommandResult> {
 	if (!result.ok) return failureFromPublicationError(result.error);
 
-	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
+	ctx.commandIo.message(renderPublishFindingsDiagnostics(result.value));
 	return ok(publishFindingsResultSchema.parse(result.value));
 }
 
@@ -615,6 +617,6 @@ function renderInlineFindingsSummary(result: PublishFindingsCommandResult): stri
 }
 
 function stderrFailure(ctx: ReviewsRuntime, message: string): number {
-	ctx.stderr(message);
+	ctx.commandIo.message(message);
 	return 1;
 }

@@ -51,6 +51,7 @@ function createFakeApi(results: readonly ExecResult[]): {
 			cwd: "/repo",
 			env: {},
 			commandIo: noopNsCommandIo,
+			resultOutput: { write: () => {} },
 			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,

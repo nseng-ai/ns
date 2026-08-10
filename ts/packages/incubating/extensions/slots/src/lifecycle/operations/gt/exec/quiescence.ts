@@ -89,7 +89,7 @@ export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescence
 	});
 	if (integrity.type === "failure") return failure(integrity.errorType, integrity.message);
 	if (ctx.shouldWriteCdDirective) {
-		for (const warning of integrity.warnings) ctx.stderr(`${warning}\n`);
+		for (const warning of integrity.warnings) ctx.commandIo.notify(warning, "warning");
 	}
 
 	if (stack.current === stack.trunk) {

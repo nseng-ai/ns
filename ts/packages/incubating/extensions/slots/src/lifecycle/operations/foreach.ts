@@ -253,14 +253,14 @@ function createProgressReporter(ctx: RepoSlotContext): ForeachProgressReporter |
 	if (!ctx.shouldWriteCdDirective) return null;
 	return {
 		started: (target, index, total) => {
-			ctx.stderr(
-				`Running in ${target.label} (${target.branch ?? "detached"}) [${index}/${total}]…\n`,
+			ctx.commandIo.phase(
+				`Running in ${target.label} (${target.branch ?? "detached"}) [${index}/${total}]…`,
 			);
 		},
 		finished: (target, index, total, result) => {
 			const outcome = commandSucceeded(result) ? "succeeded" : "failed";
-			ctx.stderr(
-				`Finished ${target.label} (${target.branch ?? "detached"}) [${index}/${total}]: ${outcome} (${progressTermination(result)}).\n`,
+			ctx.commandIo.phase(
+				`Finished ${target.label} (${target.branch ?? "detached"}) [${index}/${total}]: ${outcome} (${progressTermination(result)}).`,
 			);
 		},
 	};

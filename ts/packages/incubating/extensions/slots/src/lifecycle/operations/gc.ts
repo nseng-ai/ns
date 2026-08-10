@@ -100,7 +100,7 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 			toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: true, cleanup })),
 			renderCapabilities,
 		);
-		repoCtx.stderr(`${stripAnsiWhenDisabled(preview, renderCapabilities)}\n`);
+		repoCtx.commandIo.message(stripAnsiWhenDisabled(preview, renderCapabilities));
 		const accepted = await repoCtx.interaction.confirm({
 			message: confirmationMessage(plan.outcome.wouldFreeCount, {
 				shouldDeleteBranches: request.deleteBranches,

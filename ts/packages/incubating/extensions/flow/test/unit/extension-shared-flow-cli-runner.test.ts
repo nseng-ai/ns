@@ -156,7 +156,13 @@ function createFakeApi(results: readonly ExecResult[]): {
 		api: {
 			cwd: "/repo",
 			env: {},
-			commandIo: noopNsCommandIo,
+			commandIo: {
+				...noopNsCommandIo,
+				notify: (text, level = "info") => {
+					(level === "info" ? stdout : stderr).push(text);
+				},
+			},
+			resultOutput: { write: (text) => stdout.push(text) },
 			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,
@@ -179,12 +185,6 @@ function createFakeApi(results: readonly ExecResult[]): {
 				options?.onStdout?.(result.stdout);
 				options?.onStderr?.(result.stderr);
 				return result;
-			},
-			stdout: (text) => {
-				stdout.push(text);
-			},
-			stderr: (text) => {
-				stderr.push(text);
 			},
 			onOutput: (stream, text) => {
 				liveOutput.push({ stream, text });

@@ -90,7 +90,10 @@ defineCommand({
 const contextFreeApp = createClinkrApp({ name: "free", commandDirectory: import.meta.dirname });
 void contextFreeApp.run([]);
 void contextFreeApp.complete({ words: [""] });
-void contextFreeApp.complete({ words: [""] }, { output: { stdout: () => {}, stderr: () => {} } });
+void contextFreeApp.complete(
+	{ words: [""] },
+	{ presentation: { renderResult: () => {}, echo: () => {} } },
+);
 // @ts-expect-error context-free completion does not accept invocation context.
 void contextFreeApp.complete({ words: [""] }, { context: { prefix: "x" } });
 // @ts-expect-error context-free invocation does not accept context.
@@ -107,7 +110,7 @@ void contextfulApp.complete(
 	{ words: [""] },
 	{
 		context: { prefix: "x" },
-		output: { stdout: () => {}, stderr: () => {} },
+		presentation: { renderResult: () => {}, echo: () => {} },
 	},
 );
 // @ts-expect-error contextful completion requires context.

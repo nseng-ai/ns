@@ -74,6 +74,7 @@ export interface CreatePhaseStreamOptions {
 
 export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
 	const isForwarding = options.forward?.isLive === true;
+	const isEventOnly = isForwarding && !options.caps.isTty;
 	const sink = createStreamSink(options.caps, options.deps);
 	const phases = createPhaseStateStore(options.specs);
 	const tail = createTranscriptTail();
@@ -94,6 +95,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 			});
 		}
 		renderer.setTitle(title);
+		if (isEventOnly) return;
 		lifecycle.startLiveRegion();
 		renderer.render();
 		lifecycle.startPump();
@@ -102,7 +104,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	function setTitle(title: string): void {
 		if (isForwarding) options.forward?.phase({ type: "title-changed", title });
 		renderer.setTitle(title);
-		renderer.render();
+		if (!isEventOnly) renderer.render();
 	}
 
 	function emit(event: NsProgressPhaseEvent): void {
@@ -116,7 +118,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 				return;
 			case "render":
 				if (transition.clearTranscript) tail.clear();
-				renderer.render();
+				if (!isEventOnly) renderer.render();
 				return;
 		}
 	}
@@ -128,8 +130,11 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	}
 
 	function fail(): void {
-		phases.failActive();
-		renderer.render();
+		const events = phases.failActive();
+		if (isForwarding) {
+			for (const event of events) options.forward?.phase(event);
+		}
+		if (!isEventOnly) renderer.render();
 	}
 
 	async function stop(): Promise<void> {
@@ -139,7 +144,11 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	async function finish(finalLines: readonly string[] = []): Promise<void> {
 		await lifecycle.drainPump();
 		// On overall success, settle every still-open phase; a failure leaves its red row standing.
-		phases.settleOpenPhases();
+		const settlementEvents = phases.settleOpenPhases();
+		if (isForwarding) {
+			for (const event of settlementEvents) options.forward?.phase(event);
+		}
+		if (isEventOnly) return;
 		// The persisted region must not carry a transient transcript line; the settled phases stand alone.
 		tail.clear();
 		renderer.render();

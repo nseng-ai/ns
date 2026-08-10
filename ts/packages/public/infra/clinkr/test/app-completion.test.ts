@@ -105,8 +105,11 @@ test.each([
 		composition.source({ label: "test" }, declare);
 	});
 	const diagnostics: string[] = [];
-	const output = { stdout: () => {}, stderr: (text: string) => diagnostics.push(text) };
-	expect(await enabled.complete({ words: [""] }, { output })).toEqual({ candidates: [] });
+	const presentation = {
+		renderResult: () => {},
+		echo: (text: string) => diagnostics.push(text),
+	};
+	expect(await enabled.complete({ words: [""] }, { presentation })).toEqual({ candidates: [] });
 	expect(diagnostics.join("")).toContain("reserved name");
 	diagnostics.length = 0;
 
@@ -117,7 +120,9 @@ test.each([
 			);
 		});
 	});
-	expect(await enabledAlias.complete({ words: [""] }, { output })).toEqual({ candidates: [] });
+	expect(await enabledAlias.complete({ words: [""] }, { presentation })).toEqual({
+		candidates: [],
+	});
 	expect(diagnostics.join("")).toContain("reserved name");
 });
 
@@ -416,7 +421,10 @@ test("contextful completion validates context before providers and reports truth
 		{ words: ["choose", ""] },
 		{
 			context,
-			output: { stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) },
+			presentation: {
+				renderResult: (text) => stdout.push(text),
+				echo: (text) => stderr.push(text),
+			},
 		},
 	);
 	expect(result.candidates.map(({ value }) => value)).toEqual(["one", "two"]);
@@ -508,7 +516,12 @@ test("provider failures without an observer silently preserve static candidates"
 	});
 	const result = await app.complete(
 		{ words: ["choose", ""] },
-		{ output: { stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) } },
+		{
+			presentation: {
+				renderResult: (text) => stdout.push(text),
+				echo: (text) => stderr.push(text),
+			},
+		},
 	);
 	expect(result.candidates.map((entry) => entry.value)).toEqual(["one", "two"]);
 	expect(stdout).toEqual([]);

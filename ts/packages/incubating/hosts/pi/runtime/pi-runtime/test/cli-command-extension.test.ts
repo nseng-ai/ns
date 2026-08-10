@@ -406,7 +406,7 @@ describe("cli command extension helper", () => {
 			],
 			runCli: (args, deps) => {
 				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
-				deps.stdout("ok\n");
+				deps.renderResult("ok\n");
 				return 0;
 			},
 		});
@@ -464,7 +464,7 @@ describe("cli command extension helper", () => {
 			piCommandAliases: { cp: "dev:checkpoint" },
 			runCli: (args, deps) => {
 				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
-				deps.stdout("ok\n");
+				deps.renderResult("ok\n");
 				return 0;
 			},
 		});
@@ -488,9 +488,17 @@ describe("cli command extension helper", () => {
 			runCli: async (args, deps) => {
 				order.push("run");
 				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
-				expect(deps.canEmitAnsi).toBe(false);
-				deps.stdout("https://preview.example\n");
-				deps.stderr("warning from cli\n");
+				expect(deps.renderCapabilities).toEqual({
+					canEmitAnsi: false,
+					caps: {
+						isTty: false,
+						colorDepth: "none",
+						columns: 80,
+						canRenderUnicode: true,
+					},
+				});
+				deps.renderResult("https://preview.example\n");
+				deps.echo("warning from cli\n");
 				return 0;
 			},
 		});
@@ -523,8 +531,8 @@ describe("cli command extension helper", () => {
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
 				expect(await deps.readJsonInput()).toBe("");
-				deps.stdout("captured output\n");
-				deps.stderr("captured warning\n");
+				deps.renderResult("captured output\n");
+				deps.echo("captured warning\n");
 				return 0;
 			},
 		});
@@ -551,7 +559,7 @@ describe("cli command extension helper", () => {
 				capturedDetails = details;
 			},
 			runCli: (_args, deps) => {
-				deps.stdout("\u001b[31mred\u001b[0m\u001b]0;unsafe title\u0007\n");
+				deps.renderResult("\u001b[31mred\u001b[0m\u001b]0;unsafe title\u0007\n");
 				return 0;
 			},
 		});
@@ -567,7 +575,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stdout("updated\n");
+				deps.renderResult("updated\n");
 				return 0;
 			},
 		});
@@ -600,8 +608,8 @@ describe("cli command extension helper", () => {
 			runCli: (args, deps) => {
 				order.push("run");
 				expect(args).toEqual(["preview-status", "--json"]);
-				deps.stdout("status ok\n");
-				deps.stderr("warning\n");
+				deps.renderResult("status ok\n");
+				deps.echo("warning\n");
 				return 0;
 			},
 		});
@@ -635,7 +643,7 @@ describe("cli command extension helper", () => {
 				throw new Error("recovery setup exploded");
 			},
 			runCli: (_args, deps) => {
-				deps.stderr("private registry authentication failed\n");
+				deps.echo("private registry authentication failed\n");
 				return 1;
 			},
 		});
@@ -679,7 +687,7 @@ describe("cli command extension helper", () => {
 				},
 			],
 			runCli: (_args, deps) => {
-				deps.stdout("done\n");
+				deps.renderResult("done\n");
 				return 0;
 			},
 		});
@@ -714,7 +722,7 @@ describe("cli command extension helper", () => {
 				const confirmation = await deps.confirm("Confirm title", "Confirm body", {
 					defaultAnswer: "no",
 				});
-				deps.stdout(`confirmation=${confirmation.type}\n`);
+				deps.renderResult(`confirmation=${confirmation.type}\n`);
 				return 0;
 			},
 		});
@@ -737,7 +745,7 @@ describe("cli command extension helper", () => {
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
 				const confirmation = await deps.confirm("Confirm title", "Confirm body");
-				deps.stdout(`confirmation=${confirmation.type}\n`);
+				deps.renderResult(`confirmation=${confirmation.type}\n`);
 				return 0;
 			},
 		});
@@ -753,7 +761,9 @@ describe("cli command extension helper", () => {
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
 				const selection = await deps.select("Choose a target", ["one", "two"]);
-				deps.stdout(`selected=${selection.type === "selected" ? selection.value : "undefined"}\n`);
+				deps.renderResult(
+					`selected=${selection.type === "selected" ? selection.value : "undefined"}\n`,
+				);
 				return 0;
 			},
 		});
@@ -770,7 +780,7 @@ describe("cli command extension helper", () => {
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
 				const selection = await deps.select("Choose a target", ["one", "two"]);
-				deps.stdout(`selection=${selection.type}\n`);
+				deps.renderResult(`selection=${selection.type}\n`);
 				return 0;
 			},
 		});
@@ -794,7 +804,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stdout(`interactive=${String(deps.isInteractive())}\n`);
+				deps.renderResult(`interactive=${String(deps.isInteractive())}\n`);
 				return 0;
 			},
 		});
@@ -809,7 +819,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stdout(`interactive=${String(deps.isInteractive())}\n`);
+				deps.renderResult(`interactive=${String(deps.isInteractive())}\n`);
 				return 0;
 			},
 		});
@@ -830,7 +840,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stdout(`interactive=${String(deps.isInteractive())}\n`);
+				deps.renderResult(`interactive=${String(deps.isInteractive())}\n`);
 				return 0;
 			},
 		});
@@ -900,8 +910,10 @@ describe("cli command extension helper", () => {
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
 				const selection = await deps.select("Choose a target", ["one", "two"]);
-				deps.stdout(`selected=${selection.type === "selected" ? selection.value : "undefined"}\n`);
-				deps.stderr("command warning\n");
+				deps.renderResult(
+					`selected=${selection.type === "selected" ? selection.value : "undefined"}\n`,
+				);
+				deps.echo("command warning\n");
 				return 0;
 			},
 			afterCommandComplete: (details) => {
@@ -943,7 +955,7 @@ describe("cli command extension helper", () => {
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
 				const confirmation = await deps.confirm("Confirm title", "Confirm body");
-				deps.stdout(`confirmed=${String(confirmation.type === "confirmed")}\n`);
+				deps.renderResult(`confirmed=${String(confirmation.type === "confirmed")}\n`);
 				return 0;
 			},
 		});
@@ -986,7 +998,7 @@ describe("cli command extension helper", () => {
 			const pi = new FakePi();
 			registerFakeCli(pi, {
 				runCli: (_args, deps) => {
-					deps.stdout("ok\n");
+					deps.renderResult("ok\n");
 					return 0;
 				},
 			});
@@ -1035,7 +1047,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stderr("not found\n");
+				deps.echo("not found\n");
 				return 17;
 			},
 		});
@@ -1103,7 +1115,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stderr("Error: Unexpected argument: words\n");
+				deps.echo("Error: Unexpected argument: words\n");
 				return 2;
 			},
 		});
@@ -1130,7 +1142,7 @@ describe("cli command extension helper", () => {
 				editorTextsAtHook.push([...editorTexts]);
 			},
 			runCli: (_args, deps) => {
-				deps.stderr("Error: Unexpected argument: words\n");
+				deps.echo("Error: Unexpected argument: words\n");
 				return 2;
 			},
 		});
@@ -1158,7 +1170,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stderr("error: unknown option '--bogus'\n");
+				deps.echo("error: unknown option '--bogus'\n");
 				return 2;
 			},
 		});
@@ -1182,7 +1194,7 @@ describe("cli command extension helper", () => {
 			commands: [{ name: "echo", description: "Echo text.", canAcceptPositionalArgs: true }],
 			runCli: (args, deps) => {
 				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
-				deps.stdout("ok\n");
+				deps.renderResult("ok\n");
 				return 0;
 			},
 		});
@@ -1206,7 +1218,7 @@ describe("cli command extension helper", () => {
 			runCli: (args, deps) => {
 				calls.push({ args: [...args], cwd: deps.cwd, env: deps.env });
 				deps.env.SAMPLE = "changed";
-				deps.stdout("ok\n");
+				deps.renderResult("ok\n");
 				return 0;
 			},
 		});
@@ -1227,7 +1239,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stdout("ok\n");
+				deps.renderResult("ok\n");
 				return 0;
 			},
 		});
@@ -1243,7 +1255,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stdout("ok\n");
+				deps.renderResult("ok\n");
 				return 0;
 			},
 		});
@@ -1267,7 +1279,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stderr("not found\n");
+				deps.echo("not found\n");
 				return 17;
 			},
 		});
@@ -1351,7 +1363,7 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stderr("Error: Unexpected argument: words\n");
+				deps.echo("Error: Unexpected argument: words\n");
 				return 2;
 			},
 		});
@@ -1376,7 +1388,7 @@ describe("cli command extension helper", () => {
 		for (const pi of cases) {
 			registerFakeCli(pi, {
 				runCli: (_args, deps) => {
-					deps.stdout("ok\n");
+					deps.renderResult("ok\n");
 					return 0;
 				},
 			});
@@ -1424,10 +1436,10 @@ describe("cli command extension helper", () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: async (_args, deps) => {
-				deps.stdout("started\n");
+				deps.renderResult("started\n");
 				markRunStarted?.();
 				await runFinished;
-				deps.stderr("finished\n");
+				deps.echo("finished\n");
 				return 0;
 			},
 		});

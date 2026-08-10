@@ -10,11 +10,17 @@ import {
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 
-function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
+function createCtx(
+	overrides: Partial<NsExtensionApi> & {
+		stdout?: (text: string) => void;
+		stderr?: (text: string) => void;
+	},
+): NsExtensionApi {
+	const { stdout, stderr, ...apiOverrides } = overrides;
 	const commandIo = createCliCommandIo(
 		optionalEntries({
-			stdout: overrides.stdout,
-			stderr: overrides.stderr,
+			stdout,
+			stderr,
 			onOutput: overrides.onOutput,
 		}),
 	);
@@ -22,6 +28,7 @@ function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 		cwd: "/repo",
 		env: {},
 		commandIo,
+		resultOutput: overrides.resultOutput ?? { write: () => {} },
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,
@@ -34,7 +41,7 @@ function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 		},
 		exec: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
-		...overrides,
+		...apiOverrides,
 	};
 }
 
@@ -66,7 +73,7 @@ describe("commandIoFromNsExtensionApi", () => {
 
 		expect(live).toEqual([]);
 		expect(stdout).toEqual([]);
-		expect(stderr).toEqual(["Info\n"]);
+		expect(stderr).toEqual([]);
 	});
 });
 

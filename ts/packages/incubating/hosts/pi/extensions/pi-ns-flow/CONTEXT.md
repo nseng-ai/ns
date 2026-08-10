@@ -18,8 +18,11 @@ registration, interaction, notification/presentation, and parity metadata.
 The eleven `/ns:flow:*` slash-command mirrors registered by the **Flow Pi host adapter**. The
 package is loaded directly through its `pi.extensions` manifest and `.pi/settings.json`, without a
 project-local `.pi/extensions/ns.ts` adapter, and loads a fresh `@nseng-ai/ns/cli` module for every
-command invocation. Flow command metadata and submit-check recovery policy come from
-`@nseng-ai/flow/api`.
+command invocation. Each invocation composes the real Clinkr/SDK/Flow path with invocation-owned
+structured presentation, settled non-TTY/non-ANSI capabilities, semantic Pi UI interaction, and
+live typed progress. Pi owns progress presentation, so transient phases and settled terminal frames
+do not reappear in final command output. Flow command metadata and submit-check recovery policy come
+from `@nseng-ai/flow/api`.
 *Avoid*: dynamic mirror discovery, static captured CLI module, flat lifecycle alias, project-local ns discovery adapter
 
 **Flow stack-squash composition export**:

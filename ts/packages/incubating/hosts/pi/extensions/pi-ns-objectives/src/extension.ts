@@ -432,7 +432,7 @@ async function runObjectiveCliCommand(
 ): Promise<number> {
 	const commandName = argv[0];
 	if (commandName !== "list") {
-		deps.stderr(`Error: unsupported objective command: ${commandName ?? "(missing)"}\n`);
+		deps.echo(`Error: unsupported objective command: ${commandName ?? "(missing)"}\n`);
 		return 2;
 	}
 
@@ -446,12 +446,12 @@ async function runObjectiveListCommand(
 ): Promise<number> {
 	const parsed = parseObjectiveListArgTokens(args);
 	if (parsed.type === "invalid") {
-		deps.stderr(`Error: ${parsed.message}\n`);
+		deps.echo(`Error: ${parsed.message}\n`);
 		return 2;
 	}
 
 	if (parsed.args.isHelpRequested) {
-		deps.stdout(renderObjectiveListHelp());
+		deps.renderResult(renderObjectiveListHelp());
 		return 0;
 	}
 
@@ -459,11 +459,11 @@ async function runObjectiveListCommand(
 	const objectiveClientFactory = options.createObjectiveClient ?? createObjectiveClient;
 	const listing = await objectiveClientFactory({ cwd: deps.cwd }).listObjectives(request);
 	if (!listing.ok) {
-		deps.stderr(`Error: ${listing.failure.message}\n`);
+		deps.echo(`Error: ${listing.failure.message}\n`);
 		return 1;
 	}
 
-	deps.stdout(`${renderObjectiveListMarkdown(listing.result)}\n`);
+	deps.renderResult(`${renderObjectiveListMarkdown(listing.result)}\n`);
 	return 0;
 }
 

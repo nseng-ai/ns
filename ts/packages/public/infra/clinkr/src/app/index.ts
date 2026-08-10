@@ -17,7 +17,7 @@ export type {
 	ClinkrContextfulApp,
 	ClinkrCompleteOptions,
 	ClinkrCompletionFailure,
-	ClinkrOutput,
+	ClinkrPresentation,
 	ContextFreeClinkrCompletionConfig,
 	ContextfulClinkrCompletionConfig,
 	ClinkrRunOptions,

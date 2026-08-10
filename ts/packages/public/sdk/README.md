@@ -44,7 +44,7 @@ Structured request input is finite JSON, separate from interaction. Commands tha
 
 Confirmation and selection are semantic, host-owned operations exposed as `confirm` and `select`. Command code should request those operations rather than reading terminal lines or depending on raw mode, key events, cursor state, or another terminal-session API. Hosts that cannot provide an applicable interaction must fail closed rather than infer one from the physical process terminal.
 
-Human output and rendering are also invocation-scoped. Use the context's output and progress services, `stdout`/`stderr` sinks where durable streamed chunks are required, and `renderCapabilities` rather than ambient process writers or TTY detection. Embedded hosts choose the sinks and rendering capability; non-terminal hosts can require non-ANSI output and sanitize captured text at their presentation boundary.
+Human output and rendering are also invocation-scoped. Use `resultOutput.write(text)` only for exact primary durable text that must be emitted before the handler returns. Use `commandIo` for human phases, notifications, and rich messages, and `progress` for typed progress. Ordinary final results should be returned for Clinkr to render. `NsExtensionApi` has no general stdout/stderr fields. Use `renderCapabilities` rather than ambient process writers or TTY detection. Embedded hosts choose presentation and rendering capability; non-terminal hosts can require settled non-TTY, non-ANSI output and sanitize captured text at their presentation boundary.
 
 ## Host behavior
 

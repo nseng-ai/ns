@@ -94,18 +94,22 @@ export function createLandMatrixProgressController(options: {
 }): LandMatrixProgressController {
 	const liveState: LandLiveProgressState = { landedPrs: 0 };
 	const landedPrNumbers = new Set<number>();
+	const presentation = options.caps.isTty
+		? options.forward === undefined
+			? { kind: "terminal" as const, caps: options.caps, deps: options.deps }
+			: {
+					kind: "terminal-and-event" as const,
+					caps: options.caps,
+					deps: options.deps,
+					progress: options.forward,
+				}
+		: options.forward === undefined
+			? { kind: "settled-transcript" as const, caps: options.caps, deps: options.deps }
+			: { kind: "event" as const, progress: options.forward };
 	const controller = landMatrixWorkflow.createController({
 		title: formatLandProgressTitle(liveState),
 		rows: [],
-		presentation:
-			options.forward === undefined
-				? { kind: "terminal", caps: options.caps, deps: options.deps }
-				: {
-						kind: "terminal-and-event",
-						caps: options.caps,
-						deps: options.deps,
-						progress: options.forward,
-					},
+		presentation,
 		begin: "lazy",
 	});
 	const actions = bindMatrixWorkflowActions(controller);

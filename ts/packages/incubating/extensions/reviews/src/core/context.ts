@@ -16,6 +16,8 @@ import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-d
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { NsCommandIo, NsResultOutput } from "@nseng-ai/sdk";
+import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 
 export { REVIEWS_BOT_LOGIN } from "./reviews-bot.ts";
 
@@ -45,8 +47,8 @@ export interface ReviewsContext extends ReviewsGateways {
 	readonly env: NodeJS.ProcessEnv;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	readonly readJsonInput: () => Promise<string>;
-	readonly stdout: (text: string) => void;
-	readonly stderr: (text: string) => void;
+	readonly commandIo: NsCommandIo;
+	readonly resultOutput: NsResultOutput;
 }
 
 export interface CreateRealReviewsContextOptions {
@@ -55,6 +57,8 @@ export interface CreateRealReviewsContextOptions {
 	readonly readJsonInput: () => Promise<string>;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
+	readonly commandIo?: NsCommandIo;
+	readonly resultOutput?: NsResultOutput;
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	readonly execApi?: CommandExecApi;
 	readonly gitGateway?: GitGateway;
@@ -82,7 +86,8 @@ export interface ReviewsCatalogOptions {
 export interface ReviewsRuntime extends ReviewsGateways {
 	readonly runScope: ReviewsRunScope;
 	readonly readJsonInput: () => Promise<string>;
-	readonly stderr: (text: string) => void;
+	readonly commandIo: NsCommandIo;
+	readonly resultOutput: NsResultOutput;
 }
 
 export function createRealReviewsContext(options: CreateRealReviewsContextOptions): ReviewsContext {
@@ -106,15 +111,15 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 		env: options.env,
 		...optionalEntry("signal", options.signal),
 		readJsonInput: options.readJsonInput,
-		stdout: options.stdout,
-		stderr: options.stderr,
+		commandIo:
+			options.commandIo ?? createCliCommandIo({ stdout: options.stdout, stderr: options.stderr }),
+		resultOutput: options.resultOutput ?? { write: options.stdout },
 	};
 }
 
 export function createReviewsRuntime(context: ReviewsContext): ReviewsRuntime {
-	const { execApi, cwd, env, signal, stdout, ...runtimeFields } = context;
+	const { execApi, cwd, env, signal, ...runtimeFields } = context;
 	void execApi;
-	void stdout;
 	return {
 		...runtimeFields,
 		runScope: {

@@ -103,6 +103,7 @@ function fakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		cwd: "/repo",
 		env: {},
 		commandIo: noopNsCommandIo,
+		resultOutput: overrides.resultOutput ?? { write: () => {} },
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,

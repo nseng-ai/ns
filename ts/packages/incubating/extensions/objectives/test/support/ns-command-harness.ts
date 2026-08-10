@@ -62,6 +62,7 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 	};
 	readonly outputFormat: "human" | "json" | "md";
 	readonly commandIo: NsCommandIo;
+	readonly resultOutput = { write: (text: string) => this.stdout(text) };
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
 	private readonly execResult: ExecResultFixture;

@@ -11,6 +11,8 @@ import { paint } from "@nseng-ai/foundation/cli-theme";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { NsCommandIo } from "@nseng-ai/sdk";
+import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 import { systemClock } from "@nseng-ai/foundation/time";
 
 import { RealClipboardGateway, type ClipboardGateway } from "./gateways/clipboard.ts";
@@ -46,7 +48,7 @@ export interface SlotCliContext {
 	renderCapabilities: RenderCapabilities;
 	extensions?: Readonly<Record<string, unknown>>;
 	interaction: ClinkrInteraction;
-	stderr: (text: string) => void;
+	commandIo: NsCommandIo;
 	env: NodeJS.ProcessEnv;
 	slotsRoot: string;
 	shouldWriteCdDirective: boolean;
@@ -61,6 +63,7 @@ export async function createRealSlotContext(options: {
 	extensions?: Readonly<Record<string, unknown>>;
 	formatPrompt?: ConfirmationPromptFormatter;
 	stderr?: (text: string) => void;
+	commandIo?: NsCommandIo;
 	shouldWriteCdDirective?: boolean;
 }): Promise<SlotCliContext> {
 	const env = options.env ?? process.env;
@@ -89,7 +92,7 @@ export async function createRealSlotContext(options: {
 				? {}
 				: { formatPrompt: options.formatPrompt ?? formatSlotConfirmationPrompt(caps) }),
 		}),
-		stderr,
+		commandIo: options.commandIo ?? createCliCommandIo({ stderr }),
 		env,
 		slotsRoot,
 		shouldWriteCdDirective: options.shouldWriteCdDirective ?? true,

@@ -52,6 +52,29 @@ describe("stack squash matrix progress", () => {
 		expect(settled).toContain("4→1");
 	});
 
+	test("non-tty live forwarding is event-only without terminal output", async () => {
+		const capture = streamCapture();
+		const events: NsProgressPhaseEvent[] = [];
+		const controller = createStackSquashMatrixProgressController({
+			caps: {
+				isTty: false,
+				colorDepth: "none",
+				columns: 80,
+				canRenderUnicode: true,
+			},
+			deps: capture.deps,
+			forward: { isLive: true, phase: (event) => events.push(event) },
+		});
+
+		controller.setPlan([{ branch: "feature/top", parent: "main", commitsBefore: 2 }]);
+		await controller.finish();
+
+		expect(events.some((event) => event.type === "phases-declared")).toBe(true);
+		expect(capture.writes).toEqual([]);
+		expect(capture.redraws).toEqual([]);
+		expect(capture.outputs).toEqual([]);
+	});
+
 	test("declares inventory and restore as ordered phases and forwards their lifecycle", async () => {
 		const capture = streamCapture();
 		const events: NsProgressPhaseEvent[] = [];

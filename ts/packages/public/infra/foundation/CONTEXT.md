@@ -21,7 +21,7 @@ A declared foundation subpackage with supported cross-package runtime exports (`
 *Avoid*: sole public door, façade barrel, extension package API.
 
 **CLI Runtime Adapter**:
-The `@nseng-ai/foundation/cli-runtime` Foundation subpackage that adapts Clinkr applications to standalone process execution. It owns process-backed finite JSON acquisition, output and raw-byte sink adaptation, and terminal capability wiring; embedded hosts override those capabilities per invocation rather than inheriting ambient process streams or terminal facts.
+The `@nseng-ai/foundation/cli-runtime` Foundation subpackage that adapts Clinkr applications to standalone process execution. It owns process-backed finite JSON acquisition, the mapping from Clinkr structured presentation (`renderResult` to stdout and `echo` to stderr), raw-byte sink adaptation, and terminal capability wiring; embedded hosts override those capabilities per invocation rather than inheriting ambient process streams or terminal facts.
 *Avoid*: command request parser, command interaction policy, Pi presentation owner, general stdin abstraction.
 
 **Harness Session**:

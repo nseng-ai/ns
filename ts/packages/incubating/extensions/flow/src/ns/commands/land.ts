@@ -137,7 +137,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 			await progress.finish(exitCode);
 			progress.flushFailureDetails(exitCode);
 			if (request.verbose === true) {
-				ctx.stderr?.(`${formatFlowLandTelemetrySummary(telemetryFinish)}\n`);
+				ctx.commandIo.notify(formatFlowLandTelemetrySummary(telemetryFinish));
 			}
 			return exit;
 		} finally {
@@ -252,7 +252,7 @@ function createLandMatrixCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliPr
 		finish: async (exitCode) => await matrix.finish({ isFailed: exitCode !== 0 }),
 		flushFailureDetails: (exitCode) => {
 			if (exitCode !== 0 && failureDetails.length > 0)
-				ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
+				ctx.commandIo.notify(failureDetails.join("\n\n"), "error");
 		},
 		stop: matrix.stop,
 	};
@@ -331,7 +331,7 @@ export function createLandCliProgress(ctx: NsExtensionApi, caps: Caps): LandCliP
 		finish: async (exitCode) => await progress.finish({ isFailed: exitCode !== 0 }),
 		flushFailureDetails: (exitCode) => {
 			if (exitCode !== 0 && failureDetails.length > 0)
-				ctx.stderr?.(`${failureDetails.join("\n\n")}\n`);
+				ctx.commandIo.notify(failureDetails.join("\n\n"), "error");
 		},
 		stop: progress.stop,
 	};

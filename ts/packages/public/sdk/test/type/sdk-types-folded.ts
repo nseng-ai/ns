@@ -123,6 +123,11 @@ function acceptsExtensionApi(api: NsExtensionApi): string {
 	const isProviderPresent: boolean = api.hasExtension("@example/provider");
 	void isProviderPresent;
 	api.commandIo.notify("checked");
+	api.resultOutput.write("exact result chunk\n");
+	// @ts-expect-error structured invocations no longer expose physical stdout
+	api.stdout("removed stream field\n");
+	// @ts-expect-error structured invocations no longer expose physical stderr
+	api.stderr("removed stream field\n");
 	api.progress.phase(progressEvent);
 	return api.cwd;
 }

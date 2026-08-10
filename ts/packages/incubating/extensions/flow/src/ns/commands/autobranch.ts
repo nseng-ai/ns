@@ -12,6 +12,7 @@ import { resolveFlowModelSelection } from "../model-policy.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
+import { createTextPhaseProgress } from "../../phase-stream/text-phase-progress.ts";
 import {
 	createAutobranchDispatchEnv,
 	createCommitWithPreparedMessage,
@@ -51,7 +52,22 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 		);
 		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 		const io = commandIoFromNsExtensionApi(ctx);
-		return await runWithNsCommandIo(io, async (io) => {
+		const progress = createTextPhaseProgress(ctx, {
+			title: "ns flow autobranch",
+			phases: [
+				{ key: "inspect", name: "Inspect", label: "Inspecting worktree…" },
+				{ key: "derive", name: "Branch", label: "Deriving branch name…" },
+				{ key: "draft", name: "Checkpoint", label: "Drafting checkpoint message…" },
+				{ key: "create", name: "Create", label: "Creating Graphite branch and checkpoint…" },
+			],
+		});
+		const phaseKey = (message: string): string => {
+			if (message.startsWith("Inspecting")) return "inspect";
+			if (message.startsWith("Deriving")) return "derive";
+			if (message.startsWith("Drafting")) return "draft";
+			return "create";
+		};
+		const commandResult = await runWithNsCommandIo(io, async () => {
 			const result = await dispatchAutobranchCheckpoint(
 				{
 					mode: "require-dirty",
@@ -69,7 +85,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 				},
 				{
 					...createAutobranchDispatchEnv(ctx, args, slugModel.modelSelection),
-					onPhase: (message) => io.phase(message),
+					onPhase: (message) => progress.phase(phaseKey(message), message),
 				},
 			);
 
@@ -99,7 +115,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 					const flow = result.flow;
 					if (flow.ok) {
 						for (const warning of flow.warnings) {
-							ctx.stderr?.(`${warning.trimEnd()}\n`);
+							ctx.commandIo.notify(warning, "warning");
 						}
 						return ok({ cwd: result.snapshot.root, summary: flow.summary.trimEnd() });
 					}
@@ -116,6 +132,8 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 				}
 			}
 		});
+		progress.finish(commandResult.status !== "success");
+		return commandResult;
 	},
 });
 

@@ -7,7 +7,7 @@ Foundation provides ns-independent infrastructure through focused public subpath
 `@nseng-ai/foundation/cli-runtime` adapts Clinkr applications to standalone process execution. Its process-backed composition provides:
 
 - deferred acquisition of one finite JSON request for `--input-json`;
-- invocation-scoped structured-text and raw-byte output adapters;
+- invocation-scoped structured presentation, mapped from Clinkr `renderResult`/`echo` to terminal stdout/stderr, plus separate raw-byte output adapters;
 - terminal rendering capabilities; and
 - line input used only by standalone semantic interaction adapters.
 

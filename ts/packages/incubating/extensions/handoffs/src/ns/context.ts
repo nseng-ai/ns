@@ -30,7 +30,6 @@ export async function createNsHandoffContext(ctx: NsExtensionApi): Promise<Hando
 			commands: new NsStdinCapableCommandExecApi(ctx),
 			git,
 		});
-	const stderr = ctx.stderr ?? (() => {});
 	return {
 		cwd: ctx.cwd,
 		env: ctx.env as NodeJS.ProcessEnv,
@@ -43,7 +42,7 @@ export async function createNsHandoffContext(ctx: NsExtensionApi): Promise<Hando
 				title: "Handoff confirmation",
 				formatMessage: formatConfirmationMessage,
 			}),
-		stderr,
+		commandIo: ctx.commandIo,
 	};
 }
 

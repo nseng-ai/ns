@@ -38,7 +38,6 @@ function createBranchContextExtensionContext(ctx: NsExtensionApi): BranchContext
 	return createRealBranchContextCliContext({
 		cwd: ctx.cwd,
 		env: ctx.env,
-		...optionalEntry("stderr", ctx.stderr),
 	});
 }
 

@@ -67,6 +67,7 @@ function ctx(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		cwd: "/work",
 		env: {},
 		commandIo: noopNsCommandIo,
+		resultOutput: { write: () => {} },
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,
@@ -143,9 +144,7 @@ describe("resolveFlowStreamCaps", () => {
 	});
 
 	test("stdout or stderr override sinks also resolve to settled non-interactive caps", () => {
-		const resolved = resolveFlowStreamCaps(
-			ctx({ env: { FORCE_COLOR: "3" }, stdout: () => undefined }),
-		);
+		const resolved = resolveFlowStreamCaps(ctx({ env: { FORCE_COLOR: "3" } }));
 
 		expect(resolved.isTty).toBe(false);
 		expect(resolved.colorDepth).toBe("none");
@@ -197,6 +196,9 @@ describe("forwarded progress", () => {
 			},
 			{ type: "title-changed", title: "updated title" },
 			phaseEvent,
+			{ type: "phase-done", phaseKey: "a" },
+			{ type: "phase-done", phaseKey: "b" },
+			{ type: "phase-done", phaseKey: "c" },
 		]);
 	});
 
@@ -249,7 +251,7 @@ describe("forwarded progress", () => {
 		});
 	});
 
-	test("live forward suppresses non-tty transient surfaces but leaves settled output unchanged", async () => {
+	test("live non-tty forwarding is event-only and does not persist a settled frame", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, redraws, outputs } = harness();
 		const progress = recordingProgress();
@@ -263,12 +265,13 @@ describe("forwarded progress", () => {
 
 		expect(outputs).toEqual([]);
 		expect(redraws).toHaveLength(0);
-		expect(writes).toHaveLength(1);
-		const settled = writes[0] ?? "";
-		expectNoCursorEscapes(settled);
-		expect(settled).toContain("alpha done");
-		expect(settled).toContain("beta done");
-		expect(settled).toContain("gamma done");
+		expect(writes).toEqual([]);
+		expect(progress.events).toEqual(
+			expect.arrayContaining([
+				{ type: "phase-done", phaseKey: "b" },
+				{ type: "phase-done", phaseKey: "c" },
+			]),
+		);
 	});
 
 	test("live forward preserves tty surface rendering", async () => {

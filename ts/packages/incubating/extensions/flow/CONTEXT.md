@@ -9,8 +9,8 @@ The ns extension that owns public lifecycle workflows such as changes, copy, aut
 *Avoid*: Herdr dispatch helper, Pi workflow package, Graphite wrapper
 
 **Flow Command Face**:
-The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, progress, and human output for Flow workflows.
-*Avoid*: land domain core, Herdr extension adapter, standalone land command surface
+The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, host-owned typed progress, and human output for Flow workflows. Standalone TTY execution uses terminal progress; live non-TTY hosts such as Pi consume event-only progress; non-live non-TTY execution receives a settled transcript, so one host invocation has one progress presenter.
+*Avoid*: land domain core, Herdr extension adapter, standalone land command surface, progress duplicated as final Pi echo
 
 **Flow Pi Presentation Boundary**:
 The separate `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, interaction, notifications, parity metadata, and direct discovery for the generic `/ns:flow:*` mirrors. It also exports `/gt:squash-stack` presentation for deliberate project-local composition. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the sole cross-owner composition seam for Internal smart restack plus the Flow stack-squash adapter.

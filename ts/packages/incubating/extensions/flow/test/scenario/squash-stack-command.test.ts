@@ -15,12 +15,9 @@ describe("flow squash-stack command outcomes", () => {
 			"Processed 2 Graphite stack branches; 5 commits became 2 (3 removed).\n\n- feature/top: 3 → 1 commit\n- feature/bottom: 2 → 1 commit",
 		);
 		const progress = stripAnsi(run.liveOutput.map((entry) => entry.text).join(""));
-		expect(progress).toContain("Commits");
-		expect(progress).toContain("Squash");
-		expect(progress).toContain("feature/top");
-		expect(progress).toContain("3→1");
-		expect(progress).toContain("feature/bottom");
-		expect(progress).toContain("2→1");
+		expect(progress).toContain("ns flow squash-stack");
+		expect(progress).toContain("stack inventoried");
+		expect(progress).toContain("tip restored");
 		expect(run.stackGateway.operations()).toEqual([{ type: "stack", cwd: "/work" }]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git status --porcelain=v1",
@@ -60,8 +57,8 @@ describe("flow squash-stack command outcomes", () => {
 			"Processed 1 Graphite stack branch; 0 commits became 0 (0 removed).\n\n- feature/empty: 0 commits (no squash needed)",
 		);
 		const progress = stripAnsi(run.liveOutput.map((entry) => entry.text).join(""));
-		expect(progress).toContain("feature/empty");
-		expect(progress).toContain("empty");
+		expect(progress).toContain("stack inventoried");
+		expect(progress).toContain("tip restored");
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git status --porcelain=v1",
 			"git rev-list --count main..feature/empty",

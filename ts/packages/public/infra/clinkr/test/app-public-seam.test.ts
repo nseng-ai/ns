@@ -78,7 +78,7 @@ test("explicit app output captures framework text without process writer replace
 	const originalStdoutWrite = process.stdout.write;
 	const originalStderrWrite = process.stderr.write;
 	const exitCode = await countingApp.run(["--help"], {
-		output: { stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) },
+		presentation: { renderResult: (text) => stdout.push(text), echo: (text) => stderr.push(text) },
 	});
 	expect(exitCode).toBe(0);
 	expect(stdout.join("")).toContain("Usage:");

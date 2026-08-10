@@ -3,6 +3,7 @@ import { isClinkrHumanOutputInvocation, type RenderCapabilities } from "@nseng-a
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 
 import { buildSlotCommandGroup } from "../../src/ns/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";
@@ -172,7 +173,7 @@ function buildScenarioFixture(
 		cwd,
 		renderCapabilities,
 		interaction,
-		stderr: (text) => stderr.push(text),
+		commandIo: createCliCommandIo({ stderr: (text) => stderr.push(text) }),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
 		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),

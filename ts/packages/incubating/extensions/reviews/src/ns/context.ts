@@ -17,8 +17,10 @@ export function createNsReviewsRuntime(ctx: NsExtensionApi): ReviewsRuntime {
 			cwd: ctx.cwd,
 			env: ctx.env,
 			readJsonInput: ctx.readJsonInput,
-			stdout: ctx.stdout ?? (() => undefined),
-			stderr: ctx.stderr ?? (() => undefined),
+			stdout: ctx.resultOutput.write,
+			stderr: () => undefined,
+			commandIo: ctx.commandIo,
+			resultOutput: ctx.resultOutput,
 			execApi,
 		}),
 	);

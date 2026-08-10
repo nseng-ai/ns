@@ -79,6 +79,7 @@ export class ScriptedNsTestContext implements NsCliBaseContext {
 	readonly execCalls: ExecCall[] = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly commandIo = noopNsCommandIo;
+	readonly resultOutput = { write: () => {} };
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities: RenderCapabilities & { readonly caps?: Caps };
 	readonly isInteractive = () => false;
@@ -191,7 +192,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			},
 			...(options.renderCapabilities === undefined
 				? {}
-				: { canEmitAnsi: options.renderCapabilities.canEmitAnsi }),
+				: { renderCapabilities: options.renderCapabilities }),
 			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
 			...(options.state?.select === undefined ? {} : { select: options.state.select }),

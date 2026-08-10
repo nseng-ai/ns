@@ -27,8 +27,9 @@ The host constructs `NsExtensionApi` for each invocation. Its command-facing I/O
 
 - `readJsonInput()` optionally supplies one finite JSON request text for commands whose explicit source policy selects JSON input. The owning command parses and validates it. It is not a general stdin or interactive-line API.
 - `confirm()` and `select()` express semantic user intent. A standalone host may adapt these operations to terminal prompting; embedded hosts use native UI and fail closed when no applicable UI exists.
-- `stdout`, `stderr`, `commandIo`, `progress`, and `onOutput` are invocation-owned output services. Commands must not write ambient process output.
-- `renderCapabilities` tells command renderers what the host can safely present. An embedded non-terminal host can set `canEmitAnsi: false` regardless of the physical process terminal.
+- `resultOutput.write(text)` preserves exact primary durable text that must be emitted before the handler returns. It is not a general output stream; diagnostics, notices, previews, and progress use their semantic services.
+- `commandIo` owns human phases, notifications, and rich messages; `progress` owns typed progress; `onOutput` remains the transient subprocess/live-output bridge. `NsExtensionApi` has no general stdout/stderr fields. Commands must not write ambient process output.
+- `renderCapabilities` tells command renderers what the host can safely present. An embedded non-terminal host supplies complete settled capabilities with `canEmitAnsi: false`, regardless of the physical process terminal.
 
 Raw commands use the separate invocation-scoped byte output described above. These capabilities intentionally do not model terminal streams, raw mode, key events, a PTY, or a general response/event protocol.
 

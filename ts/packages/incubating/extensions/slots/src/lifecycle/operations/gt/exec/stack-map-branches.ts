@@ -124,7 +124,7 @@ export async function runGtStackMapBranches(
 		]),
 	];
 	if (ctx.shouldWriteCdDirective) {
-		for (const warning of warnings) ctx.stderr(`${warning}\n`);
+		for (const warning of warnings) ctx.commandIo.notify(warning, "warning");
 	}
 
 	const result: GtStackMapBranchesResult = {

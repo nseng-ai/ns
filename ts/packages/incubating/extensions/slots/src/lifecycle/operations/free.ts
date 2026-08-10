@@ -267,27 +267,25 @@ function createFreeAllProgressReporter(
 	if (!request.all || !ctx.shouldWriteCdDirective || targetCount === 0) return null;
 	return {
 		checkingCleanup: (slotCount) => {
-			ctx.stderr(`Checking cleanup actions for ${slotCount} slot(s)…\n`);
+			ctx.commandIo.phase(`Checking cleanup actions for ${slotCount} slot(s)…`);
 		},
-		writePromptBreak: () => {
-			ctx.stderr("\n");
-		},
+		writePromptBreak: () => {},
 		freeProgress: (event) => {
-			ctx.stderr(`Freeing ${event.target.slotName} (${event.target.branchName})…\n`);
+			ctx.commandIo.phase(`Freeing ${event.target.slotName} (${event.target.branchName})…`);
 		},
 		cleanupProgress: (event) => {
 			switch (event.type) {
 				case "pr_lookup_started":
-					ctx.stderr(`Checking PR for ${event.target.branchName}…\n`);
+					ctx.commandIo.phase(`Checking PR for ${event.target.branchName}…`);
 					return;
 				case "pr_close_started":
-					ctx.stderr(`Closing PR #${event.prNumber}…\n`);
+					ctx.commandIo.phase(`Closing PR #${event.prNumber}…`);
 					return;
 				case "local_branch_lookup_started":
-					ctx.stderr(`Checking local branch ${event.target.branchName}…\n`);
+					ctx.commandIo.phase(`Checking local branch ${event.target.branchName}…`);
 					return;
 				case "local_branch_delete_started":
-					ctx.stderr(`Deleting local branch ${event.target.branchName}…\n`);
+					ctx.commandIo.phase(`Deleting local branch ${event.target.branchName}…`);
 					return;
 				case "cleanup_finished":
 					return;

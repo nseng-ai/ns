@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { runFlowChangesCommandWithFakes } from "./flow-command-fakes.ts";
+import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 function runChangesWithFakes(options: Parameters<typeof runFlowChangesCommandWithFakes>[0] = {}) {
@@ -17,6 +18,22 @@ function cleanSnapshotResponses(): ScriptedExecResponse[] {
 }
 
 describe("project-local changes extension behavior", () => {
+	test("live hosts receive structured phases without deferred textual output", async () => {
+		const events: NsProgressPhaseEvent[] = [];
+		const run = runChangesWithFakes({
+			progress: { isLive: true, phase: (event) => events.push(event) },
+			state: { exec: cleanSnapshotResponses() },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.liveOutput).toEqual([]);
+		expect(events).toEqual([
+			expect.objectContaining({ type: "phases-declared", title: "ns flow changes" }),
+			{ type: "phase-started", phaseKey: "inspect", label: "Inspecting worktree…" },
+			{ type: "phase-done", phaseKey: "inspect" },
+		]);
+	});
+
 	test("clean worktree reports no outstanding changes without model generation", async () => {
 		const run = runChangesWithFakes({ state: { exec: cleanSnapshotResponses() } });
 

@@ -233,9 +233,9 @@ describe("createReviewsRuntime", () => {
 		await ctx.github.addPrDiscussionComment({ ...runOptions, prNumber: 47, body: "body" });
 		await ctx.github.updatePrDiscussionComment({ ...runOptions, commentId: 1, body: "body" });
 
-		ctx.stderr("diagnostic");
+		ctx.commandIo.notify("diagnostic", "warning");
 		expect(await ctx.readJsonInput()).toBe("envelope");
-		expect(stderr).toEqual(["diagnostic"]);
+		expect(stderr).toEqual(["diagnostic\n"]);
 		expect("execApi" in ctx).toBe(false);
 		expect("stdout" in ctx).toBe(false);
 		expect(localDiff.calls[0]).toMatchObject({ cwd: "/repo", baseRef: "origin/main" });

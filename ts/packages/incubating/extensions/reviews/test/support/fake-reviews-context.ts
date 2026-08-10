@@ -7,6 +7,7 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import type { ReviewsContext } from "../../src/core/context.ts";
+import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 import {
 	FakeReviewRunnerGateway,
 	type ReviewRunnerGateway,
@@ -71,7 +72,10 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 			(async () => {
 				throw new Error("Unexpected JSON input read");
 			}),
-		stdout: options.stdout ?? (() => undefined),
-		stderr: options.stderr ?? (() => undefined),
+		commandIo: createCliCommandIo({
+			...(options.stdout === undefined ? {} : { stdout: options.stdout }),
+			...(options.stderr === undefined ? {} : { stderr: options.stderr }),
+		}),
+		resultOutput: { write: options.stdout ?? (() => undefined) },
 	};
 }

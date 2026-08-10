@@ -1,7 +1,7 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { ClinkrRawOutput } from "../raw/definition.ts";
-import type { ClinkrContextFreeApp, ClinkrContextfulApp, ClinkrOutput } from "./app.ts";
+import type { ClinkrContextFreeApp, ClinkrContextfulApp, ClinkrPresentation } from "./app.ts";
 
 /** Observable CLI result of an in-process terminal-adapter run. */
 export interface CapturedCliRun {
@@ -45,9 +45,9 @@ export async function runForCliTest<TContext>(
 	const stderrText: string[] = [];
 	const stdoutBytes: Uint8Array[] = [];
 	const stderrBytes: Uint8Array[] = [];
-	const output: ClinkrOutput = {
-		stdout: (text) => stdoutText.push(text),
-		stderr: (text) => stderrText.push(text),
+	const presentation: ClinkrPresentation = {
+		renderResult: (text) => stdoutText.push(text),
+		echo: (text) => stderrText.push(text),
 	};
 	const rawOutput: ClinkrRawOutput = {
 		writeStdout: (bytes) => stdoutBytes.push(Uint8Array.from(bytes)),
@@ -56,7 +56,7 @@ export async function runForCliTest<TContext>(
 	const runOptions = {
 		...optionalEntry("readJsonInput", options.readJsonInput),
 		canEmitAnsi: options.canEmitAnsi ?? false,
-		output,
+		presentation,
 		rawOutput,
 	};
 	let exitCode: number;

@@ -16,7 +16,7 @@ An **Extension Descriptor** describes an extension package without executing its
 
 ## Invocation capabilities
 
-An **ns command invocation** receives host-owned finite JSON request input, semantic confirmation/selection, rendering capability, and invocation-scoped output through `NsExtensionApi`. JSON request input is a single optional text value whose parsing and validation remain command-owned; it is not general stdin or interactive input. Standalone composition may adapt these capabilities to process streams and terminal prompts, while embedded hosts provide explicit values, sinks, and native UI and must not inherit ambient process I/O.
+An **ns command invocation** receives host-owned finite JSON request input, semantic confirmation/selection, rendering capability, and invocation-scoped presentation through `NsExtensionApi`. JSON request input is a single optional text value whose parsing and validation remain command-owned; it is not general stdin or interactive input. `resultOutput` owns exact primary durable text emitted before handler return, `commandIo` owns human phases/notifications/rich messages, and `progress` owns typed progress; the ns extension API has no general stdout/stderr fields. Standalone composition may adapt Clinkr presentation to process streams and interaction to terminal prompts, while embedded hosts provide explicit values, presentation, and native UI and must not inherit ambient process I/O.
 
 ## Host composition
 

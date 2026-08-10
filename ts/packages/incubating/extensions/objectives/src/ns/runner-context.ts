@@ -47,7 +47,7 @@ export async function createNsObjectiveRunnerCoreContext(
 		commands,
 		graphite: overrides?.graphite ?? new RealGraphiteBranchGateway(commands),
 		outputFormat: ctx.outputFormat ?? "human",
-		writeStdout: ctx.stdout ?? (() => {}),
+		writeStdout: ctx.resultOutput.write,
 		phase: (label) => {
 			ctx.commandIo.phase(label);
 		},

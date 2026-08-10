@@ -2,6 +2,7 @@ import process from "node:process";
 
 import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
+import { resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { NotifyLevel, SetWidgetFunction } from "../runtime/tool-types.ts";
 import { CliCommandStatusActivity } from "./cli-command-status.ts";
@@ -18,6 +19,7 @@ import type { TimerScheduler } from "@nseng-ai/foundation/timers";
 import type {
 	NsConfirmOptions,
 	NsConfirmPrompt,
+	NsRenderCapabilities,
 	NsProgressPhaseEvent,
 	NsSelectPrompt,
 } from "@nseng-ai/sdk";
@@ -74,19 +76,19 @@ export type CliCommandSelectPrompt = NsSelectPrompt;
 
 export interface CliCommandRunDeps {
 	cwd: string;
-	/** Invocation-owned structured output capture. */
-	stdout: (text: string) => void;
-	/** Invocation-owned structured error capture. */
-	stderr: (text: string) => void;
-	/** Whether the host permits ANSI rendering for this invocation. */
-	canEmitAnsi: boolean;
+	/** Invocation-owned primary result presentation. */
+	renderResult: (text: string) => void;
+	/** Invocation-owned auxiliary human-text presentation. */
+	echo: (text: string) => void;
+	/** Complete invocation-owned rendering capabilities; never inferred from the Pi process terminal. */
+	renderCapabilities: NsRenderCapabilities;
 	/** Finite JSON request input. Pi slash commands do not inherit ambient process stdin. */
 	readJsonInput: () => Promise<string>;
 	env: Record<string, string | undefined>;
 	/**
 	 * Emits structured live-progress phase events for the Pi footer status path only.
 	 * Events sent here are not included in the final rendered command result; use
-	 * stdout/stderr for output that should remain visible after the command ends.
+	 * renderResult/echo for text that should remain visible after the command ends.
 	 */
 	onProgress?: (event: NsProgressPhaseEvent) => void;
 	/** Whether this invocation can elicit an interactive confirmation from the user. */
@@ -469,16 +471,19 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		const interaction = createPiCliCommandInteraction(ctx, activity);
 		const runDeps: CliCommandRunDeps = {
 			cwd: ctx.cwd,
-			// Pi owns terminal rendering. Embedded commands must produce settled text
-			// rather than infer capabilities from the physical process terminal.
-			canEmitAnsi: false,
+			// Pi owns terminal rendering. Settle every capability explicitly so the
+			// physical process terminal cannot select ANSI, width, or in-place writers.
+			renderCapabilities: {
+				canEmitAnsi: false,
+				caps: resolveThemeCaps({ canEmitAnsi: false }),
+			},
 			// Pi slash commands have no finite JSON request body. Supplying an empty
 			// invocation-owned value makes --input-json fail without reading process.stdin.
 			readJsonInput: async () => "",
-			stdout: (text) => {
+			renderResult: (text) => {
 				stdout += text;
 			},
-			stderr: (text) => {
+			echo: (text) => {
 				stderr += text;
 			},
 			// Give each invocation an owned environment without mutating process.env.

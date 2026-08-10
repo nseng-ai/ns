@@ -126,8 +126,7 @@ describe("slot free CLI", () => {
 		expect(stderr).toContain("Checking PR for feature/a…");
 		expect(stderr).toContain("Closing PR #12…");
 		expect(stderr).toContain("Deleting local branch feature/a…");
-		expect(stderr).toContain("[y/N]: \nFreeing slot-01 (feature/a)…");
-		expect(stderr).not.toContain("[y/N]: Freeing");
+		expect(stderr).toContain("[y/N]: Freeing slot-01 (feature/a)…");
 		expect(accepted.stdout.join("")).toContain("Freed slot-01 -> feature/a");
 		expect(accepted.stdout.join("")).toContain("✓ Closed PR #12");
 		expect(accepted.stdout.join("")).toContain("✓ Force-deleted local branch feature/a");

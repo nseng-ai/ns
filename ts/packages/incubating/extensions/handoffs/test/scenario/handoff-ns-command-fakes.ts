@@ -37,7 +37,11 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 		options: NsExecOptions | undefined;
 	}> = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
-	readonly commandIo = noopNsCommandIo;
+	readonly commandIo = {
+		...noopNsCommandIo,
+		message: (text: string) => this.stderr(text),
+	};
+	readonly resultOutput = { write: () => {} };
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;

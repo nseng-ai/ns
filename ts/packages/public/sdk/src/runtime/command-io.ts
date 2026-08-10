@@ -141,9 +141,17 @@ export function commandIoFromNsExtensionApi(
 	ctx: NsExtensionApi,
 	options: NsExtensionCommandIoOptions = {},
 ): NsCommandIo {
-	if (options.shouldSuppress === undefined) return ctx.commandIo;
-	return createCliCommandIo(
-		optionalEntries({ stdout: ctx.stdout, stderr: ctx.stderr, onOutput: ctx.onOutput }),
-		{ shouldSuppress: options.shouldSuppress },
-	);
+	if (options.shouldSuppress !== true) return ctx.commandIo;
+	return {
+		phase: () => {},
+		notify: (message, level = "info") => {
+			if (level !== "info") ctx.commandIo.notify(message, level);
+		},
+		message: (text, messageOptions) => {
+			ctx.commandIo.message(text, messageOptions);
+		},
+		clearPhase: () => {
+			ctx.commandIo.clearPhase();
+		},
+	};
 }

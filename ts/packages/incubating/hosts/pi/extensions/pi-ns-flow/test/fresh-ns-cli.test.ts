@@ -20,11 +20,11 @@ describe("fresh ns CLI runner", () => {
 		const runCli = createFreshNsCliRunner(loader);
 		const deps = {
 			cwd: "/repo",
-			canEmitAnsi: false,
+			renderCapabilities: { canEmitAnsi: false },
 			readJsonInput: async () => "",
 			env: {},
-			stdout() {},
-			stderr() {},
+			renderResult() {},
+			echo() {},
 			isInteractive: () => true,
 			confirm: () => ({ type: "declined" as const }),
 			select: () => ({ type: "cancelled" as const }),

@@ -60,6 +60,7 @@ function extensionApi(options: { renderCapabilities: RenderCapabilities }): NsEx
 		}),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		commandIo: noopNsCommandIo,
+		resultOutput: { write: () => {} },
 		progress: noopNsProgress,
 		renderCapabilities: options.renderCapabilities,
 		hasExtension: () => false,
@@ -70,7 +71,5 @@ function extensionApi(options: { renderCapabilities: RenderCapabilities }): NsEx
 		select: () => {
 			throw new Error("Unexpected selection prompt in test.");
 		},
-		stdout: () => {},
-		stderr: () => {},
 	};
 }

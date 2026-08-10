@@ -15,6 +15,7 @@ import {
 import { formatPendingWorktreeError } from "../../autobranch/pending-worktree-format.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { loadFlowPendingWorktreeSnapshot } from "../worktree.ts";
+import { createTextPhaseProgress } from "../../phase-stream/text-phase-progress.ts";
 
 // This project-local extension uses the public ns SDK plus internal migration
 // exports while duplicated workflow helpers move into package-owned modules.
@@ -60,8 +61,16 @@ export const flowChangesCommand: NsCommand = defineCommand({
 	},
 	handler: async (ctx) => {
 		const io = commandIoFromNsExtensionApi(ctx);
-		return await runWithNsCommandIo(io, async (io) => {
-			io.phase("Inspecting worktree…");
+		const progress = createTextPhaseProgress(ctx, {
+			title: "ns flow changes",
+			phases: [
+				{ key: "inspect", name: "Inspect", label: "Inspecting worktree…" },
+				{ key: "policy", name: "Model", label: "Resolving changes model policy…" },
+				{ key: "generate", name: "Summary", label: "Generating changes summary…" },
+			],
+		});
+		const result = await runWithNsCommandIo(io, async () => {
+			progress.phase("inspect", "Inspecting worktree…");
 			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
 			if (!loaded.ok) {
 				return failure(FLOW_COMMAND_FAILED, formatPendingWorktreeError(loaded.error));
@@ -70,10 +79,10 @@ export const flowChangesCommand: NsCommand = defineCommand({
 			const snapshot = loaded.snapshot;
 			if (snapshot.clean) return ok({ type: "clean" as const, branch: snapshot.branch });
 
-			io.phase("Resolving changes model policy…");
+			progress.phase("policy", "Resolving changes model policy…");
 			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowChanges);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-			io.phase("Generating changes summary…");
+			progress.phase("generate", "Generating changes summary…");
 			const summary = await prepareFlowChangesSummary(
 				{ ...ctx, modelSelection: model.modelSelection },
 				snapshot,
@@ -89,6 +98,8 @@ export const flowChangesCommand: NsCommand = defineCommand({
 				files: parseGitPorcelainStatusOutput(snapshot.status),
 			});
 		});
+		progress.finish(result.status !== "success");
+		return result;
 	},
 });
 

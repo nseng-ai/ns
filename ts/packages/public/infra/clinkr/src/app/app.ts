@@ -44,9 +44,9 @@ import {
 	type TopologyIssue,
 } from "./topology.ts";
 
-export interface ClinkrOutput {
-	readonly stdout: (text: string) => void;
-	readonly stderr: (text: string) => void;
+export interface ClinkrPresentation {
+	readonly renderResult: (text: string) => void;
+	readonly echo: (text: string) => void;
 }
 
 interface ClinkrRunAdapterOptions {
@@ -55,7 +55,7 @@ interface ClinkrRunAdapterOptions {
 	/** ANSI capability override; defaults to process stdout for terminal output and false for custom output. */
 	readonly canEmitAnsi?: boolean;
 	/** Invocation-scoped framework and structured text output. */
-	readonly output?: ClinkrOutput;
+	readonly presentation?: ClinkrPresentation;
 	/** Invocation-scoped exact-byte output used only by raw commands. */
 	readonly rawOutput?: ClinkrRawOutput;
 }
@@ -67,7 +67,7 @@ export interface ClinkrRunOptions<TContext> extends ClinkrRunAdapterOptions {
 export type ClinkrContextFreeRunOptions = ClinkrRunAdapterOptions;
 
 export interface ClinkrContextFreeCompleteOptions {
-	readonly output?: ClinkrOutput;
+	readonly presentation?: ClinkrPresentation;
 }
 
 export interface ClinkrCompleteOptions<TContext> extends ClinkrContextFreeCompleteOptions {
@@ -315,7 +315,7 @@ class TopologyClinkrApp<TContext> {
 						hasRuntime: options.runtimeInfo !== undefined,
 						invokeProvider: createCompletionProviderInvoker(options),
 						emitTopologyIssues: (issues, invocationOptions) =>
-							emitTopologyIssues(issues, resolveOutput(invocationOptions.output)),
+							emitTopologyIssues(issues, resolvePresentation(invocationOptions.presentation)),
 					});
 	}
 
@@ -332,47 +332,47 @@ class TopologyClinkrApp<TContext> {
 	): Promise<number> {
 		if (this.requiresContext) requireRunContext(options);
 		const readJsonInput = options.readJsonInput ?? rejectUnsupportedJsonInput;
-		const output = resolveOutput(options.output);
+		const presentation = resolvePresentation(options.presentation);
 		const rawOutput = options.rawOutput ?? processRawOutput;
 		const navigation = await this.navigator.navigate(argv);
 		if (navigation.type === "version") {
-			output.stdout(`${this.version}\n`);
+			presentation.renderResult(`${this.version}\n`);
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "runtime") {
-			output.stdout(this.runtimeInfo?.() ?? "");
+			presentation.renderResult(this.runtimeInfo?.() ?? "");
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-script") {
-			output.stdout(this.navigator.renderCompletionScript(navigation.shell));
+			presentation.renderResult(this.navigator.renderCompletionScript(navigation.shell));
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-resolve") {
 			const result = await this.requireCompletion().complete({ words: navigation.words }, options);
-			output.stdout(renderCompletionCandidatesNewline(result));
+			presentation.renderResult(renderCompletionCandidatesNewline(result));
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-help") {
-			output.stdout(this.buildCompletionHelp(navigation.path));
+			presentation.renderResult(this.buildCompletionHelp(navigation.path));
 			return SUCCESS_EXIT_CODE;
 		}
 		if (navigation.type === "completion-invalid") {
-			output.stderr(`clinkr: ${navigation.message}\n`);
+			presentation.echo(`clinkr: ${navigation.message}\n`);
 			return USAGE_ERROR_EXIT_CODE;
 		}
 		if (navigation.type === "topology-failure") {
-			emitTopologyIssues(navigation.issues, output);
+			emitTopologyIssues(navigation.issues, presentation);
 			return USAGE_ERROR_EXIT_CODE;
 		}
-		if ("issues" in navigation) emitTopologyIssues(navigation.issues, output);
+		if ("issues" in navigation) emitTopologyIssues(navigation.issues, presentation);
 		if (navigation.type === "unknown-route") {
-			output.stderr(
+			presentation.echo(
 				`clinkr: unknown route at ${[...navigation.path, ...navigation.tail].join(" ")}\n`,
 			);
 			return USAGE_ERROR_EXIT_CODE;
 		}
 		if (navigation.type === "scope-help") {
-			output.stdout(
+			presentation.renderResult(
 				await this.buildScopeHelp(navigation.path, navigation.scope, navigation.definition),
 			);
 			return SUCCESS_EXIT_CODE;
@@ -396,21 +396,21 @@ class TopologyClinkrApp<TContext> {
 		const definition = selected.definition;
 		const canEmitAnsi =
 			options.canEmitAnsi ??
-			(options.output === undefined ? resolveProcessCaps().colorDepth !== "none" : false);
+			(options.presentation === undefined ? resolveProcessCaps().colorDepth !== "none" : false);
 		const parsed = parseGlobalFlags(selectedArgv);
 		if (parsed.ok ? parsed.flags.help : parsed.help) {
-			output.stdout(
+			presentation.renderResult(
 				buildCommandSurface(selectedName, definition, metadata).command.helpInformation(),
 			);
 			return SUCCESS_EXIT_CODE;
 		}
 		if (!parsed.ok) {
-			return emitTerminalOutcome(
+			return emitStructuredOutcome(
 				frameworkUsageError(parsed.message, "invalid-request"),
 				definition,
 				parsed.format,
 				canEmitAnsi,
-				output,
+				presentation,
 			);
 		}
 		const { format, jsonSchema, inputJson, rest } = parsed.flags;
@@ -419,12 +419,12 @@ class TopologyClinkrApp<TContext> {
 			errorType: FrameworkUsageErrorType,
 			data?: unknown,
 		): number =>
-			emitTerminalOutcome(
+			emitStructuredOutcome(
 				frameworkUsageError(message, errorType, data),
 				definition,
 				format,
 				canEmitAnsi,
-				output,
+				presentation,
 			);
 		if (jsonSchema && inputJson) {
 			return emitUsageError(
@@ -433,7 +433,9 @@ class TopologyClinkrApp<TContext> {
 			);
 		}
 		if (jsonSchema) {
-			output.stdout(`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`);
+			presentation.renderResult(
+				`${envelopeJsonText(buildCommandJsonSchemaDocument(definition))}\n`,
+			);
 			return SUCCESS_EXIT_CODE;
 		}
 		let request: Record<string, unknown>;
@@ -457,7 +459,7 @@ class TopologyClinkrApp<TContext> {
 			request = parsedArgv.data as Record<string, unknown>;
 		}
 		const outcome = await this.invokeHandler(definition, request, options);
-		return emitTerminalOutcome(outcome, definition, format, canEmitAnsi, output);
+		return emitStructuredOutcome(outcome, definition, format, canEmitAnsi, presentation);
 	}
 
 	async complete(
@@ -836,42 +838,45 @@ function renderOutcomeView(
 }
 
 /**
- * Single terminal emission tail: every structured outcome — handler-produced
- * or framework usage error — flows through here exactly once. JSON format
- * writes the machine envelope to stdout; human/md write the rendered view to
- * stdout and failure/usage-error messages to stderr.
+ * Single presentation tail: every structured outcome — handler-produced or
+ * framework usage error — flows through here exactly once. JSON envelopes and
+ * human/md result views are durable results; failures and usage errors are
+ * auxiliary human text.
  */
-function emitTerminalOutcome(
+function emitStructuredOutcome(
 	outcome: CommandOutcome<unknown>,
 	definition: ClinkrCommandDefinition,
 	format: OutputFormat,
 	canEmitAnsi: boolean,
-	output: ClinkrOutput,
+	presentation: ClinkrPresentation,
 ): number {
 	if (format === "json") {
-		output.stdout(`${envelopeJsonText(toEnvelope(outcome))}\n`);
+		presentation.renderResult(`${envelopeJsonText(toEnvelope(outcome))}\n`);
 		return exitCodeFor(outcome.status);
 	}
 	const view = renderOutcomeView(definition, outcome, format, { canEmitAnsi });
 	if (view !== undefined) {
-		output.stdout(`${view}\n`);
+		presentation.renderResult(`${view}\n`);
 	} else if (outcome.status === "failure" || outcome.status === "usage-error") {
-		output.stderr(`${boundaryText(canEmitAnsi, outcome.message)}\n`);
+		presentation.echo(`${boundaryText(canEmitAnsi, outcome.message)}\n`);
 	}
 	return exitCodeFor(outcome.status);
 }
 
-function resolveOutput(output: ClinkrOutput | undefined): ClinkrOutput {
-	return output ?? processOutput;
+function resolvePresentation(presentation: ClinkrPresentation | undefined): ClinkrPresentation {
+	return presentation ?? processPresentation;
 }
 
-function emitTopologyIssues(issues: readonly TopologyIssue[], output: ClinkrOutput): void {
-	for (const issue of issues) output.stderr(`${formatTopologyIssue(issue)}\n`);
+function emitTopologyIssues(
+	issues: readonly TopologyIssue[],
+	presentation: ClinkrPresentation,
+): void {
+	for (const issue of issues) presentation.echo(`${formatTopologyIssue(issue)}\n`);
 }
 
-const processOutput: ClinkrOutput = {
-	stdout: (text) => process.stdout.write(text),
-	stderr: (text) => process.stderr.write(text),
+const processPresentation: ClinkrPresentation = {
+	renderResult: (text) => process.stdout.write(text),
+	echo: (text) => process.stderr.write(text),
 };
 
 const processRawOutput: ClinkrRawOutput = {

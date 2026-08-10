@@ -44,6 +44,7 @@ describe("flow land matrix progress forwarding", () => {
 			cwd: "/work",
 			env: {},
 			commandIo: noopNsCommandIo,
+			resultOutput: { write: () => {} },
 			progress,
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,

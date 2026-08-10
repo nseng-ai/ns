@@ -190,7 +190,7 @@ describe("ns Pi extension", () => {
 			registerNsExtension(pi, {
 				runCli: async (args, deps) => {
 					runCliCalls.push([...args]);
-					deps.stdout(`pi-custom-${commandName}`);
+					deps.renderResult(`pi-custom-${commandName}`);
 					return 0;
 				},
 			});
@@ -209,7 +209,7 @@ describe("ns Pi extension", () => {
 			registerNsExtension(pi, {
 				...createRecoveryPromptGateways(),
 				runCli: async (_args, deps) => {
-					deps.stderr(`${marker}\ncheck failed\n`);
+					deps.echo(`${marker}\ncheck failed\n`);
 					return 1;
 				},
 			});
@@ -230,7 +230,7 @@ describe("ns Pi extension", () => {
 				prompt: "Repository recovery policy\n",
 			}),
 			runCli: async (_args, deps) => {
-				deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\nfailed\n`);
+				deps.echo(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\nfailed\n`);
 				return 2;
 			},
 		});
@@ -247,7 +247,7 @@ describe("ns Pi extension", () => {
 		registerNsExtension(successPi, {
 			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
-				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+				deps.echo(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 0;
 			},
 		});
@@ -258,7 +258,7 @@ describe("ns Pi extension", () => {
 		registerNsExtension(prosePi, {
 			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
-				deps.stderr(`prefix ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`);
+				deps.echo(`prefix ${FLOW_SUBMIT_CHECK_FAILURE_MARKER}`);
 				return 1;
 			},
 		});
@@ -269,7 +269,7 @@ describe("ns Pi extension", () => {
 		registerNsExtension(otherPi, {
 			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
-				deps.stderr(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
+				deps.echo(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 				return 1;
 			},
 		});
@@ -288,9 +288,7 @@ describe("ns Pi extension", () => {
 				},
 			}),
 			runCli: async (_args, deps) => {
-				deps.stderr(
-					`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\nprivate registry authentication failed\n`,
-				);
+				deps.echo(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\nprivate registry authentication failed\n`);
 				return 1;
 			},
 		});
@@ -317,7 +315,7 @@ describe("ns Pi extension", () => {
 			...createRecoveryPromptGateways(),
 			recoveryGit: new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
 			runCli: async (_args, deps) => {
-				deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
+				deps.echo(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
 				return 1;
 			},
 		});
@@ -344,7 +342,7 @@ describe("ns Pi extension", () => {
 			registerNsExtension(pi, {
 				...createRecoveryPromptGateways(state),
 				runCli: async (_args, deps) => {
-					deps.stderr(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
+					deps.echo(`${FLOW_SUBMIT_CHECK_FAILURE_MARKER}\ncheck failed\n`);
 					return 1;
 				},
 			});
@@ -377,7 +375,7 @@ describe("ns Pi extension", () => {
 		registerNsExtension(pi, {
 			...createRecoveryPromptGateways(),
 			runCli: async (_args, deps) => {
-				deps.stderr(noisyStderr);
+				deps.echo(noisyStderr);
 				return 9;
 			},
 		});

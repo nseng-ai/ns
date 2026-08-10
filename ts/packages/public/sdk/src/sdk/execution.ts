@@ -1,4 +1,4 @@
-import type { ConfirmationResult, SelectionResult } from "@nseng-ai/clinkr";
+import type { Caps, ConfirmationResult, SelectionResult } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
@@ -7,6 +7,11 @@ export type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { RenderCapabilities } from "./command.ts";
 
 export type ClinkrFormat = "human" | "json" | "md";
+
+export interface NsRenderCapabilities extends RenderCapabilities {
+	/** Complete settled host capabilities when the invocation must not infer a physical terminal. */
+	readonly caps?: Caps;
+}
 import type { NsCommandIo, NsProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
 
@@ -19,6 +24,12 @@ export interface NsExecOptions {
 }
 
 export type NsOutputStream = "stdout" | "stderr";
+
+/** Exact invocation-scoped primary result output emitted before a handler returns. */
+export interface NsResultOutput {
+	write(text: string): void;
+}
+
 export interface NsConfirmOptions {
 	defaultAnswer?: "yes" | "no";
 }
@@ -55,16 +66,14 @@ export interface NsExtensionApi {
 	textGenerator: TextGenerator;
 	/** Higher-level human command-output service provided by the SDK host. */
 	commandIo: NsCommandIo;
+	/** Exact primary result output for format-sensitive incremental writes. */
+	resultOutput: NsResultOutput;
 	/** Structured phase progress sink provided by the SDK host. */
 	progress: NsProgress;
 	/** Host terminal rendering capabilities for human output and previews. */
-	renderCapabilities: RenderCapabilities;
+	renderCapabilities: NsRenderCapabilities;
 	/** Host-selected command output format. Useful only for commands streaming durable output before returning. */
 	outputFormat?: ClinkrFormat;
-	/** Durable output for commands that need to stream multiple chunks before returning. */
-	stdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
-	/** Durable error output for commands that need to stream multiple chunks before returning. */
-	stderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	/** Optional finite JSON request reader. Standalone hosts acquire process input lazily; embedded hosts supply finite text. */
 	readJsonInput?: ExplicitUndefined<"public-api-compatibility", () => Promise<string>>;
 	/** Transient live-progress output for UI bridges. */

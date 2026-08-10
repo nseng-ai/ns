@@ -42,7 +42,7 @@ export async function runGtStackBranches(ctx: SlotCliContext, request: GtStackBr
 	});
 	if (integrity.type === "failure") return failure(integrity.errorType, integrity.message);
 	if (ctx.shouldWriteCdDirective) {
-		for (const warning of integrity.warnings) ctx.stderr(`${warning}\n`);
+		for (const warning of integrity.warnings) ctx.commandIo.notify(warning, "warning");
 	}
 	if (stackResult.stack.current === stackResult.stack.trunk)
 		return negative(`On trunk '${stackResult.stack.trunk}'; no stack is checked out.`, {

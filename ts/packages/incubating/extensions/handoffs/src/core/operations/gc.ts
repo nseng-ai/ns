@@ -69,7 +69,7 @@ export async function runGc(ctx: HandoffCliContext, request: GcRequest) {
 		missingFlag: "--force",
 		howToSupply: "Pass --force (or -f) to delete without prompting, or run --dry-run first.",
 		confirmMessage: `Delete ${preview.wouldDeleteCount} handoff(s)?`,
-		beforePrompt: () => ctx.stderr(`${renderGc(preview)}\n`),
+		beforePrompt: () => ctx.commandIo.message(renderGc(preview)),
 	});
 	if (confirmed.type === "gateFailure") return confirmed.exit;
 	if (confirmed.type === "confirmed")
