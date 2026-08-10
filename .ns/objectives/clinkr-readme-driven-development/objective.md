@@ -4,6 +4,8 @@ edges:
     annotation: Parent umbrella; this Subobjective owns its Clinkr gate dry-run and returns process amendments before the Foundation package pass begins.
   - objective: clinkr-output-and-interaction-model
     annotation: Supplies the minimal finite-JSON input, invocation-scoped output, and semantic-interaction contract that this rebuild's modern path and Pi host adapter must conform to.
+  - objective: slots-filesystem-command-ownership
+    annotation: The Slots migration consumes and further validates this Objective's filesystem-owned modern command model, but is not a prerequisite for this Objective's closure.
 ---
 
 # Clinkr README-Driven Development
