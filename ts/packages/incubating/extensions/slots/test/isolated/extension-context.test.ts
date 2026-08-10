@@ -18,7 +18,7 @@ vi.mock("../../src/core/context.ts", () => ({
 	createRealSlotContext,
 }));
 
-const { loadSlotNsCommand } = await import("../../src/ns/slot-ns-command.ts");
+const { command: loadListCommand } = await import("../../src/ns/cli/slot/list/command.ts");
 
 const colorCaps: Caps = {
 	isTty: true,
@@ -34,7 +34,7 @@ describe("slot ns extension context", () => {
 
 	it("passes host render capabilities explicitly so interactive previews can reuse terminal colors", async () => {
 		const renderCapabilities: RenderCapabilities = { canEmitAnsi: true, caps: colorCaps };
-		const command = loadSlotNsCommand("list") as NsCommand<NsCommandSchema, unknown>;
+		const command = (await loadListCommand()) as NsCommand<NsCommandSchema, unknown>;
 		await command.handler(extensionApi({ renderCapabilities }), {});
 
 		expect(createRealSlotContext).toHaveBeenCalledWith(
