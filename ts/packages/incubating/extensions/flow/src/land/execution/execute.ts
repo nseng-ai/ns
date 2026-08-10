@@ -349,6 +349,7 @@ export async function executeLandingRequest(
 			landed,
 			maintenanceState,
 		);
+		maintenanceState.warnings.push(...cleanup.warnings);
 		updateMaintenanceReport(draft, maintenanceState);
 		if (cleanup.kind === "halt") {
 			return failedResult(draft, cleanup.phase, cleanup.failure);

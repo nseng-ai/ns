@@ -53,6 +53,15 @@ export type PerformedGraphiteMaintenance =
 	| { kind: "skip"; warning?: LandingWarning }
 	| { kind: "halt"; failure: LandingExecutionFailure; phase: MaintenanceHaltPhase };
 
+export type PerformedLandedBranchCleanup =
+	| { kind: "proceed"; warnings: readonly LandingWarning[] }
+	| {
+			kind: "halt";
+			failure: LandingExecutionFailure;
+			phase: MaintenanceHaltPhase;
+			warnings: readonly LandingWarning[];
+	  };
+
 interface GraphiteRefreshFailureOptions {
 	prNumber: number;
 	maintenanceBranch: string;
@@ -176,11 +185,12 @@ export async function cleanUpLandedBranches(
 	plan: LandingPlan,
 	landed: readonly LandedPullRequest[],
 	state: MergeLoopState,
-): Promise<PerformedGraphiteMaintenance> {
+): Promise<PerformedLandedBranchCleanup> {
 	const selectedLandedBranches = new Set([
 		...landed.map((landedPullRequest) => landedPullRequest.branch),
 		...planPostTargetMaintenance(plan).branches,
 	]);
+	const warnings: LandingWarning[] = [];
 	for (const landedPullRequest of landed) {
 		const cleanup = await cleanUpLandedBranchBestEffort(executionContext, {
 			repoRoot: plan.repoRoot,
@@ -190,12 +200,14 @@ export async function cleanUpLandedBranches(
 			state,
 			allowedChildren: selectedLandedBranches,
 		});
-		if (cleanup.kind === "halt") return { ...cleanup, phase: "merge-maintenance-cleanup" };
+		if (cleanup.kind === "halt") {
+			return { ...cleanup, phase: "merge-maintenance-cleanup", warnings };
+		}
 		if (cleanup.kind === "skip" && cleanup.warning !== undefined) {
-			state.warnings.push(cleanup.warning);
+			warnings.push(cleanup.warning);
 		}
 	}
-	return { kind: "proceed" };
+	return { kind: "proceed", warnings };
 }
 
 /** Required next-landing maintenance: refresh/restack/submit. */

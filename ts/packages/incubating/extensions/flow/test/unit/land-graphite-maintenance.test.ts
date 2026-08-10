@@ -134,7 +134,7 @@ describe("named landing maintenance operations", () => {
 			[{ branch: "feature-a", number: 1, title: "feature-a" }],
 			state,
 		);
-		expect(outcome).toEqual({ kind: "proceed" });
+		expect(outcome).toEqual({ kind: "proceed", warnings: [] });
 		expect(state.cleanup.retainedLocalBranches).toEqual([
 			{ branch: "feature-a", path: "/repo-slot" },
 		]);
@@ -152,10 +152,15 @@ describe("named landing maintenance operations", () => {
 			[{ branch: "feature-a", number: 1, title: "feature-a" }],
 			state,
 		);
-		expect(outcome).toEqual({ kind: "proceed" });
-		expect(state.warnings).toEqual([
-			expect.objectContaining({ message: expect.stringContaining("unexpected Graphite children") }),
-		]);
+		expect(outcome).toEqual({
+			kind: "proceed",
+			warnings: [
+				expect.objectContaining({
+					message: expect.stringContaining("unexpected Graphite children"),
+				}),
+			],
+		});
+		expect(state.warnings).toEqual([]);
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
@@ -179,12 +184,15 @@ describe("named landing maintenance operations", () => {
 			[{ branch: "feature-a", number: 1, title: "feature-a" }],
 			state,
 		);
-		expect(outcome).toEqual({ kind: "proceed" });
-		expect(state.warnings).toEqual([
-			expect.objectContaining({
-				message: expect.stringContaining("pre-delete Graphite children re-check"),
-			}),
-		]);
+		expect(outcome).toEqual({
+			kind: "proceed",
+			warnings: [
+				expect.objectContaining({
+					message: expect.stringContaining("pre-delete Graphite children re-check"),
+				}),
+			],
+		});
+		expect(state.warnings).toEqual([]);
 		expect(fakes.graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 });
