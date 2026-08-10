@@ -76,7 +76,7 @@ Assumptions:
 Risks:
 
 - **Hidden text consumer.** A production command may still consume arbitrary stdin text. Mitigation: inventory call sites before changing the interface; split a genuinely required domain-specific input capability rather than restoring generic stdin.
-- **Rename-only abstraction.** `readJsonInput()` could preserve unnecessary lazy I/O and ambient fallback under a narrower name. Mitigation: prefer a finite JSON value at the invocation seam unless a concrete caller proves lazy acquisition is needed.
+- **Rename-only abstraction.** `readJsonInput()` could preserve ambient process fallback under a narrower name. Mitigation: keep the JSON reader explicit and lazy at the invocation seam; only the standalone adapter binds it to process stdin, while reusable source selection and JSON parsing/validation live in Clinkr.
 - **Terminal leakage.** A default process capability or writer can leak through SDK/Foundation composition into Pi. Mitigation: test the real in-process Pi composition and assert no process reader/writer is touched.
 - **Renderer corruption.** Captured ANSI or control sequences can reach the physical terminal behind Pi and desynchronize its differential renderer. Mitigation: disable ANSI for embedded structured execution and sanitize at the Pi presentation seam.
 - **Interaction inflation.** Choosing a rich terminal library can pull its raw terminal model into shared command types. Mitigation: keep library-specific streams, raw mode, lifecycle, and cleanup inside the standalone adapter.

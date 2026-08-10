@@ -106,11 +106,13 @@ export async function app() {
 
 if (import.meta.main) {
   const clinkr = await app();
-  process.exitCode = await clinkr.run(process.argv.slice(2));
+  process.exitCode = await clinkr.runCli(process.argv.slice(2));
 }
 ```
 
 `import.meta.dirname` is the absolute `src/cli/` directory containing `app.ts` in Node 24.12+. This direct, self-rooted layout is the recommended shape.
+
+`runCli(argv)` is the standalone process I/O adapter: it writes to the process output streams and reads process stdin only when `--input-json` selects JSON request input. Pass `process.argv.slice(2)` so Clinkr receives only the application's arguments, without Node's executable and script-path entries. Embedded hosts use `run(argv, options)` instead and supply invocation-scoped capabilities explicitly; `run()` never falls back to process stdin.
 
 This creates a command callable as `greet Ada --enthusiastic` or `greet Ada -e`. Clinkr adds `--format <human|json|md>`, `--input-json`, and `--json-schema` to every structured command. These global options are recognized anywhere in argv before a bare `--`; everything after the first `--` is passed to the command verbatim, so use `--` to escape positionals or values that would otherwise be read as a global option (`greet -- --format` greets `--format`).
 
@@ -392,7 +394,7 @@ export async function app() {
 if (import.meta.main) {
   const clinkr = await app();
   const context: ContactsContext = { contacts: new RealContacts() };
-  process.exitCode = await clinkr.run(process.argv.slice(2), { context });
+  process.exitCode = await clinkr.runCli(process.argv.slice(2), { context });
 }
 ```
 

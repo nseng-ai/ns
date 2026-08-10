@@ -8,12 +8,15 @@ import {
 } from "../core/context.ts";
 
 export function createNsReviewsRuntime(ctx: NsExtensionApi): ReviewsRuntime {
+	if (ctx.readJsonInput === undefined) {
+		throw new Error("Reviews ns runtime requires readJsonInput");
+	}
 	const execApi = new NsCommandExecApi(ctx);
 	return createReviewsRuntime(
 		createRealReviewsContext({
 			cwd: ctx.cwd,
 			env: ctx.env,
-			stdin: ctx.stdin ?? (async () => ""),
+			readJsonInput: ctx.readJsonInput,
 			stdout: ctx.stdout ?? (() => undefined),
 			stderr: ctx.stderr ?? (() => undefined),
 			execApi,

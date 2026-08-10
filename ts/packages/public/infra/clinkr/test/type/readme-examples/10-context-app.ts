@@ -29,6 +29,6 @@ export async function app() {
 if (import.meta.main) {
   const clinkr = await app();
   const context: ContactsContext = { contacts: new RealContacts() };
-  process.exitCode = await clinkr.run(process.argv.slice(2), { context });
+  process.exitCode = await clinkr.runCli(process.argv.slice(2), { context });
 }
 // README-FENCE-10-END

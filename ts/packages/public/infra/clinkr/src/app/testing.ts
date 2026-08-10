@@ -1,3 +1,5 @@
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
 import type { ClinkrRawOutput } from "../raw/definition.ts";
 import type { ClinkrContextFreeApp, ClinkrContextfulApp, ClinkrOutput } from "./app.ts";
 
@@ -10,15 +12,15 @@ export interface CapturedCliRun {
 
 export interface RunForCliTestOptions<TContext> {
 	readonly context: TContext;
-	/** stdin bytes for `--input-json`; defaults to empty stdin. */
-	readonly stdin?: string;
+	/** Finite JSON input reader. Required when argv selects `--input-json`. */
+	readonly readJsonInput?: () => Promise<string>;
 	/** ANSI capability of the captured sink. Defaults to `false`. */
 	readonly canEmitAnsi?: boolean;
 }
 
 export interface ContextFreeRunForCliTestOptions {
-	/** stdin bytes for `--input-json`; defaults to empty stdin. */
-	readonly stdin?: string;
+	/** Finite JSON input reader. Required when argv selects `--input-json`. */
+	readonly readJsonInput?: () => Promise<string>;
 	/** ANSI capability of the captured sink. Defaults to `false`. */
 	readonly canEmitAnsi?: boolean;
 }
@@ -52,7 +54,7 @@ export async function runForCliTest<TContext>(
 		writeStderr: (bytes) => stderrBytes.push(Uint8Array.from(bytes)),
 	};
 	const runOptions = {
-		readStdin: async () => options.stdin ?? "",
+		...optionalEntry("readJsonInput", options.readJsonInput),
 		canEmitAnsi: options.canEmitAnsi ?? false,
 		output,
 		rawOutput,

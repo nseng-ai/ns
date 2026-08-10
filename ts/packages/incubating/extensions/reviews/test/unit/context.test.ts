@@ -166,7 +166,7 @@ describe("createRealReviewsContext", () => {
 		const context = createRealReviewsContext({
 			cwd: "/repo",
 			env: {},
-			stdin: async () => "",
+			readJsonInput: async () => "",
 			stdout: () => {},
 			stderr: () => {},
 		});
@@ -192,7 +192,7 @@ describe("createReviewsRuntime", () => {
 			cwd: "/repo",
 			env,
 			signal,
-			stdin: async () => "envelope",
+			readJsonInput: async () => "envelope",
 			stderr: (text) => stderr.push(text),
 		});
 
@@ -234,7 +234,7 @@ describe("createReviewsRuntime", () => {
 		await ctx.github.updatePrDiscussionComment({ ...runOptions, commentId: 1, body: "body" });
 
 		ctx.stderr("diagnostic");
-		expect(await ctx.stdin()).toBe("envelope");
+		expect(await ctx.readJsonInput()).toBe("envelope");
 		expect(stderr).toEqual(["diagnostic"]);
 		expect("execApi" in ctx).toBe(false);
 		expect("stdout" in ctx).toBe(false);

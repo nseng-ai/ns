@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import { loadJsonInput } from "@nseng-ai/extension-kit/json-input";
+import { loadJsonInput } from "@nseng-ai/clinkr/app";
 
 import { branchPrChecksInputSchema } from "./branch-pr-checks.ts";
 import { branchPrChecksMappingGaps } from "./core/branch-pr-checks.ts";
@@ -51,7 +51,7 @@ async function runWaitForChecksOperation(
 		inputDescription: "branches JSON payload",
 		optionName: "--branches-json",
 		schema: branchPrChecksInputSchema,
-		stdin: ctx.stdin,
+		readJsonInput: ctx.readJsonInput,
 	});
 	if (payloadResult.type === "error")
 		return failure(payloadResult.error.errorType, payloadResult.error.message);

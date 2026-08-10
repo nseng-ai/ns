@@ -6,10 +6,10 @@ export interface NsClinkrInteractionOptions {
 	formatMessage?: (request: ConfirmationRequest) => string;
 }
 
-export interface NsCwdEnvStdinContext {
+export interface NsCwdEnvJsonInputContext {
 	cwd: string;
 	env: Record<string, string | undefined>;
-	stdin(): Promise<string>;
+	readJsonInput(): Promise<string>;
 }
 
 /**
@@ -46,18 +46,17 @@ export function createNsClinkrInteraction(
 
 /**
  * Builds the common ns exec context shape for commands whose ns-host entry
- * receives cwd/env from `NsExtensionApi` but intentionally has no stdin stream.
+ * receives cwd/env and finite JSON request input from `NsExtensionApi`.
  */
-export function createNsCwdEnvStdinContext(ctx: NsExtensionApi): NsCwdEnvStdinContext {
+export function createNsCwdEnvJsonInputContext(ctx: NsExtensionApi): NsCwdEnvJsonInputContext {
+	if (ctx.readJsonInput === undefined) {
+		throw new Error("ns JSON input context requires readJsonInput");
+	}
 	return {
 		cwd: ctx.cwd,
 		env: ctx.env,
-		stdin: readEmptyNsStdin,
+		readJsonInput: ctx.readJsonInput,
 	};
-}
-
-export async function readEmptyNsStdin(): Promise<string> {
-	return "";
 }
 
 function formatNsConfirmationMessage(

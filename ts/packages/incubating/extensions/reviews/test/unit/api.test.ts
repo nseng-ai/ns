@@ -82,10 +82,11 @@ function runtimeWithFakes(
 		readonly reviewLog?: FakeReviewLogGateway;
 		readonly reviewCatalog?: FakeReviewCatalogGateway;
 		readonly github?: ReviewsGithubPrFeedbackGateway;
-		readonly stdin?: string;
+		readonly readJsonInput?: string;
 		readonly reviewRunner?: FakeReviewRunnerGateway;
 	} = {},
 ): ReviewsRuntime {
+	const readJsonInput = options.readJsonInput;
 	return createReviewsRuntime(
 		fakeReviewsContext({
 			gitGateway: new InMemoryGitGateway({
@@ -121,7 +122,7 @@ function runtimeWithFakes(
 				}),
 			...(options.reviewLog === undefined ? {} : { reviewLog: options.reviewLog }),
 			...(options.github === undefined ? {} : { github: options.github }),
-			...(options.stdin === undefined ? {} : { stdin: async () => options.stdin ?? "" }),
+			...(readJsonInput === undefined ? {} : { readJsonInput: async () => readJsonInput }),
 		}),
 	);
 }
@@ -207,13 +208,13 @@ describe("@nseng-ai/reviews/api", () => {
 		expect(outcome.result.findings).toEqual([finding]);
 	});
 
-	test("recordFindings reads stdin and writes a same-session review log", async () => {
+	test("recordFindings reads readJsonInput and writes a same-session review log", async () => {
 		const reviewLog = new FakeReviewLogGateway({ branch: "feature/api" });
 		const client = createReviewsClient({
 			cwd: "/repo",
 			runtime: runtimeWithFakes({
 				reviewLog,
-				stdin: JSON.stringify({
+				readJsonInput: JSON.stringify({
 					findings: [
 						{
 							path: "src/app.ts",
@@ -237,10 +238,10 @@ describe("@nseng-ai/reviews/api", () => {
 		expect(outcome.result.findings[0]?.summary).toBe("Finding from same-session review.");
 	});
 
-	test("recordFindings returns domain failures for malformed stdin", async () => {
+	test("recordFindings returns domain failures for malformed readJsonInput", async () => {
 		const client = createReviewsClient({
 			cwd: "/repo",
-			runtime: runtimeWithFakes({ stdin: "not json" }),
+			runtime: runtimeWithFakes({ readJsonInput: "not json" }),
 		});
 
 		const outcome = await client.recordFindings({ reviewKey: REVIEW_KEY });
@@ -251,7 +252,7 @@ describe("@nseng-ai/reviews/api", () => {
 		});
 	});
 
-	test("publishFindings reads stdin and publishes through the GitHub gateway", async () => {
+	test("publishFindings reads readJsonInput and publishes through the GitHub gateway", async () => {
 		const github = new FakeGithubPrFeedbackGateway({
 			changedFilesByPr: new Map([
 				[47, [{ path: "src/app.ts", status: "modified", patch: "@@ -4 +4 @@\n+new" }]],
@@ -261,7 +262,7 @@ describe("@nseng-ai/reviews/api", () => {
 			cwd: "/repo",
 			runtime: runtimeWithFakes({
 				github,
-				stdin: buildFindingsEnvelope([
+				readJsonInput: buildFindingsEnvelope([
 					{
 						path: "src/app.ts",
 						line: 4,

@@ -10,5 +10,5 @@ export async function app() {
 
 if (import.meta.main) {
   const clinkr = await app();
-  process.exitCode = await clinkr.run(process.argv.slice(2));
+  process.exitCode = await clinkr.runCli(process.argv.slice(2));
 }

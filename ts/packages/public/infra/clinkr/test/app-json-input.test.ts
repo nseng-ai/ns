@@ -1,11 +1,15 @@
-import { z } from "zod";
-import { describe, expect, test } from "vitest";
+import path from "node:path";
 
-import { loadJsonInput, parseJsonInputText } from "@nseng-ai/extension-kit/json-input";
-import { withTemporaryFile } from "@nseng-ai/extension-kit/temp-files";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+
+import { z } from "zod";
+import { describe, expect, test, vi } from "vitest";
+
+import { loadJsonInput, parseJsonInputText } from "@nseng-ai/clinkr/app";
 
 describe("JSON input source helpers", () => {
-	test("loads stdin, inline JSON, and file JSON", async () => {
+	test("loads readJsonInput, inline JSON, and file JSON", async () => {
 		const payloadSchema = z.object({ value: z.string() });
 		const stdinResult = await loadJsonInput({
 			optionValue: undefined,
@@ -13,40 +17,42 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => '{"value":"stdin"}',
+			readJsonInput: async () => '{"value":"readJsonInput"}',
 		});
-		expect(stdinResult).toEqual({ type: "ok", value: { value: "stdin" } });
+		expect(stdinResult).toEqual({ type: "ok", value: { value: "readJsonInput" } });
 
+		const readInlineFallback = vi.fn(async () => "");
 		const inlineResult = await loadJsonInput({
 			optionValue: '{"value":"inline"}',
 			commandName: "demo",
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readJsonInput: readInlineFallback,
 		});
 		expect(inlineResult).toEqual({ type: "ok", value: { value: "inline" } });
+		expect(readInlineFallback).not.toHaveBeenCalled();
 
-		await withTemporaryFile(
-			{ prefix: "json-input-test-", filename: "payload.json", contents: '{"value":"file"}' },
-			async (payloadPath) => {
-				const fileResult = await loadJsonInput({
-					optionValue: undefined,
-					filePath: payloadPath,
-					commandName: "demo",
-					inputDescription: "payload",
-					optionName: "--payload-json",
-					fileOptionName: "--payload-file",
-					schema: payloadSchema,
-					stdin: async () => "",
-				});
-				expect(fileResult).toEqual({ type: "ok", value: { value: "file" } });
-			},
-		);
+		await withTemporaryFile('{"value":"file"}', async (payloadPath) => {
+			const readFileFallback = vi.fn(async () => "");
+			const fileResult = await loadJsonInput({
+				optionValue: undefined,
+				filePath: payloadPath,
+				commandName: "demo",
+				inputDescription: "payload",
+				optionName: "--payload-json",
+				fileOptionName: "--payload-file",
+				schema: payloadSchema,
+				readJsonInput: readFileFallback,
+			});
+			expect(fileResult).toEqual({ type: "ok", value: { value: "file" } });
+			expect(readFileFallback).not.toHaveBeenCalled();
+		});
 	});
 
 	test("reports source conflicts, empty input, invalid JSON, missing files, and schema errors", async () => {
 		const payloadSchema = z.object({ value: z.string() });
+		const readConflictFallback = vi.fn(async () => "");
 		const conflict = await loadJsonInput({
 			optionValue: "{}",
 			filePath: "/tmp/payload.json",
@@ -55,7 +61,7 @@ describe("JSON input source helpers", () => {
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readJsonInput: readConflictFallback,
 		});
 		expect(conflict).toEqual({
 			type: "error",
@@ -65,6 +71,7 @@ describe("JSON input source helpers", () => {
 					"demo accepts only one payload source; do not pass both --payload-json and --payload-file.",
 			},
 		});
+		expect(readConflictFallback).not.toHaveBeenCalled();
 
 		const empty = await loadJsonInput({
 			optionValue: "   ",
@@ -72,7 +79,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "unused",
+			readJsonInput: async () => "unused",
 		});
 		expect(empty.type).toBe("error");
 		if (empty.type === "error") expect(empty.error.errorType).toBe("invalid-request");
@@ -83,7 +90,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readJsonInput: async () => "",
 		});
 		expect(invalidJson.type).toBe("error");
 		if (invalidJson.type === "error") expect(invalidJson.error.errorType).toBe("invalid-json");
@@ -96,7 +103,7 @@ describe("JSON input source helpers", () => {
 			optionName: "--payload-json",
 			fileOptionName: "--payload-file",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readJsonInput: async () => "",
 		});
 		expect(missingFile.type).toBe("error");
 		if (missingFile.type === "error") expect(missingFile.error.errorType).toBe("invalid-request");
@@ -107,7 +114,7 @@ describe("JSON input source helpers", () => {
 			inputDescription: "payload",
 			optionName: "--payload-json",
 			schema: payloadSchema,
-			stdin: async () => "",
+			readJsonInput: async () => "",
 		});
 		expect(schemaError.type).toBe("error");
 		if (schemaError.type === "error") expect(schemaError.error.errorType).toBe("invalid-request");
@@ -144,3 +151,17 @@ describe("JSON input source helpers", () => {
 		}
 	});
 });
+
+async function withTemporaryFile(
+	contents: string,
+	useFile: (filePath: string) => Promise<void>,
+): Promise<void> {
+	const directory = await mkdtemp(path.join(tmpdir(), "clinkr-json-input-test-"));
+	const filePath = path.join(directory, "payload.json");
+	try {
+		await writeFile(filePath, contents, "utf8");
+		await useFile(filePath);
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+}

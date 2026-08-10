@@ -50,8 +50,8 @@ export interface ClinkrOutput {
 }
 
 interface ClinkrRunAdapterOptions {
-	/** Stdin source for `--input-json`; defaults to draining `process.stdin`. */
-	readonly readStdin?: () => Promise<string>;
+	/** Read one finite JSON request for `--input-json`. */
+	readonly readJsonInput?: () => Promise<string>;
 	/** ANSI capability override; defaults to process stdout for terminal output and false for custom output. */
 	readonly canEmitAnsi?: boolean;
 	/** Invocation-scoped framework and structured text output. */
@@ -95,6 +95,8 @@ export interface ContextfulClinkrCompletionConfig<TContext> {
 
 export interface ClinkrContextFreeApp {
 	readonly requiresContext: false;
+	/** Run with standalone process-backed I/O and an explicit application argv tail. */
+	runCli(argv: readonly string[]): Promise<number>;
 	run(argv: readonly string[], options?: ClinkrContextFreeRunOptions): Promise<number>;
 	complete(
 		request: ClinkrCompletionRequest,
@@ -104,6 +106,8 @@ export interface ClinkrContextFreeApp {
 
 export interface ClinkrContextfulApp<TContext> {
 	readonly requiresContext: true;
+	/** Run with standalone process-backed I/O and an explicit application argv tail. */
+	runCli(argv: readonly string[], options: { readonly context: TContext }): Promise<number>;
 	run(argv: readonly string[], options: ClinkrRunOptions<TContext>): Promise<number>;
 	complete(
 		request: ClinkrCompletionRequest,
@@ -160,6 +164,7 @@ function requireRunContext<TContext>(
 		| ClinkrRunOptions<TContext>
 		| ClinkrContextFreeRunOptions
 		| ClinkrCompleteOptions<TContext>
+		| ClinkrContextFreeCompleteOptions
 		| Record<string, never>,
 ): TContext {
 	if (
@@ -173,6 +178,17 @@ function requireRunContext<TContext>(
 	return options.context;
 }
 
+async function rejectUnsupportedJsonInput(): Promise<string> {
+	throw new Error("clinkr: invocation host does not support JSON input");
+}
+
+async function readProcessJsonInput(): Promise<string> {
+	let content = "";
+	process.stdin.setEncoding("utf8");
+	for await (const chunk of process.stdin) content += chunk;
+	return content;
+}
+
 const SUCCESS_EXIT_CODE = exitCodeFor("success");
 const USAGE_ERROR_EXIT_CODE = exitCodeFor("usage-error");
 
@@ -180,6 +196,7 @@ type ClinkrInvocationOptions<TContext> =
 	| ClinkrRunOptions<TContext>
 	| ClinkrContextFreeRunOptions
 	| ClinkrCompleteOptions<TContext>
+	| ClinkrContextFreeCompleteOptions
 	| Record<string, never>;
 
 interface TopologyClinkrAppBaseOptions<TContext> {
@@ -302,10 +319,19 @@ class TopologyClinkrApp<TContext> {
 					});
 	}
 
+	async runCli(
+		argv: readonly string[],
+		options: { readonly context?: TContext } = {},
+	): Promise<number> {
+		return await this.run(argv, { ...options, readJsonInput: readProcessJsonInput });
+	}
+
 	async run(
 		argv: readonly string[],
 		options: ClinkrRunOptions<TContext> | ClinkrContextFreeRunOptions = {},
 	): Promise<number> {
+		if (this.requiresContext) requireRunContext(options);
+		const readJsonInput = options.readJsonInput ?? rejectUnsupportedJsonInput;
 		const output = resolveOutput(options.output);
 		const rawOutput = options.rawOutput ?? processRawOutput;
 		const navigation = await this.navigator.navigate(argv);
@@ -418,8 +444,7 @@ class TopologyClinkrApp<TContext> {
 					"invalid-request",
 				);
 			}
-			const readStdin = options.readStdin ?? drainProcessStdin;
-			const parsedJson = parseJsonInput(await readStdin(), definition.schema);
+			const parsedJson = parseJsonInput(await readJsonInput(), definition.schema);
 			if (!parsedJson.success) {
 				return emitUsageError(parsedJson.message, parsedJson.errorType, parsedJson.data);
 			}
@@ -477,6 +502,7 @@ class TopologyClinkrApp<TContext> {
 			| ClinkrRunOptions<TContext>
 			| ClinkrContextFreeRunOptions
 			| ClinkrCompleteOptions<TContext>
+			| ClinkrContextFreeCompleteOptions
 			| Record<string, never>,
 	): Promise<CommandOutcome<unknown>> {
 		const handlerResult: unknown =
@@ -766,13 +792,6 @@ function parseJsonInput(text: string, schema: z.ZodObject): DecodeRequestResult 
 		};
 	}
 	return decodeJsonRequest(value, schema);
-}
-
-/** Default stdin source for the terminal adapter's `--input-json` transport. */
-async function drainProcessStdin(): Promise<string> {
-	const chunks: Buffer[] = [];
-	for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
-	return Buffer.concat(chunks).toString("utf8");
 }
 
 /**
