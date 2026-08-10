@@ -38,6 +38,7 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 	const execEnv = options.execEnv ?? env;
 	const homeDir = resolveHomeDir(options.homeDir, env);
 	const confirm = createTerminalConfirmPrompt();
+	const select = createUnsupportedTerminalSelectPrompt();
 	const stdout = (text: string) => process.stdout.write(text);
 	const stderr = (text: string) => process.stderr.write(text);
 	const commandIo = createCliCommandIo({ stdout, stderr });
@@ -62,7 +63,8 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 				...(execOptions.onStderr === undefined ? {} : { onStderr: execOptions.onStderr }),
 			});
 		},
-		...(confirm === undefined ? {} : { confirm }),
+		confirm,
+		select,
 	};
 }
 
@@ -72,9 +74,11 @@ export function createNsCliInteraction(options: {
 	return createClinkrInteraction(createBaseCliInteractionOptions(options.stderr));
 }
 
-export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
-	if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) return undefined;
+export function createTerminalConfirmPrompt(): NsConfirmPrompt {
 	return async (title, message, options) => {
+		if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) {
+			throw new Error("Standalone confirmation UI is unavailable.");
+		}
 		const interaction = createClinkrInteraction({
 			...createBaseCliInteractionOptions((text) => {
 				process.stderr.write(text);
@@ -82,11 +86,16 @@ export function createTerminalConfirmPrompt(): NsConfirmPrompt | undefined {
 			isInteractive: () => process.stdin.isTTY === true && process.stderr.isTTY === true,
 			formatPrompt: (_request, suffix) => `${title}\n\n${message}\n\nProceed? ${suffix} `,
 		});
-		const result = await interaction.confirm({
+		return await interaction.confirm({
 			message,
 			defaultAnswer: options?.defaultAnswer ?? "no",
 		});
-		return result.type === "confirmed";
+	};
+}
+
+function createUnsupportedTerminalSelectPrompt(): NsExtensionApi["select"] {
+	return () => {
+		throw new Error("Standalone selection UI is unavailable.");
 	};
 }
 

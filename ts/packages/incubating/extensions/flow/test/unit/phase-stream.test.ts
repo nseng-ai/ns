@@ -70,6 +70,12 @@ function ctx(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,
+		confirm: () => {
+			throw new Error("Unexpected confirmation prompt in phase stream test.");
+		},
+		select: () => {
+			throw new Error("Unexpected selection prompt in phase stream test.");
+		},
 		exec: async () => ({ code: 0, stdout: "", stderr: "", type: "exited", signal: null }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,

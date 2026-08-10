@@ -129,7 +129,7 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 			message: `Run \`${formatCommand(command, commandArgs)}\` in the main worktree and ${records.length} ${records.length === 1 ? "slot" : "slots"}?`,
 			defaultAnswer: "no",
 		});
-		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+		if (confirmed.type === "cancelled") return failure("aborted", "Aborted!");
 		if (confirmed.type === "declined")
 			return ok({
 				command: [...request.command],

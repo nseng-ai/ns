@@ -21,12 +21,12 @@ test.each([
 	["confirmed", { type: "confirmed" }, { status: "confirmed" }],
 	["declined", { type: "declined" }, { status: "negative", message: "Confirmation declined." }],
 	[
-		"aborted",
-		{ type: "aborted" },
+		"cancelled",
+		{ type: "cancelled" },
 		{
 			status: "usage-error",
 			errorType: "usage-error",
-			message: "Confirmation was aborted.",
+			message: "Confirmation was cancelled.",
 		},
 	],
 ] as const)("translates an interactive %s answer", async (_label, answer, expected) => {
@@ -42,7 +42,7 @@ test.each([
 test("advanced policy returns an actionable usage error without prompting", async () => {
 	const fake = createFakeClinkrInteraction();
 	const onDeclined = () => ok({ cancelled: true });
-	const onAborted = () => failure("aborted", "Aborted!");
+	const onCancelled = () => failure("aborted", "Aborted!");
 
 	await expect(
 		confirmOrUsageError(fake.interaction, {
@@ -53,7 +53,7 @@ test("advanced policy returns an actionable usage error without prompting", asyn
 				howToSupply: "Pass --yes to confirm deletion without prompting.",
 			},
 			onDeclined,
-			onAborted,
+			onCancelled,
 		}),
 	).resolves.toEqual({
 		status: "usage-error",
@@ -72,8 +72,8 @@ test.each([
 	["confirmed", { type: "confirmed" }, { status: "confirmed" }],
 	["declined", { type: "declined" }, { status: "success", data: { cancelled: true } }],
 	[
-		"aborted",
-		{ type: "aborted" },
+		"cancelled",
+		{ type: "cancelled" },
 		{ status: "failure", errorType: "aborted", message: "Aborted!" },
 	],
 ] as const)("advanced policy maps an interactive %s answer", async (_label, answer, expected) => {
@@ -92,8 +92,8 @@ test.each([
 				mappingCalls.push("declined");
 				return ok({ cancelled: true });
 			},
-			onAborted: () => {
-				mappingCalls.push("aborted");
+			onCancelled: () => {
+				mappingCalls.push("cancelled");
 				return failure("aborted", "Aborted!");
 			},
 		}),

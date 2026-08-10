@@ -25,6 +25,12 @@ function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
 		hasExtension: () => false,
+		confirm: () => {
+			throw new Error("Unexpected confirmation prompt in command I/O test.");
+		},
+		select: () => {
+			throw new Error("Unexpected selection prompt in command I/O test.");
+		},
 		exec: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		...overrides,

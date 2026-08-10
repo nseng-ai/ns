@@ -22,23 +22,11 @@ export function createNsClinkrInteraction(
 	ctx: NsExtensionApi,
 	options: NsClinkrInteractionOptions,
 ): ClinkrInteraction {
-	const confirmPrompt = ctx.confirm;
-	if (confirmPrompt === undefined) {
-		return {
-			confirm: async () => ({ type: "aborted" as const }),
-			isInteractive: () => false,
-		};
-	}
 	return {
 		confirm: async (request) => {
-			const approved = await confirmPrompt(
-				options.title,
-				formatNsConfirmationMessage(options, request),
-				{
-					defaultAnswer: request.defaultAnswer,
-				},
-			);
-			return approved ? { type: "confirmed" } : { type: "declined" };
+			return await ctx.confirm(options.title, formatNsConfirmationMessage(options, request), {
+				defaultAnswer: request.defaultAnswer,
+			});
 		},
 		isInteractive: () => true,
 	};

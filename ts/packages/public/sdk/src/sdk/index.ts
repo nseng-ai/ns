@@ -17,6 +17,7 @@ export type {
 	PositionalSpec,
 	RenderCapabilities,
 } from "./command.ts";
+export type { ConfirmationResult, SelectionResult } from "@nseng-ai/clinkr";
 export type {
 	ExecResult,
 	NsConfirmOptions,

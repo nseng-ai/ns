@@ -103,7 +103,7 @@ describe("project-local generate-pr-inventory extension behavior", () => {
 			state: {
 				confirm: (message) => {
 					confirmation = message;
-					return true;
+					return { type: "confirmed" };
 				},
 			},
 		});
@@ -119,7 +119,9 @@ describe("project-local generate-pr-inventory extension behavior", () => {
 	});
 
 	test("declined confirmation makes no model or GitHub request", async () => {
-		const run = runGeneratePrWithFakes({ state: { confirm: () => false, exec: [] } });
+		const run = runGeneratePrWithFakes({
+			state: { confirm: () => ({ type: "declined" }), exec: [] },
+		});
 		expect(await run.exit).toBe(1);
 		expect(stripAnsi(run.stderr.join(""))).toContain(
 			"PR inventory generation and metadata replacement were cancelled; no model or GitHub request was made.",
@@ -128,12 +130,17 @@ describe("project-local generate-pr-inventory extension behavior", () => {
 		expect(formattedExecCalls(run.context)).toEqual([]);
 	});
 
-	test("fails fast non-interactively without --yes before model or GitHub work", async () => {
+	test("fails loudly when confirmation UI is unavailable", async () => {
 		const run = runGeneratePrWithFakes({ state: { exec: [] } });
-		expect(await run.exit).toBe(2);
-		expect(stripAnsi(run.stderr.join(""))).toContain(
-			"pass --yes to generate and replace the complete PR title and body non-interactively",
-		);
+		const [exit, result] = await Promise.allSettled([run.exit, run.result]);
+		expect(exit).toMatchObject({
+			status: "rejected",
+			reason: new Error("Unexpected confirmation prompt in Flow test."),
+		});
+		expect(result).toMatchObject({
+			status: "rejected",
+			reason: new Error("Unexpected confirmation prompt in Flow test."),
+		});
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([]);
 	});
@@ -145,7 +152,7 @@ describe("project-local generate-pr-inventory extension behavior", () => {
 			state: {
 				confirm: () => {
 					confirmCalls += 1;
-					return false;
+					return { type: "declined" };
 				},
 			},
 		});

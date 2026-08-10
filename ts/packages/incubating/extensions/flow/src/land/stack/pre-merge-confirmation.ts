@@ -57,19 +57,37 @@ export async function confirmLandStackAction(
 		options.defaultAnswer === undefined
 			? undefined
 			: optionalEntry("defaultAnswer", options.defaultAnswer);
-	const confirmed = await options.ctx.ui.confirm(options.title, details, confirmOptions);
-	if (confirmed) return landCompleted();
+	const confirmation = await options.ctx.ui.confirm(options.title, details, confirmOptions);
+	switch (confirmation.type) {
+		case "confirmed":
+			return landCompleted();
+		case "declined":
+			return declinedConfirmationOutcome(options);
+		case "cancelled":
+			return cancelledConfirmationOutcome(options);
+		default:
+			return assertNever(confirmation);
+	}
+}
 
-	const cancellationFailureOptions = {
-		...(options.cancellationFailureOptions ?? {
-			level: "info",
-			outcome: "refusal",
-		}),
-		refusalReason: "declined" as const,
-	};
+function declinedConfirmationOutcome(options: ConfirmLandStackActionOptions): LandOutcome {
+	return confirmationRefusalOutcome(options);
+}
+
+function cancelledConfirmationOutcome(options: ConfirmLandStackActionOptions): LandOutcome {
+	return confirmationRefusalOutcome(options);
+}
+
+function confirmationRefusalOutcome(options: ConfirmLandStackActionOptions): LandOutcome {
 	const failure = landingExecutionFailure(
 		options.cancellationMessage ?? LANDING_CANCELLED_MESSAGE,
-		cancellationFailureOptions,
+		{
+			...(options.cancellationFailureOptions ?? {
+				level: "info",
+				outcome: "refusal",
+			}),
+			refusalReason: "declined",
+		},
 	);
 	options.onFailure?.(failure);
 	return landOutcomeFailure(failure);
@@ -95,4 +113,8 @@ export async function confirmPreMergeMaintenance(
 		nonInteractiveMessage: options.nonInteractiveMessage,
 		...optionalEntry("nonInteractiveFailureOptions", options.nonInteractiveFailureOptions),
 	});
+}
+
+function assertNever(value: never): never {
+	throw new Error(`Unhandled confirmation result: ${JSON.stringify(value)}`);
 }

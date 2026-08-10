@@ -23,6 +23,8 @@ describe("fresh ns CLI runner", () => {
 			env: {},
 			stdout() {},
 			stderr() {},
+			confirm: () => ({ type: "declined" as const }),
+			select: () => ({ type: "cancelled" as const }),
 		};
 
 		expect(await runCli(["flow", "changes"], deps)).toBe(1);

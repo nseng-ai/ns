@@ -56,7 +56,7 @@ function createCleanupContext(options: {
 						title,
 						...(confirmOptions === undefined ? {} : { options: confirmOptions }),
 					});
-					return options.shouldConfirm ?? true;
+					return { type: (options.shouldConfirm ?? true) ? "confirmed" : "declined" };
 				},
 				setStatus() {},
 			},

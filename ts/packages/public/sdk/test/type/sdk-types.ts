@@ -1,9 +1,11 @@
 import { defineCommand, defineExtension, defineRawCommand, failure, ok, z } from "@nseng-ai/sdk";
 import type {
+	ConfirmationResult,
 	ExtensionActivation,
 	ExtensionDescriptor,
 	NsRawCommandDefinition,
 	CommandOutcome,
+	SelectionResult,
 	NsCommandIo,
 	NsExtensionApi,
 	NsProgress,
@@ -16,6 +18,16 @@ type Assert<T extends true> = T;
 type IsAny<T> = 0 extends 1 & T ? true : false;
 type IsEqual<A, B> =
 	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+const confirmationResults: ConfirmationResult[] = [
+	{ type: "confirmed" },
+	{ type: "declined" },
+	{ type: "cancelled" },
+];
+const selectionResults: SelectionResult<string>[] = [
+	{ type: "selected", value: "first" },
+	{ type: "cancelled" },
+];
 
 const extension = defineExtension({ description: "Typed descriptor." });
 
@@ -135,6 +147,8 @@ const commandResult = { type: "exited", code: 0, signal: null, stdout: "", stder
 const commandOk: boolean =
 	commandResult.type === "exited" && commandResult.code === 0 && commandResult.signal === null;
 
+void confirmationResults;
+void selectionResults;
 void extension;
 void commandlessExtension;
 void descriptorCheck;

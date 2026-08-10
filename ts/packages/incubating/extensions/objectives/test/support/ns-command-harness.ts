@@ -53,6 +53,12 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
+	readonly confirm = () => {
+		throw new Error("Unexpected confirmation prompt in objective test.");
+	};
+	readonly select = () => {
+		throw new Error("Unexpected selection prompt in objective test.");
+	};
 	readonly outputFormat: "human" | "json" | "md";
 	readonly commandIo: NsCommandIo;
 	readonly stdout: (text: string) => void;

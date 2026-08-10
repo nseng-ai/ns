@@ -15,7 +15,7 @@ export type ConfirmationOutcome = ConfirmedOutcome | NegativeOutcome | UsageErro
 
 export interface ConfirmationPolicyOptions<
 	TDeclined extends CommandOutcome<unknown>,
-	TAborted extends CommandOutcome<unknown>,
+	TCancelled extends CommandOutcome<unknown>,
 > {
 	readonly message: string;
 	readonly nonInteractive: {
@@ -24,14 +24,14 @@ export interface ConfirmationPolicyOptions<
 		readonly howToSupply: string;
 	};
 	readonly onDeclined: () => TDeclined;
-	readonly onAborted: () => TAborted;
+	readonly onCancelled: () => TCancelled;
 }
 
 /**
  * Gate a destructive action on an interactive yes/no confirmation.
  *
  * Non-interactive hosts get a usage error, a declined prompt is a negative
- * outcome, and an aborted prompt is a usage error; only an explicit "yes"
+ * outcome, and a cancelled prompt is a usage error; only an explicit "yes"
  * confirms.
  */
 export function confirmOrUsageError(
@@ -40,18 +40,18 @@ export function confirmOrUsageError(
 ): Promise<ConfirmationOutcome>;
 export function confirmOrUsageError<
 	TDeclined extends CommandOutcome<unknown>,
-	TAborted extends CommandOutcome<unknown>,
+	TCancelled extends CommandOutcome<unknown>,
 >(
 	interaction: ClinkrInteraction,
-	options: ConfirmationPolicyOptions<TDeclined, TAborted>,
-): Promise<ConfirmedOutcome | UsageErrorOutcome | TDeclined | TAborted>;
+	options: ConfirmationPolicyOptions<TDeclined, TCancelled>,
+): Promise<ConfirmedOutcome | UsageErrorOutcome | TDeclined | TCancelled>;
 export async function confirmOrUsageError<
 	TDeclined extends CommandOutcome<unknown>,
-	TAborted extends CommandOutcome<unknown>,
+	TCancelled extends CommandOutcome<unknown>,
 >(
 	interaction: ClinkrInteraction,
-	options: { readonly message: string } | ConfirmationPolicyOptions<TDeclined, TAborted>,
-): Promise<ConfirmationOutcome | TDeclined | TAborted> {
+	options: { readonly message: string } | ConfirmationPolicyOptions<TDeclined, TCancelled>,
+): Promise<ConfirmationOutcome | TDeclined | TCancelled> {
 	if (!interaction.isInteractive()) {
 		if (!("nonInteractive" in options)) {
 			return usageError("Interactive confirmation is required.");
@@ -65,8 +65,10 @@ export async function confirmOrUsageError<
 	if (result.type === "declined") {
 		return "onDeclined" in options ? options.onDeclined() : negative("Confirmation declined.");
 	}
-	if (result.type === "aborted") {
-		return "onAborted" in options ? options.onAborted() : usageError("Confirmation was aborted.");
+	if (result.type === "cancelled") {
+		return "onCancelled" in options
+			? options.onCancelled()
+			: usageError("Confirmation was cancelled.");
 	}
 	return { status: "confirmed" };
 }

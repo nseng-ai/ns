@@ -120,9 +120,9 @@ describe("ClinkrInteraction.confirm", () => {
 		]);
 	});
 
-	test("returns aborted when input ends without an answer", async () => {
+	test("returns cancelled when input ends without an answer", async () => {
 		await expect(confirm("maybe", "no")).resolves.toMatchObject({
-			result: { type: "aborted" },
+			result: { type: "cancelled" },
 		});
 	});
 

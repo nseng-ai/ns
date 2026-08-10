@@ -40,6 +40,12 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
+	readonly confirm = () => {
+		throw new Error("Unexpected confirmation prompt in handoff test.");
+	};
+	readonly select = () => {
+		throw new Error("Unexpected selection prompt in handoff test.");
+	};
 	readonly stderr: (text: string) => void;
 
 	constructor(options: FakeHandoffNsApiOptions = {}) {
@@ -148,14 +154,14 @@ export async function getHandoffContent(
 export function fakeHandoffInteraction(
 	options: {
 		isInteractive?: boolean;
-		confirmations?: ReadonlyArray<"confirmed" | "declined" | "aborted">;
+		confirmations?: ReadonlyArray<"confirmed" | "declined" | "cancelled">;
 	} = {},
 ): ClinkrInteraction {
 	const confirmations = [...(options.confirmations ?? [])];
 	return {
 		isInteractive: () => options.isInteractive ?? true,
 		confirm: async () => {
-			const next = confirmations.shift() ?? "aborted";
+			const next = confirmations.shift() ?? "cancelled";
 			return { type: next };
 		},
 	};

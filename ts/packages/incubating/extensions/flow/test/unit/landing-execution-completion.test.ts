@@ -35,7 +35,7 @@ function contextFixture(cwd: string): {
 				notify: (message, level) => {
 					notifications.push({ message, level, kind: undefined });
 				},
-				confirm: async () => true,
+				confirm: async () => ({ type: "confirmed" }),
 				setStatus() {},
 			},
 			waitForIdle: async () => {},

@@ -1,3 +1,4 @@
+import type { ConfirmationResult, SelectionResult } from "@nseng-ai/clinkr";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
@@ -26,12 +27,12 @@ export type NsConfirmPrompt = (
 	title: string,
 	message: string,
 	options?: NsConfirmOptions,
-) => Promise<boolean> | boolean;
+) => Promise<ConfirmationResult> | ConfirmationResult;
 
 export type NsSelectPrompt = (
 	title: string,
 	options: readonly string[],
-) => Promise<string | undefined> | string | undefined;
+) => Promise<SelectionResult<string>> | SelectionResult<string>;
 
 export interface NsExtensionApi {
 	/** Current repository working directory for command-entry execution. */
@@ -71,10 +72,10 @@ export interface NsExtensionApi {
 		"public-api-compatibility",
 		(stream: NsOutputStream, text: string) => void
 	>;
-	/** Optional UI confirmation hook for interactive ns commands. */
-	confirm?: ExplicitUndefined<"public-api-compatibility", NsConfirmPrompt>;
-	/** Optional UI selection hook for interactive ns commands. */
-	select?: ExplicitUndefined<"public-api-compatibility", NsSelectPrompt>;
+	/** Required semantic confirmation capability supplied by every host. */
+	confirm: NsConfirmPrompt;
+	/** Required semantic selection capability supplied by every host. */
+	select: NsSelectPrompt;
 	/** Project-local extension bag. ns commands own any values they read from it. */
 	extensions?: ExplicitUndefined<"public-api-compatibility", Readonly<Record<string, unknown>>>;
 }

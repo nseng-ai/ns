@@ -114,7 +114,7 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 			},
 		});
 		if (confirmed.type === "usageError") return confirmed;
-		if (confirmed.type === "aborted") return failure("aborted", "Aborted!");
+		if (confirmed.type === "cancelled") return failure("aborted", "Aborted!");
 		if (confirmed.type === "declined")
 			return ok(
 				buildFreeResult({
