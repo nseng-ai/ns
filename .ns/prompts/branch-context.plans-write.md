@@ -51,15 +51,6 @@ Harness-neutral command guidance:
 - For checkpointing guidance, write `ns flow cp` rather than a Pi slash-command adapter so non-Pi implementation agents receive the same instruction.
 - If a harness-specific command is useful context, identify it as an adapter over the CLI rather than the canonical behavior owner.
 
-<!-- PLAN-VERIFICATION-WORKSTREAM:START refactor-execution-strategy-guidance -->
-
-Refactor execution strategy:
-
-- If the implementation includes same-shape edits across multiple files, explicitly choose an execution mode in the plan.
-- Apply the canonical guidance in `skills/incubating/branch-context/enriched-plan-save/references/refactor-execution-strategy.md`, including the final stale-terminology grep/equivalent check when changing names or concepts.
-
-<!-- PLAN-VERIFICATION-WORKSTREAM:END refactor-execution-strategy-guidance -->
-
 Recommended saved plan sections:
 
 - Goal and user-visible outcome.
