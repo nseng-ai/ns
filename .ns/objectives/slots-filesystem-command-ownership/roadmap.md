@@ -50,7 +50,7 @@ Begin only after the phase-1 cutover and parity gate have landed. Each row is on
 - [x] Modernize `slot gt down` outcomes in one PR. Runner checkpoint `e50e95df85171782567d275d0d40c9f78001e0d4` changed gt-down to return SDK success, negative, and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 377 Slot tests and a clean full `just` rerun passed.
 - [x] Modernize `slot gt free-stack` outcomes in one PR. Runner checkpoint `38737df56e376791736f3180eb1d2f58ed16a0a7` changed gt free-stack to return SDK success and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 378 Slot tests and full `just` validation passed.
 - [x] Modernize `slot gt exec stack-branches` outcomes in one PR. Runner checkpoint `93ac492ee6e34f57bb5c1046a4a8f77963805e25` changed stack-branches to return SDK success, negative, and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 379 Slot tests and full `just` validation passed.
-- [ ] Modernize `slot gt exec stack-map-branches` outcomes in one PR.
+- [x] Modernize `slot gt exec stack-map-branches` outcomes in one PR. Runner checkpoint `8de9e2983bc2e4b3130ffd41f1da3352333c5b79` changed stack-map-branches to return SDK success and failure outcomes directly and removed its temporary translation; all 379 Slot tests and full `just` validation passed.
 - [ ] Modernize `slot gt exec backup-refs` outcomes in one PR.
 - [ ] Modernize `slot gt exec quiescence` outcomes in one PR.
 - [ ] Modernize `slot gt exec descendants-report` outcomes in one PR.
