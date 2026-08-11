@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, ok } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../core/context.ts";
@@ -15,7 +15,7 @@ export type GtDownRequest = z.infer<typeof gtDownRequestSchema>;
 
 export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return resolved;
+	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
 	const parent = await ctx.gt.parentOf(resolved.repoRoot);
 	if (parent.type === "untracked_branch")
 		return failure(
@@ -26,7 +26,7 @@ export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	if (parent.type === "no_parent")
 		return negative(`No downstack branch for '${resolved.currentBranch}'.`);
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, parent.branch);
-	if (resolution.type === "failure") return resolution;
+	if (resolution.type === "failure") return failure(resolution.errorType, resolution.message);
 	return ok(
 		await buildGtNavigationResult(ctx, resolution.resolution, {
 			shouldCopyClipboard: request.clipboard,
