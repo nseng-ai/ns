@@ -6,7 +6,7 @@ import {
 	renderBackupRefs,
 	runGtBackupRefs,
 } from "../../../../../../lifecycle/operations/gt/exec/backup-refs.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -16,8 +16,7 @@ export async function command() {
 			"Create timestamped local backup refs for branches before destructive stack surgery.",
 		schema: gtBackupRefsRequestSchema,
 		resultSchema: gtBackupRefsResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtBackupRefs(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runGtBackupRefs(await createSlotCliContext(ctx), request),
 		renderHuman: renderBackupRefs,
 	});
 }

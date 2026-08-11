@@ -1155,6 +1155,31 @@ describe("slot gt exec backup-refs CLI", () => {
 		);
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(
+			[
+				"gt",
+				"exec",
+				"backup-refs",
+				"--label",
+				"smush",
+				"--branch",
+				"feature/current",
+				"--format",
+				"json",
+			],
+			{ repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" } },
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.git.operations()).toEqual([]);
+	});
+
 	it("creates one non-force backup branch per branch and returns the JSON envelope", async () => {
 		const run = runFilesystemScenario(
 			[

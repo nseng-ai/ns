@@ -1,4 +1,4 @@
-import { failure, ok, usageError } from "@nseng-ai/clinkr/legacy";
+import { failure, ok, usageError } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
