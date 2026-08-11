@@ -263,6 +263,21 @@ describe("slot provision import CLI", () => {
 		expect(parseFilesystemJsonOutput(run)).toMatchObject({ errorType: "not-declared" });
 		expect(run.provisionFiles.operations()).toEqual([]);
 	});
+
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["provision", "import", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.provisionFiles.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+	});
 });
 
 describe("placement provisioning", () => {

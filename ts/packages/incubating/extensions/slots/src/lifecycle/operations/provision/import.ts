@@ -1,11 +1,6 @@
-import {
-	failure,
-	negative,
-	ok,
-	resolveRenderCapabilities,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr/legacy";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { cell, renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { failure, negative, ok } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../../core/context.ts";
@@ -82,10 +77,7 @@ export async function runProvisionImport(ctx: SlotCliContext, request: Provision
 		return failure(imported.failure.errorType, imported.failure.message);
 	const result = toImportResult(imported.outcome);
 	if (result.errorCount > 0) {
-		return negative("Provision import completed with errors.", {
-			data: result,
-			human: renderProvisionImport(result),
-		});
+		return negative("Provision import completed with errors.", { data: result });
 	}
 	return ok(result);
 }
