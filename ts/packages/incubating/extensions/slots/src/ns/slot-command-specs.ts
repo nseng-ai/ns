@@ -8,15 +8,11 @@ import {
 	gtDescendantsReportRequestSchema,
 	gtDescendantsReportResultSchema,
 	type GtDescendantsReportResult,
-	gtQuiescenceRequestSchema,
-	gtQuiescenceResultSchema,
 	gtRestackPreflightRequestSchema,
 	gtRestackPreflightResultSchema,
 	renderGtDescendantsReport,
-	renderGtQuiescence,
 	renderGtRestackPreflight,
 	runGtDescendantsReport,
-	runGtQuiescence,
 	runGtRestackPreflight,
 } from "../lifecycle/operations/index.ts";
 
@@ -93,16 +89,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "gt-exec",
-		name: "quiescence",
-		summary: "Preflight whether the current Graphite stack scope is safe to mutate.",
-		description: "Preflight whether the current Graphite stack scope is safe to mutate.",
-		schema: gtQuiescenceRequestSchema,
-		resultSchema: gtQuiescenceResultSchema,
-		handler: runGtQuiescence,
-		renderHuman: renderGtQuiescence,
-	}),
 	slotCommandSpec<
 		typeof gtDescendantsReportRequestSchema,
 		GtDescendantsReportResult | { target: string }

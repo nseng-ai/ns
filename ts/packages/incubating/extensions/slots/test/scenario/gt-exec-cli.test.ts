@@ -132,7 +132,18 @@ describe("slot gt exec stack-branches CLI", () => {
 });
 
 describe("slot gt exec quiescence CLI", () => {
-	it("is hidden but invocable and emits compact quiescence JSON in human mode", async () => {
+	it("is hidden, invocable, and exposes quiescence options", async () => {
+		const group = runFilesystemScenario(["gt", "--help"]);
+		expect(await group.exit).toBe(0);
+		expect(group.stdout.join("")).not.toContain("quiescence");
+
+		const command = runQuiescenceScenario(["gt", "exec", "quiescence", "-h"]);
+		expect(await command.exit).toBe(0);
+		expect(command.stdout.join("")).toContain("--scope");
+		expect(command.stdout.join("")).toContain("--expect-snapshot-json");
+	});
+
+	it("emits compact quiescence JSON in human mode", async () => {
 		const run = runQuiescenceScenario(["gt", "exec", "quiescence"]);
 
 		expect(await run.exit).toBe(0);
@@ -156,7 +167,7 @@ describe("slot gt exec quiescence CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message: "On trunk 'master'; no stack is checked out.",
 			data: {
@@ -186,8 +197,8 @@ describe("slot gt exec quiescence CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "success",
 			data: {
 				isQuiescent: true,
 				scope: "downstack",
@@ -223,7 +234,7 @@ describe("slot gt exec quiescence CLI", () => {
 			{ git },
 		);
 		expect(await full.exit).toBe(1);
-		expect(parseJsonOutput(full)).toMatchObject({
+		expect(parseFilesystemJsonOutput(full)).toMatchObject({
 			status: "negative",
 			data: {
 				blockers: [
@@ -248,7 +259,7 @@ describe("slot gt exec quiescence CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			message: "Stack is not quiescent.",
 			data: {
 				blockers: [
@@ -281,7 +292,7 @@ describe("slot gt exec quiescence CLI", () => {
 		});
 
 		expect(await run.exit).toBe(1);
-		expect(quiescenceJsonData(parseJsonOutput(run)).blockers).toEqual([
+		expect(quiescenceJsonData(parseFilesystemJsonOutput(run)).blockers).toEqual([
 			{
 				type: "slot-rebase-in-progress",
 				branch: "feature/a",
@@ -302,7 +313,7 @@ describe("slot gt exec quiescence CLI", () => {
 			},
 		});
 		expect(await first.exit).toBe(0);
-		const snapshot = quiescenceJsonData(parseJsonOutput(first)).snapshot;
+		const snapshot = quiescenceJsonData(parseFilesystemJsonOutput(first)).snapshot;
 
 		const matching = runQuiescenceScenario(
 			[
@@ -345,7 +356,7 @@ describe("slot gt exec quiescence CLI", () => {
 			},
 		);
 		expect(await drift.exit).toBe(1);
-		expect(parseJsonOutput(drift)).toMatchObject({
+		expect(parseFilesystemJsonOutput(drift)).toMatchObject({
 			data: {
 				blockers: [
 					{
@@ -371,9 +382,9 @@ describe("slot gt exec quiescence CLI", () => {
 		]);
 
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({
-			status: "usageError",
-			errorType: "usageError",
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "usage-error",
+			errorType: "usage-error",
 			data: { argument: "--expect-snapshot-json" },
 		});
 	});
@@ -388,7 +399,9 @@ describe("slot gt exec quiescence CLI", () => {
 			},
 		});
 		expect(await untracked.exit).toBe(2);
-		expect(parseJsonOutput(untracked)).toMatchObject({ errorType: "untracked-branch" });
+		expect(parseFilesystemJsonOutput(untracked)).toMatchObject({
+			errorType: "untracked-branch",
+		});
 	});
 });
 
@@ -1321,12 +1334,12 @@ describe("slot gt exec backup-refs CLI", () => {
 
 interface QuiescenceScenarioOptions {
 	readonly stack?: ReturnType<typeof fakeStackInfo>;
-	readonly git?: ScenarioRunOptions["git"];
-	readonly gt?: ScenarioRunOptions["gt"];
+	readonly git?: FilesystemScenarioOptions["git"];
+	readonly gt?: FilesystemScenarioOptions["gt"];
 }
 
 function runQuiescenceScenario(args: readonly string[], options: QuiescenceScenarioOptions = {}) {
-	return runScenario(args, {
+	return runFilesystemScenario(args, {
 		git: {
 			worktrees: [{ path: "/repo", branch: "feature/current" }],
 			...options.git,
