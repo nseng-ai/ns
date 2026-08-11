@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
+function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
+
 describe("slot gt navigation CLI", () => {
 	it("shows gt commands while hiding the exec subgroup", async () => {
 		const root = runScenario(["--help"]);
@@ -11,12 +15,15 @@ describe("slot gt navigation CLI", () => {
 		expect(root.stdout.join("")).toContain("gt");
 		const gt = runScenario(["gt", "--help"]);
 		expect(await gt.exit).toBe(0);
-		expect(gt.stdout.join("")).toContain("up");
 		expect(gt.stdout.join("")).toContain("down");
 		expect(gt.stdout.join("")).toContain("free-stack");
 		expect(gt.stdout.join("")).toContain("metadata-backed stack commands");
 		expect(gt.stdout.join("")).toContain("require the sqlite3 CLI");
 		expect(gt.stdout.join("")).not.toContain("exec");
+
+		const up = runFilesystemScenario(["gt", "up", "--help"]);
+		expect(await up.exit).toBe(0);
+		expect(up.stdout.join("")).toContain("--no-clipboard");
 	});
 
 	it("does not invoke the Graphite gateway for plain commands", async () => {
@@ -28,7 +35,7 @@ describe("slot gt navigation CLI", () => {
 	});
 
 	it("gt up reuses an existing upstack slot worktree", async () => {
-		const run = runScenario(["gt", "up", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "up", "--format", "json"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "feature/current" },
@@ -38,7 +45,7 @@ describe("slot gt navigation CLI", () => {
 			gt: { children: { type: "children", branches: ["feature/child"] } },
 		});
 		expect(await run.exit).toBe(0);
-		const output = parseJsonOutput(run);
+		const output = parseFilesystemJsonOutput(run);
 		expect(output).toMatchObject({
 			data: {
 				slotName: "slot-01",
@@ -87,7 +94,7 @@ describe("slot gt navigation CLI", () => {
 	});
 
 	it("renders house-style human navigation output", async () => {
-		const run = runScenario(["gt", "up"], {
+		const run = runFilesystemScenario(["gt", "up"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "feature/current" },
@@ -147,12 +154,12 @@ describe("slot gt navigation CLI", () => {
 	});
 
 	it("gt up reports multiple children as a negative exit", async () => {
-		const run = runScenario(["gt", "up", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "up", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: { children: { type: "children", branches: ["feature/a", "feature/b"] } },
 		});
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message:
 				"Multiple upstack branches for 'feature/current': feature/a, feature/b. Run `ns slot checkout <branch>` for the branch you want.",

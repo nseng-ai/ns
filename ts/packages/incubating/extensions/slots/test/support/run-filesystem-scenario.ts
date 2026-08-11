@@ -15,7 +15,10 @@ import {
 	type FakeSlotCommandGatewayOptions,
 } from "../../src/core/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
-import { FakeGraphiteStackGateway } from "@nseng-ai/extension-kit/graphite/testing";
+import {
+	FakeGraphiteStackGateway,
+	type FakeGraphiteStackGatewayOptions,
+} from "@nseng-ai/extension-kit/graphite/testing";
 import {
 	FakeSlotPrGateway,
 	type FakeSlotPrGatewayOptions,
@@ -29,6 +32,7 @@ import type { RepoContext } from "../../src/core/repo-context.ts";
 
 export interface FilesystemScenarioOptions {
 	readonly git?: ConstructorParameters<typeof FakeSlotRepositoryGateway>[0];
+	readonly gt?: FakeGraphiteStackGatewayOptions;
 	readonly confirmations?: readonly ConfirmationResult[];
 	readonly clipboardResult?: ClipboardCopyResult;
 	readonly command?: FakeSlotCommandGatewayOptions;
@@ -120,7 +124,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const git = new FakeSlotRepositoryGateway(options.git);
-	const gt = new FakeGraphiteStackGateway({});
+	const gt = new FakeGraphiteStackGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
 	const storage = new FakeSlotStorageGateway();
 	const provisionFiles = new FakeSlotProvisionFilesGateway(options.provisionFiles);

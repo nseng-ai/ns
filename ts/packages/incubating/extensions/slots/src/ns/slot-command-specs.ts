@@ -15,7 +15,6 @@ import {
 	type GtDescendantsReportResult,
 	gtFreeStackRequestSchema,
 	gtFreeStackResultSchema,
-	gtNavigationResultSchema,
 	gtQuiescenceRequestSchema,
 	gtQuiescenceResultSchema,
 	gtRestackPreflightRequestSchema,
@@ -24,13 +23,11 @@ import {
 	gtStackBranchesResultSchema,
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
-	gtUpRequestSchema,
 	renderGtDownNavigation,
 	renderGtDescendantsReport,
 	renderGtFreeStack,
 	renderGtQuiescence,
 	renderGtRestackPreflight,
-	renderGtUpNavigation,
 	renderBackupRefs,
 	renderStackBranches,
 	renderStackMapBranches,
@@ -42,7 +39,6 @@ import {
 	runGtRestackPreflight,
 	runGtStackBranches,
 	runGtStackMapBranches,
-	runGtUp,
 } from "../lifecycle/operations/index.ts";
 
 export type SlotCommandGroup = "root" | "provision" | "gt" | "gt-exec";
@@ -118,17 +114,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "gt",
-		name: "up",
-		summary: "Print/copy a cd command for the immediate upstack Graphite branch.",
-		description: "Print/copy a cd command for the immediate upstack Graphite branch.",
-		schema: gtUpRequestSchema,
-		options: gtNavigationOptionSpecs,
-		resultSchema: gtNavigationResultSchema,
-		handler: runGtUp,
-		renderHuman: renderGtUpNavigation,
-	}),
 	slotCommandSpec({
 		group: "gt",
 		name: "down",
