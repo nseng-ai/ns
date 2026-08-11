@@ -8,7 +8,7 @@ Phase rule: migrate one command per PR in each applicable phase. `list` owns the
 
 - [x] Land the shared phase-1 prerequisite PR: establish the production filesystem-path scenario/completion harness with injected fake gateways and add the route-neutral context/completion/temporary-outcome adapter. Do not migrate a command in this PR. Runner checkpoint `9b664a835146c47d380fd726acd689530f2ad923` established the fake-driven production filesystem scenario/completion harness and extracted the route-neutral adapter; focused Slot typecheck and all 355 Slot tests passed.
 - [x] Migrate `slot list` command ownership in one PR, retaining `ls` only as filesystem metadata. Runner checkpoint `5a7e455ad80fe1da4de710b1f4c8f122ba3b76ed` colocated the typed command assembly and moved list behavior coverage to the production filesystem harness; focused Slot typecheck and all 355 Slot tests passed.
-- [ ] Migrate `slot checkout` command ownership and completion wiring in one PR, retaining `co` only as filesystem metadata.
+- [x] Migrate `slot checkout` command ownership and completion wiring in one PR, retaining `co` only as filesystem metadata. Runner checkpoint `ece521dcdf4a9d15e853fa9976a769f92e8a69eb` colocated checkout command assembly and completion wiring, retained `co` only as route metadata, and moved affected scenarios to the production filesystem harness; focused Slot checks, all 355 Slot tests, and full `just` validation passed.
 - [ ] Migrate `slot goto` command ownership in one PR.
 - [ ] Migrate `slot claim` command ownership in one PR.
 - [ ] Migrate `slot free` command ownership in one PR.
