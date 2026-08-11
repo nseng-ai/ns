@@ -1110,15 +1110,19 @@ describe("slot gt exec backup-refs CLI", () => {
 	// SCENARIO_NOW_MS (2026-07-12T12:00:00Z) renders as this compact UTC stamp.
 	const stamp = "20260712120000";
 
-	it("shows help for the hidden backup-refs operation", async () => {
-		const run = runScenario(["gt", "exec", "backup-refs", "-h"]);
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("--label");
-		expect(run.stdout.join("")).toContain("--branch");
+	it("is hidden, invocable, and exposes label and branch options", async () => {
+		const group = runFilesystemScenario(["gt", "--help"]);
+		expect(await group.exit).toBe(0);
+		expect(group.stdout.join("")).not.toContain("backup-refs");
+
+		const command = runFilesystemScenario(["gt", "exec", "backup-refs", "-h"]);
+		expect(await command.exit).toBe(0);
+		expect(command.stdout.join("")).toContain("--label");
+		expect(command.stdout.join("")).toContain("--branch");
 	});
 
 	it("is hidden but invocable and emits compact backup JSON in human mode", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			["gt", "exec", "backup-refs", "--label", "smush", "--branch", "feature/current"],
 			{ git: { localBranches: ["master", "feature/current"] } },
 		);
@@ -1129,7 +1133,7 @@ describe("slot gt exec backup-refs CLI", () => {
 	});
 
 	it("creates one non-force backup branch per branch and returns the JSON envelope", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			[
 				"gt",
 				"exec",
@@ -1146,8 +1150,8 @@ describe("slot gt exec backup-refs CLI", () => {
 			{ git: { localBranches: ["master", "feature/a", "tip"] } },
 		);
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "success",
 			data: {
 				prefix: `backup/linearize-${stamp}/`,
 				label: "linearize",
@@ -1175,17 +1179,17 @@ describe("slot gt exec backup-refs CLI", () => {
 	});
 
 	it("rejects a missing branch list and an invalid label as usage errors", async () => {
-		const noBranches = runScenario(
+		const noBranches = runFilesystemScenario(
 			["gt", "exec", "backup-refs", "--label", "smush", "--format", "json"],
 			{ git: { localBranches: ["master"] } },
 		);
 		expect(await noBranches.exit).toBe(2);
-		expect(parseJsonOutput(noBranches)).toMatchObject({
-			status: "usageError",
+		expect(parseFilesystemJsonOutput(noBranches)).toMatchObject({
+			status: "usage-error",
 			data: { argument: "--branch" },
 		});
 
-		const badLabel = runScenario(
+		const badLabel = runFilesystemScenario(
 			[
 				"gt",
 				"exec",
@@ -1200,14 +1204,14 @@ describe("slot gt exec backup-refs CLI", () => {
 			{ git: { localBranches: ["master"] } },
 		);
 		expect(await badLabel.exit).toBe(2);
-		expect(parseJsonOutput(badLabel)).toMatchObject({
-			status: "usageError",
+		expect(parseFilesystemJsonOutput(badLabel)).toMatchObject({
+			status: "usage-error",
 			data: { argument: "--label" },
 		});
 	});
 
 	it("fails with branch-not-found before creating anything", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			[
 				"gt",
 				"exec",
@@ -1224,7 +1228,7 @@ describe("slot gt exec backup-refs CLI", () => {
 			{ git: { localBranches: ["master", "feature/a"] } },
 		);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			errorType: "branch-not-found",
 			data: { missing: ["missing"] },
 		});
@@ -1232,7 +1236,7 @@ describe("slot gt exec backup-refs CLI", () => {
 	});
 
 	it("fails with backup-ref-exists on a name collision before creating anything", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			[
 				"gt",
 				"exec",
@@ -1251,7 +1255,7 @@ describe("slot gt exec backup-refs CLI", () => {
 			},
 		);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			errorType: "backup-ref-exists",
 			data: { existing: [`backup/smush-${stamp}/feature__a`] },
 		});
@@ -1259,7 +1263,7 @@ describe("slot gt exec backup-refs CLI", () => {
 	});
 
 	it("reports a create failure with the branches already backed up", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			[
 				"gt",
 				"exec",
@@ -1283,7 +1287,7 @@ describe("slot gt exec backup-refs CLI", () => {
 			},
 		);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			errorType: "backup-create-failed",
 			data: {
 				branch: "tip",
@@ -1294,7 +1298,7 @@ describe("slot gt exec backup-refs CLI", () => {
 	});
 
 	it("dedupes repeated branch flags", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			[
 				"gt",
 				"exec",

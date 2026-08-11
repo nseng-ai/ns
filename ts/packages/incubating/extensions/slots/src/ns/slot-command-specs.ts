@@ -5,8 +5,6 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../core/context.ts";
 import {
-	gtBackupRefsRequestSchema,
-	gtBackupRefsResultSchema,
 	gtDescendantsReportRequestSchema,
 	gtDescendantsReportResultSchema,
 	type GtDescendantsReportResult,
@@ -17,8 +15,6 @@ import {
 	renderGtDescendantsReport,
 	renderGtQuiescence,
 	renderGtRestackPreflight,
-	renderBackupRefs,
-	runGtBackupRefs,
 	runGtDescendantsReport,
 	runGtQuiescence,
 	runGtRestackPreflight,
@@ -97,17 +93,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "gt-exec",
-		name: "backup-refs",
-		summary: "Create timestamped local backup refs for branches before destructive stack surgery.",
-		description:
-			"Create timestamped local backup refs for branches before destructive stack surgery.",
-		schema: gtBackupRefsRequestSchema,
-		resultSchema: gtBackupRefsResultSchema,
-		handler: runGtBackupRefs,
-		renderHuman: renderBackupRefs,
-	}),
 	slotCommandSpec({
 		group: "gt-exec",
 		name: "quiescence",
