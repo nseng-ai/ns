@@ -21,8 +21,7 @@ import {
 export function loadSlotNsCommand(commandName: string): NsCommand {
 	const spec = slotCommandSpecs.find((candidate) => candidate.name === commandName);
 	if (spec !== undefined) return slotCommandFromSpec(spec);
-	const shellCommand =
-		buildNsShellCommands()[commandName === "show" ? 0 : commandName === "install" ? 1 : -1];
+	const shellCommand = buildNsShellCommands()[commandName === "install" ? 0 : -1];
 	if (shellCommand !== undefined) return shellCommand;
 	throw new Error(`Missing Slot ns command ${commandName}.`);
 }

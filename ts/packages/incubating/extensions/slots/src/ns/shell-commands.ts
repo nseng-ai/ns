@@ -1,41 +1,27 @@
-import { failure, ok } from "@nseng-ai/sdk";
 import {
 	installMarkerBlock,
 	markerSurfaceInstallRequestSchema,
 	markerSurfaceInstallResultSchema,
-	markerSurfaceShowRequestSchema,
-	markerSurfaceShowResultSchema,
 	rcPathForShell,
 	renderCommandCdWrapperScript,
 	resolveRequestedShell,
 } from "@nseng-ai/extension-kit/shell-support";
-import { defineCommand, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
+import { defineCommand, failure, ok, type NsCommand, type NsExtensionApi } from "@nseng-ai/sdk";
 import { z } from "zod";
 
-import { shellInstallOptionSpecs, shellShowOptionSpecs } from "../core/command-options.ts";
+import { shellInstallOptionSpecs } from "../core/command-options.ts";
 
 const nsShellIntegrationBeginMarker = "# >>> ns shell integration >>>";
 const nsShellIntegrationEndMarker = "# <<< ns shell integration <<<";
-const nsShellShowRequestSchema = markerSurfaceShowRequestSchema;
 const nsShellInstallRequestSchema = markerSurfaceInstallRequestSchema.extend({
 	yes: z.boolean().default(false).describe("Confirm shell rc-file update without prompting."),
 });
-const nsShellShowResultSchema = markerSurfaceShowResultSchema;
 const nsShellInstallResultSchema = markerSurfaceInstallResultSchema.extend({
 	cancelled: z.boolean().default(false),
 });
 
 function renderNsShellWrapperScript(): string {
 	return renderCommandCdWrapperScript({ commandName: "ns" });
-}
-
-async function runNsShellShow(
-	ctx: NsExtensionApi,
-	request: z.output<typeof nsShellShowRequestSchema>,
-) {
-	const selected = resolveRequestedShell(request.shell, ctx.env);
-	if (selected.type === "failure") return failure(selected.failure.type, selected.failure.message);
-	return ok({ shell: selected.shell, script: renderNsShellWrapperScript() });
 }
 
 async function runNsShellInstall(
@@ -73,11 +59,6 @@ async function runNsShellInstall(
 	});
 }
 
-function renderNsShellShow(result: unknown): string {
-	const parsed = nsShellShowResultSchema.parse(result);
-	return parsed.script;
-}
-
 function renderNsShellInstall(result: unknown): string {
 	const parsed = nsShellInstallResultSchema.parse(result);
 	if (parsed.cancelled)
@@ -89,16 +70,6 @@ function renderNsShellInstall(result: unknown): string {
 
 export function buildNsShellCommands(): NsCommand[] {
 	return [
-		defineCommand({
-			name: "show",
-			summary: "Print the parent-shell wrapper script.",
-			description: "Print the parent-shell wrapper script.",
-			schema: nsShellShowRequestSchema,
-			options: shellShowOptionSpecs,
-			resultSchema: nsShellShowResultSchema,
-			renderHuman: renderNsShellShow,
-			handler: runNsShellShow,
-		}),
 		defineCommand({
 			name: "install",
 			summary: "Install the parent-shell wrapper in the detected or selected rc file.",
