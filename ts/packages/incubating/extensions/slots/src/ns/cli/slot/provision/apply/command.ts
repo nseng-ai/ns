@@ -7,7 +7,7 @@ import {
 	renderProvisionApply,
 	runProvisionApply,
 } from "../../../../../lifecycle/operations/provision/apply.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -18,8 +18,7 @@ export async function command() {
 		schema: provisionApplyRequestSchema,
 		options: provisionApplyOptionSpecs,
 		resultSchema: provisionApplyResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runProvisionApply(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runProvisionApply(await createSlotCliContext(ctx), request),
 		renderHuman: renderProvisionApply,
 	});
 }

@@ -173,6 +173,21 @@ describe("slot provision apply CLI", () => {
 			errorType: "invalid-provision-path",
 		});
 	});
+
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["provision", "apply", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.provisionFiles.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+	});
 });
 
 describe("slot provision import CLI", () => {

@@ -1,11 +1,6 @@
-import {
-	failure,
-	negative,
-	ok,
-	resolveRenderCapabilities,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr/legacy";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { cell, paint, renderResultBlock } from "@nseng-ai/foundation/cli-theme";
+import { failure, negative, ok } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../../core/context.ts";
@@ -86,10 +81,7 @@ export async function runProvisionApply(ctx: SlotCliContext, request: ProvisionA
 		return failure(applied.failure.errorType, applied.failure.message);
 	const result = toApplyResult(applied.outcome);
 	if (applyHasProblems(result)) {
-		return negative("Provisioned file copies differ or failed; see entries.", {
-			data: result,
-			human: renderProvisionApply(result),
-		});
+		return negative("Provisioned file copies differ or failed; see entries.", { data: result });
 	}
 	return ok(result);
 }
