@@ -1,11 +1,5 @@
-import { requireInteractiveOrUsageError, type Caps } from "@nseng-ai/clinkr";
-import {
-	failure,
-	negative,
-	ok,
-	resolveRenderCapabilities,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr/legacy";
+import type { Caps } from "@nseng-ai/clinkr";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import {
 	cell,
 	paint,
@@ -14,6 +8,7 @@ import {
 	type Intent,
 } from "@nseng-ai/foundation/cli-theme";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";
@@ -88,12 +83,16 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	if (plan.outcome.wouldFreeCount === 0)
 		return ok(toGcResult(outcomeFromGcPlan(plan.outcome, { isDryRun: false })));
 	if (!request.force) {
-		const gate = requireInteractiveOrUsageError(ctx.interaction, {
-			message: "Destructive gc requires --force when non-interactive (or run --dry-run first).",
-			missingFlag: "--force",
-			howToSupply: "Pass --force (or -f) to free slots without prompting, or run --dry-run first.",
-		});
-		if (gate) return gate;
+		if (!ctx.interaction.isInteractive()) {
+			return usageError(
+				"Destructive gc requires --force when non-interactive (or run --dry-run first).",
+				{
+					missingFlag: "--force",
+					howToSupply:
+						"Pass --force (or -f) to free slots without prompting, or run --dry-run first.",
+				},
+			);
+		}
 		const cleanup = await planGcCleanup(repoCtx, plan.outcome, cleanupActions);
 		const renderCapabilities = repoCtx.renderCapabilities;
 		const preview = renderGc(
@@ -118,10 +117,10 @@ export async function runGc(ctx: SlotCliContext, request: GcRequest) {
 	const outcome = await executeGcPlan(repoCtx, plan.outcome, { cleanupActions });
 	const result = toGcResult(outcome);
 	if (outcome.cleanupErrorCount > 0)
-		return negative("Slot gc completed with cleanup errors.", {
-			data: result,
-			human: renderGc(result),
-		});
+		return negative(
+			ctx.shouldWriteCdDirective ? renderGc(result) : "Slot gc completed with cleanup errors.",
+			{ data: result },
+		);
 	return ok(result);
 }
 

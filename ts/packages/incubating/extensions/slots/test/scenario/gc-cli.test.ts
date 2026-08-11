@@ -125,6 +125,21 @@ describe("slot gc CLI", () => {
 		expect(rendered).toContain("feature/no-pr  —\n\nSummary: freed 0; kept 2; skipped 0; errors 0");
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["gc", "--dry-run", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.pr.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+	});
+
 	it("fails the command when batch PR lookup fails", async () => {
 		const run = runFilesystemScenario(["gc", "--dry-run", "--format", "json"], {
 			git: {

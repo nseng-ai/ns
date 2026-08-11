@@ -7,7 +7,7 @@ import {
 	renderGc,
 	runGc,
 } from "../../../../lifecycle/operations/gc.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -17,10 +17,7 @@ export async function command() {
 		schema: gcRequestSchema,
 		options: gcOptionSpecs,
 		resultSchema: gcResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGc(await createSlotCliContext(ctx), request), {
-				useHumanOverride: ctx.outputFormat === undefined || ctx.outputFormat === "human",
-			}),
+		handler: async (ctx, request) => runGc(await createSlotCliContext(ctx), request),
 		renderHuman: renderGc,
 	});
 }
