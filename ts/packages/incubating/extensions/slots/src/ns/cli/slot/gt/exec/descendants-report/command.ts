@@ -6,7 +6,7 @@ import {
 	renderGtDescendantsReport,
 	runGtDescendantsReport,
 } from "../../../../../../lifecycle/operations/gt/exec/descendants-report.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -18,7 +18,7 @@ export async function command() {
 		positionals: { branch: { position: 0 } },
 		resultSchema: gtDescendantsReportResultSchema,
 		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtDescendantsReport(await createSlotCliContext(ctx), request)),
+			runGtDescendantsReport(await createSlotCliContext(ctx), request),
 		renderHuman: renderGtDescendantsReport,
 	});
 }

@@ -1616,6 +1616,23 @@ describe("slot gt exec descendants-report CLI", () => {
 		});
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(
+			["gt", "exec", "descendants-report", "root", "--format", "json"],
+			{ repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" } },
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.gt.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+		expect(run.pr.operations()).toEqual([]);
+	});
+
 	it("fails with branch, parent, and stage when local branch discovery fails", async () => {
 		const run = runDescendantsScenario(
 			["gt", "exec", "descendants-report", "root", "--format", "json"],
