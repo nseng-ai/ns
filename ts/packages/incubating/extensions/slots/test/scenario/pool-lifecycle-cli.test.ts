@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
 
 const STORE_ROOT = "/slots/repos/repo/provision/default";
 const DECLARED_ENV = '[slots]\nprovision = [".env.local"]\n';
@@ -53,7 +53,7 @@ describe("slot resize CLI", () => {
 		const slot01Path = slotWorktree("slot-01").path;
 		const slot02Path = slotWorktree("slot-02").path;
 		const slot04Path = slotWorktree("slot-04").path;
-		const run = runScenario(["resize", "--size", "4", "--format", "json"], {
+		const run = runFilesystemScenario(["resize", "--size", "4", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null), slotWorktree("slot-03", null)] },
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": DECLARED_ENV },
@@ -64,7 +64,7 @@ describe("slot resize CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				previousPoolSize: 2,
 				poolSize: 4,
@@ -97,7 +97,7 @@ describe("slot resize CLI", () => {
 	});
 
 	it("renders human grow output", async () => {
-		const run = runScenario(["resize", "--size", "4"], {
+		const run = runFilesystemScenario(["resize", "--size", "4"], {
 			git: { worktrees: [slotWorktree("slot-01", null), slotWorktree("slot-03", null)] },
 		});
 		expect(await run.exit).toBe(0);
@@ -109,7 +109,7 @@ describe("slot resize CLI", () => {
 	});
 
 	it("shrinks by removing the highest records without provisioning", async () => {
-		const run = runScenario(["resize", "--size", "2", "--format", "json"], {
+		const run = runFilesystemScenario(["resize", "--size", "2", "--format", "json"], {
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", null),
@@ -124,7 +124,7 @@ describe("slot resize CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				previousPoolSize: 4,
 				poolSize: 2,
@@ -141,7 +141,7 @@ describe("slot resize CLI", () => {
 	});
 
 	it("renders human shrink output", async () => {
-		const run = runScenario(["resize", "--size", "2"], {
+		const run = runFilesystemScenario(["resize", "--size", "2"], {
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", null),
@@ -159,7 +159,7 @@ describe("slot resize CLI", () => {
 	});
 
 	it("returns no-op without provisioning when already at the requested size", async () => {
-		const run = runScenario(["resize", "--size", "1", "--format", "json"], {
+		const run = runFilesystemScenario(["resize", "--size", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": DECLARED_ENV },
@@ -167,7 +167,7 @@ describe("slot resize CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: { previousPoolSize: 1, poolSize: 1, created: [], removed: [], provision: null },
 		});
 		expect(run.git.operations()).toEqual([]);
@@ -175,7 +175,7 @@ describe("slot resize CLI", () => {
 	});
 
 	it("renders human no-op output", async () => {
-		const run = runScenario(["resize", "--size", "1"], {
+		const run = runFilesystemScenario(["resize", "--size", "1"], {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 		});
 		expect(await run.exit).toBe(0);
@@ -183,7 +183,7 @@ describe("slot resize CLI", () => {
 	});
 
 	it("reports all unsafe shrink offenders", async () => {
-		const run = runScenario(["resize", "--size", "1", "--format", "json"], {
+		const run = runFilesystemScenario(["resize", "--size", "1", "--format", "json"], {
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", null),
@@ -207,7 +207,7 @@ describe("slot resize CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(2);
-		const output = parseJsonOutput(run) as { message: string; errorType: string };
+		const output = parseFilesystemJsonOutput(run) as { message: string; errorType: string };
 		expect(output.errorType).toBe("resize-unsafe");
 		expect(output.message).toContain("slot-02 is assigned to 'feature/a'");
 		expect(output.message).toContain(

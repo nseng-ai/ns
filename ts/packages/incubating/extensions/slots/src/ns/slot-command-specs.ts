@@ -7,7 +7,6 @@ import {
 	gtFreeStackOptionSpecs,
 	gtNavigationOptionSpecs,
 	provisionApplyOptionSpecs,
-	sizeOptionSpecs,
 } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
@@ -43,11 +42,8 @@ import {
 	renderProvisionApply,
 	renderProvisionImport,
 	renderBackupRefs,
-	renderResize,
 	renderStackBranches,
 	renderStackMapBranches,
-	resizeRequestSchema,
-	resizeResultSchema,
 	runGtBackupRefs,
 	runGtDown,
 	runGtDescendantsReport,
@@ -59,7 +55,6 @@ import {
 	runGtUp,
 	runProvisionApply,
 	runProvisionImport,
-	runResize,
 } from "../lifecycle/operations/index.ts";
 
 export type SlotCommandGroup = "root" | "provision" | "gt" | "gt-exec";
@@ -135,17 +130,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "resize",
-		summary: "Grow or shrink the worktree pool to --size slots.",
-		description: "Grow or shrink the worktree pool to --size slots.",
-		schema: resizeRequestSchema,
-		options: sizeOptionSpecs,
-		resultSchema: resizeResultSchema,
-		handler: runResize,
-		renderHuman: renderResize,
-	}),
 	slotCommandSpec({
 		group: "provision",
 		name: "apply",
