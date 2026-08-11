@@ -41,7 +41,7 @@ Begin only after the phase-1 cutover and parity gate have landed. Each row is on
 - [x] Modernize `slot claim` outcomes in one PR. Runner checkpoint `22a0b2e170b5bab0ff6c455a3640aa21c4eef152` changed claim to construct SDK success and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 368 Slot tests and full `just` validation passed.
 - [x] Modernize `slot free` outcomes in one PR. Runner checkpoint `21e7fccbde7a0c50ad81145be5978ab79e7eb5fb` changed free to return SDK success, negative, failure, and usage-error outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 369 Slot tests and a clean full `just` rerun passed.
 - [x] Modernize `slot foreach` outcomes in one PR. Runner checkpoint `afb323aa0a4366343a556bbaaba8a5b4a98e657e` changed foreach to construct SDK success, negative, and failure outcomes directly, removed its temporary translation, preserved rendering and machine messages, and added repository-discovery failure coverage; all 370 Slot tests and full `just` validation passed.
-- [ ] Modernize `slot gc` outcomes in one PR.
+- [x] Modernize `slot gc` outcomes in one PR. Runner checkpoint `df1f6f39f4911896936fa70e2ac1d2a167115146` changed gc to construct SDK success, negative, failure, and usage-error outcomes directly, removed its temporary translation, preserved human and machine behavior, and added repository-discovery failure coverage; all 371 Slot tests and a clean full `just` rerun passed.
 - [ ] Modernize `slot init` outcomes in one PR.
 - [ ] Modernize `slot resize` outcomes in one PR.
 - [ ] Modernize `slot provision apply` outcomes in one PR.
