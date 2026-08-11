@@ -1,4 +1,4 @@
-import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import { failure, ok } from "@nseng-ai/sdk";
 import type {
 	GraphiteBranchTopology,
 	GraphiteTopology,
@@ -80,7 +80,7 @@ export async function runGtStackMapBranches(
 	request: GtStackMapBranchesRequest,
 ) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return resolved;
+	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
 
 	const stackResult = await ctx.gt.stack(resolved.repoRoot);
 	if (stackResult.type === "untracked_branch")

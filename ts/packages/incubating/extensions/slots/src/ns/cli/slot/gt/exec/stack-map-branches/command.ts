@@ -6,7 +6,7 @@ import {
 	renderStackMapBranches,
 	runGtStackMapBranches,
 } from "../../../../../../lifecycle/operations/gt/exec/stack-map-branches.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -16,7 +16,7 @@ export async function command() {
 		schema: gtStackMapBranchesRequestSchema,
 		resultSchema: gtStackMapBranchesResultSchema,
 		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtStackMapBranches(await createSlotCliContext(ctx), request)),
+			runGtStackMapBranches(await createSlotCliContext(ctx), request),
 		renderHuman: renderStackMapBranches,
 	});
 }
