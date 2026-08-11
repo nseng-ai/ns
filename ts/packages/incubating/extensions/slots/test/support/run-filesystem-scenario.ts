@@ -25,9 +25,11 @@ export interface FilesystemScenarioOptions {
 	readonly git?: ConstructorParameters<typeof FakeSlotRepositoryGateway>[0];
 	readonly confirmations?: readonly ConfirmationResult[];
 	readonly clipboardResult?: ClipboardCopyResult;
+	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
 	readonly provisionFiles?: FakeSlotProvisionFilesGatewayOptions;
 	readonly renderCapabilities?: RenderCapabilities;
+	readonly repo?: RepoContext;
 }
 
 export interface FilesystemScenarioRun {
@@ -109,7 +111,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 			? undefined
 			: createFakeClinkrInteraction({ confirmations: options.confirmations, isInteractive: true });
 	const context: SlotCliContext = {
-		repo: repoContext(),
+		repo: options.repo ?? repoContext(),
 		git,
 		gt,
 		pr: new FakeSlotPrGateway(),
@@ -118,7 +120,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		clipboard,
 		command: new FakeSlotCommandGateway(),
 		clock: createManualClock(Date.UTC(2026, 6, 12, 12)).clock,
-		cwd: "/repo",
+		cwd: options.cwd ?? "/repo",
 		renderCapabilities: options.renderCapabilities ?? { canEmitAnsi: false },
 		interaction:
 			fakeInteraction?.interaction ??

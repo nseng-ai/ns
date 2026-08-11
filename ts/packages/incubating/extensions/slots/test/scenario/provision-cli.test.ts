@@ -340,7 +340,7 @@ describe("placement provisioning", () => {
 	});
 
 	it("provisions the target slot during claim and surfaces notices", async () => {
-		const run = runScenario(["claim", "feature/a", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "feature/a", "--format", "json"], {
 			cwd: SLOT_01,
 			git: {
 				localBranches: ["master", "feature/a"],
@@ -350,7 +350,7 @@ describe("placement provisioning", () => {
 			provisionFiles: { projectConfigByRoot: { "/repo": DECLARED_ENV } },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				slotName: "slot-01",
 				provision: {
@@ -362,7 +362,7 @@ describe("placement provisioning", () => {
 	});
 
 	it("keeps claim successful when reading project config fails", async () => {
-		const run = runScenario(["claim", "feature/a", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "feature/a", "--format", "json"], {
 			cwd: SLOT_01,
 			git: {
 				localBranches: ["master", "feature/a"],
@@ -372,7 +372,7 @@ describe("placement provisioning", () => {
 			provisionFiles: { projectConfigReadFailures: { "/repo": "config unavailable" } },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				slotName: "slot-01",
 				provision: {

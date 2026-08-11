@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import {
-	parseJsonOutput,
-	repoContext,
-	runScenario,
-	slotWorktree,
-} from "../support/run-scenario.ts";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import { repoContext, slotWorktree } from "../support/run-scenario.ts";
 
 const slot1Path = "/slots/repos/repo/worktrees/slot-01";
 const slot2Path = "/slots/repos/repo/worktrees/slot-02";
 
+function parseJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
+
 describe("slot claim CLI", () => {
 	it("moves a branch from another slot into the current slot", async () => {
-		const run = runScenario(["claim", "feature/source", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "feature/source", "--format", "json"], {
 			cwd: slot1Path,
 			repo: repoContext({ root: slot1Path }),
 			git: {
@@ -39,7 +39,7 @@ describe("slot claim CLI", () => {
 	});
 
 	it("returns already current without mutation", async () => {
-		const run = runScenario(["claim", "feature/current", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "feature/current", "--format", "json"], {
 			cwd: slot1Path,
 			repo: repoContext({ root: slot1Path }),
 			git: {
@@ -55,7 +55,7 @@ describe("slot claim CLI", () => {
 	});
 
 	it("from main moves current non-trunk branch into the lowest slot", async () => {
-		const run = runScenario(["claim", "feature/main", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "feature/main", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/main"],
 				worktrees: [{ path: "/repo", branch: "feature/main" }, slotWorktree("slot-01")],
@@ -80,7 +80,7 @@ describe("slot claim CLI", () => {
 	});
 
 	it("from main claiming trunk checks trunk out in main and moves current branch into a slot", async () => {
-		const run = runScenario(["claim", "master", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "master", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/main"],
 				worktrees: [{ path: "/repo", branch: "feature/main" }, slotWorktree("slot-01")],
@@ -104,7 +104,7 @@ describe("slot claim CLI", () => {
 	});
 
 	it("from main claiming current trunk detaches main and checks trunk out into the lowest slot", async () => {
-		const run = runScenario(["claim", "master", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "master", "--format", "json"], {
 			git: {
 				localBranches: ["master"],
 				worktrees: [
@@ -133,7 +133,7 @@ describe("slot claim CLI", () => {
 	});
 
 	it("from main claiming current trunk already assigned to a slot refreshes that slot", async () => {
-		const run = runScenario(["claim", "master", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "master", "--format", "json"], {
 			git: {
 				localBranches: ["master"],
 				worktrees: [
@@ -163,7 +163,7 @@ describe("slot claim CLI", () => {
 	});
 
 	it("from main claiming current trunk detaches instead of checking out a previous branch", async () => {
-		const run = runScenario(["claim", "master", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "master", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/previous"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
@@ -178,7 +178,7 @@ describe("slot claim CLI", () => {
 	});
 
 	it("reports main detach in human output", async () => {
-		const run = runScenario(["claim", "master"], {
+		const run = runFilesystemScenario(["claim", "master"], {
 			git: {
 				localBranches: ["master"],
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")],
@@ -194,7 +194,7 @@ describe("slot claim CLI", () => {
 	])(
 		"from main refuses dirty current worktree before claiming $claimedBranch from $currentBranch",
 		async ({ currentBranch, claimedBranch }) => {
-			const run = runScenario(["claim", claimedBranch, "--format", "json"], {
+			const run = runFilesystemScenario(["claim", claimedBranch, "--format", "json"], {
 				git: {
 					localBranches: ["master", "feature/main"],
 					worktrees: [{ path: "/repo", branch: currentBranch }, slotWorktree("slot-01")],
@@ -208,7 +208,7 @@ describe("slot claim CLI", () => {
 	);
 
 	it("refuses dirty source slot before mutation", async () => {
-		const run = runScenario(["claim", "feature/source", "--format", "json"], {
+		const run = runFilesystemScenario(["claim", "feature/source", "--format", "json"], {
 			cwd: slot1Path,
 			repo: repoContext({ root: slot1Path }),
 			git: {

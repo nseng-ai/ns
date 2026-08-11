@@ -14,8 +14,6 @@ import {
 } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
-	claimRequestSchema,
-	claimResultSchema,
 	foreachRequestSchema,
 	foreachResultSchema,
 	freeRequestSchema,
@@ -47,7 +45,6 @@ import {
 	provisionApplyResultSchema,
 	provisionImportRequestSchema,
 	provisionImportResultSchema,
-	renderClaim,
 	renderForeach,
 	renderFree,
 	renderGc,
@@ -66,7 +63,6 @@ import {
 	renderStackMapBranches,
 	resizeRequestSchema,
 	resizeResultSchema,
-	runClaim,
 	runForeach,
 	runFree,
 	runGc,
@@ -158,17 +154,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "claim",
-		summary: "Move a local branch into the current managed slot or lowest available slot.",
-		description: "Move a local branch into the current managed slot or lowest available slot.",
-		schema: claimRequestSchema,
-		positionals: { branchName: { position: 0 } },
-		resultSchema: claimResultSchema,
-		handler: runClaim,
-		renderHuman: renderClaim,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "free",
