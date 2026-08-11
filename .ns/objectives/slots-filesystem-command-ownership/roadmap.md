@@ -59,7 +59,7 @@ Begin only after the phase-1 cutover and parity gate have landed. Each row is on
 
 ### Closure Evidence
 
-- [ ] Resolve from implementation facts whether selected-only import proof or packed-package inventory is warranted, and whether any remaining legacy rendering imports are legitimate presentation dependencies outside this Objective. Add only the necessary evidence or cleanup PRs; do not fold command migrations into them.
+- [x] Resolve from implementation facts whether selected-only import proof or packed-package inventory is warranted, and whether any remaining legacy rendering imports are legitimate presentation dependencies outside this Objective. Runner checkpoint `eb68ce73da13761faf816c8d1ada4db3904172f9` added a structural test that permits only the established presentation-only `RenderCapabilities` legacy imports and rejects command-outcome residue or boundary expansion. Separate selected-only proof is unnecessary because scenarios execute the production filesystem face; packed inventory is unnecessary because the source package ships its full `src` tree and descriptor inventory proves the route tree. All 384 Slot tests and full `just` validation passed.
 
 ## Parked
 
