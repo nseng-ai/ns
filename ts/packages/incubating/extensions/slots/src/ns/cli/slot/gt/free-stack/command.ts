@@ -7,7 +7,7 @@ import {
 	renderGtFreeStack,
 	runGtFreeStack,
 } from "../../../../../lifecycle/operations/gt/free-stack.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -18,8 +18,7 @@ export async function command() {
 		schema: gtFreeStackRequestSchema,
 		options: gtFreeStackOptionSpecs,
 		resultSchema: gtFreeStackResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtFreeStack(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runGtFreeStack(await createSlotCliContext(ctx), request),
 		renderHuman: renderGtFreeStack,
 	});
 }

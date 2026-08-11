@@ -173,4 +173,19 @@ describe("slot gt free-stack CLI", () => {
 		expect(run.stdout.join("")).toContain("No stack slots freed.");
 		expect(run.stdout.join("")).toContain("No assigned downstack slots were found.");
 	});
+
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["gt", "free-stack", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.gt.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+	});
 });

@@ -1,6 +1,7 @@
-import { failure, ok, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
-import { z } from "zod";
+import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { failure, ok } from "@nseng-ai/sdk";
+import { z } from "zod";
 
 import type { SlotCliContext } from "../../../core/context.ts";
 import { buildSlotInventory, findByBranch, poolSize } from "../../../core/inventory.ts";
@@ -30,7 +31,7 @@ export type GtFreeStackResult = z.infer<typeof gtFreeStackResultSchema>;
 
 export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return resolved;
+	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
 	const { repoCtx, repoRoot, mainRepoRoot, currentBranch } = resolved;
 	const trunkResult = await ctx.gt.trunk(repoRoot);
 	if (trunkResult.type === "failure")
