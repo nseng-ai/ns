@@ -12,7 +12,7 @@ Phase rule: migrate one command per PR in each applicable phase. `list` owns the
 - [x] Migrate `slot goto` command ownership in one PR. Runner checkpoint `db958c2157a1e5b8dbbc3dfbd786bf03d1d84a6e` colocated goto command assembly, removed its central registry entry, and moved scenarios to the production filesystem harness while preserving output-format, clipboard, and shell-directive behavior; focused Slot checks and full `just` validation passed.
 - [x] Migrate `slot claim` command ownership in one PR. Runner checkpoint `7a2769ef3a4fa36dc10d7c7f819330e1930d6bc5` colocated claim command assembly, removed its central registry entry, and moved claim behavior and affected provisioning scenarios to the production filesystem harness; focused Slot checks and full `just` validation passed.
 - [x] Migrate `slot free` command ownership in one PR. Runner checkpoint `939f7322ff1019e287d08d5435d5e62ccc5ffa92` colocated free command assembly, removed its central registry entry, and moved scenarios to the production filesystem harness while preserving interactive input and legacy negative rendering; focused Slot checks and full `just` validation passed.
-- [ ] Migrate `slot foreach` command ownership in one PR.
+- [x] Migrate `slot foreach` command ownership in one PR. Runner checkpoint `7586f28a1c170b00821f392de422d4f818568913` colocated foreach command assembly, removed its central registry entry, and moved scenarios to the production filesystem harness with an injected fake command gateway; focused Slot checks and full `just` validation passed.
 - [ ] Migrate `slot gc` command ownership in one PR.
 - [ ] Migrate `slot init` command ownership in one PR.
 - [ ] Migrate `slot resize` command ownership in one PR.
