@@ -1,6 +1,6 @@
 import type { StackInfo } from "@nseng-ai/extension-kit/graphite/stack";
 import { parseJsonUnknown } from "@nseng-ai/extension-kit/github/graphql-json";
-import { failure, negative, ok, usageError } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -70,7 +70,7 @@ type QuiescenceBlocker = z.infer<typeof quiescenceBlockerSchema>;
 
 export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescenceRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return resolved;
+	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
 
 	const stackResult = await ctx.gt.stack(resolved.repoRoot);
 	if (stackResult.type === "untracked_branch")

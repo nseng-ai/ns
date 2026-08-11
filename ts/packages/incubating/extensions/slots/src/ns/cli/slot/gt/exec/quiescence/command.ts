@@ -6,7 +6,7 @@ import {
 	renderGtQuiescence,
 	runGtQuiescence,
 } from "../../../../../../lifecycle/operations/gt/exec/quiescence.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -15,8 +15,7 @@ export async function command() {
 		description: "Preflight whether the current Graphite stack scope is safe to mutate.",
 		schema: gtQuiescenceRequestSchema,
 		resultSchema: gtQuiescenceResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtQuiescence(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runGtQuiescence(await createSlotCliContext(ctx), request),
 		renderHuman: renderGtQuiescence,
 	});
 }
