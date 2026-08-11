@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, ok } from "@nseng-ai/sdk";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 

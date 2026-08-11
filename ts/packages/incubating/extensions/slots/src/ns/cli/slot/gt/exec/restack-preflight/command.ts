@@ -6,7 +6,7 @@ import {
 	renderGtRestackPreflight,
 	runGtRestackPreflight,
 } from "../../../../../../lifecycle/operations/gt/exec/restack-preflight.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -17,7 +17,7 @@ export async function command() {
 		schema: gtRestackPreflightRequestSchema,
 		resultSchema: gtRestackPreflightResultSchema,
 		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtRestackPreflight(await createSlotCliContext(ctx), request)),
+			runGtRestackPreflight(await createSlotCliContext(ctx), request),
 		renderHuman: renderGtRestackPreflight,
 	});
 }

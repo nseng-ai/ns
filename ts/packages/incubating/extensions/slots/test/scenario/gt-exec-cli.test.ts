@@ -786,6 +786,21 @@ describe("slot gt exec restack-preflight CLI", () => {
 		});
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["gt", "exec", "restack-preflight", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.gt.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+	});
+
 	it("returns backend inspection failures as failures", async () => {
 		const gitFailure = runRestackPreflightScenario(
 			["gt", "exec", "restack-preflight", "--format", "json"],
