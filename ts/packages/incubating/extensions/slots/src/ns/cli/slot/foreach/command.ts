@@ -7,7 +7,7 @@ import {
 	renderForeach,
 	runForeach,
 } from "../../../../lifecycle/operations/foreach.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -18,10 +18,7 @@ export async function command() {
 		positionals: { command: { position: 0 } },
 		options: foreachOptionSpecs,
 		resultSchema: foreachResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runForeach(await createSlotCliContext(ctx), request), {
-				useHumanOverride: ctx.outputFormat === undefined || ctx.outputFormat === "human",
-			}),
+		handler: async (ctx, request) => runForeach(await createSlotCliContext(ctx), request),
 		renderHuman: renderForeach,
 	});
 }

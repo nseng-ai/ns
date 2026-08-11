@@ -102,6 +102,23 @@ describe("slot foreach CLI", () => {
 		});
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "status"],
+			{
+				repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.command.invocations()).toEqual([]);
+	});
+
 	it("fails before execution when an excluded Slot is unknown", async () => {
 		const run = runFilesystemScenario(
 			["foreach", "--yes", "--exclude", "slot-99", "--format", "json", "--", "git", "status"],

@@ -4,14 +4,9 @@ import {
 	tailText,
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
-import {
-	failure,
-	negative,
-	ok,
-	resolveRenderCapabilities,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr/legacy";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { cell, paint, renderTable } from "@nseng-ai/foundation/cli-theme";
+import { failure, negative, ok } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";
@@ -165,8 +160,10 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	const failedCount = [mainWorktree, ...slots].filter((target) => !target.succeeded).length;
 	if (failedCount > 0)
 		return negative(
-			`ns slot foreach: command failed in ${failedCount} of ${totalTargets} worktree(s).`,
-			{ data: result, human: renderForeach(result, ctx.renderCapabilities) },
+			ctx.shouldWriteCdDirective
+				? renderForeach(result, ctx.renderCapabilities)
+				: `ns slot foreach: command failed in ${failedCount} of ${totalTargets} worktree(s).`,
+			{ data: result },
 		);
 	return ok(result);
 }
