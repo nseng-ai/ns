@@ -7,7 +7,6 @@ import {
 	foreachOptionSpecs,
 	freeOptionSpecs,
 	gcOptionSpecs,
-	gotoOptionSpecs,
 	gtFreeStackOptionSpecs,
 	gtNavigationOptionSpecs,
 	provisionApplyOptionSpecs,
@@ -23,8 +22,6 @@ import {
 	freeResultSchema,
 	gcRequestSchema,
 	gcResultSchema,
-	gotoRequestSchema,
-	gotoResultSchema,
 	gtBackupRefsRequestSchema,
 	gtBackupRefsResultSchema,
 	gtDownRequestSchema,
@@ -54,7 +51,6 @@ import {
 	renderForeach,
 	renderFree,
 	renderGc,
-	renderGoto,
 	renderGtDownNavigation,
 	renderGtDescendantsReport,
 	renderGtFreeStack,
@@ -74,7 +70,6 @@ import {
 	runForeach,
 	runFree,
 	runGc,
-	runGoto,
 	runGtBackupRefs,
 	runGtDown,
 	runGtDescendantsReport,
@@ -163,17 +158,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "goto",
-		summary: "Print/copy a cd command for a slot worktree.",
-		description: "Print/copy a cd command for a slot worktree.",
-		schema: gotoRequestSchema,
-		options: gotoOptionSpecs,
-		resultSchema: gotoResultSchema,
-		handler: runGoto,
-		renderHuman: renderGoto,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "claim",
