@@ -7,7 +7,7 @@ import {
 	resizeResultSchema,
 	runResize,
 } from "../../../../lifecycle/operations/resize.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -17,8 +17,7 @@ export async function command() {
 		schema: resizeRequestSchema,
 		options: sizeOptionSpecs,
 		resultSchema: resizeResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runResize(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runResize(await createSlotCliContext(ctx), request),
 		renderHuman: renderResize,
 	});
 }

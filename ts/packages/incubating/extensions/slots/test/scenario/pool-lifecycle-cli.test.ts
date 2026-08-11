@@ -230,4 +230,19 @@ describe("slot resize CLI", () => {
 		);
 		expect(output.message).toContain("slot-04 is assigned to 'feature/rebase'");
 	});
+
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["resize", "--size", "2", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.storage.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+	});
 });
