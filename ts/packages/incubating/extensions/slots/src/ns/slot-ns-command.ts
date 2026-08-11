@@ -11,7 +11,6 @@ import {
 	createSlotCliContext,
 	toModernSlotOutcome,
 } from "./command-adapter.ts";
-import { buildNsShellCommands } from "./shell-commands.ts";
 import {
 	slotCommandBaseSpec,
 	slotCommandSpecs,
@@ -21,8 +20,6 @@ import {
 export function loadSlotNsCommand(commandName: string): NsCommand {
 	const spec = slotCommandSpecs.find((candidate) => candidate.name === commandName);
 	if (spec !== undefined) return slotCommandFromSpec(spec);
-	const shellCommand = buildNsShellCommands()[commandName === "install" ? 0 : -1];
-	if (shellCommand !== undefined) return shellCommand;
 	throw new Error(`Missing Slot ns command ${commandName}.`);
 }
 

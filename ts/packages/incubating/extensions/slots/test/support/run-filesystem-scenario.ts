@@ -34,6 +34,7 @@ export interface FilesystemScenarioOptions {
 	readonly git?: ConstructorParameters<typeof FakeSlotRepositoryGateway>[0];
 	readonly gt?: FakeGraphiteStackGatewayOptions;
 	readonly confirmations?: readonly ConfirmationResult[];
+	readonly nsConfirmations?: readonly ConfirmationResult[];
 	readonly clipboardResult?: ClipboardCopyResult;
 	readonly command?: FakeSlotCommandGatewayOptions;
 	readonly cwd?: string;
@@ -49,6 +50,7 @@ export interface FilesystemScenarioRun {
 	readonly exit: Promise<number>;
 	readonly stdout: string[];
 	readonly stderr: string[];
+	readonly nsConfirmationPrompts: string[];
 	readonly command: FakeSlotCommandGateway;
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
@@ -80,6 +82,7 @@ export function runFilesystemScenario(
 		exit,
 		stdout: fixture.stdout,
 		stderr: fixture.stderr,
+		nsConfirmationPrompts: fixture.nsConfirmationPrompts,
 		command: fixture.command,
 		git: fixture.git,
 		gt: fixture.gt,
@@ -114,6 +117,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	readonly context: SlotCliContext;
 	readonly stdout: string[];
 	readonly stderr: string[];
+	readonly nsConfirmationPrompts: string[];
 	readonly command: FakeSlotCommandGateway;
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
@@ -123,6 +127,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 } {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
+	const nsConfirmationPrompts: string[] = [];
 	const git = new FakeSlotRepositoryGateway(options.git);
 	const gt = new FakeGraphiteStackGateway(options.gt ?? {});
 	const pr = new FakeSlotPrGateway(options.pr);
@@ -160,10 +165,11 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		shouldWriteCdDirective: true,
 	};
 	return {
-		api: createScenarioNsApi(context),
+		api: createScenarioNsApi(context, options.nsConfirmations, nsConfirmationPrompts),
 		context,
 		stdout,
 		stderr,
+		nsConfirmationPrompts,
 		command,
 		git,
 		gt,
@@ -173,7 +179,12 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	};
 }
 
-function createScenarioNsApi(context: SlotCliContext): NsExtensionApi {
+function createScenarioNsApi(
+	context: SlotCliContext,
+	confirmations: readonly ConfirmationResult[] | undefined,
+	confirmationPrompts: string[],
+): NsExtensionApi {
+	let confirmationIndex = 0;
 	return {
 		cwd: context.cwd,
 		env: context.env,
@@ -183,9 +194,13 @@ function createScenarioNsApi(context: SlotCliContext): NsExtensionApi {
 		progress: noopNsProgress,
 		renderCapabilities: context.renderCapabilities,
 		hasExtension: () => false,
-		isInteractive: () => false,
-		confirm: () => {
-			throw new Error("Unexpected ns host confirmation in Slot scenario.");
+		isInteractive: () => confirmations !== undefined,
+		confirm: (_title, message) => {
+			confirmationPrompts.push(message);
+			const result = confirmations?.[confirmationIndex++];
+			if (result === undefined)
+				throw new Error("Unexpected ns host confirmation in Slot scenario.");
+			return result;
 		},
 		select: () => {
 			throw new Error("Unexpected ns host selection in Slot scenario.");
