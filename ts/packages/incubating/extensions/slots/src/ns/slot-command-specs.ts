@@ -3,13 +3,11 @@ import type { ClinkrExit, RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { gtFreeStackOptionSpecs, gtNavigationOptionSpecs } from "../core/command-options.ts";
+import { gtFreeStackOptionSpecs } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
 	gtBackupRefsRequestSchema,
 	gtBackupRefsResultSchema,
-	gtDownRequestSchema,
-	gtDownResultSchema,
 	gtDescendantsReportRequestSchema,
 	gtDescendantsReportResultSchema,
 	type GtDescendantsReportResult,
@@ -23,7 +21,6 @@ import {
 	gtStackBranchesResultSchema,
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
-	renderGtDownNavigation,
 	renderGtDescendantsReport,
 	renderGtFreeStack,
 	renderGtQuiescence,
@@ -32,7 +29,6 @@ import {
 	renderStackBranches,
 	renderStackMapBranches,
 	runGtBackupRefs,
-	runGtDown,
 	runGtDescendantsReport,
 	runGtFreeStack,
 	runGtQuiescence,
@@ -114,17 +110,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "gt",
-		name: "down",
-		summary: "Print/copy a cd command for the immediate downstack Graphite branch.",
-		description: "Print/copy a cd command for the immediate downstack Graphite branch.",
-		schema: gtDownRequestSchema,
-		options: gtNavigationOptionSpecs,
-		resultSchema: gtDownResultSchema,
-		handler: runGtDown,
-		renderHuman: renderGtDownNavigation,
-	}),
 	slotCommandSpec({
 		group: "gt",
 		name: "free-stack",

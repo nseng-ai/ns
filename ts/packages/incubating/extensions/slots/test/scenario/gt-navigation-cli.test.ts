@@ -2,7 +2,7 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
 	return JSON.parse(run.stdout.join(""));
@@ -15,15 +15,16 @@ describe("slot gt navigation CLI", () => {
 		expect(root.stdout.join("")).toContain("gt");
 		const gt = runScenario(["gt", "--help"]);
 		expect(await gt.exit).toBe(0);
-		expect(gt.stdout.join("")).toContain("down");
 		expect(gt.stdout.join("")).toContain("free-stack");
 		expect(gt.stdout.join("")).toContain("metadata-backed stack commands");
 		expect(gt.stdout.join("")).toContain("require the sqlite3 CLI");
 		expect(gt.stdout.join("")).not.toContain("exec");
 
-		const up = runFilesystemScenario(["gt", "up", "--help"]);
-		expect(await up.exit).toBe(0);
-		expect(up.stdout.join("")).toContain("--no-clipboard");
+		for (const command of ["up", "down"]) {
+			const navigation = runFilesystemScenario(["gt", command, "--help"]);
+			expect(await navigation.exit).toBe(0);
+			expect(navigation.stdout.join("")).toContain("--no-clipboard");
+		}
 	});
 
 	it("does not invoke the Graphite gateway for plain commands", async () => {
@@ -60,7 +61,7 @@ describe("slot gt navigation CLI", () => {
 	});
 
 	it("gt down checks out the parent into an available slot", async () => {
-		const run = runScenario(["gt", "down", "--no-clipboard", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "down", "--no-clipboard", "--format", "json"], {
 			git: {
 				localBranches: ["master", "feature/parent", "feature/current"],
 				worktrees: [{ path: "/repo", branch: "feature/current" }, slotWorktree("slot-01")],
@@ -68,7 +69,7 @@ describe("slot gt navigation CLI", () => {
 			gt: { parent: { type: "parent", branch: "feature/parent" } },
 		});
 		expect(await run.exit).toBe(0);
-		const output = parseJsonOutput(run);
+		const output = parseFilesystemJsonOutput(run);
 		expect(output).toMatchObject({
 			data: {
 				slotName: "slot-01",
@@ -112,7 +113,7 @@ describe("slot gt navigation CLI", () => {
 	});
 
 	it("renders checked-out, main-worktree, and no-clipboard navigation variants", async () => {
-		const checkedOut = runScenario(["gt", "down", "--no-clipboard"], {
+		const checkedOut = runFilesystemScenario(["gt", "down", "--no-clipboard"], {
 			git: {
 				localBranches: ["master", "feature/parent", "feature/current"],
 				worktrees: [{ path: "/repo", branch: "feature/current" }, slotWorktree("slot-01")],
@@ -125,7 +126,7 @@ describe("slot gt navigation CLI", () => {
 			"cd /slots/repos/repo/worktrees/slot-01",
 		]);
 
-		const main = runScenario(["gt", "down"], {
+		const main = runFilesystemScenario(["gt", "down"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "feature/parent" },
@@ -142,12 +143,12 @@ describe("slot gt navigation CLI", () => {
 	});
 
 	it("gt down reports a missing parent as a negative exit", async () => {
-		const run = runScenario(["gt", "down", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "down", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: { parent: { type: "no_parent" } },
 		});
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message: "No downstack branch for 'feature/current'.",
 		});
