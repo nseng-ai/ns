@@ -8,11 +8,7 @@ import {
 	runCheckout,
 } from "../../../../lifecycle/operations/checkout.ts";
 import { checkoutBranchesCompletionProviderFor } from "../../../checkout-completion.ts";
-import {
-	adaptSlotCompletionProvider,
-	createSlotCliContext,
-	toModernSlotOutcome,
-} from "../../../command-adapter.ts";
+import { adaptSlotCompletionProvider, createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	const completionProvider = adaptSlotCompletionProvider(
@@ -30,8 +26,7 @@ export async function command() {
 		options: checkoutOptionSpecs,
 		...(completionProvider === undefined ? {} : { completionProvider }),
 		resultSchema: checkoutResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runCheckout(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runCheckout(await createSlotCliContext(ctx), request),
 		renderHuman: renderCheckout,
 	});
 }

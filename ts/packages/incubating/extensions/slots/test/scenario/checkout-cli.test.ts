@@ -122,6 +122,19 @@ describe("slot checkout CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["checkout", "feature/a", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+	});
+
 	it("creates a new branch from base before assigning it", async () => {
 		const run = runFilesystemScenario(
 			["checkout", "feature/new", "master", "-b", "--format", "json"],
