@@ -6,7 +6,7 @@ import {
 	renderList,
 	runList,
 } from "../../../../lifecycle/operations/list.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -15,8 +15,7 @@ export async function command() {
 		description: "List worktree pool slots derived from Git worktree state.",
 		schema: listRequestSchema,
 		resultSchema: listResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runList(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runList(await createSlotCliContext(ctx), request),
 		renderHuman: renderList,
 	});
 }

@@ -1,10 +1,6 @@
-import {
-	failure,
-	ok,
-	resolveRenderCapabilities,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr/legacy";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { cell, paint, renderBufferedReport, renderTable } from "@nseng-ai/foundation/cli-theme";
+import { failure, ok } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../core/context.ts";

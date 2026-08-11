@@ -106,6 +106,19 @@ describe("slot list command group", () => {
 		});
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["list", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+	});
+
 	it("prints a JSON schema for machine consumers", async () => {
 		const run = runFilesystemScenario(["list", "--json-schema"]);
 		expect(await run.exit).toBe(0);
