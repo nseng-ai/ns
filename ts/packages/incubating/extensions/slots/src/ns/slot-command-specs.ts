@@ -5,7 +5,6 @@ import { z } from "zod";
 
 import {
 	foreachOptionSpecs,
-	freeOptionSpecs,
 	gcOptionSpecs,
 	gtFreeStackOptionSpecs,
 	gtNavigationOptionSpecs,
@@ -16,8 +15,6 @@ import type { SlotCliContext } from "../core/context.ts";
 import {
 	foreachRequestSchema,
 	foreachResultSchema,
-	freeRequestSchema,
-	freeResultSchema,
 	gcRequestSchema,
 	gcResultSchema,
 	gtBackupRefsRequestSchema,
@@ -46,7 +43,6 @@ import {
 	provisionImportRequestSchema,
 	provisionImportResultSchema,
 	renderForeach,
-	renderFree,
 	renderGc,
 	renderGtDownNavigation,
 	renderGtDescendantsReport,
@@ -64,7 +60,6 @@ import {
 	resizeRequestSchema,
 	resizeResultSchema,
 	runForeach,
-	runFree,
 	runGc,
 	runGtBackupRefs,
 	runGtDown,
@@ -154,17 +149,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "free",
-		summary: "Free assigned slots back to the pool.",
-		description: "Free assigned slots back to the pool.",
-		schema: freeRequestSchema,
-		options: freeOptionSpecs,
-		resultSchema: freeResultSchema,
-		handler: runFree,
-		renderHuman: renderFree,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "foreach",

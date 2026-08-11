@@ -13,7 +13,10 @@ import {
 import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 import { FakeGraphiteStackGateway } from "@nseng-ai/extension-kit/graphite/testing";
-import { FakeSlotPrGateway } from "../../src/core/gateways/fakes/pr.ts";
+import {
+	FakeSlotPrGateway,
+	type FakeSlotPrGatewayOptions,
+} from "../../src/core/gateways/fakes/pr.ts";
 import {
 	FakeSlotProvisionFilesGateway,
 	type FakeSlotProvisionFilesGatewayOptions,
@@ -27,9 +30,11 @@ export interface FilesystemScenarioOptions {
 	readonly clipboardResult?: ClipboardCopyResult;
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
+	readonly pr?: FakeSlotPrGatewayOptions;
 	readonly provisionFiles?: FakeSlotProvisionFilesGatewayOptions;
 	readonly renderCapabilities?: RenderCapabilities;
 	readonly repo?: RepoContext;
+	readonly stdin?: string | (() => Promise<string | null>);
 }
 
 export interface FilesystemScenarioRun {
@@ -38,6 +43,7 @@ export interface FilesystemScenarioRun {
 	readonly stderr: string[];
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
+	readonly pr: FakeSlotPrGateway;
 	readonly provisionFiles: FakeSlotProvisionFilesGateway;
 }
 
@@ -66,6 +72,7 @@ export function runFilesystemScenario(
 		stderr: fixture.stderr,
 		git: fixture.git,
 		gt: fixture.gt,
+		pr: fixture.pr,
 		provisionFiles: fixture.provisionFiles,
 	};
 }
@@ -97,15 +104,17 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	readonly stderr: string[];
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
+	readonly pr: FakeSlotPrGateway;
 	readonly provisionFiles: FakeSlotProvisionFilesGateway;
 } {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const git = new FakeSlotRepositoryGateway(options.git);
 	const gt = new FakeGraphiteStackGateway({});
+	const pr = new FakeSlotPrGateway(options.pr);
 	const provisionFiles = new FakeSlotProvisionFilesGateway(options.provisionFiles);
 	const clipboard = new FakeClipboardGateway(options.clipboardResult);
-	const stdin = createOneShotStdinAdapter(undefined);
+	const stdin = createOneShotStdinAdapter(options.stdin);
 	const fakeInteraction =
 		options.confirmations === undefined
 			? undefined
@@ -114,7 +123,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		repo: options.repo ?? repoContext(),
 		git,
 		gt,
-		pr: new FakeSlotPrGateway(),
+		pr,
 		storage: new FakeSlotStorageGateway(),
 		provisionFiles,
 		clipboard,
@@ -124,13 +133,26 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		renderCapabilities: options.renderCapabilities ?? { canEmitAnsi: false },
 		interaction:
 			fakeInteraction?.interaction ??
-			resolveClinkrInteraction({ stdin, stderr: (text) => stderr.push(text) }),
+			resolveClinkrInteraction({
+				stdin,
+				stderr: (text) => stderr.push(text),
+				...(options.stdin === undefined ? {} : { injectedStdin: stdin }),
+			}),
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
 		shouldWriteCdDirective: true,
 	};
-	return { api: createScenarioNsApi(context), context, stdout, stderr, git, gt, provisionFiles };
+	return {
+		api: createScenarioNsApi(context),
+		context,
+		stdout,
+		stderr,
+		git,
+		gt,
+		pr,
+		provisionFiles,
+	};
 }
 
 function createScenarioNsApi(context: SlotCliContext): NsExtensionApi {

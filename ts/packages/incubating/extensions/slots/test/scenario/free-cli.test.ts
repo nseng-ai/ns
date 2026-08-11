@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
+
+function parseJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
 
 describe("slot free CLI", () => {
 	it("appears in root help", async () => {
-		const run = runScenario(["--help"]);
+		const run = runFilesystemScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("free");
 	});
 
 	it("frees a slot by --wt", async () => {
-		const run = runScenario(["free", "--wt", "slot-01", "--format", "json"], {
+		const run = runFilesystemScenario(["free", "--wt", "slot-01", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
 				localBranches: ["master", "feature/a"],
@@ -26,7 +31,7 @@ describe("slot free CLI", () => {
 	});
 
 	it("reports operation state for a detached rebasing slot", async () => {
-		const run = runScenario(["free", "-n", "3", "--format", "json"], {
+		const run = runFilesystemScenario(["free", "-n", "3", "--format", "json"], {
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", null),
@@ -51,13 +56,16 @@ describe("slot free CLI", () => {
 	});
 
 	it("dry-runs --all cleanup without mutating PRs or branches", async () => {
-		const run = runScenario(["free", "-n", "1", "--all", "--dry-run", "--format", "json"], {
-			git: {
-				worktrees: [slotWorktree("slot-01", "feature/a")],
-				localBranches: ["master", "feature/a"],
+		const run = runFilesystemScenario(
+			["free", "-n", "1", "--all", "--dry-run", "--format", "json"],
+			{
+				git: {
+					worktrees: [slotWorktree("slot-01", "feature/a")],
+					localBranches: ["master", "feature/a"],
+				},
+				pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
 			},
-			pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
-		});
+		);
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
@@ -75,7 +83,7 @@ describe("slot free CLI", () => {
 	});
 
 	it("renders human dry-run summary through the destructive result block", async () => {
-		const run = runScenario(["free", "-n", "1", "--all", "--dry-run"], {
+		const run = runFilesystemScenario(["free", "-n", "1", "--all", "--dry-run"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
 				localBranches: ["master", "feature/a"],
@@ -93,7 +101,7 @@ describe("slot free CLI", () => {
 	});
 
 	it("requires --yes for destructive --all when non-interactive", async () => {
-		const run = runScenario(["free", "--wt", "slot-01", "--all", "--format", "json"], {
+		const run = runFilesystemScenario(["free", "--wt", "slot-01", "--all", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
 				localBranches: ["master", "feature/a"],
@@ -102,15 +110,15 @@ describe("slot free CLI", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			status: "usageError",
-			errorType: "usageError",
+			status: "usage-error",
+			errorType: "usage-error",
 			data: { missingFlag: "--yes" },
 		});
 		expect(run.git.operations()).toEqual([]);
 	});
 
 	it("human --all prompt accepts with live progress and final summary", async () => {
-		const accepted = runScenario(["free", "--wt", "slot-01", "--all"], {
+		const accepted = runFilesystemScenario(["free", "--wt", "slot-01", "--all"], {
 			stdin: "yes\n",
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
@@ -139,7 +147,7 @@ describe("slot free CLI", () => {
 	});
 
 	it("human --all prompt decline keeps execution progress and mutations suppressed", async () => {
-		const declined = runScenario(["free", "--wt", "slot-01", "--all"], {
+		const declined = runFilesystemScenario(["free", "--wt", "slot-01", "--all"], {
 			stdin: "\n",
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
@@ -160,7 +168,7 @@ describe("slot free CLI", () => {
 	});
 
 	it("reports an unmatched branch selector instead of treating it as missing", async () => {
-		const run = runScenario(["free", "-b", "feature/missing", "--format", "json"], {
+		const run = runFilesystemScenario(["free", "-b", "feature/missing", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
 				localBranches: ["master", "feature/a"],
@@ -177,13 +185,16 @@ describe("slot free CLI", () => {
 	});
 
 	it("--all --yes closes PR then deletes local branch after detach", async () => {
-		const run = runScenario(["free", "-b", "feature/a", "--all", "--yes", "--format", "json"], {
-			git: {
-				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
-				localBranches: ["master", "feature/a"],
+		const run = runFilesystemScenario(
+			["free", "-b", "feature/a", "--all", "--yes", "--format", "json"],
+			{
+				git: {
+					worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
+					localBranches: ["master", "feature/a"],
+				},
+				pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
 			},
-			pr: { prsByBranch: { "feature/a": { number: 12, state: "OPEN" } } },
-		});
+		);
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: {
@@ -206,23 +217,26 @@ describe("slot free CLI", () => {
 	});
 
 	it("renders cleanup failures as destructive errors while preserving negative JSON", async () => {
-		const json = runScenario(["free", "-b", "feature/a", "--all", "--yes", "--format", "json"], {
-			git: {
-				worktrees: [slotWorktree("slot-01", "feature/a")],
-				localBranches: ["master", "feature/a"],
+		const json = runFilesystemScenario(
+			["free", "-b", "feature/a", "--all", "--yes", "--format", "json"],
+			{
+				git: {
+					worktrees: [slotWorktree("slot-01", "feature/a")],
+					localBranches: ["master", "feature/a"],
+				},
+				pr: {
+					prsByBranch: { "feature/a": { number: 12, state: "OPEN" } },
+					closeFailures: { 12: "permission denied" },
+				},
 			},
-			pr: {
-				prsByBranch: { "feature/a": { number: 12, state: "OPEN" } },
-				closeFailures: { 12: "permission denied" },
-			},
-		});
+		);
 		expect(await json.exit).toBe(1);
 		expect(parseJsonOutput(json)).toMatchObject({
 			message: "Slot free completed with cleanup errors.",
 			data: { cleanup: [{ action: "pr", status: "error", message: "permission denied" }] },
 		});
 
-		const human = runScenario(["free", "-b", "feature/a", "--all", "--yes"], {
+		const human = runFilesystemScenario(["free", "-b", "feature/a", "--all", "--yes"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/a")],
 				localBranches: ["master", "feature/a"],
@@ -233,9 +247,7 @@ describe("slot free CLI", () => {
 			},
 		});
 		expect(await human.exit).toBe(1);
-		expect(human.stdout.join("")).toBe("");
-		const stderr = human.stderr.join("");
-		expect(stderr).toContain("Slot free completed with cleanup errors.");
-		expect(stderr).toContain("✗ Failed to close PR #12: permission denied");
+		expect(human.stdout.join("")).toContain("✗ Failed to close PR #12: permission denied");
+		expect(human.stderr.join("")).toContain("Closing PR #12…");
 	});
 });

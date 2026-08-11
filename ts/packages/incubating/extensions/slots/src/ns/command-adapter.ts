@@ -32,16 +32,23 @@ export function adaptSlotCompletionProvider(
 }
 
 /** Temporary phase-1 bridge from legacy Slot exits to modern SDK outcomes. */
-export function toModernSlotOutcome<T>(value: unknown): CommandExit<T> {
+export function toModernSlotOutcome<T>(
+	value: unknown,
+	options: { readonly useHumanOverride?: boolean } = {},
+): CommandExit<T> {
 	if (typeof value !== "object" || value === null || !("type" in value)) {
 		throw new Error("Slot command returned an invalid outcome.");
 	}
 	const legacy = value as Record<string, unknown>;
 	if (legacy.type === "ok") return { status: "success", data: legacy.data as T };
 	if (legacy.type === "negative") {
+		const message =
+			options.useHumanOverride === true && typeof legacy.human === "string"
+				? legacy.human
+				: String(legacy.message);
 		return {
 			status: "negative",
-			message: String(legacy.message),
+			message,
 			...optionalEntry("data", legacy.data),
 		};
 	}
