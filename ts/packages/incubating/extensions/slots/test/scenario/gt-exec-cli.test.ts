@@ -9,12 +9,7 @@ import {
 	runFilesystemScenario,
 	type FilesystemScenarioOptions,
 } from "../support/run-filesystem-scenario.ts";
-import {
-	parseJsonOutput,
-	runScenario,
-	slotWorktree,
-	type ScenarioRunOptions,
-} from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
 
 function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
 	return JSON.parse(run.stdout.join(""));
@@ -407,11 +402,11 @@ describe("slot gt exec quiescence CLI", () => {
 
 describe("slot gt exec restack-preflight CLI", () => {
 	it("is hidden, registered, and publishes its machine schema", async () => {
-		const help = runScenario(["gt", "-h"]);
+		const help = runFilesystemScenario(["gt", "-h"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).not.toContain("restack-preflight");
 
-		const schema = runScenario(["gt", "exec", "restack-preflight", "--json-schema"]);
+		const schema = runFilesystemScenario(["gt", "exec", "restack-preflight", "--json-schema"]);
 		expect(await schema.exit).toBe(0);
 		expect(schema.stdout.join("")).toContain("requestedScope");
 		expect(schema.stdout.join("")).toContain("slotConflicts");
@@ -433,8 +428,8 @@ describe("slot gt exec restack-preflight CLI", () => {
 			"json",
 		]);
 		expect(await json.exit).toBe(0);
-		expect(parseJsonOutput(json)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(json)).toMatchObject({
+			status: "success",
 			data: {
 				clean: true,
 				tracked: true,
@@ -463,7 +458,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		);
 
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: { rebaseInProgress: false, slotConflicts: [] },
 		});
 		expect(run.gt.operations()).toEqual([
@@ -482,7 +477,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			"json",
 		]);
 		expect(await full.exit).toBe(0);
-		expect(parseJsonOutput(full)).toMatchObject({
+		expect(parseFilesystemJsonOutput(full)).toMatchObject({
 			data: {
 				requestedScope: "full",
 				effectiveScope: "full",
@@ -502,7 +497,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await noChildren.exit).toBe(0);
-		expect(parseJsonOutput(noChildren)).toMatchObject({
+		expect(parseFilesystemJsonOutput(noChildren)).toMatchObject({
 			data: { requestedScope: "full", effectiveScope: "downstack" },
 		});
 	});
@@ -513,7 +508,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			{ git: { dirtyPaths: ["/repo"] } },
 		);
 		expect(await dirty.exit).toBe(1);
-		expect(parseJsonOutput(dirty)).toMatchObject({
+		expect(parseFilesystemJsonOutput(dirty)).toMatchObject({
 			status: "negative",
 			data: { clean: false },
 		});
@@ -527,8 +522,8 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await rebase.exit).toBe(0);
-		expect(parseJsonOutput(rebase)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(rebase)).toMatchObject({
+			status: "success",
 			data: {
 				rebaseInProgress: true,
 				slotConflicts: [
@@ -552,8 +547,8 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await dirtyRebase.exit).toBe(0);
-		expect(parseJsonOutput(dirtyRebase)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(dirtyRebase)).toMatchObject({
+			status: "success",
 			data: { clean: false, rebaseInProgress: true },
 		});
 
@@ -569,7 +564,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await occupied.exit).toBe(1);
-		expect(parseJsonOutput(occupied)).toMatchObject({
+		expect(parseFilesystemJsonOutput(occupied)).toMatchObject({
 			data: {
 				slotConflicts: [
 					{
@@ -601,7 +596,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await slotRebase.exit).toBe(1);
-		expect(restackPreflightJsonData(parseJsonOutput(slotRebase)).slotConflicts).toEqual([
+		expect(restackPreflightJsonData(parseFilesystemJsonOutput(slotRebase)).slotConflicts).toEqual([
 			{
 				type: "slot-rebase-in-progress",
 				branch: "feature/a",
@@ -626,7 +621,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		);
 
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			status: "negative",
 			data: {
 				tracked: false,
@@ -652,7 +647,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await trunk.exit).toBe(1);
-		expect(parseJsonOutput(trunk)).toMatchObject({
+		expect(parseFilesystemJsonOutput(trunk)).toMatchObject({
 			status: "negative",
 			message: "On trunk 'master'; no stack is checked out.",
 			data: { effectiveScope: "downstack", branches: [] },
@@ -666,7 +661,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		);
 
 		expect(await detached.exit).toBe(2);
-		expect(parseJsonOutput(detached)).toMatchObject({
+		expect(parseFilesystemJsonOutput(detached)).toMatchObject({
 			status: "failure",
 			errorType: "detached-head",
 		});
@@ -685,8 +680,8 @@ describe("slot gt exec restack-preflight CLI", () => {
 		);
 
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "success",
 			data: {
 				tracked: true,
 				rebaseInProgress: true,
@@ -727,8 +722,8 @@ describe("slot gt exec restack-preflight CLI", () => {
 		);
 
 		expect(await untracked.exit).toBe(0);
-		expect(parseJsonOutput(untracked)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(untracked)).toMatchObject({
+			status: "success",
 			data: {
 				tracked: false,
 				rebaseInProgress: true,
@@ -755,7 +750,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 		);
 
 		expect(await missingBranch.exit).toBe(2);
-		expect(parseJsonOutput(missingBranch)).toMatchObject({
+		expect(parseFilesystemJsonOutput(missingBranch)).toMatchObject({
 			status: "failure",
 			errorType: "detached-head",
 		});
@@ -767,7 +762,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			{ git: { uncommittedChangesFailure: { message: "status unavailable" } } },
 		);
 		expect(await gitFailure.exit).toBe(2);
-		expect(parseJsonOutput(gitFailure)).toMatchObject({
+		expect(parseFilesystemJsonOutput(gitFailure)).toMatchObject({
 			status: "failure",
 			errorType: "git-inspection-failed",
 			message: "status unavailable",
@@ -786,7 +781,7 @@ describe("slot gt exec restack-preflight CLI", () => {
 			},
 		);
 		expect(await graphiteFailure.exit).toBe(2);
-		expect(parseJsonOutput(graphiteFailure)).toMatchObject({
+		expect(parseFilesystemJsonOutput(graphiteFailure)).toMatchObject({
 			status: "failure",
 			errorType: "gt-stack-read-failed",
 		});
@@ -1387,8 +1382,8 @@ function restackPreflightJsonData(output: unknown): RestackPreflightJsonData {
 
 interface RestackPreflightScenarioOptions {
 	readonly stack?: ReturnType<typeof fakeStackInfo>;
-	readonly git?: ScenarioRunOptions["git"];
-	readonly gt?: ScenarioRunOptions["gt"];
+	readonly git?: FilesystemScenarioOptions["git"];
+	readonly gt?: FilesystemScenarioOptions["gt"];
 	readonly cwd?: string;
 }
 
@@ -1396,7 +1391,7 @@ function runRestackPreflightScenario(
 	args: readonly string[],
 	options: RestackPreflightScenarioOptions = {},
 ) {
-	return runScenario(args, {
+	return runFilesystemScenario(args, {
 		...(options.cwd === undefined ? {} : { cwd: options.cwd }),
 		git: {
 			worktrees: [{ path: "/repo", branch: "feature/current" }],
