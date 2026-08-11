@@ -99,6 +99,21 @@ describe("slot gt exec stack-branches CLI", () => {
 		});
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["gt", "exec", "stack-branches", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+		expect(run.gt.operations()).toEqual([]);
+		expect(run.git.operations()).toEqual([]);
+	});
+
 	it("fails forked full-stack metadata but only warns for downstack scope", async () => {
 		const stack = fakeStackInfo({
 			trunk: "master",

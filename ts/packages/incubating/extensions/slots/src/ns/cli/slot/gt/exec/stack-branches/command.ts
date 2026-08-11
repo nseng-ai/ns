@@ -6,7 +6,7 @@ import {
 	renderStackBranches,
 	runGtStackBranches,
 } from "../../../../../../lifecycle/operations/gt/exec/stack-branches.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -15,8 +15,7 @@ export async function command() {
 		description: "Emit the current Graphite stack branch list for skill/agent invocation.",
 		schema: gtStackBranchesRequestSchema,
 		resultSchema: gtStackBranchesResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtStackBranches(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runGtStackBranches(await createSlotCliContext(ctx), request),
 		renderHuman: renderStackBranches,
 	});
 }

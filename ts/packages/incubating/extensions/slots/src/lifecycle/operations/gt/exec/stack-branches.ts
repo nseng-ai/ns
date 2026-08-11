@@ -1,4 +1,4 @@
-import { failure, negative, ok } from "@nseng-ai/clinkr/legacy";
+import { failure, negative, ok } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import type { SlotCliContext } from "../../../../core/context.ts";
@@ -30,7 +30,7 @@ export type GtStackBranchesResult = z.infer<typeof gtStackBranchesResultSchema>;
 
 export async function runGtStackBranches(ctx: SlotCliContext, request: GtStackBranchesRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return resolved;
+	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
 	const stackResult = await ctx.gt.stack(resolved.repoRoot);
 	if (stackResult.type === "untracked_branch")
 		return failure("untracked-branch", `${stackResult.message} — run \`gt track\` first`);
