@@ -7,7 +7,7 @@ import {
 	renderGtUpNavigation,
 	runGtUp,
 } from "../../../../../lifecycle/operations/gt/up.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -17,8 +17,7 @@ export async function command() {
 		schema: gtUpRequestSchema,
 		options: gtNavigationOptionSpecs,
 		resultSchema: gtNavigationResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGtUp(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runGtUp(await createSlotCliContext(ctx), request),
 		renderHuman: renderGtUpNavigation,
 	});
 }
