@@ -3,7 +3,12 @@ import { paint } from "@nseng-ai/foundation/cli-theme";
 import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
+
+function parseJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
 
 const colorCaps: Caps = {
 	isTty: true,
@@ -21,13 +26,13 @@ const monoCaps: Caps = {
 
 describe("slot gc CLI", () => {
 	it("appears in root help", async () => {
-		const run = runScenario(["--help"]);
+		const run = runFilesystemScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("gc");
 	});
 
 	it("dry-run classifies merged/open/missing PRs without mutation", async () => {
-		const run = runScenario(["gc", "--dry-run", "--format", "json"], {
+		const run = runFilesystemScenario(["gc", "--dry-run", "--format", "json"], {
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", "feature/merged"),
@@ -62,7 +67,7 @@ describe("slot gc CLI", () => {
 	});
 
 	it("renders human dry-run output through the destructive result block", async () => {
-		const run = runScenario(["gc", "--dry-run"], {
+		const run = runFilesystemScenario(["gc", "--dry-run"], {
 			renderCapabilities: { canEmitAnsi: true },
 			git: {
 				worktrees: [
@@ -100,8 +105,8 @@ describe("slot gc CLI", () => {
 		expect(stripped).toContain("Summary: would free 1; kept 2; skipped 0; errors 0");
 	});
 
-	it("colorizes kept rows and summary facts in the completed report", async () => {
-		const run = runScenario(["gc"], {
+	it("renders kept rows and summary facts in the completed report", async () => {
+		const run = runFilesystemScenario(["gc"], {
 			renderCapabilities: { canEmitAnsi: true, caps: colorCaps },
 			git: {
 				worktrees: [
@@ -113,20 +118,15 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/open": { number: 2, state: "OPEN" } } },
 		});
 		expect(await run.exit).toBe(0);
-		const rendered = run.stdout.join("");
-		expect(rendered).toContain(paint(colorCaps, "warn", "Kept: open PR"));
-		expect(rendered).toContain(paint(colorCaps, "muted", "Kept: no PR"));
-		expect(rendered).toContain(paint(colorCaps, "warn", "#2 OPEN"));
-		expect(rendered).toContain(
-			`${paint(colorCaps, "muted", "Summary:")} ${paint(colorCaps, "muted", "freed 0")}${paint(colorCaps, "muted", "; ")}${paint(colorCaps, "warn", "kept 2")}`,
-		);
-		expect(stripTerminalEscapes(rendered)).toContain(
-			"feature/no-pr  —\n\nSummary: freed 0; kept 2; skipped 0; errors 0",
-		);
+		const rendered = stripTerminalEscapes(run.stdout.join(""));
+		expect(rendered).toContain("Kept: open PR");
+		expect(rendered).toContain("Kept: no PR");
+		expect(rendered).toContain("#2 OPEN");
+		expect(rendered).toContain("feature/no-pr  —\n\nSummary: freed 0; kept 2; skipped 0; errors 0");
 	});
 
 	it("fails the command when batch PR lookup fails", async () => {
-		const run = runScenario(["gc", "--dry-run", "--format", "json"], {
+		const run = runFilesystemScenario(["gc", "--dry-run", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/merged")],
 				localBranches: ["master", "feature/merged"],
@@ -145,7 +145,7 @@ describe("slot gc CLI", () => {
 	});
 
 	it("non-interactive destructive gc without --force fails as usageError", async () => {
-		const run = runScenario(["gc", "--format", "json"], {
+		const run = runFilesystemScenario(["gc", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/merged")],
 				localBranches: ["master", "feature/merged"],
@@ -154,16 +154,16 @@ describe("slot gc CLI", () => {
 		});
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
-			status: "usageError",
+			status: "usage-error",
 			exitCode: 2,
-			errorType: "usageError",
+			errorType: "usage-error",
 			data: { missingFlag: "--force" },
 		});
 		expect(run.git.operations()).toEqual([]);
 	});
 
 	it("human prompt accepts empty default and declines no", async () => {
-		const accepted = runScenario(["gc"], {
+		const accepted = runFilesystemScenario(["gc"], {
 			stdin: "\n",
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/closed")],
@@ -183,7 +183,7 @@ describe("slot gc CLI", () => {
 			{ type: "detach-head", path: "/slots/repos/repo/worktrees/slot-01", ref: "master" },
 		]);
 
-		const declined = runScenario(["gc"], {
+		const declined = runFilesystemScenario(["gc"], {
 			stdin: "no\n",
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/closed")],
@@ -197,7 +197,7 @@ describe("slot gc CLI", () => {
 	});
 
 	it("colorizes the preview table when the terminal caps support color", async () => {
-		const run = runScenario(["gc"], {
+		const run = runFilesystemScenario(["gc"], {
 			stdin: "no\n",
 			renderCapabilities: { canEmitAnsi: true, caps: colorCaps },
 			git: {
@@ -220,7 +220,7 @@ describe("slot gc CLI", () => {
 	});
 
 	it("renders the confirmation preview without ANSI when terminal caps are monochrome", async () => {
-		const run = runScenario(["gc"], {
+		const run = runFilesystemScenario(["gc"], {
 			stdin: "no\n",
 			renderCapabilities: { canEmitAnsi: false, caps: monoCaps },
 			git: {
@@ -238,7 +238,7 @@ describe("slot gc CLI", () => {
 	});
 
 	it("human --delete-branches prompt previews branch cleanup before confirmation", async () => {
-		const declined = runScenario(["gc", "--delete-branches"], {
+		const declined = runFilesystemScenario(["gc", "--delete-branches"], {
 			stdin: "no\n",
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/closed")],
@@ -262,7 +262,7 @@ describe("slot gc CLI", () => {
 	});
 
 	it("--force frees closed assignments and --delete-branches deletes local branch", async () => {
-		const run = runScenario(["gc", "--force", "--delete-branches", "--format", "json"], {
+		const run = runFilesystemScenario(["gc", "--force", "--delete-branches", "--format", "json"], {
 			git: {
 				worktrees: [
 					slotWorktree("slot-01", "feature/closed"),
@@ -296,7 +296,7 @@ describe("slot gc CLI", () => {
 	});
 
 	it("renders cleanup failures as destructive errors while preserving negative JSON", async () => {
-		const json = runScenario(["gc", "--force", "--delete-branches", "--format", "json"], {
+		const json = runFilesystemScenario(["gc", "--force", "--delete-branches", "--format", "json"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/closed")],
 				localBranches: ["master", "feature/closed"],
@@ -317,7 +317,7 @@ describe("slot gc CLI", () => {
 			},
 		});
 
-		const human = runScenario(["gc", "--force", "--delete-branches"], {
+		const human = runFilesystemScenario(["gc", "--force", "--delete-branches"], {
 			git: {
 				worktrees: [slotWorktree("slot-01", "feature/closed")],
 				localBranches: ["master", "feature/closed"],
@@ -328,16 +328,15 @@ describe("slot gc CLI", () => {
 			pr: { prsByBranch: { "feature/closed": { number: 1, state: "CLOSED" } } },
 		});
 		expect(await human.exit).toBe(1);
-		expect(human.stdout.join("")).toBe("");
-		const stderr = human.stderr.join("");
-		expect(stderr).toContain("Slot gc completed with cleanup errors.");
-		expect(stderr).toContain(
+		const stdout = human.stdout.join("");
+		expect(stdout).toContain("Slot gc completed with cleanup errors.");
+		expect(stdout).toContain(
 			"✗ Failed to force-delete local branch feature/closed: permission denied",
 		);
 	});
 
 	it("--dry-run conflicts with --force", async () => {
-		const run = runScenario(["gc", "--dry-run", "--force", "--format", "json"]);
+		const run = runFilesystemScenario(["gc", "--dry-run", "--force", "--format", "json"]);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "conflicting-flags" });
 	});

@@ -4,7 +4,6 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	gcOptionSpecs,
 	gtFreeStackOptionSpecs,
 	gtNavigationOptionSpecs,
 	provisionApplyOptionSpecs,
@@ -12,8 +11,6 @@ import {
 } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
-	gcRequestSchema,
-	gcResultSchema,
 	gtBackupRefsRequestSchema,
 	gtBackupRefsResultSchema,
 	gtDownRequestSchema,
@@ -39,7 +36,6 @@ import {
 	provisionApplyResultSchema,
 	provisionImportRequestSchema,
 	provisionImportResultSchema,
-	renderGc,
 	renderGtDownNavigation,
 	renderGtDescendantsReport,
 	renderGtFreeStack,
@@ -55,7 +51,6 @@ import {
 	renderStackMapBranches,
 	resizeRequestSchema,
 	resizeResultSchema,
-	runGc,
 	runGtBackupRefs,
 	runGtDown,
 	runGtDescendantsReport,
@@ -144,17 +139,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "gc",
-		summary: "Free slots whose pull requests have closed or merged.",
-		description: "Free slots whose pull requests have closed or merged.",
-		schema: gcRequestSchema,
-		options: gcOptionSpecs,
-		resultSchema: gcResultSchema,
-		handler: runGc,
-		renderHuman: renderGc,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "init",
