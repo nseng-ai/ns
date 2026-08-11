@@ -5,14 +5,9 @@ import { z } from "zod";
 
 import type { SlotCliContext } from "../core/context.ts";
 import {
-	gtDescendantsReportRequestSchema,
-	gtDescendantsReportResultSchema,
-	type GtDescendantsReportResult,
 	gtRestackPreflightRequestSchema,
 	gtRestackPreflightResultSchema,
-	renderGtDescendantsReport,
 	renderGtRestackPreflight,
-	runGtDescendantsReport,
 	runGtRestackPreflight,
 } from "../lifecycle/operations/index.ts";
 
@@ -89,22 +84,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec<
-		typeof gtDescendantsReportRequestSchema,
-		GtDescendantsReportResult | { target: string }
-	>({
-		group: "gt-exec",
-		name: "descendants-report",
-		summary: "Emit complete descendant topology, Git evidence, and best-effort PR metadata.",
-		description:
-			"Inspect a named local branch's complete Graphite descendant subtree without requiring checkout.",
-		schema: gtDescendantsReportRequestSchema,
-		positionals: { branch: { position: 0 } },
-		resultSchema: gtDescendantsReportResultSchema,
-		handler: runGtDescendantsReport,
-		renderHuman: (result) =>
-			"root" in result ? renderGtDescendantsReport(result) : JSON.stringify(result),
-	}),
 	slotCommandSpec({
 		group: "gt-exec",
 		name: "restack-preflight",

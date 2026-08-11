@@ -1421,7 +1421,7 @@ function runRestackPreflightScenario(
 
 describe("slot gt exec descendants-report CLI", () => {
 	it("is hidden, publishes JSON schema, and returns a valid leaf as a complete empty report", async () => {
-		const help = runScenario(["gt", "--help"]);
+		const help = runFilesystemScenario(["gt", "--help"]);
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).not.toContain("descendants-report");
 
@@ -1438,8 +1438,8 @@ describe("slot gt exec descendants-report CLI", () => {
 			[row("leaf", "master")],
 		);
 		expect(await leaf.exit).toBe(0);
-		expect(parseJsonOutput(leaf)).toMatchObject({
-			status: "ok",
+		expect(parseFilesystemJsonOutput(leaf)).toMatchObject({
+			status: "success",
 			data: {
 				root: "leaf",
 				scope: "descendants",
@@ -1494,9 +1494,9 @@ describe("slot gt exec descendants-report CLI", () => {
 		);
 
 		expect(await run.exit).toBe(0);
-		const output = parseJsonOutput(run);
+		const output = parseFilesystemJsonOutput(run);
 		expect(output).toMatchObject({
-			status: "ok",
+			status: "success",
 			data: {
 				complete: true,
 				descendantCount: 3,
@@ -1548,12 +1548,12 @@ describe("slot gt exec descendants-report CLI", () => {
 			[row("root", "master")],
 		);
 		expect(await missing.exit).toBe(1);
-		expect(parseJsonOutput(missing)).toMatchObject({
+		expect(parseFilesystemJsonOutput(missing)).toMatchObject({
 			status: "negative",
 			data: { target: "missing" },
 		});
 
-		const absent = runScenario(
+		const absent = runFilesystemScenario(
 			["gt", "exec", "descendants-report", "local-only", "--format", "json"],
 			{
 				git: { localBranches: ["local-only"] },
@@ -1561,7 +1561,9 @@ describe("slot gt exec descendants-report CLI", () => {
 			},
 		);
 		expect(await absent.exit).toBe(1);
-		expect(parseJsonOutput(absent)).toMatchObject({ data: { target: "local-only" } });
+		expect(parseFilesystemJsonOutput(absent)).toMatchObject({
+			data: { target: "local-only" },
+		});
 	});
 
 	it("fails with branch, parent, and stage when local branch discovery fails", async () => {
@@ -1571,7 +1573,7 @@ describe("slot gt exec descendants-report CLI", () => {
 			{ git: { localBranchesFailure: { message: "refs unavailable" } } },
 		);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			status: "failure",
 			errorType: "local-branches-read-failed",
 			message: "Cannot list local branches: refs unavailable",
@@ -1590,7 +1592,7 @@ describe("slot gt exec descendants-report CLI", () => {
 			},
 		);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			status: "failure",
 			errorType: "branch-comparison-failed",
 			data: { branch: "child", parent: "root", stage: "git-comparison" },
@@ -1606,7 +1608,7 @@ describe("slot gt exec descendants-report CLI", () => {
 			{ pr: { batchLookupFailure: "rate limited" } },
 		);
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				complete: true,
 				descendants: [
@@ -1625,7 +1627,7 @@ describe("slot gt exec descendants-report CLI", () => {
 			{ pr: { batchOmittedBranches: ["child"] } },
 		);
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				complete: true,
 				descendants: [
@@ -1652,7 +1654,7 @@ describe("slot gt exec descendants-report CLI", () => {
 			rows,
 		);
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: { complete: true, descendantCount: 6 },
 		});
 		expect(
@@ -1662,8 +1664,8 @@ describe("slot gt exec descendants-report CLI", () => {
 });
 
 interface DescendantsScenarioOverrides {
-	git?: ScenarioRunOptions["git"];
-	pr?: ScenarioRunOptions["pr"];
+	git?: FilesystemScenarioOptions["git"];
+	pr?: FilesystemScenarioOptions["pr"];
 }
 
 function runDescendantsScenario(
@@ -1671,7 +1673,7 @@ function runDescendantsScenario(
 	rows: readonly GraphiteBranchTopology[],
 	overrides: DescendantsScenarioOverrides = {},
 ) {
-	return runScenario(args, {
+	return runFilesystemScenario(args, {
 		git: {
 			localBranches: rows.map((candidate) => candidate.branch),
 			...overrides.git,
