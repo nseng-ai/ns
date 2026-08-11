@@ -49,6 +49,7 @@ export interface FilesystemScenarioRun {
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
 	readonly pr: FakeSlotPrGateway;
+	readonly storage: FakeSlotStorageGateway;
 	readonly provisionFiles: FakeSlotProvisionFilesGateway;
 }
 
@@ -79,6 +80,7 @@ export function runFilesystemScenario(
 		git: fixture.git,
 		gt: fixture.gt,
 		pr: fixture.pr,
+		storage: fixture.storage,
 		provisionFiles: fixture.provisionFiles,
 	};
 }
@@ -112,6 +114,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
 	readonly pr: FakeSlotPrGateway;
+	readonly storage: FakeSlotStorageGateway;
 	readonly provisionFiles: FakeSlotProvisionFilesGateway;
 } {
 	const stdout: string[] = [];
@@ -119,6 +122,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	const git = new FakeSlotRepositoryGateway(options.git);
 	const gt = new FakeGraphiteStackGateway({});
 	const pr = new FakeSlotPrGateway(options.pr);
+	const storage = new FakeSlotStorageGateway();
 	const provisionFiles = new FakeSlotProvisionFilesGateway(options.provisionFiles);
 	const clipboard = new FakeClipboardGateway(options.clipboardResult);
 	const command = new FakeSlotCommandGateway(options.command);
@@ -132,7 +136,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		git,
 		gt,
 		pr,
-		storage: new FakeSlotStorageGateway(),
+		storage,
 		provisionFiles,
 		clipboard,
 		command,
@@ -160,6 +164,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		git,
 		gt,
 		pr,
+		storage,
 		provisionFiles,
 	};
 }

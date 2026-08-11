@@ -1,17 +1,22 @@
 import { describe, expect, it } from "vitest";
 
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
 import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
 
 const STORE_ROOT = "/slots/repos/repo/provision/default";
 const DECLARED_ENV = '[slots]\nprovision = [".env.local"]\n';
 
+function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
+
 describe("slot init CLI", () => {
 	it("creates metadata dirs and detached worktrees from trunk", async () => {
-		const run = runScenario(["init", "--size", "2", "--format", "json"], {
+		const run = runFilesystemScenario(["init", "--size", "2", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }], trunkBranch: "main" },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				poolSize: 2,
 				created: ["slot-01", "slot-02"],
@@ -29,17 +34,17 @@ describe("slot init CLI", () => {
 	});
 
 	it("rejects invalid sizes", async () => {
-		const run = runScenario(["init", "--size", "100", "--format", "json"]);
+		const run = runFilesystemScenario(["init", "--size", "100", "--format", "json"]);
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid-size" });
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({ errorType: "invalid-size" });
 	});
 
 	it("rejects already initialized pools", async () => {
-		const run = runScenario(["init", "--size", "1", "--format", "json"], {
+		const run = runFilesystemScenario(["init", "--size", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01", null)] },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "pool-already-initialized" });
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({ errorType: "pool-already-initialized" });
 	});
 });
 

@@ -251,7 +251,7 @@ describe("slot provision import CLI", () => {
 
 describe("placement provisioning", () => {
 	it("provisions created slots during init", async () => {
-		const run = runScenario(["init", "--size", "2", "--format", "json"], {
+		const run = runFilesystemScenario(["init", "--size", "2", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }], trunkBranch: "master" },
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": DECLARED_ENV },
@@ -259,7 +259,7 @@ describe("placement provisioning", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
 			data: {
 				created: ["slot-01", "slot-02"],
 				provision: {
@@ -278,11 +278,11 @@ describe("placement provisioning", () => {
 	});
 
 	it("reports provision null when nothing is declared", async () => {
-		const run = runScenario(["init", "--size", "1", "--format", "json"], {
+		const run = runFilesystemScenario(["init", "--size", "1", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }] },
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({ data: { provision: null } });
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ data: { provision: null } });
 	});
 
 	it("provisions the target slot during checkout, including reuse", async () => {

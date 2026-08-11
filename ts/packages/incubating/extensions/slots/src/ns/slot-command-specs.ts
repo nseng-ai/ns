@@ -30,8 +30,6 @@ import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	gtUpRequestSchema,
-	initRequestSchema,
-	initResultSchema,
 	provisionApplyRequestSchema,
 	provisionApplyResultSchema,
 	provisionImportRequestSchema,
@@ -42,7 +40,6 @@ import {
 	renderGtQuiescence,
 	renderGtRestackPreflight,
 	renderGtUpNavigation,
-	renderInit,
 	renderProvisionApply,
 	renderProvisionImport,
 	renderBackupRefs,
@@ -60,7 +57,6 @@ import {
 	runGtStackBranches,
 	runGtStackMapBranches,
 	runGtUp,
-	runInit,
 	runProvisionApply,
 	runProvisionImport,
 	runResize,
@@ -139,17 +135,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "init",
-		summary: "Initialize the worktree pool with N detached slots at trunk.",
-		description: "Initialize the worktree pool with N detached slots at trunk.",
-		schema: initRequestSchema,
-		options: sizeOptionSpecs,
-		resultSchema: initResultSchema,
-		handler: runInit,
-		renderHuman: renderInit,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "resize",
