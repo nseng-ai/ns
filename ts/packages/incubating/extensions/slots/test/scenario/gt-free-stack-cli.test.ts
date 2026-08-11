@@ -1,11 +1,26 @@
 import { describe, expect, it } from "vitest";
 
 import { fakeStackInfo } from "@nseng-ai/extension-kit/graphite/testing";
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
+
+function parseJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
 
 describe("slot gt free-stack CLI", () => {
+	it("appears in gt help and exposes the downstack option", async () => {
+		const group = runFilesystemScenario(["gt", "--help"]);
+		expect(await group.exit).toBe(0);
+		expect(group.stdout.join("")).toContain("free-stack");
+
+		const command = runFilesystemScenario(["gt", "free-stack", "--help"]);
+		expect(await command.exit).toBe(0);
+		expect(command.stdout.join("")).toContain("--downstack");
+	});
+
 	it("noops on trunk", async () => {
-		const run = runScenario(["gt", "free-stack", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "free-stack", "--format", "json"], {
 			git: {
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
 			},
@@ -24,7 +39,7 @@ describe("slot gt free-stack CLI", () => {
 	});
 
 	it("renders human no-op on trunk as a result block", async () => {
-		const run = runScenario(["gt", "free-stack"], {
+		const run = runFilesystemScenario(["gt", "free-stack"], {
 			git: {
 				worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01", "feature/a")],
 			},
@@ -36,7 +51,7 @@ describe("slot gt free-stack CLI", () => {
 	});
 
 	it("frees assigned stack branches except current and trunk", async () => {
-		const run = runScenario(["gt", "free-stack", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "free-stack", "--format", "json"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "feature/current" },
@@ -75,7 +90,7 @@ describe("slot gt free-stack CLI", () => {
 	});
 
 	it("renders human freed stack slots with kept worktree details", async () => {
-		const run = runScenario(["gt", "free-stack"], {
+		const run = runFilesystemScenario(["gt", "free-stack"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "feature/current" },
@@ -106,7 +121,7 @@ describe("slot gt free-stack CLI", () => {
 	});
 
 	it("downstack frees only ancestors", async () => {
-		const run = runScenario(["gt", "free-stack", "--downstack", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "free-stack", "--downstack", "--format", "json"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "feature/current" },
@@ -134,7 +149,7 @@ describe("slot gt free-stack CLI", () => {
 	});
 
 	it("renders human downstack no-op scope", async () => {
-		const run = runScenario(["gt", "free-stack", "--downstack"], {
+		const run = runFilesystemScenario(["gt", "free-stack", "--downstack"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "feature/current" },

@@ -15,7 +15,6 @@ describe("slot gt navigation CLI", () => {
 		expect(root.stdout.join("")).toContain("gt");
 		const gt = runScenario(["gt", "--help"]);
 		expect(await gt.exit).toBe(0);
-		expect(gt.stdout.join("")).toContain("free-stack");
 		expect(gt.stdout.join("")).toContain("metadata-backed stack commands");
 		expect(gt.stdout.join("")).toContain("require the sqlite3 CLI");
 		expect(gt.stdout.join("")).not.toContain("exec");

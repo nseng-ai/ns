@@ -3,7 +3,6 @@ import type { ClinkrExit, RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import { gtFreeStackOptionSpecs } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
 	gtBackupRefsRequestSchema,
@@ -11,8 +10,6 @@ import {
 	gtDescendantsReportRequestSchema,
 	gtDescendantsReportResultSchema,
 	type GtDescendantsReportResult,
-	gtFreeStackRequestSchema,
-	gtFreeStackResultSchema,
 	gtQuiescenceRequestSchema,
 	gtQuiescenceResultSchema,
 	gtRestackPreflightRequestSchema,
@@ -22,7 +19,6 @@ import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	renderGtDescendantsReport,
-	renderGtFreeStack,
 	renderGtQuiescence,
 	renderGtRestackPreflight,
 	renderBackupRefs,
@@ -30,7 +26,6 @@ import {
 	renderStackMapBranches,
 	runGtBackupRefs,
 	runGtDescendantsReport,
-	runGtFreeStack,
 	runGtQuiescence,
 	runGtRestackPreflight,
 	runGtStackBranches,
@@ -110,18 +105,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "gt",
-		name: "free-stack",
-		summary: "Release every assigned slot in the current Graphite stack except the current branch.",
-		description:
-			"Release every assigned slot in the current Graphite stack except the current branch.",
-		schema: gtFreeStackRequestSchema,
-		options: gtFreeStackOptionSpecs,
-		resultSchema: gtFreeStackResultSchema,
-		handler: runGtFreeStack,
-		renderHuman: renderGtFreeStack,
-	}),
 	slotCommandSpec({
 		group: "gt-exec",
 		name: "stack-branches",
