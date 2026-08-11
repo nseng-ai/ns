@@ -28,7 +28,7 @@ import {
 	type FakeSlotProvisionFilesGatewayOptions,
 } from "../../src/core/gateways/fakes/provision-files.ts";
 import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
-import type { RepoContext } from "../../src/core/repo-context.ts";
+import type { RepoContext, RepoDiscoveryResult } from "../../src/core/repo-context.ts";
 
 export interface FilesystemScenarioOptions {
 	readonly git?: ConstructorParameters<typeof FakeSlotRepositoryGateway>[0];
@@ -41,7 +41,7 @@ export interface FilesystemScenarioOptions {
 	readonly pr?: FakeSlotPrGatewayOptions;
 	readonly provisionFiles?: FakeSlotProvisionFilesGatewayOptions;
 	readonly renderCapabilities?: RenderCapabilities;
-	readonly repo?: RepoContext;
+	readonly repo?: RepoDiscoveryResult;
 	readonly stdin?: string | (() => Promise<string | null>);
 }
 

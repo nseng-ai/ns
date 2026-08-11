@@ -5,7 +5,10 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import { fakeStackGraphInfo, fakeStackInfo } from "@nseng-ai/extension-kit/graphite/testing";
-import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import {
+	runFilesystemScenario,
+	type FilesystemScenarioOptions,
+} from "../support/run-filesystem-scenario.ts";
 import {
 	parseJsonOutput,
 	runScenario,
@@ -778,10 +781,14 @@ describe("slot gt exec restack-preflight CLI", () => {
 });
 
 describe("slot gt exec stack-map-branches CLI", () => {
-	it("shows help for the hidden stack-map operation", async () => {
-		const run = runScenario(["gt", "exec", "stack-map-branches", "-h"]);
-		expect(await run.exit).toBe(0);
-		expect(run.stdout.join("")).toContain("--recent-limit");
+	it("is hidden, invocable, and exposes the recent-limit option", async () => {
+		const group = runFilesystemScenario(["gt", "--help"]);
+		expect(await group.exit).toBe(0);
+		expect(group.stdout.join("")).not.toContain("stack-map-branches");
+
+		const command = runFilesystemScenario(["gt", "exec", "stack-map-branches", "-h"]);
+		expect(await command.exit).toBe(0);
+		expect(command.stdout.join("")).toContain("--recent-limit");
 	});
 
 	it("emits graph rows, slot rows, recent limit, validation results, and compact human branch JSON", async () => {
@@ -804,7 +811,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		const output = parseJsonOutput(run);
+		const output = parseFilesystemJsonOutput(run);
 		expect(output).toMatchObject({
 			data: {
 				current: "feature/current",
@@ -871,7 +878,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 		);
 
 		expect(await run.exit).toBe(0);
-		const branches = jsonData(parseJsonOutput(run)).branches.map((branch) => branch.name);
+		const branches = jsonData(parseFilesystemJsonOutput(run)).branches.map((branch) => branch.name);
 		expect(branches).toContain("feature/newer");
 		expect(branches).not.toContain("feature/older");
 		expect(branches).not.toContain("feature/untracked");
@@ -894,9 +901,9 @@ describe("slot gt exec stack-map-branches CLI", () => {
 			},
 		);
 		expect(await zero.exit).toBe(0);
-		expect(jsonData(parseJsonOutput(zero)).branches.map((branch) => branch.name)).not.toContain(
-			"feature/recent",
-		);
+		expect(
+			jsonData(parseFilesystemJsonOutput(zero)).branches.map((branch) => branch.name),
+		).not.toContain("feature/recent");
 
 		const negative = runStackMapScenario([
 			"gt",
@@ -925,7 +932,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(jsonData(parseJsonOutput(run)).branches.map((branch) => branch.name)).toEqual([
+		expect(jsonData(parseFilesystemJsonOutput(run)).branches.map((branch) => branch.name)).toEqual([
 			"master",
 			"feature/current",
 		]);
@@ -954,7 +961,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		const data = jsonData(parseJsonOutput(run));
+		const data = jsonData(parseFilesystemJsonOutput(run));
 		expect(data.warnings).toContain(
 			"branch feature/current has 2 Graphite children; descendants follow the first child only",
 		);
@@ -991,7 +998,7 @@ describe("slot gt exec stack-map-branches CLI", () => {
 		});
 
 		expect(await run.exit).toBe(0);
-		expect(jsonData(parseJsonOutput(run)).warnings).toEqual([
+		expect(jsonData(parseFilesystemJsonOutput(run)).warnings).toEqual([
 			"Graphite metadata row has an empty branchName; row ignored",
 			"children metadata for feature/current is not valid JSON; treating as no children",
 		]);
@@ -1092,7 +1099,9 @@ describe("slot gt exec stack-map-branches CLI", () => {
 				testCase.options,
 			);
 			expect(await run.exit, testCase.name).toBe(2);
-			expect(parseJsonOutput(run), testCase.name).toMatchObject({ errorType: testCase.errorType });
+			expect(parseFilesystemJsonOutput(run), testCase.name).toMatchObject({
+				errorType: testCase.errorType,
+			});
 		}
 	});
 });
@@ -1692,9 +1701,9 @@ interface StackMapScenarioOptions {
 	readonly rows?: readonly GraphiteBranchTopology[];
 	readonly diagnostics?: GraphiteTopologyParseDiagnostics;
 	readonly stack?: ReturnType<typeof fakeStackInfo>;
-	readonly git?: ScenarioRunOptions["git"];
-	readonly gt?: ScenarioRunOptions["gt"];
-	readonly repo?: ScenarioRunOptions["repo"];
+	readonly git?: FilesystemScenarioOptions["git"];
+	readonly gt?: FilesystemScenarioOptions["gt"];
+	readonly repo?: FilesystemScenarioOptions["repo"];
 }
 
 function runStackMapScenario(args: readonly string[], options: StackMapScenarioOptions = {}) {
@@ -1717,7 +1726,7 @@ function runStackMapScenario(args: readonly string[], options: StackMapScenarioO
 					topology: new Map(rows.map((candidate) => [candidate.branch, candidate])),
 					diagnostics: options.diagnostics,
 				};
-	return runScenario(args, {
+	return runFilesystemScenario(args, {
 		...(options.repo === undefined ? {} : { repo: options.repo }),
 		git,
 		gt: {
