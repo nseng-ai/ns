@@ -15,7 +15,7 @@ export type GtDownRequest = z.infer<typeof gtDownRequestSchema>;
 
 export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
+	if (resolved.status !== "success") return resolved;
 	const parent = await ctx.gt.parentOf(resolved.repoRoot);
 	if (parent.type === "untracked_branch")
 		return failure(
@@ -26,7 +26,7 @@ export async function runGtDown(ctx: SlotCliContext, request: GtDownRequest) {
 	if (parent.type === "no_parent")
 		return negative(`No downstack branch for '${resolved.currentBranch}'.`);
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, parent.branch);
-	if (resolution.type === "failure") return failure(resolution.errorType, resolution.message);
+	if (resolution.status === "failure") return resolution;
 	return ok(
 		await buildGtNavigationResult(ctx, resolution.resolution, {
 			shouldCopyClipboard: request.clipboard,

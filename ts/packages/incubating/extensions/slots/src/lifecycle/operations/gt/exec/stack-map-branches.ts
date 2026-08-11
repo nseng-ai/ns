@@ -80,7 +80,7 @@ export async function runGtStackMapBranches(
 	request: GtStackMapBranchesRequest,
 ) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
+	if (resolved.status !== "success") return resolved;
 
 	const stackResult = await ctx.gt.stack(resolved.repoRoot);
 	if (stackResult.type === "untracked_branch")

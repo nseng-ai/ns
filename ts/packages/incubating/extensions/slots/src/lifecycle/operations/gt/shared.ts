@@ -1,16 +1,16 @@
-import { failure, type ClinkrFailureExit } from "@nseng-ai/clinkr/legacy";
+import { failure, type FailureOutcome } from "@nseng-ai/sdk";
 
 import type { RepoSlotContext, SlotCliContext } from "../../../core/context.ts";
 
 export type ResolvedRepoAndCurrentBranch =
 	| {
-			readonly type: "ok";
+			readonly status: "success";
 			readonly repoCtx: RepoSlotContext;
 			readonly repoRoot: string;
 			readonly mainRepoRoot: string;
 			readonly currentBranch: string;
 	  }
-	| ClinkrFailureExit;
+	| FailureOutcome;
 
 export async function resolveRepoAndCurrentBranch(
 	ctx: SlotCliContext,
@@ -26,7 +26,7 @@ export async function resolveRepoAndCurrentBranch(
 			`HEAD at ${repoCtx.repo.root} is detached. Check out a branch first.`,
 		);
 	return {
-		type: "ok",
+		status: "success",
 		repoCtx,
 		repoRoot: repoCtx.repo.root,
 		mainRepoRoot: repoCtx.repo.mainRepoRoot,

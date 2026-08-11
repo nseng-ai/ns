@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 
-import { failure, type ClinkrFailureExit, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
+import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
+import { failure, type FailureOutcome } from "@nseng-ai/sdk";
 
 import type { SlotCliContext } from "../../../core/context.ts";
 import { findByBranch, buildSlotInventory } from "../../../core/inventory.ts";
@@ -27,8 +28,8 @@ interface WorktreeResolution {
 }
 
 export type WorktreeResolutionResult =
-	| { type: "ok"; resolution: WorktreeResolution }
-	| ClinkrFailureExit;
+	| { status: "success"; resolution: WorktreeResolution }
+	| FailureOutcome;
 
 export async function resolveOrCheckoutWorktreeForBranch(
 	ctx: SlotCliContext,
@@ -36,11 +37,11 @@ export async function resolveOrCheckoutWorktreeForBranch(
 ): Promise<WorktreeResolutionResult> {
 	const existing = await findWorktreeForBranch(ctx, branch);
 	if (existing !== null)
-		return { type: "ok", resolution: { target: existing, isAlreadyAssigned: true } };
+		return { status: "success", resolution: { target: existing, isAlreadyAssigned: true } };
 	const result = await checkoutBranch(ctx, branch, { shouldCreateBranch: false, base: null });
 	if (result.type === "failure") return failure(result.failure.errorType, result.failure.message);
 	return {
-		type: "ok",
+		status: "success",
 		resolution: {
 			target: {
 				slotName: result.outcome.slotName.length === 0 ? null : result.outcome.slotName,

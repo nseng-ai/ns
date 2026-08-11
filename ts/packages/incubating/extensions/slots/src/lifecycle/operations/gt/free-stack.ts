@@ -31,7 +31,7 @@ export type GtFreeStackResult = z.infer<typeof gtFreeStackResultSchema>;
 
 export async function runGtFreeStack(ctx: SlotCliContext, request: GtFreeStackRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
+	if (resolved.status !== "success") return resolved;
 	const { repoCtx, repoRoot, mainRepoRoot, currentBranch } = resolved;
 	const trunkResult = await ctx.gt.trunk(repoRoot);
 	if (trunkResult.type === "failure")

@@ -1,5 +1,5 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { CommandExit, NsCommandCompletionProvider, NsExtensionApi } from "@nseng-ai/sdk";
+import type { NsCommandCompletionProvider, NsExtensionApi } from "@nseng-ai/sdk";
 
 import { createRealSlotContext, type SlotCliContext } from "../core/context.ts";
 import type { CheckoutBranchesCompletionProvider } from "./checkout-completion.ts";
@@ -29,43 +29,6 @@ export function adaptSlotCompletionProvider(
 ): NsCommandCompletionProvider | undefined {
 	if (provider === undefined) return undefined;
 	return async (ctx, request) => (await provider(ctx, request)).candidates;
-}
-
-/** Temporary phase-1 bridge from legacy Slot exits to modern SDK outcomes. */
-export function toModernSlotOutcome<T>(
-	value: unknown,
-	options: { readonly useHumanOverride?: boolean } = {},
-): CommandExit<T> {
-	if (typeof value !== "object" || value === null || !("type" in value)) {
-		throw new Error("Slot command returned an invalid outcome.");
-	}
-	const legacy = value as Record<string, unknown>;
-	if (legacy.type === "ok") return { status: "success", data: legacy.data as T };
-	if (legacy.type === "negative") {
-		const message =
-			options.useHumanOverride === true && typeof legacy.human === "string"
-				? legacy.human
-				: String(legacy.message);
-		return {
-			status: "negative",
-			message,
-			...optionalEntry("data", legacy.data),
-		};
-	}
-	if (legacy.type === "failure") {
-		return {
-			status: "failure",
-			errorType: String(legacy.errorType),
-			message: String(legacy.message),
-			...optionalEntry("data", legacy.data),
-		};
-	}
-	return {
-		status: "usage-error",
-		errorType: "usage-error",
-		message: String(legacy.message),
-		...optionalEntry("data", legacy.data),
-	};
 }
 
 function readSlotCommandContextOverrides(

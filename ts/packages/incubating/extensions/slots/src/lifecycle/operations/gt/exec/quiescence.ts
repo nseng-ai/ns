@@ -70,7 +70,7 @@ type QuiescenceBlocker = z.infer<typeof quiescenceBlockerSchema>;
 
 export async function runGtQuiescence(ctx: SlotCliContext, request: GtQuiescenceRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
+	if (resolved.status !== "success") return resolved;
 
 	const stackResult = await ctx.gt.stack(resolved.repoRoot);
 	if (stackResult.type === "untracked_branch")

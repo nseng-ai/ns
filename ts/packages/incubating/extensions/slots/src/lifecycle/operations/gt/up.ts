@@ -27,7 +27,7 @@ export type GtUpRequest = z.infer<typeof gtUpRequestSchema>;
 
 export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 	const resolved = await resolveRepoAndCurrentBranch(ctx);
-	if (resolved.type !== "ok") return failure(resolved.errorType, resolved.message);
+	if (resolved.status !== "success") return resolved;
 	const children = await ctx.gt.childrenOf(resolved.repoRoot);
 	if (children.type === "untracked_branch")
 		return failure(
@@ -43,7 +43,7 @@ export async function runGtUp(ctx: SlotCliContext, request: GtUpRequest) {
 		);
 	const branch = children.branches[0] ?? "";
 	const resolution = await resolveOrCheckoutWorktreeForBranch(ctx, branch);
-	if (resolution.type === "failure") return failure(resolution.errorType, resolution.message);
+	if (resolution.status === "failure") return resolution;
 	return ok(
 		await buildGtNavigationResult(ctx, resolution.resolution, {
 			shouldCopyClipboard: request.clipboard,
