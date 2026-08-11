@@ -22,7 +22,7 @@ import {
 	importProvisionedFiles,
 	provisionStoreRoot,
 } from "../../src/lifecycle/provision.ts";
-import { repoContext, slotWorktree } from "../support/run-scenario.ts";
+import { repoContext, slotWorktree } from "../support/scenario-fixture.ts";
 
 const DECLARED_ENV = '[slots]\nprovision = [".env.local"]\n';
 const STORE_ROOT = "/slots/repos/repo/provision/default";

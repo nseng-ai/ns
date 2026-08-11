@@ -9,7 +9,7 @@ import {
 	runFilesystemScenario,
 	type FilesystemScenarioOptions,
 } from "../support/run-filesystem-scenario.ts";
-import { slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/scenario-fixture.ts";
 
 function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
 	return JSON.parse(run.stdout.join(""));

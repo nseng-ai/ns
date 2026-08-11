@@ -1,10 +1,8 @@
 import { resolveClinkrInteraction, type ConfirmationResult } from "@nseng-ai/clinkr";
-import { isClinkrHumanOutputInvocation, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
+import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { createFakeClinkrInteraction, createOneShotStdinAdapter } from "@nseng-ai/clinkr/testing";
-import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 
-import { buildSlotCommandGroup } from "../../src/ns/command-face.ts";
 import type { SlotCliContext } from "../../src/core/context.ts";
 import {
 	FakeClipboardGateway,
@@ -52,88 +50,20 @@ export interface ScenarioRunOptions {
 /** Deterministic scenario wall clock: 2026-07-12T12:00:00.000Z. */
 export const SCENARIO_NOW_MS = Date.UTC(2026, 6, 12, 12, 0, 0);
 
-export interface ScenarioRun {
-	exit: Promise<number>;
-	stdout: string[];
-	stderr: string[];
-	git: FakeSlotRepositoryGateway;
-	gt: FakeGraphiteStackGateway;
-	pr: FakeSlotPrGateway;
-	storage: FakeSlotStorageGateway;
-	provisionFiles: FakeSlotProvisionFilesGateway;
-	command: FakeSlotCommandGateway;
-	context: SlotCliContext;
+export interface ScenarioFixture {
+	readonly stdout: string[];
+	readonly stderr: string[];
+	readonly git: FakeSlotRepositoryGateway;
+	readonly gt: FakeGraphiteStackGateway;
+	readonly pr: FakeSlotPrGateway;
+	readonly storage: FakeSlotStorageGateway;
+	readonly provisionFiles: FakeSlotProvisionFilesGateway;
+	readonly command: FakeSlotCommandGateway;
+	readonly context: SlotCliContext;
+	readonly assertComplete: () => void;
 }
 
-export interface CompletionScenarioRun {
-	values: Promise<string[]>;
-	stdout: string[];
-	stderr: string[];
-	git: FakeSlotRepositoryGateway;
-	gt: FakeGraphiteStackGateway;
-	pr: FakeSlotPrGateway;
-	storage: FakeSlotStorageGateway;
-	provisionFiles: FakeSlotProvisionFilesGateway;
-	command: FakeSlotCommandGateway;
-	context: SlotCliContext;
-}
-
-export function runScenario(
-	args: readonly string[],
-	options: ScenarioRunOptions = {},
-): ScenarioRun {
-	const fixture = buildScenarioFixture(args, options);
-	const exit = buildSlotCommandGroup<SlotCliContext>()
-		.run(args, {
-			context: fixture.context,
-			io: {
-				stdout: (text) => fixture.stdout.push(text),
-				stderr: (text) => fixture.stderr.push(text),
-				canEmitAnsi: fixture.context.renderCapabilities.canEmitAnsi,
-				...optionalEntry("caps", fixture.context.renderCapabilities.caps),
-			},
-		})
-		.then((code) => {
-			fixture.assertComplete();
-			return code;
-		});
-	return { exit, ...completionScenarioRunFields(fixture) };
-}
-
-export function completeScenario(
-	words: readonly string[],
-	options: ScenarioRunOptions = {},
-): CompletionScenarioRun {
-	const fixture = buildScenarioFixture(words, options);
-	const values = buildSlotCommandGroup<SlotCliContext>()
-		.completeAsync({ words }, { context: fixture.context })
-		.then((result) => {
-			fixture.assertComplete();
-			return result.candidates.map((candidate) => candidate.value);
-		});
-	return { values, ...completionScenarioRunFields(fixture) };
-}
-
-function completionScenarioRunFields(
-	fixture: Omit<ScenarioRun, "exit"> & { assertComplete: () => void },
-): Omit<ScenarioRun, "exit"> {
-	return {
-		stdout: fixture.stdout,
-		stderr: fixture.stderr,
-		git: fixture.git,
-		gt: fixture.gt,
-		pr: fixture.pr,
-		storage: fixture.storage,
-		provisionFiles: fixture.provisionFiles,
-		command: fixture.command,
-		context: fixture.context,
-	};
-}
-
-function buildScenarioFixture(
-	args: readonly string[],
-	options: ScenarioRunOptions,
-): Omit<ScenarioRun, "exit"> & { assertComplete: () => void } {
+export function buildScenarioFixture(options: ScenarioRunOptions = {}): ScenarioFixture {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = options.cwd ?? "/repo";
@@ -157,8 +87,6 @@ function buildScenarioFixture(
 		});
 	const repo = options.repo ?? repoContext();
 	const renderCapabilities = options.renderCapabilities ?? { canEmitAnsi: false };
-	// Slot package scenarios exercise the mounted command face directly. Entrypoint
-	// metadata (`--version`/`--runtime`) is covered by the owning `ns` CLI tests.
 	const context: SlotCliContext = {
 		repo,
 		git,
@@ -175,7 +103,7 @@ function buildScenarioFixture(
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
-		shouldWriteCdDirective: isClinkrHumanOutputInvocation(args),
+		shouldWriteCdDirective: false,
 	};
 	return {
 		stdout,
@@ -189,10 +117,6 @@ function buildScenarioFixture(
 		context,
 		assertComplete: () => fakeInteraction?.assertComplete(),
 	};
-}
-
-export function parseJsonOutput(run: ScenarioRun): unknown {
-	return JSON.parse(run.stdout.join(""));
 }
 
 export function repoContext(overrides: Partial<RepoContext> = {}): RepoContext {

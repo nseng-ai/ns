@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { SLOT_CD_DIRECTIVE_FILE } from "../../src/core/shell/cd-directive.ts";
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/scenario-fixture.ts";
 
 const directiveRoots: string[] = [];
 

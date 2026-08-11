@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { repoContext, slotWorktree } from "../support/run-scenario.ts";
+import { repoContext, slotWorktree } from "../support/scenario-fixture.ts";
 
 const slot1Path = "/slots/repos/repo/worktrees/slot-01";
 const slot2Path = "/slots/repos/repo/worktrees/slot-02";

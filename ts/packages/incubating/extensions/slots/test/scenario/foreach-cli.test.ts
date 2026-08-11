@@ -3,7 +3,7 @@ import { exitedResult } from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/scenario-fixture.ts";
 
 function parseJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
 	return JSON.parse(run.stdout.join(""));

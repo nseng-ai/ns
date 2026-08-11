@@ -2,7 +2,7 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { repoContext, slotWorktree } from "../support/run-scenario.ts";
+import { repoContext, slotWorktree } from "../support/scenario-fixture.ts";
 
 const STORE_ROOT = "/slots/repos/repo/provision/default";
 const SLOT_01 = slotWorktree("slot-01").path;

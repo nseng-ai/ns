@@ -7,11 +7,11 @@ import { describe, expect, it } from "vitest";
 import { createSlotClient } from "../../src/api/index.ts";
 import { FakeClipboardGateway } from "../../src/core/gateways/clipboard.ts";
 import { NS_CD_DIRECTIVE_FILE } from "../../src/core/shell/cd-directive.ts";
-import { runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { buildScenarioFixture, slotWorktree } from "../support/scenario-fixture.ts";
 
 describe("Slot Extension API", () => {
 	it("checks out the current branch and maps checkout outcome to camelCase", async () => {
-		const run = runScenario([], {
+		const run = buildScenarioFixture({
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [{ path: "/repo", branch: "feature/a" }, slotWorktree("slot-01")],
@@ -44,7 +44,7 @@ describe("Slot Extension API", () => {
 	});
 
 	it("checks out a named branch without clipboard operations", async () => {
-		const run = runScenario([], {
+		const run = buildScenarioFixture({
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [slotWorktree("slot-01")],
@@ -72,7 +72,7 @@ describe("Slot Extension API", () => {
 	});
 
 	it("can opt into clipboard copy", async () => {
-		const run = runScenario([], {
+		const run = buildScenarioFixture({
 			git: {
 				localBranches: ["master", "feature/a"],
 				worktrees: [slotWorktree("slot-01")],
@@ -98,7 +98,7 @@ describe("Slot Extension API", () => {
 		const home = await mkdtemp(join(tmpdir(), "slot-api-directive-"));
 		try {
 			const directivePath = join(home, "directive");
-			const run = runScenario([], {
+			const run = buildScenarioFixture({
 				env: { PATH: "/fake/bin", [NS_CD_DIRECTIVE_FILE]: directivePath },
 				git: {
 					localBranches: ["master", "feature/a"],
@@ -124,7 +124,7 @@ describe("Slot Extension API", () => {
 		const home = await mkdtemp(join(tmpdir(), "slot-api-directive-ctx-"));
 		try {
 			const directivePath = join(home, "directive");
-			const run = runScenario([], {
+			const run = buildScenarioFixture({
 				env: { PATH: "/fake/bin", [NS_CD_DIRECTIVE_FILE]: directivePath },
 				git: {
 					localBranches: ["master", "feature/a"],
@@ -149,7 +149,7 @@ describe("Slot Extension API", () => {
 	});
 
 	it("maps lifecycle failures to typed Capability API failures", async () => {
-		const run = runScenario([], {
+		const run = buildScenarioFixture({
 			git: { localBranches: ["master"], worktrees: [slotWorktree("slot-01")] },
 		});
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/scenario-fixture.ts";
 
 const STORE_ROOT = "/slots/repos/repo/provision/default";
 const DECLARED_ENV = '[slots]\nprovision = [".env.local"]\n';

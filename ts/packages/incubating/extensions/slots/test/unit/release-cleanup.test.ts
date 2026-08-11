@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { executeReleaseCleanup, planReleaseCleanup } from "../../src/lifecycle/release-cleanup.ts";
 import type { FreedSlot } from "../../src/lifecycle/release-target.ts";
-import { repoContext } from "../support/run-scenario.ts";
+import { repoContext } from "../support/scenario-fixture.ts";
 import { FakeClipboardGateway } from "../../src/core/gateways/clipboard.ts";
 import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";

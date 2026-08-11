@@ -9,7 +9,6 @@
 	"exports": {
 		".": "./src/core/index.ts",
 		"./api": "./src/api/index.ts",
-		"./command-face": "./src/ns/command-face.ts",
 		"./ns-extension": "./src/ns/ns-extension.ts"
 	},
 	"scripts": {

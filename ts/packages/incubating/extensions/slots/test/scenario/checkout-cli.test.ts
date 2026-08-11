@@ -5,7 +5,7 @@ import {
 	completeFilesystemScenario,
 	runFilesystemScenario,
 } from "../support/run-filesystem-scenario.ts";
-import { slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/scenario-fixture.ts";
 
 describe("slot checkout CLI", () => {
 	it("appears in root help with co alias", async () => {

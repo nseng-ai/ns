@@ -75,7 +75,7 @@ ns slot shell install --shell bash
 
 `--no-clipboard` skips clipboard writes only; it does not disable an active parent-shell `cd`.
 
-During the extension-contract transition, the Slot ns extension uses the current `@nseng-ai/sdk` command metadata. Some legacy short option aliases, hidden-help details, and machine-output cd-directive behavior may differ from the old Clinkr-mounted command group until the generic extension contract grows those features.
+The Slot ns extension is assembled from its filesystem-owned command routes. Route metadata owns command aliases and group discovery; the package does not expose a separate programmatic command topology.
 
 ## Completion
 

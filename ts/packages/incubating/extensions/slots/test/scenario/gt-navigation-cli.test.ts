@@ -2,7 +2,7 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/scenario-fixture.ts";
 
 function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
 	return JSON.parse(run.stdout.join(""));
@@ -10,13 +10,12 @@ function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }):
 
 describe("slot gt navigation CLI", () => {
 	it("shows gt commands while hiding the exec subgroup", async () => {
-		const root = runScenario(["--help"]);
+		const root = runFilesystemScenario(["--help"]);
 		expect(await root.exit).toBe(0);
 		expect(root.stdout.join("")).toContain("gt");
-		const gt = runScenario(["gt", "--help"]);
+		const gt = runFilesystemScenario(["gt", "--help"]);
 		expect(await gt.exit).toBe(0);
-		expect(gt.stdout.join("")).toContain("metadata-backed stack commands");
-		expect(gt.stdout.join("")).toContain("require the sqlite3 CLI");
+		expect(gt.stdout.join("")).toContain("Graphite-aware slot navigation and stack operations.");
 		expect(gt.stdout.join("")).not.toContain("exec");
 
 		for (const command of ["up", "down"]) {

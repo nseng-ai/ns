@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderList, type ListResult } from "../../src/lifecycle/operations/list.ts";
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import { slotWorktree } from "../support/run-scenario.ts";
+import { slotWorktree } from "../support/scenario-fixture.ts";
 
 const nonEmptyListGit = {
 	worktrees: [
