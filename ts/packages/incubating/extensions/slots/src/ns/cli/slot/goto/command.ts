@@ -7,7 +7,7 @@ import {
 	renderGoto,
 	runGoto,
 } from "../../../../lifecycle/operations/goto.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -17,8 +17,7 @@ export async function command() {
 		schema: gotoRequestSchema,
 		options: gotoOptionSpecs,
 		resultSchema: gotoResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runGoto(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runGoto(await createSlotCliContext(ctx), request),
 		renderHuman: renderGoto,
 	});
 }

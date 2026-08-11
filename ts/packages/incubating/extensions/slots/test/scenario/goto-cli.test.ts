@@ -94,6 +94,19 @@ describe("slot goto CLI", () => {
 		expect(JSON.parse(run.stdout.join(""))).toMatchObject({ errorType: "conflicting-slot-args" });
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["goto", "-n", "1", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+	});
+
 	it("goes to an unassigned slot by number", async () => {
 		const run = runFilesystemScenario(["goto", "-n", "1", "--format", "json"], {
 			git: { worktrees: [slotWorktree("slot-01")] },
