@@ -207,6 +207,19 @@ describe("slot claim CLI", () => {
 		},
 	);
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["claim", "feature/source", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+	});
+
 	it("refuses dirty source slot before mutation", async () => {
 		const run = runFilesystemScenario(["claim", "feature/source", "--format", "json"], {
 			cwd: slot1Path,

@@ -6,7 +6,7 @@ import {
 	renderClaim,
 	runClaim,
 } from "../../../../lifecycle/operations/claim.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -16,8 +16,7 @@ export async function command() {
 		schema: claimRequestSchema,
 		positionals: { branchName: { position: 0 } },
 		resultSchema: claimResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runClaim(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runClaim(await createSlotCliContext(ctx), request),
 		renderHuman: renderClaim,
 	});
 }
