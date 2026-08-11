@@ -4,7 +4,6 @@ import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	foreachOptionSpecs,
 	gcOptionSpecs,
 	gtFreeStackOptionSpecs,
 	gtNavigationOptionSpecs,
@@ -13,8 +12,6 @@ import {
 } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
-	foreachRequestSchema,
-	foreachResultSchema,
 	gcRequestSchema,
 	gcResultSchema,
 	gtBackupRefsRequestSchema,
@@ -42,7 +39,6 @@ import {
 	provisionApplyResultSchema,
 	provisionImportRequestSchema,
 	provisionImportResultSchema,
-	renderForeach,
 	renderGc,
 	renderGtDownNavigation,
 	renderGtDescendantsReport,
@@ -59,7 +55,6 @@ import {
 	renderStackMapBranches,
 	resizeRequestSchema,
 	resizeResultSchema,
-	runForeach,
 	runGc,
 	runGtBackupRefs,
 	runGtDown,
@@ -149,18 +144,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "root",
-		name: "foreach",
-		summary: "Run a command in every managed slot worktree.",
-		description: "Run a command in every managed slot worktree.",
-		schema: foreachRequestSchema,
-		positionals: { command: { position: 0 } },
-		options: foreachOptionSpecs,
-		resultSchema: foreachResultSchema,
-		handler: runForeach,
-		renderHuman: renderForeach,
-	}),
 	slotCommandSpec({
 		group: "root",
 		name: "gc",

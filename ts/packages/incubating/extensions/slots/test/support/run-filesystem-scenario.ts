@@ -10,7 +10,10 @@ import {
 	FakeClipboardGateway,
 	type ClipboardCopyResult,
 } from "../../src/core/gateways/clipboard.ts";
-import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts";
+import {
+	FakeSlotCommandGateway,
+	type FakeSlotCommandGatewayOptions,
+} from "../../src/core/gateways/fakes/command.ts";
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 import { FakeGraphiteStackGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import {
@@ -28,6 +31,7 @@ export interface FilesystemScenarioOptions {
 	readonly git?: ConstructorParameters<typeof FakeSlotRepositoryGateway>[0];
 	readonly confirmations?: readonly ConfirmationResult[];
 	readonly clipboardResult?: ClipboardCopyResult;
+	readonly command?: FakeSlotCommandGatewayOptions;
 	readonly cwd?: string;
 	readonly env?: NodeJS.ProcessEnv;
 	readonly pr?: FakeSlotPrGatewayOptions;
@@ -41,6 +45,7 @@ export interface FilesystemScenarioRun {
 	readonly exit: Promise<number>;
 	readonly stdout: string[];
 	readonly stderr: string[];
+	readonly command: FakeSlotCommandGateway;
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
 	readonly pr: FakeSlotPrGateway;
@@ -70,6 +75,7 @@ export function runFilesystemScenario(
 		exit,
 		stdout: fixture.stdout,
 		stderr: fixture.stderr,
+		command: fixture.command,
 		git: fixture.git,
 		gt: fixture.gt,
 		pr: fixture.pr,
@@ -102,6 +108,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	readonly context: SlotCliContext;
 	readonly stdout: string[];
 	readonly stderr: string[];
+	readonly command: FakeSlotCommandGateway;
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
 	readonly pr: FakeSlotPrGateway;
@@ -114,6 +121,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	const pr = new FakeSlotPrGateway(options.pr);
 	const provisionFiles = new FakeSlotProvisionFilesGateway(options.provisionFiles);
 	const clipboard = new FakeClipboardGateway(options.clipboardResult);
+	const command = new FakeSlotCommandGateway(options.command);
 	const stdin = createOneShotStdinAdapter(options.stdin);
 	const fakeInteraction =
 		options.confirmations === undefined
@@ -127,7 +135,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		storage: new FakeSlotStorageGateway(),
 		provisionFiles,
 		clipboard,
-		command: new FakeSlotCommandGateway(),
+		command,
 		clock: createManualClock(Date.UTC(2026, 6, 12, 12)).clock,
 		cwd: options.cwd ?? "/repo",
 		renderCapabilities: options.renderCapabilities ?? { canEmitAnsi: false },
@@ -148,6 +156,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		context,
 		stdout,
 		stderr,
+		command,
 		git,
 		gt,
 		pr,

@@ -2,34 +2,42 @@ import type { ExecResult } from "@nseng-ai/foundation/command";
 import { exitedResult } from "@nseng-ai/foundation/exec/testing";
 import { describe, expect, it } from "vitest";
 
-import { parseJsonOutput, runScenario, slotWorktree } from "../support/run-scenario.ts";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
+import { slotWorktree } from "../support/run-scenario.ts";
+
+function parseJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
 
 const mainWorktree = { path: "/repo", branch: "master" };
 
 describe("slot foreach CLI", () => {
 	it("appears in root help", async () => {
-		const run = runScenario(["--help"]);
+		const run = runFilesystemScenario(["--help"]);
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toContain("foreach");
 	});
 
 	it("runs in the main worktree and then every slot in slot-number order", async () => {
-		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "clean", "-fd"], {
-			git: {
-				worktrees: [
-					slotWorktree("slot-02", "feature/b"),
-					mainWorktree,
-					slotWorktree("slot-01", "feature/a"),
-				],
-			},
-			command: {
-				resultsByCwd: {
-					"/repo": exitedResult({ stdout: "clean main\n" }),
-					"/slots/repos/repo/worktrees/slot-01": exitedResult({ stdout: "clean a\n" }),
-					"/slots/repos/repo/worktrees/slot-02": exitedResult({ stdout: "clean b\n" }),
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "clean", "-fd"],
+			{
+				git: {
+					worktrees: [
+						slotWorktree("slot-02", "feature/b"),
+						mainWorktree,
+						slotWorktree("slot-01", "feature/a"),
+					],
+				},
+				command: {
+					resultsByCwd: {
+						"/repo": exitedResult({ stdout: "clean main\n" }),
+						"/slots/repos/repo/worktrees/slot-01": exitedResult({ stdout: "clean a\n" }),
+						"/slots/repos/repo/worktrees/slot-02": exitedResult({ stdout: "clean b\n" }),
+					},
 				},
 			},
-		});
+		);
 		expect(await run.exit).toBe(0);
 		expect(run.command.invocations()).toEqual([
 			{ command: "git", args: ["clean", "-fd"], cwd: "/repo" },
@@ -56,7 +64,7 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("excludes named Slots only, including when every Slot is excluded", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			[
 				"foreach",
 				"--yes",
@@ -95,7 +103,7 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("fails before execution when an excluded Slot is unknown", async () => {
-		const run = runScenario(
+		const run = runFilesystemScenario(
 			["foreach", "--yes", "--exclude", "slot-99", "--format", "json", "--", "git", "status"],
 			{ git: { worktrees: [mainWorktree, slotWorktree("slot-01")] } },
 		);
@@ -105,16 +113,19 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("continues past a main-worktree failure and exits 1 with complete results", async () => {
-		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "status"], {
-			git: {
-				worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a"), slotWorktree("slot-02")],
-			},
-			command: {
-				resultsByCwd: {
-					"/repo": exitedResult({ code: 1, stderr: "boom\n" }),
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "status"],
+			{
+				git: {
+					worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a"), slotWorktree("slot-02")],
+				},
+				command: {
+					resultsByCwd: {
+						"/repo": exitedResult({ code: 1, stderr: "boom\n" }),
+					},
 				},
 			},
-		});
+		);
 		expect(await run.exit).toBe(1);
 		expect(run.command.invocations()).toHaveLength(3);
 		expect(parseJsonOutput(run)).toMatchObject({
@@ -130,16 +141,19 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("continues past a Slot failure and includes it in the negative result", async () => {
-		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "status"], {
-			git: {
-				worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a"), slotWorktree("slot-02")],
-			},
-			command: {
-				resultsByCwd: {
-					"/slots/repos/repo/worktrees/slot-01": exitedResult({ code: 1 }),
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "status"],
+			{
+				git: {
+					worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a"), slotWorktree("slot-02")],
+				},
+				command: {
+					resultsByCwd: {
+						"/slots/repos/repo/worktrees/slot-01": exitedResult({ code: 1 }),
+					},
 				},
 			},
-		});
+		);
 		expect(await run.exit).toBe(1);
 		expect(run.command.invocations()).toHaveLength(3);
 		expect(parseJsonOutput(run)).toMatchObject({
@@ -155,12 +169,15 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("aborts every invocation when the main worktree has an operation in progress", async () => {
-		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "status"], {
-			git: {
-				worktrees: [{ path: "/repo", branch: null }, slotWorktree("slot-01")],
-				branchOccupancies: [{ path: "/repo", branch: "feature/rebasing", operation: "rebase" }],
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "status"],
+			{
+				git: {
+					worktrees: [{ path: "/repo", branch: null }, slotWorktree("slot-01")],
+					branchOccupancies: [{ path: "/repo", branch: "feature/rebasing", operation: "rebase" }],
+				},
 			},
-		});
+		);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({
 			errorType: "operation-in-progress",
@@ -170,25 +187,28 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("aborts every invocation when an included Slot has an operation in progress", async () => {
-		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "status"], {
-			git: {
-				worktrees: [mainWorktree, slotWorktree("slot-01"), slotWorktree("slot-02")],
-				branchOccupancies: [
-					{
-						path: "/slots/repos/repo/worktrees/slot-02",
-						branch: "feature/rebasing",
-						operation: "rebase",
-					},
-				],
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "status"],
+			{
+				git: {
+					worktrees: [mainWorktree, slotWorktree("slot-01"), slotWorktree("slot-02")],
+					branchOccupancies: [
+						{
+							path: "/slots/repos/repo/worktrees/slot-02",
+							branch: "feature/rebasing",
+							operation: "rebase",
+						},
+					],
+				},
 			},
-		});
+		);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "operation-in-progress" });
 		expect(run.command.invocations()).toEqual([]);
 	});
 
 	it("fails before confirmation or execution when the main worktree is absent", async () => {
-		const run = runScenario(["foreach", "--format", "json", "--", "git", "status"], {
+		const run = runFilesystemScenario(["foreach", "--format", "json", "--", "git", "status"], {
 			git: { worktrees: [slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(2);
@@ -197,7 +217,7 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("fails with missing-command when no command is passed", async () => {
-		const run = runScenario(["foreach", "--format", "json"], {
+		const run = runFilesystemScenario(["foreach", "--format", "json"], {
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(2);
@@ -206,16 +226,19 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("preserves pool-empty when no managed Slots exist", async () => {
-		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "status"], {
-			git: { worktrees: [mainWorktree] },
-		});
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "status"],
+			{
+				git: { worktrees: [mainWorktree] },
+			},
+		);
 		expect(await run.exit).toBe(2);
 		expect(parseJsonOutput(run)).toMatchObject({ errorType: "pool-empty" });
 		expect(run.command.invocations()).toEqual([]);
 	});
 
 	it("requires --yes in JSON mode", async () => {
-		const run = runScenario(["foreach", "--format", "json", "--", "git", "status"], {
+		const run = runFilesystemScenario(["foreach", "--format", "json", "--", "git", "status"], {
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
 		});
 		expect(await run.exit).toBe(2);
@@ -224,7 +247,7 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("publishes an additive main-worktree JSON schema without weakening Slot results", async () => {
-		const run = runScenario(["foreach", "--json-schema"]);
+		const run = runFilesystemScenario(["foreach", "--json-schema"]);
 		expect(await run.exit).toBe(0);
 		const schema = run.stdout.join("");
 		expect(schema).toContain('"mainWorktree"');
@@ -233,7 +256,7 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("prompts with the complete target set and represents a decline honestly", async () => {
-		const accepted = runScenario(["foreach", "--", "git", "status"], {
+		const accepted = runFilesystemScenario(["foreach", "--", "git", "status"], {
 			stdin: "yes\n",
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a")] },
 		});
@@ -244,7 +267,7 @@ describe("slot foreach CLI", () => {
 			{ command: "git", args: ["status"], cwd: "/slots/repos/repo/worktrees/slot-01" },
 		]);
 
-		const declined = runScenario(["foreach", "--", "git", "status"], {
+		const declined = runFilesystemScenario(["foreach", "--", "git", "status"], {
 			stdin: "\n",
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a")] },
 		});
@@ -256,7 +279,7 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("emits human progress before and after each target in order", async () => {
-		const run = runScenario(["foreach", "--yes", "--", "git", "status"], {
+		const run = runFilesystemScenario(["foreach", "--yes", "--", "git", "status"], {
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a")] },
 		});
 		expect(await run.exit).toBe(0);
@@ -278,7 +301,7 @@ describe("slot foreach CLI", () => {
 		const commandStarted = new Promise<void>((resolve) => {
 			notifyRun = resolve;
 		});
-		const run = runScenario(["foreach", "--yes", "--", "git", "status"], {
+		const run = runFilesystemScenario(["foreach", "--yes", "--", "git", "status"], {
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
 			command: {
 				pendingResultsByCwd: { "/repo": pendingMain },
@@ -298,7 +321,7 @@ describe("slot foreach CLI", () => {
 	});
 
 	it("reports a spawn failure and continues progress for later targets", async () => {
-		const run = runScenario(["foreach", "--yes", "--", "tool"], {
+		const run = runFilesystemScenario(["foreach", "--yes", "--", "tool"], {
 			git: { worktrees: [mainWorktree, slotWorktree("slot-01", "feature/a")] },
 			command: {
 				resultsByCwd: {
@@ -316,13 +339,16 @@ describe("slot foreach CLI", () => {
 			"Finished main worktree (master) [1/2]: failed (spawn failed).",
 		);
 		expect(run.stderr.join("")).toContain("Running in slot-01 (feature/a) [2/2]…");
-		expect(run.stderr.join("")).toContain("—");
+		expect(run.stdout.join("")).toContain("—");
 	});
 
 	it("captures a flag-bearing command after --", async () => {
-		const run = runScenario(["foreach", "--yes", "--format", "json", "--", "git", "clean", "-fd"], {
-			git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
-		});
+		const run = runFilesystemScenario(
+			["foreach", "--yes", "--format", "json", "--", "git", "clean", "-fd"],
+			{
+				git: { worktrees: [mainWorktree, slotWorktree("slot-01")] },
+			},
+		);
 		expect(await run.exit).toBe(0);
 		expect(parseJsonOutput(run)).toMatchObject({
 			data: { command: ["git", "clean", "-fd"] },
