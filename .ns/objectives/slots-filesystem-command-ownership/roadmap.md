@@ -45,7 +45,7 @@ Begin only after the phase-1 cutover and parity gate have landed. Each row is on
 - [x] Modernize `slot init` outcomes in one PR. Runner checkpoint `dcd1454861e2a7a3bf2e248fd07f102f6e377a96` changed init to construct SDK success and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 372 Slot tests and full `just` validation passed.
 - [x] Modernize `slot resize` outcomes in one PR. Runner checkpoint `b318bdddfb2b16363734e399f1d9f09d4f1fe4cb` changed resize to return SDK success and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 373 Slot tests and full `just` validation passed.
 - [x] Modernize `slot provision apply` outcomes in one PR. Runner checkpoint `9f010276913b2395df1a031eec4799cbd51cf6ca` changed provision apply to return SDK success, negative, and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 374 Slot tests and full `just` validation passed.
-- [ ] Modernize `slot provision import` outcomes in one PR.
+- [x] Modernize `slot provision import` outcomes in one PR. Runner checkpoint `159d44269fec9fec0478351dc7956b593b170af2` changed provision import to return SDK success, negative, and failure outcomes directly, removed its temporary translation, and added repository-discovery failure coverage; all 375 Slot tests and full `just` validation passed.
 - [ ] Modernize `slot gt up` outcomes in one PR.
 - [ ] Modernize `slot gt down` outcomes in one PR.
 - [ ] Modernize `slot gt free-stack` outcomes in one PR.
