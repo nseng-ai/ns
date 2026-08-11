@@ -479,6 +479,30 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "ok\n");
 	});
 
+	test("supplies explicit settled non-ANSI render capabilities to the CLI runner", async () => {
+		const pi = new FakePi();
+		let renderCapabilities: CliCommandRunDeps["renderCapabilities"] | undefined;
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				renderCapabilities = deps.renderCapabilities;
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expect(renderCapabilities).toEqual({
+			canEmitAnsi: false,
+			caps: {
+				isTty: false,
+				colorDepth: "none",
+				columns: 80,
+				canRenderUnicode: true,
+			},
+		});
+	});
+
 	test("invokes the CLI runner after idle with parsed args, cwd, env, and captured output", async () => {
 		const pi = new FakePi();
 		const order: string[] = [];
@@ -533,6 +557,53 @@ describe("cli command extension helper", () => {
 				exitCode: 0,
 			},
 		]);
+	});
+
+	test("normalizes complete success transcripts before presentation and completion hooks", async () => {
+		const pi = new FakePi();
+		let hookDetails: CliCommandOutputDetails | undefined;
+		registerFakeCli(pi, {
+			afterCommandComplete: (details) => {
+				hookDetails = details;
+			},
+			runCli: (_args, deps) => {
+				deps.stdout("\u001b[");
+				deps.stdout("31mred\u001b[0m\r\nmove\u001b[2A\u001b[2Kdone\r");
+				deps.stdout(
+					"\u001b]0;hostile title\u0007\u001b]8;;https://example.test\u0007link\u001b]8;;\u0007\t雪\u0000\u0007\u007f\n",
+				);
+				deps.stderr("warn\u001b[?25l\rnext\u0001\n");
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expect(hookDetails).toMatchObject({
+			stdout: "red\nmovedone\nlink\t雪\n",
+			stderr: "warn\nnext\n",
+		});
+		expectSingleCliOutputMessage(pi, "stdout:\nred\nmovedone\nlink\t雪\n\nstderr:\nwarn\nnext\n");
+	});
+
+	test("normalizes failed command transcripts before error presentation", async () => {
+		const pi = new FakePi();
+		registerFakeCli(pi, {
+			runCli: (_args, deps) => {
+				deps.stderr("\u001b[31mfailed\u001b[0m\rretry\u0007\u007f\n");
+				return 17;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 17.\n\nstderr:\nfailed\nretry\n",
+			"error",
+		);
 	});
 
 	test("invokes command completion hook with output details after output emission", async () => {
@@ -1188,11 +1259,11 @@ describe("cli command extension helper", () => {
 		expectSingleCliOutputMessage(pi, "ok\n");
 	});
 
-	test("falls back to stdout for successful headless command output", async () => {
+	test("falls back to normalized stdout for successful headless command output", async () => {
 		const pi = new FakePi();
 		registerFakeCli(pi, {
 			runCli: (_args, deps) => {
-				deps.stdout("ok\n");
+				deps.stdout("\u001b[32mok\u001b[0m\r\n雪\u0007\n");
 				return 0;
 			},
 		});
@@ -1204,7 +1275,7 @@ describe("cli command extension helper", () => {
 			await commandFor(pi, "dev:preview-status").handler("", ctx);
 		});
 
-		expect(writes).toEqual({ stdout: "ok\n", stderr: "" });
+		expect(writes).toEqual({ stdout: "ok\n雪\n", stderr: "" });
 		expect(pi.sentMessages).toEqual([]);
 		expect(notifications).toEqual([]);
 		expect(editorTexts).toEqual([]);
@@ -1317,7 +1388,7 @@ describe("cli command extension helper", () => {
 		);
 	});
 
-	test("falls back to UI notifications when custom rendering is unavailable", async () => {
+	test("falls back to normalized UI notifications when custom rendering is unavailable", async () => {
 		const cases = [
 			new FakePi({ registerMessageRenderer: false }),
 			new FakePi({ sendMessage: false }),
@@ -1325,7 +1396,7 @@ describe("cli command extension helper", () => {
 		for (const pi of cases) {
 			registerFakeCli(pi, {
 				runCli: (_args, deps) => {
-					deps.stdout("ok\n");
+					deps.stdout("\u001b]0;title\u0007ok\r雪\u007f\n");
 					return 0;
 				},
 			});
@@ -1334,8 +1405,24 @@ describe("cli command extension helper", () => {
 			await commandFor(pi, "dev:preview-status").handler("", ctx);
 
 			expect(pi.sentMessages).toEqual([]);
-			expect(notifications).toEqual([{ message: "ok\n", level: "info" }]);
+			expect(notifications).toEqual([{ message: "ok\n雪\n", level: "info" }]);
 		}
+	});
+
+	test("normalizes directly constructed hostile messages before truncating and rendering", () => {
+		const component = renderCliCommandOutputMessage(
+			{
+				customType: CLI_COMMAND_OUTPUT_MESSAGE_TYPE,
+				content:
+					"\u001b[31mUnicode 雪\u001b[0m\r\n\u001b]0;title\u0007safe\u0000\u0007\u007f\ttext",
+				display: true,
+				details: { level: "info" },
+			},
+			{ expanded: false },
+			taggedTheme(),
+		);
+
+		expect(component.render(80)).toEqual(["<text>Unicode 雪</text>", "<text>safe\ttext</text>"]);
 	});
 
 	test("renders successful checkpoint output as normal text rather than dim status styling", () => {

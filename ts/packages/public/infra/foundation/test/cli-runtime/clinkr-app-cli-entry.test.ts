@@ -93,7 +93,14 @@ describe("defineClinkrAppCli", () => {
 
 		expect(stdout).toEqual(["prepared:ready:rewritten#1\n", "prepared:ready:rewritten#2\n"]);
 		expect(stderr).toEqual([]);
-		expect(prepareInput).toMatchObject({ args: ["ignored"], cwd: "/worktree" });
+		expect(prepareInput).toMatchObject({
+			args: ["ignored"],
+			cwd: "/worktree",
+			renderCapabilities: {
+				canEmitAnsi: false,
+				caps: { isTty: false, colorDepth: "none", columns: 80 },
+			},
+		});
 		expect(prepareInput?.metadata.packageName).toBe("example");
 	});
 
@@ -111,17 +118,31 @@ describe("defineClinkrAppCli", () => {
 		await expect(cli.run([])).resolves.toBe(41);
 	});
 
-	test("supplies injected stdin and ANSI capability to the modern app", async () => {
+	test("resolves callback invocation capabilities once for preparation and the modern app", async () => {
 		const root = makePackage({ name: "example", version: "1.0.0" });
 		const output: string[] = [];
-		const cli = defineTestCli(root, { ansi: true });
+		let prepareInput: ClinkrAppCliPrepareRunInput<TestDeps> | undefined;
+		const cli = defineClinkrAppCli<TestContext, TestDeps>({
+			metaUrl: packageMetaUrl(root),
+			runtime: "typescript",
+			description: "Example CLI.",
+			prepareRun: (input) => {
+				prepareInput = input;
+				return { type: "run", context: { prefix: "prepared" }, buildState: undefined };
+			},
+			buildApp: ({ name }) => createEchoApp(name, "", { ansi: true }),
+		});
 		await expect(
 			cli.run(["--input-json"], {
 				readJsonInput: async () => '{"value":"stdin"}',
-				canEmitAnsi: true,
+				renderCapabilities: { canEmitAnsi: true },
 				stdout: (text) => output.push(text),
 			}),
 		).resolves.toBe(0);
+		expect(prepareInput?.renderCapabilities).toMatchObject({
+			canEmitAnsi: true,
+			caps: { isTty: false, colorDepth: "ansi16", columns: 80 },
+		});
 		expect(output.join("")).toContain("\u001b[31mprepared:stdin\u001b[0m");
 	});
 

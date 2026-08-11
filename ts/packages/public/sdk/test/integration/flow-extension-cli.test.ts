@@ -384,6 +384,31 @@ describe("checked-in flow ns extension loading", () => {
 		},
 	);
 
+	test("callback invocation does not inherit outer TTY progress rendering", async () => {
+		const cwd = await createFlowProjectWithGraphiteStack();
+		const progressEvents: unknown[] = [];
+		const run = runWithRealFlowExtension({
+			args: ["flow", "submit"],
+			cwd,
+			state: {
+				exec: successfulSubmitResponses(cwd),
+				textGeneration: [{ ok: true, text: "Generated PR\n\nGenerated body" }],
+			},
+			baseRenderCapabilities: { canEmitAnsi: true, caps: ansiCaps },
+			onProgress: (event) => progressEvents.push(event),
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(progressEvents.length).toBeGreaterThan(0);
+		const emittedText = [
+			...run.stdout,
+			...run.stderr,
+			...run.liveOutput.map((entry) => entry.text),
+		].join("");
+		expect(emittedText).not.toMatch(/\u001b\[[0-9;?]*[A-Za-z]/u);
+		expect(emittedText).not.toContain("\r");
+	});
+
 	test("real loader reaches a simple submit invocation path", async () => {
 		const cwd = await createFlowProjectWithGraphiteStack();
 		const run = runWithRealFlowExtension({
@@ -453,16 +478,22 @@ function runWithRealFlowExtension(options: {
 	args: readonly string[];
 	cwd: string;
 	state?: Parameters<typeof runCliWithFakes>[0]["state"];
+	baseRenderCapabilities?: Parameters<typeof runCliWithFakes>[0]["baseRenderCapabilities"];
 	renderCapabilities?: Parameters<typeof runCliWithFakes>[0]["renderCapabilities"];
+	onProgress?: Parameters<typeof runCliWithFakes>[0]["onProgress"];
 }) {
 	return runCliWithFakes(
 		{
 			args: options.args,
 			cwd: options.cwd,
 			...(options.state === undefined ? {} : { state: options.state }),
+			...(options.baseRenderCapabilities === undefined
+				? {}
+				: { baseRenderCapabilities: options.baseRenderCapabilities }),
 			...(options.renderCapabilities === undefined
 				? {}
 				: { renderCapabilities: options.renderCapabilities }),
+			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 		},
 		{
 			execResponses: () => [],

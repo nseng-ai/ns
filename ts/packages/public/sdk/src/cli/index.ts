@@ -78,7 +78,7 @@ export interface NsCliDeps {
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
 	readonly readJsonInput?: () => Promise<string>;
-	readonly canEmitAnsi?: boolean;
+	readonly renderCapabilities?: NsExtensionApi["renderCapabilities"];
 	readonly entryMetaUrl?: string;
 	readonly homeDir?: string;
 	readonly onOutput?: (stream: NsOutputStream, text: string) => void;
@@ -108,6 +108,7 @@ const entryOptions = {
 		env,
 		stdout,
 		stderr,
+		renderCapabilities,
 	}: ClinkrAppCliPrepareRunInput<NsCliDeps>) => {
 		const base = deps.context;
 		if (base === undefined) throw new Error("Ns CLI context is required.");
@@ -132,10 +133,6 @@ const entryOptions = {
 			stderr: resolvedStderr,
 			...optionalEntry("onOutput", deps.onOutput ?? base.onOutput),
 		});
-		const renderCapabilities = {
-			...base.renderCapabilities,
-			canEmitAnsi: deps.canEmitAnsi ?? base.renderCapabilities.canEmitAnsi,
-		};
 		const context: NsExtensionApi = {
 			cwd: resolvedCwd,
 			env: resolvedEnv,

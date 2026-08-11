@@ -187,9 +187,11 @@ describe("ns Pi extension", () => {
 		test(`routes ns flow ${commandName} to the ns CLI with flow argv`, async () => {
 			const pi = new FakePi();
 			const runCliCalls: string[][] = [];
+			const renderCapabilities: unknown[] = [];
 			registerNsExtension(pi, {
 				runCli: async (args, deps) => {
 					runCliCalls.push([...args]);
+					renderCapabilities.push(deps.renderCapabilities);
 					deps.stdout(`pi-custom-${commandName}`);
 					return 0;
 				},
@@ -198,6 +200,17 @@ describe("ns Pi extension", () => {
 			await commandFor(pi, `ns:flow:${commandName}`).handler("", createContext("/work"));
 
 			expect(runCliCalls).toEqual([["flow", commandName]]);
+			expect(renderCapabilities).toEqual([
+				{
+					canEmitAnsi: false,
+					caps: {
+						isTty: false,
+						colorDepth: "none",
+						columns: 80,
+						canRenderUnicode: true,
+					},
+				},
+			]);
 			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${commandName}`);
 		});
 	}

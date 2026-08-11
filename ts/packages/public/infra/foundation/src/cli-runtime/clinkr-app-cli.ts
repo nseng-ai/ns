@@ -1,14 +1,12 @@
 import process from "node:process";
 import { TextDecoder } from "node:util";
 
+import { resolveIo } from "@nseng-ai/clinkr";
 import type { ClinkrContextfulApp } from "@nseng-ai/clinkr/app";
+import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import type { ClinkrRawOutput } from "@nseng-ai/clinkr/raw";
 
-import {
-	optionalEntries,
-	optionalEntry,
-	type ExplicitUndefined,
-} from "@nseng-ai/foundation/primitives";
+import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import { isDirectCliInvocation } from "./direct-invocation.ts";
 import { readJsonInput } from "./stdin.ts";
@@ -25,7 +23,7 @@ export interface ClinkrAppCliEntrypointDeps {
 	readonly stdout?: (text: string) => void;
 	readonly stderr?: (text: string) => void;
 	readonly readJsonInput?: () => Promise<string>;
-	readonly canEmitAnsi?: boolean;
+	readonly renderCapabilities?: RenderCapabilities;
 }
 
 export type ClinkrAppCliRunDeps<TDeps extends ClinkrAppCliEntrypointDeps> = Partial<TDeps> &
@@ -52,6 +50,7 @@ export interface ClinkrAppCliPrepareRunInput<TDeps extends ClinkrAppCliEntrypoin
 	readonly env: NodeJS.ProcessEnv;
 	readonly stdout: (text: string) => void;
 	readonly stderr: (text: string) => void;
+	readonly renderCapabilities: RenderCapabilities;
 	readonly metadata: CliPackageMetadata;
 }
 
@@ -129,8 +128,19 @@ export function defineClinkrAppCli<
 		args: readonly string[],
 		deps: ClinkrAppCliRunDeps<TDeps> = {},
 	): Promise<number> {
-		const stdout = deps.stdout ?? writeProcessStdout;
-		const stderr = deps.stderr ?? writeProcessStderr;
+		const io = resolveIo({
+			...optionalEntries({
+				stdout: deps.stdout,
+				stderr: deps.stderr,
+				canEmitAnsi: deps.renderCapabilities?.canEmitAnsi,
+				caps: deps.renderCapabilities?.caps,
+			}),
+		});
+		const { stdout, stderr } = io;
+		const renderCapabilities = {
+			canEmitAnsi: io.canEmitAnsi === true,
+			...(io.caps === undefined ? {} : { caps: io.caps }),
+		};
 		try {
 			const prepareResult = await options.prepareRun({
 				args,
@@ -139,6 +149,7 @@ export function defineClinkrAppCli<
 				env: deps.env ?? process.env,
 				stdout,
 				stderr,
+				renderCapabilities,
 				metadata,
 			});
 			if (prepareResult.type === "handled") return prepareResult.exitCode;
@@ -154,7 +165,7 @@ export function defineClinkrAppCli<
 								? undefined
 								: { stdout, stderr },
 					}),
-					...optionalEntry("canEmitAnsi", deps.canEmitAnsi),
+					canEmitAnsi: renderCapabilities.canEmitAnsi,
 				});
 			} finally {
 				rawBridge.flush();
@@ -221,12 +232,4 @@ function emitDecodedText(
 ): void {
 	const text = decoder.decode(bytes, { stream: true });
 	if (text !== "") write?.(text);
-}
-
-function writeProcessStdout(text: string): void {
-	process.stdout.write(text);
-}
-
-function writeProcessStderr(text: string): void {
-	process.stderr.write(text);
 }

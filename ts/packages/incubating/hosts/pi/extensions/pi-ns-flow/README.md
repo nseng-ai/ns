@@ -9,9 +9,11 @@ behind the curated `@nseng-ai/flow/api` extension package API; the adapter never
 private source.
 
 The package's `pi.extensions` manifest directly discovers only the lifecycle entrypoint. That
-entrypoint loads a fresh `@nseng-ai/ns/cli` module for every command invocation. The separately
-exported `@nseng-ai/pi-ns-flow/stack-squash` adapter is not directly discovered: the repository's
-`.pi/extensions/code.ts` composes it with Internal smart-restack presentation so neither owning
-package imports the other.
+entrypoint loads a fresh `@nseng-ai/ns/cli` module for every command invocation. Pi Runtime supplies
+callback-owned, settled non-TTY output capabilities, captures terminal-safe plain text, and presents
+structured Flow progress through Pi's footer instead of allowing Flow to animate the physical
+terminal. The separately exported `@nseng-ai/pi-ns-flow/stack-squash` adapter is not directly
+discovered: the repository's `.pi/extensions/code.ts` composes it with Internal smart-restack
+presentation so neither owning package imports the other.
 
 Pi is an optional host for Flow. The portable command face remains `ns flow ...`.

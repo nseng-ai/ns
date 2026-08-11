@@ -496,6 +496,9 @@ importers:
       '@earendil-works/pi-tui':
         specifier: 'catalog:'
         version: 0.80.5
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/clinkr
       '@nseng-ai/extension-kit':
         specifier: workspace:*
         version: link:../../../../../public/extension-kit

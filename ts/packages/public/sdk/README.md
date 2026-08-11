@@ -40,6 +40,6 @@ Route identity, aliases, descriptions, visibility, and help grouping belong to r
 
 ## Host behavior
 
-The ns CLI loads source inventory, builds one contextful Clinkr app, mounts separately labelled filesystem and programmatic sources, and delegates execution and completion to that app. The SDK does not enumerate command routes, select argv, apply source precedence, or adapt nested legacy runtimes.
+The ns CLI loads source inventory, builds one contextful Clinkr app, mounts separately labelled filesystem and programmatic sources, and delegates execution and completion to that app. Rendering capabilities belong to each invocation's resolved output sink: callback-hosted output defaults to settled non-TTY, non-ANSI capabilities, while standalone process-backed execution retains terminal capabilities. A host can explicitly provide callback-sink capabilities, but enabling ANSI color does not grant TTY cursor ownership. The SDK does not enumerate command routes, select argv, apply source precedence, or adapt nested legacy runtimes.
 
 See `docs/sdk-reference.md` for the complete exported author surface.

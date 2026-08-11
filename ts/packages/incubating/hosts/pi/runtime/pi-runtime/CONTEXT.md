@@ -72,6 +72,10 @@ A fresh Pi subprocess launched by a parent extension with an isolated conversati
 The neutral `@nseng-ai/pi-runtime/terminal/*` layout and presentation subpaths owned by the Pi host and intentionally consumed by extracted Pi-tool packages and orchestration packages. This surface includes bordered overlay chrome, sizing, and wrapped-detail viewport behavior. Keep this surface in `@nseng-ai/pi-runtime` unless a future extraction proves a smaller acyclic home without broad churn.
 *Avoid*: standalone Pi-tool package, feature-domain implementation, terminal emulator ownership.
 
+**Invocation-scoped CLI capture**:
+The Pi Runtime bridge for an embedded structured CLI invocation. It supplies callback-owned stdout and stderr, explicit settled non-TTY and non-ANSI render capabilities, and structured progress for Pi's footer. After execution, it normalizes the complete captured transcripts to terminal-safe plain text before details, completion hooks, notifications, headless fallbacks, or custom-message rendering receive them. Decoded raw-command bytes use the same capture-and-sanitize text path; this does not provide a PTY or terminal virtualization.
+*Avoid*: ambient process terminal capabilities, cursor ownership, ANSI preservation, per-chunk sanitization, terminal emulation
+
 **Terminal capture**:
 A runner-subagent return mode where a generated runtime extension registers capture-only terminal tools whose validated input becomes the parent result.
 *Avoid*: tool side effect, assistant final answer, stdout scrape.

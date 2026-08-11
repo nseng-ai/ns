@@ -2,7 +2,10 @@ import process from "node:process";
 
 import { registerCommandWithImmediateAck } from "./ack.ts";
 import { parseCliCommandArgs, type ParsedCliCommandArgs } from "./args.ts";
+import { resolveSettledNonInteractiveCaps } from "@nseng-ai/clinkr";
+import type { RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { stripTerminalEscapes } from "@nseng-ai/foundation/terminal-escapes";
 import type { NotifyLevel, SetWidgetFunction } from "../runtime/tool-types.ts";
 import { CliCommandStatusActivity } from "./cli-command-status.ts";
 import { outputTraceFields, traceCliCommand } from "./cli-command-trace.ts";
@@ -76,6 +79,8 @@ export interface CliCommandRunDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	env: Record<string, string | undefined>;
+	/** Stable non-ANSI capabilities for the callback-backed Pi output sink. */
+	renderCapabilities: RenderCapabilities;
 	/**
 	 * Emits structured live-progress phase events for the Pi footer status path only.
 	 * Events sent here are not included in the final rendered command result; use
@@ -249,7 +254,7 @@ export function renderCliCommandOutputMessage(
 	_options: { expanded: boolean },
 	theme: RenderTheme,
 ): RenderComponent {
-	const content = customMessageText(message.content);
+	const content = normalizePiPlainTextTranscript(customMessageText(message.content));
 	const level = cliCommandMessageLevel(message.details);
 	return {
 		render(width: number): string[] {
@@ -470,6 +475,10 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 			},
 			// Give each invocation an owned environment without mutating process.env.
 			env: { ...(spec.env ?? process.env) },
+			renderCapabilities: {
+				canEmitAnsi: false,
+				caps: resolveSettledNonInteractiveCaps(),
+			},
 			isInteractive: () =>
 				ctx.hasUI === true && ctx.ui.confirm !== undefined && ctx.ui.select !== undefined,
 			onProgress: (event) => {
@@ -577,10 +586,16 @@ function buildOutputDetails(options: BuildOutputDetailsOptions): CliCommandOutpu
 		argv: [...commandArgvPrefix(command), ...args],
 		cwd,
 		exitCode: result.exitCode,
-		stdout: result.stdout,
-		stderr: result.stderr,
+		stdout: normalizePiPlainTextTranscript(result.stdout),
+		stderr: normalizePiPlainTextTranscript(result.stderr),
 		level: result.exitCode === 0 ? "info" : "error",
 	};
+}
+
+function normalizePiPlainTextTranscript(value: string): string {
+	return stripTerminalEscapes(value)
+		.replace(/\r\n?/g, "\n")
+		.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 }
 
 function startsWithPositionalArgs(args: readonly string[]): boolean {

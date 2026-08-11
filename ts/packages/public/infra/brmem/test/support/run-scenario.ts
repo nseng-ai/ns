@@ -85,7 +85,9 @@ export function runScenario(
 		sourceReader: context.sourceReader,
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
-		...optionalEntries({ canEmitAnsi: options.canEmitAnsi }),
+		...(options.canEmitAnsi === undefined
+			? {}
+			: { renderCapabilities: { canEmitAnsi: options.canEmitAnsi } }),
 	};
 	return {
 		exit: runCli(args, deps).then((code) => {

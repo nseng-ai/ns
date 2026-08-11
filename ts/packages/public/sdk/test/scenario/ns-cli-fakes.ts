@@ -53,6 +53,9 @@ export interface RunWithFakesOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
+	/** Capabilities on the outer/base host context; not authoritative for this invocation's sink. */
+	baseRenderCapabilities?: RenderCapabilities & { readonly caps?: Caps };
+	/** Explicit capabilities for the callback-backed invocation sink. */
 	renderCapabilities?: RenderCapabilities & { readonly caps?: Caps };
 	onProgress?: NsCliDeps["onProgress"];
 	extensionRegistry?: NsCliDeps["extensionRegistry"];
@@ -166,9 +169,9 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 		...(defaults.missingTextGenerationResult === undefined
 			? {}
 			: { missingTextGenerationResult: defaults.missingTextGenerationResult }),
-		...(options.renderCapabilities === undefined
+		...(options.baseRenderCapabilities === undefined
 			? {}
-			: { renderCapabilities: options.renderCapabilities }),
+			: { renderCapabilities: options.baseRenderCapabilities }),
 	});
 	return {
 		context,
@@ -191,7 +194,7 @@ export function runCliWithFakes(options: RunWithFakesOptions, defaults: RunWithF
 			},
 			...(options.renderCapabilities === undefined
 				? {}
-				: { canEmitAnsi: options.renderCapabilities.canEmitAnsi }),
+				: { renderCapabilities: options.renderCapabilities }),
 			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 			...(options.state?.confirm === undefined ? {} : { confirm: options.state.confirm }),
 			...(options.state?.select === undefined ? {} : { select: options.state.select }),

@@ -18,9 +18,11 @@ registration, interaction, notification/presentation, and parity metadata.
 The eleven `/ns:flow:*` slash-command mirrors registered by the **Flow Pi host adapter**. The
 package is loaded directly through its `pi.extensions` manifest and `.pi/settings.json`, without a
 project-local `.pi/extensions/ns.ts` adapter, and loads a fresh `@nseng-ai/ns/cli` module for every
-command invocation. Flow command metadata and submit-check recovery policy come from
+command invocation. Each invocation uses Pi Runtime's callback-owned, settled non-TTY plain-text
+capture while structured Flow phase events drive Pi's footer; Flow does not own Pi's cursor or live
+terminal region. Flow command metadata and submit-check recovery policy come from
 `@nseng-ai/flow/api`.
-*Avoid*: dynamic mirror discovery, static captured CLI module, flat lifecycle alias, project-local ns discovery adapter
+*Avoid*: dynamic mirror discovery, static captured CLI module, flat lifecycle alias, project-local ns discovery adapter, Flow terminal animation inside Pi
 
 **Flow stack-squash composition export**:
 The explicit `@nseng-ai/pi-ns-flow/stack-squash` Pi presentation export for
