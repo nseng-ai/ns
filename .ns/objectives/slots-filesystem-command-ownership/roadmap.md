@@ -35,7 +35,7 @@ Phase rule: migrate one command per PR in each applicable phase. `list` owns the
 
 Begin only after the phase-1 cutover and parity gate have landed. Each row is one command PR; do not batch commands. Shell commands are absent because they already return modern SDK outcomes.
 
-- [ ] Modernize `slot list` outcomes in one PR.
+- [x] Modernize `slot list` outcomes in one PR. Runner checkpoint `89bfb46d19c35e8fa9d138618602eafabbf3610a` changed the list operation to construct SDK success and failure outcomes directly, removed list's temporary translation, and added repository-discovery failure coverage; all 365 Slot tests and full `just` validation passed.
 - [ ] Modernize `slot checkout` outcomes in one PR.
 - [ ] Modernize `slot goto` outcomes in one PR.
 - [ ] Modernize `slot claim` outcomes in one PR.
