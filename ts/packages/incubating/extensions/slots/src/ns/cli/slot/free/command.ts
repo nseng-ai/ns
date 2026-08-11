@@ -7,7 +7,7 @@ import {
 	renderFree,
 	runFree,
 } from "../../../../lifecycle/operations/free.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -17,10 +17,7 @@ export async function command() {
 		schema: freeRequestSchema,
 		options: freeOptionSpecs,
 		resultSchema: freeResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runFree(await createSlotCliContext(ctx), request), {
-				useHumanOverride: ctx.outputFormat === undefined || ctx.outputFormat === "human",
-			}),
+		handler: async (ctx, request) => runFree(await createSlotCliContext(ctx), request),
 		renderHuman: renderFree,
 	});
 }

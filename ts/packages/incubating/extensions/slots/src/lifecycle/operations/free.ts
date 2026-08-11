@@ -1,12 +1,6 @@
-import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
-import {
-	failure,
-	negative,
-	ok,
-	resolveRenderCapabilities,
-	type RenderCapabilities,
-} from "@nseng-ai/clinkr/legacy";
+import { resolveRenderCapabilities, type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 import { z } from "zod";
 
 import { deduplicateOrderedStrings } from "../../core/collections.ts";
@@ -101,19 +95,20 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 			}),
 		);
 	if (request.all && plan.outcome.targets.length > 0 && !request.yes) {
-		const confirmed = await confirmInteractiveOrUsageError(repoCtx.interaction, {
-			nonInteractive: {
-				message:
-					"Destructive free --all requires --yes when non-interactive (or use --dry-run first).",
-				missingFlag: "--yes",
-				howToSupply: "Pass --yes (or -y) to free slots without prompting, or run --dry-run first.",
-			},
-			confirmation: {
-				message: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches?`,
-				defaultAnswer: "no",
-			},
+		if (!repoCtx.interaction.isInteractive()) {
+			return usageError(
+				"Destructive free --all requires --yes when non-interactive (or use --dry-run first).",
+				{
+					missingFlag: "--yes",
+					howToSupply:
+						"Pass --yes (or -y) to free slots without prompting, or run --dry-run first.",
+				},
+			);
+		}
+		const confirmed = await repoCtx.interaction.confirm({
+			message: `Free ${plan.outcome.targets.length} slot(s), close matching PRs, and delete local branches?`,
+			defaultAnswer: "no",
 		});
-		if (confirmed.type === "usageError") return confirmed;
 		if (confirmed.type === "cancelled") return failure("aborted", "Aborted!");
 		if (confirmed.type === "declined")
 			return ok(
@@ -145,10 +140,10 @@ export async function runFree(ctx: SlotCliContext, request: FreeRequest) {
 		isCancelled: false,
 	});
 	if (cleanupErrorCount(result.cleanup) > 0)
-		return negative("Slot free completed with cleanup errors.", {
-			data: result,
-			human: renderFree(result),
-		});
+		return negative(
+			ctx.shouldWriteCdDirective ? renderFree(result) : "Slot free completed with cleanup errors.",
+			{ data: result },
+		);
 	return ok(result);
 }
 

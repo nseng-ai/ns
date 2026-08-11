@@ -167,6 +167,19 @@ describe("slot free CLI", () => {
 		expect(declined.pr.operations()).toEqual([{ type: "get-pr-for-branch", branch: "feature/a" }]);
 	});
 
+	it("preserves repository discovery failures", async () => {
+		const run = runFilesystemScenario(["free", "--wt", "slot-01", "--format", "json"], {
+			repo: { type: "no_repo", errorType: "not-in-repo", message: "not in repo" },
+		});
+		expect(await run.exit).toBe(2);
+		expect(parseJsonOutput(run)).toMatchObject({
+			status: "failure",
+			exitCode: 2,
+			errorType: "not-in-repo",
+			message: "not in repo",
+		});
+	});
+
 	it("reports an unmatched branch selector instead of treating it as missing", async () => {
 		const run = runFilesystemScenario(["free", "-b", "feature/missing", "--format", "json"], {
 			git: {
