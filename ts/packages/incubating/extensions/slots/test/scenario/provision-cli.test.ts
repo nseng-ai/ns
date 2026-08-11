@@ -2,12 +2,7 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 import { describe, expect, it } from "vitest";
 
 import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
-import {
-	parseJsonOutput,
-	repoContext,
-	runScenario,
-	slotWorktree,
-} from "../support/run-scenario.ts";
+import { repoContext, slotWorktree } from "../support/run-scenario.ts";
 
 const STORE_ROOT = "/slots/repos/repo/provision/default";
 const SLOT_01 = slotWorktree("slot-01").path;
@@ -32,7 +27,7 @@ describe("slot provision CLI surface", () => {
 		expect(await applyHelp.exit).toBe(0);
 		expect(applyHelp.stdout.join("")).toContain("--force");
 
-		const importHelp = runScenario(["provision", "import", "-h"]);
+		const importHelp = runFilesystemScenario(["provision", "import", "-h"]);
 		expect(await importHelp.exit).toBe(0);
 		expect(importHelp.stdout.join("")).toContain("paths");
 	});
@@ -182,14 +177,14 @@ describe("slot provision apply CLI", () => {
 
 describe("slot provision import CLI", () => {
 	it("imports an explicit declared path from the current worktree", async () => {
-		const run = runScenario(["provision", "import", ".env.local", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "import", ".env.local", "--format", "json"], {
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": DECLARED_ENV },
 				files: { "/repo/.env.local": "SECRET=1\n" },
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				storeRoot: STORE_ROOT,
 				sourceRoot: "/repo",
@@ -203,7 +198,7 @@ describe("slot provision import CLI", () => {
 	});
 
 	it("loads the declaration and source file from the invoking managed slot", async () => {
-		const run = runScenario(["provision", "import", ".env.local", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "import", ".env.local", "--format", "json"], {
 			cwd: SLOT_01,
 			repo: repoContext({ root: SLOT_01 }),
 			git: { repositoryRoot: SLOT_01 },
@@ -213,7 +208,7 @@ describe("slot provision import CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				sourceRoot: SLOT_01,
 				createdCount: 1,
@@ -226,14 +221,14 @@ describe("slot provision import CLI", () => {
 	});
 
 	it("imports all declared files when no paths are passed and keeps missing ones exit 0", async () => {
-		const run = runScenario(["provision", "import", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "import", "--format", "json"], {
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": '[slots]\nprovision = ["a.env", "b.env"]\n' },
 				files: { "/repo/a.env": "A\n" },
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				createdCount: 1,
 				missingCount: 1,
@@ -246,11 +241,11 @@ describe("slot provision import CLI", () => {
 	});
 
 	it("rejects undeclared explicit paths with exit 2", async () => {
-		const run = runScenario(["provision", "import", "secret.env", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "import", "secret.env", "--format", "json"], {
 			provisionFiles: { projectConfigByRoot: { "/repo": DECLARED_ENV } },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "not-declared" });
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({ errorType: "not-declared" });
 		expect(run.provisionFiles.operations()).toEqual([]);
 	});
 });

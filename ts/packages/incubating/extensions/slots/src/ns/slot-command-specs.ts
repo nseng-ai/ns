@@ -25,15 +25,12 @@ import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	gtUpRequestSchema,
-	provisionImportRequestSchema,
-	provisionImportResultSchema,
 	renderGtDownNavigation,
 	renderGtDescendantsReport,
 	renderGtFreeStack,
 	renderGtQuiescence,
 	renderGtRestackPreflight,
 	renderGtUpNavigation,
-	renderProvisionImport,
 	renderBackupRefs,
 	renderStackBranches,
 	renderStackMapBranches,
@@ -46,7 +43,6 @@ import {
 	runGtStackBranches,
 	runGtStackMapBranches,
 	runGtUp,
-	runProvisionImport,
 } from "../lifecycle/operations/index.ts";
 
 export type SlotCommandGroup = "root" | "provision" | "gt" | "gt-exec";
@@ -122,18 +118,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "provision",
-		name: "import",
-		summary: "Copy declared provisioned files from the current worktree into the store.",
-		description:
-			"Copy declared [slots] provision files from the current worktree into the per-repo provision store. With no PATHS, imports every declared file present in the worktree.",
-		schema: provisionImportRequestSchema,
-		positionals: { paths: { position: 0 } },
-		resultSchema: provisionImportResultSchema,
-		handler: runProvisionImport,
-		renderHuman: renderProvisionImport,
-	}),
 	slotCommandSpec({
 		group: "gt",
 		name: "up",
