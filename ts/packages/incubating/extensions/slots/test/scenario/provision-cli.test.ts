@@ -14,9 +14,13 @@ const SLOT_01 = slotWorktree("slot-01").path;
 const SLOT_02 = slotWorktree("slot-02").path;
 const DECLARED_ENV = '[slots]\nprovision = [".env.local"]\n';
 
+function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
+
 describe("slot provision CLI surface", () => {
 	it("lists apply and import in provision group help", async () => {
-		const run = runScenario(["provision", "--help"]);
+		const run = runFilesystemScenario(["provision", "--help"]);
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("apply");
@@ -24,7 +28,7 @@ describe("slot provision CLI surface", () => {
 	});
 
 	it("documents --force in apply help and PATHS in import help", async () => {
-		const applyHelp = runScenario(["provision", "apply", "-h"]);
+		const applyHelp = runFilesystemScenario(["provision", "apply", "-h"]);
 		expect(await applyHelp.exit).toBe(0);
 		expect(applyHelp.stdout.join("")).toContain("--force");
 
@@ -36,7 +40,7 @@ describe("slot provision CLI surface", () => {
 
 describe("slot provision apply CLI", () => {
 	it("fills gaps across managed slots and reports machine entries", async () => {
-		const run = runScenario(["provision", "apply", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "apply", "--format", "json"], {
 			git: {
 				worktrees: [
 					{ path: "/repo", branch: "master" },
@@ -53,7 +57,7 @@ describe("slot provision apply CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				storeRoot: STORE_ROOT,
 				copiedCount: 1,
@@ -75,7 +79,7 @@ describe("slot provision apply CLI", () => {
 	});
 
 	it("loads the declaration from the invoking managed slot", async () => {
-		const run = runScenario(["provision", "apply", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "apply", "--format", "json"], {
 			cwd: SLOT_01,
 			repo: repoContext({ root: SLOT_01 }),
 			git: {
@@ -92,7 +96,7 @@ describe("slot provision apply CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				copiedCount: 2,
 				entries: [
@@ -104,7 +108,7 @@ describe("slot provision apply CLI", () => {
 	});
 
 	it("renders a human table with paths only", async () => {
-		const run = runScenario(["provision", "apply"], {
+		const run = runFilesystemScenario(["provision", "apply"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] },
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": DECLARED_ENV },
@@ -122,7 +126,7 @@ describe("slot provision apply CLI", () => {
 	});
 
 	it("reports differing copies, leaves them untouched, and exits 1", async () => {
-		const run = runScenario(["provision", "apply", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "apply", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] },
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": DECLARED_ENV },
@@ -133,7 +137,7 @@ describe("slot provision apply CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			status: "negative",
 			data: {
 				differsCount: 1,
@@ -146,7 +150,7 @@ describe("slot provision apply CLI", () => {
 	});
 
 	it("overwrites differing copies with --force and exits 0", async () => {
-		const run = runScenario(["provision", "apply", "--force", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "apply", "--force", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }, slotWorktree("slot-01")] },
 			provisionFiles: {
 				projectConfigByRoot: { "/repo": DECLARED_ENV },
@@ -157,7 +161,7 @@ describe("slot provision apply CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: { overwrittenCount: 1, differsCount: 0 },
 		});
 		expect(run.provisionFiles.fileAt(`${SLOT_01}/.env.local`)).toEqual({
@@ -166,11 +170,13 @@ describe("slot provision apply CLI", () => {
 	});
 
 	it("fails with the config error code on invalid declarations", async () => {
-		const run = runScenario(["provision", "apply", "--format", "json"], {
+		const run = runFilesystemScenario(["provision", "apply", "--format", "json"], {
 			provisionFiles: { projectConfigByRoot: { "/repo": '[slots]\nprovision = ["/abs"]\n' } },
 		});
 		expect(await run.exit).toBe(2);
-		expect(parseJsonOutput(run)).toMatchObject({ errorType: "invalid-provision-path" });
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
+			errorType: "invalid-provision-path",
+		});
 	});
 });
 

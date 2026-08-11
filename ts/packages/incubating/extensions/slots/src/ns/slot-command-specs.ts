@@ -3,11 +3,7 @@ import type { ClinkrExit, RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
-import {
-	gtFreeStackOptionSpecs,
-	gtNavigationOptionSpecs,
-	provisionApplyOptionSpecs,
-} from "../core/command-options.ts";
+import { gtFreeStackOptionSpecs, gtNavigationOptionSpecs } from "../core/command-options.ts";
 import type { SlotCliContext } from "../core/context.ts";
 import {
 	gtBackupRefsRequestSchema,
@@ -29,8 +25,6 @@ import {
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	gtUpRequestSchema,
-	provisionApplyRequestSchema,
-	provisionApplyResultSchema,
 	provisionImportRequestSchema,
 	provisionImportResultSchema,
 	renderGtDownNavigation,
@@ -39,7 +33,6 @@ import {
 	renderGtQuiescence,
 	renderGtRestackPreflight,
 	renderGtUpNavigation,
-	renderProvisionApply,
 	renderProvisionImport,
 	renderBackupRefs,
 	renderStackBranches,
@@ -53,7 +46,6 @@ import {
 	runGtStackBranches,
 	runGtStackMapBranches,
 	runGtUp,
-	runProvisionApply,
 	runProvisionImport,
 } from "../lifecycle/operations/index.ts";
 
@@ -130,18 +122,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "provision",
-		name: "apply",
-		summary: "Fill missing provisioned files in all managed slots from the store.",
-		description:
-			"Copy declared [slots] provision files from the per-repo store into every managed slot worktree where they are missing. Reports copies that differ from the store; --force overwrites them.",
-		schema: provisionApplyRequestSchema,
-		options: provisionApplyOptionSpecs,
-		resultSchema: provisionApplyResultSchema,
-		handler: runProvisionApply,
-		renderHuman: renderProvisionApply,
-	}),
 	slotCommandSpec({
 		group: "provision",
 		name: "import",
