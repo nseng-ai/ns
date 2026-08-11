@@ -5,6 +5,7 @@ import type {
 import { describe, expect, it } from "vitest";
 
 import { fakeStackGraphInfo, fakeStackInfo } from "@nseng-ai/extension-kit/graphite/testing";
+import { runFilesystemScenario } from "../support/run-filesystem-scenario.ts";
 import {
 	parseJsonOutput,
 	runScenario,
@@ -12,9 +13,23 @@ import {
 	type ScenarioRunOptions,
 } from "../support/run-scenario.ts";
 
+function parseFilesystemJsonOutput(run: { readonly stdout: readonly string[] }): unknown {
+	return JSON.parse(run.stdout.join(""));
+}
+
 describe("slot gt exec stack-branches CLI", () => {
+	it("is hidden, invocable, and exposes the downstack option", async () => {
+		const group = runFilesystemScenario(["gt", "--help"]);
+		expect(await group.exit).toBe(0);
+		expect(group.stdout.join("")).not.toContain("stack-branches");
+
+		const command = runFilesystemScenario(["gt", "exec", "stack-branches", "--help"]);
+		expect(await command.exit).toBe(0);
+		expect(command.stdout.join("")).toContain("--downstack");
+	});
+
 	it("is hidden but invocable and emits compact branch JSON in human mode", async () => {
-		const run = runScenario(["gt", "exec", "stack-branches"], {
+		const run = runFilesystemScenario(["gt", "exec", "stack-branches"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: {
 				stack: {
@@ -33,22 +48,25 @@ describe("slot gt exec stack-branches CLI", () => {
 	});
 
 	it("returns the full envelope in JSON mode", async () => {
-		const run = runScenario(["gt", "exec", "stack-branches", "--downstack", "--format", "json"], {
-			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
-			gt: {
-				stack: {
-					type: "stack",
-					stack: fakeStackInfo({
-						trunk: "master",
-						current: "feature/current",
-						ancestors: ["master", "feature/a"],
-						descendants: ["feature/c"],
-					}),
+		const run = runFilesystemScenario(
+			["gt", "exec", "stack-branches", "--downstack", "--format", "json"],
+			{
+				git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
+				gt: {
+					stack: {
+						type: "stack",
+						stack: fakeStackInfo({
+							trunk: "master",
+							current: "feature/current",
+							ancestors: ["master", "feature/a"],
+							descendants: ["feature/c"],
+						}),
+					},
 				},
 			},
-		});
+		);
 		expect(await run.exit).toBe(0);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			data: {
 				branches: ["feature/a", "feature/current"],
 				scope: "downstack",
@@ -61,7 +79,7 @@ describe("slot gt exec stack-branches CLI", () => {
 	});
 
 	it("returns a negative result on trunk", async () => {
-		const run = runScenario(["gt", "exec", "stack-branches", "--format", "json"], {
+		const run = runFilesystemScenario(["gt", "exec", "stack-branches", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "master" }] },
 			gt: {
 				stack: {
@@ -76,7 +94,7 @@ describe("slot gt exec stack-branches CLI", () => {
 			},
 		});
 		expect(await run.exit).toBe(1);
-		expect(parseJsonOutput(run)).toMatchObject({
+		expect(parseFilesystemJsonOutput(run)).toMatchObject({
 			exitCode: 1,
 			message: "On trunk 'master'; no stack is checked out.",
 			data: { branches: [] },
@@ -95,13 +113,13 @@ describe("slot gt exec stack-branches CLI", () => {
 				termination: { type: "completed" },
 			},
 		});
-		const full = runScenario(["gt", "exec", "stack-branches", "--format", "json"], {
+		const full = runFilesystemScenario(["gt", "exec", "stack-branches", "--format", "json"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: { stack: { type: "stack", stack } },
 		});
 		expect(await full.exit).toBe(2);
-		expect(parseJsonOutput(full)).toMatchObject({ errorType: "forked-stack" });
-		const down = runScenario(["gt", "exec", "stack-branches", "--downstack"], {
+		expect(parseFilesystemJsonOutput(full)).toMatchObject({ errorType: "forked-stack" });
+		const down = runFilesystemScenario(["gt", "exec", "stack-branches", "--downstack"], {
 			git: { worktrees: [{ path: "/repo", branch: "feature/current" }] },
 			gt: { stack: { type: "stack", stack } },
 		});

@@ -1,5 +1,22 @@
-import { loadSlotNsCommand } from "../../../../../slot-ns-command.ts";
+import { defineCommand } from "@nseng-ai/sdk";
+
+import {
+	gtStackBranchesRequestSchema,
+	gtStackBranchesResultSchema,
+	renderStackBranches,
+	runGtStackBranches,
+} from "../../../../../../lifecycle/operations/gt/exec/stack-branches.ts";
+import { createSlotCliContext, toModernSlotOutcome } from "../../../../../command-adapter.ts";
 
 export async function command() {
-	return loadSlotNsCommand("stack-branches");
+	return defineCommand({
+		name: "stack-branches",
+		summary: "Emit the current Graphite stack branch list for skill/agent invocation.",
+		description: "Emit the current Graphite stack branch list for skill/agent invocation.",
+		schema: gtStackBranchesRequestSchema,
+		resultSchema: gtStackBranchesResultSchema,
+		handler: async (ctx, request) =>
+			toModernSlotOutcome(await runGtStackBranches(await createSlotCliContext(ctx), request)),
+		renderHuman: renderStackBranches,
+	});
 }

@@ -14,21 +14,17 @@ import {
 	gtQuiescenceResultSchema,
 	gtRestackPreflightRequestSchema,
 	gtRestackPreflightResultSchema,
-	gtStackBranchesRequestSchema,
-	gtStackBranchesResultSchema,
 	gtStackMapBranchesRequestSchema,
 	gtStackMapBranchesResultSchema,
 	renderGtDescendantsReport,
 	renderGtQuiescence,
 	renderGtRestackPreflight,
 	renderBackupRefs,
-	renderStackBranches,
 	renderStackMapBranches,
 	runGtBackupRefs,
 	runGtDescendantsReport,
 	runGtQuiescence,
 	runGtRestackPreflight,
-	runGtStackBranches,
 	runGtStackMapBranches,
 } from "../lifecycle/operations/index.ts";
 
@@ -105,16 +101,6 @@ function slotCommandSpec<S extends z.ZodObject, T>(
 }
 
 export const slotCommandSpecs = [
-	slotCommandSpec({
-		group: "gt-exec",
-		name: "stack-branches",
-		summary: "Emit the current Graphite stack branch list for skill/agent invocation.",
-		description: "Emit the current Graphite stack branch list for skill/agent invocation.",
-		schema: gtStackBranchesRequestSchema,
-		resultSchema: gtStackBranchesResultSchema,
-		handler: runGtStackBranches,
-		renderHuman: renderStackBranches,
-	}),
 	slotCommandSpec({
 		group: "gt-exec",
 		name: "stack-map-branches",
