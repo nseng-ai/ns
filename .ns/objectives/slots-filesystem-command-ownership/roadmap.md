@@ -10,7 +10,7 @@ Phase rule: migrate one command per PR in each applicable phase. `list` owns the
 - [x] Migrate `slot list` command ownership in one PR, retaining `ls` only as filesystem metadata. Runner checkpoint `5a7e455ad80fe1da4de710b1f4c8f122ba3b76ed` colocated the typed command assembly and moved list behavior coverage to the production filesystem harness; focused Slot typecheck and all 355 Slot tests passed.
 - [x] Migrate `slot checkout` command ownership and completion wiring in one PR, retaining `co` only as filesystem metadata. Runner checkpoint `ece521dcdf4a9d15e853fa9976a769f92e8a69eb` colocated checkout command assembly and completion wiring, retained `co` only as route metadata, and moved affected scenarios to the production filesystem harness; focused Slot checks, all 355 Slot tests, and full `just` validation passed.
 - [x] Migrate `slot goto` command ownership in one PR. Runner checkpoint `db958c2157a1e5b8dbbc3dfbd786bf03d1d84a6e` colocated goto command assembly, removed its central registry entry, and moved scenarios to the production filesystem harness while preserving output-format, clipboard, and shell-directive behavior; focused Slot checks and full `just` validation passed.
-- [ ] Migrate `slot claim` command ownership in one PR.
+- [x] Migrate `slot claim` command ownership in one PR. Runner checkpoint `7a2769ef3a4fa36dc10d7c7f819330e1930d6bc5` colocated claim command assembly, removed its central registry entry, and moved claim behavior and affected provisioning scenarios to the production filesystem harness; focused Slot checks and full `just` validation passed.
 - [ ] Migrate `slot free` command ownership in one PR.
 - [ ] Migrate `slot foreach` command ownership in one PR.
 - [ ] Migrate `slot gc` command ownership in one PR.
