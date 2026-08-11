@@ -11,13 +11,17 @@ import { FakeSlotCommandGateway } from "../../src/core/gateways/fakes/command.ts
 import { FakeSlotRepositoryGateway } from "../../src/core/gateways/fakes/repository.ts";
 import { FakeGraphiteStackGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { FakeSlotPrGateway } from "../../src/core/gateways/fakes/pr.ts";
-import { FakeSlotProvisionFilesGateway } from "../../src/core/gateways/fakes/provision-files.ts";
+import {
+	FakeSlotProvisionFilesGateway,
+	type FakeSlotProvisionFilesGatewayOptions,
+} from "../../src/core/gateways/fakes/provision-files.ts";
 import { FakeSlotStorageGateway } from "../../src/core/gateways/fakes/storage.ts";
 import type { RepoContext } from "../../src/core/repo-context.ts";
 
 export interface FilesystemScenarioOptions {
 	readonly git?: ConstructorParameters<typeof FakeSlotRepositoryGateway>[0];
 	readonly confirmations?: readonly ConfirmationResult[];
+	readonly provisionFiles?: FakeSlotProvisionFilesGatewayOptions;
 	readonly renderCapabilities?: RenderCapabilities;
 }
 
@@ -27,6 +31,7 @@ export interface FilesystemScenarioRun {
 	readonly stderr: string[];
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
+	readonly provisionFiles: FakeSlotProvisionFilesGateway;
 }
 
 export interface FilesystemCompletionRun {
@@ -53,6 +58,7 @@ export function runFilesystemScenario(
 		stderr: fixture.stderr,
 		git: fixture.git,
 		gt: fixture.gt,
+		provisionFiles: fixture.provisionFiles,
 	};
 }
 
@@ -83,11 +89,13 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 	readonly stderr: string[];
 	readonly git: FakeSlotRepositoryGateway;
 	readonly gt: FakeGraphiteStackGateway;
+	readonly provisionFiles: FakeSlotProvisionFilesGateway;
 } {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const git = new FakeSlotRepositoryGateway(options.git);
 	const gt = new FakeGraphiteStackGateway({});
+	const provisionFiles = new FakeSlotProvisionFilesGateway(options.provisionFiles);
 	const stdin = createOneShotStdinAdapter(undefined);
 	const fakeInteraction =
 		options.confirmations === undefined
@@ -99,7 +107,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		gt,
 		pr: new FakeSlotPrGateway(),
 		storage: new FakeSlotStorageGateway(),
-		provisionFiles: new FakeSlotProvisionFilesGateway(),
+		provisionFiles,
 		clipboard: new FakeClipboardGateway(),
 		command: new FakeSlotCommandGateway(),
 		clock: createManualClock(Date.UTC(2026, 6, 12, 12)).clock,
@@ -113,7 +121,7 @@ function createFilesystemFixture(options: FilesystemScenarioOptions): {
 		slotsRoot: "/slots",
 		shouldWriteCdDirective: true,
 	};
-	return { api: createScenarioNsApi(context), context, stdout, stderr, git, gt };
+	return { api: createScenarioNsApi(context), context, stdout, stderr, git, gt, provisionFiles };
 }
 
 function createScenarioNsApi(context: SlotCliContext): NsExtensionApi {
