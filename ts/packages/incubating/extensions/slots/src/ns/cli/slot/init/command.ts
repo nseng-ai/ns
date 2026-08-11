@@ -7,7 +7,7 @@ import {
 	renderInit,
 	runInit,
 } from "../../../../lifecycle/operations/init.ts";
-import { createSlotCliContext, toModernSlotOutcome } from "../../../command-adapter.ts";
+import { createSlotCliContext } from "../../../command-adapter.ts";
 
 export async function command() {
 	return defineCommand({
@@ -17,8 +17,7 @@ export async function command() {
 		schema: initRequestSchema,
 		options: sizeOptionSpecs,
 		resultSchema: initResultSchema,
-		handler: async (ctx, request) =>
-			toModernSlotOutcome(await runInit(await createSlotCliContext(ctx), request)),
+		handler: async (ctx, request) => runInit(await createSlotCliContext(ctx), request),
 		renderHuman: renderInit,
 	});
 }
