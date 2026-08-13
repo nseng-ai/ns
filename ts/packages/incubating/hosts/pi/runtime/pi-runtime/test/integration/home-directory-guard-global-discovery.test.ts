@@ -5,11 +5,10 @@ import { fileURLToPath } from "node:url";
 import { DefaultResourceLoader, SettingsManager } from "@earendil-works/pi-coding-agent";
 import { describe, expect, test } from "vitest";
 
-const HOME_DIRECTORY_GUARD_SOURCE = fileURLToPath(
-	new URL(
-		"../../../../../../../../../.pi/installable-extensions/home-directory-guard.ts",
-		import.meta.url,
-	),
+const REPO_ROOT = fileURLToPath(new URL("../../../../../../../../../", import.meta.url));
+const HOME_DIRECTORY_GUARD_SOURCE = join(
+	REPO_ROOT,
+	".pi/installable-extensions/home-directory-guard.ts",
 );
 
 describe("global home-directory guard discovery", () => {
