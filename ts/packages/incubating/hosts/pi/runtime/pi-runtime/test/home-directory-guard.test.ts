@@ -1,4 +1,12 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+
+const HOME_ROOT = homedir();
+const SCOPED_HOME_DIRECTORY = join(HOME_ROOT, "code", "sdl-tools");
+const UNRELATED_USER_ROOT = HOME_ROOT.startsWith("/Users/")
+	? "/Users/unrelated-home-directory-guard-user"
+	: "/home/unrelated-home-directory-guard-user";
 
 type ToolCallResult = { block: true; reason?: string } | undefined | void;
 type ToolCallHandler = (event: ToolCallEvent) => ToolCallResult;
@@ -51,7 +59,10 @@ class FakePi {
 
 async function loadHomeDirectoryGuardExtension(): Promise<HomeDirectoryGuardExtension> {
 	const module = (await import(
-		new URL("../../../../../../../../.pi/extensions/home-directory-guard.ts", import.meta.url).href
+		new URL(
+			"../../../../../../../../.pi/installable-extensions/home-directory-guard.ts",
+			import.meta.url,
+		).href
 	)) as {
 		default: HomeDirectoryGuardExtension;
 	};
@@ -88,25 +99,24 @@ describe("home-directory guard extension", () => {
 	test("blocks bash commands that target the home root", async () => {
 		const pi = await createGuard();
 
-		expectBlocked(pi.emitToolCall(bashEvent("find /Users/schrockn -name foo")));
-		expectBlocked(pi.emitToolCall(bashEvent("rm -rf /Users/schrockn")));
+		expectBlocked(pi.emitToolCall(bashEvent(`find ${HOME_ROOT} -name foo`)));
+		expectBlocked(pi.emitToolCall(bashEvent(`rm -rf ${HOME_ROOT}`)));
 		expectBlocked(pi.emitToolCall(bashEvent("rm ~")));
 		expectBlocked(pi.emitToolCall(bashEvent('rm "$HOME"')));
 		expectBlocked(pi.emitToolCall(bashEvent("rm '${HOME}'")));
-		expectBlocked(pi.emitToolCall(bashEvent("tool --root=/Users/schrockn")));
+		expectBlocked(pi.emitToolCall(bashEvent(`tool --root=${HOME_ROOT}`)));
 	});
 
 	test("allows bash commands that target scoped home descendants", async () => {
 		const pi = await createGuard();
 
+		expect(pi.emitToolCall(bashEvent(`find ${SCOPED_HOME_DIRECTORY} -name foo`))).toBeUndefined();
 		expect(
-			pi.emitToolCall(bashEvent("find /Users/schrockn/code/sdl-tools -name foo")),
-		).toBeUndefined();
-		expect(
-			pi.emitToolCall(bashEvent("rm /Users/schrockn/code/sdl-tools/tmp-file")),
+			pi.emitToolCall(bashEvent(`rm ${join(SCOPED_HOME_DIRECTORY, "tmp-file")}`)),
 		).toBeUndefined();
 		expect(pi.emitToolCall(bashEvent("grep -R foo ~/code/sdl-tools"))).toBeUndefined();
-		expect(pi.emitToolCall(bashEvent("HOME_COPY=/Users/schrockn echo ok"))).toBeUndefined();
+		expect(pi.emitToolCall(bashEvent(`HOME_COPY=${HOME_ROOT} echo ok`))).toBeUndefined();
+		expect(pi.emitToolCall(bashEvent(`find ${UNRELATED_USER_ROOT} -name foo`))).toBeUndefined();
 	});
 
 	test("blocks direct user bash with a complete Pi bash result", async () => {
@@ -134,8 +144,8 @@ describe("home-directory guard extension", () => {
 	test("blocks path-like non-bash tool inputs that target the home root", async () => {
 		const pi = await createGuard();
 
-		expectBlocked(pi.emitToolCall({ toolName: "read", input: { path: "/Users/schrockn" } }));
-		expectBlocked(pi.emitToolCall({ toolName: "read", input: { path: "/Users/schrockn/" } }));
+		expectBlocked(pi.emitToolCall({ toolName: "read", input: { path: HOME_ROOT } }));
+		expectBlocked(pi.emitToolCall({ toolName: "read", input: { path: `${HOME_ROOT}/` } }));
 		expectBlocked(pi.emitToolCall({ toolName: "ls", input: { path: "~" } }));
 		expectBlocked(pi.emitToolCall({ toolName: "find", input: { paths: ["${HOME}"] } }));
 	});
@@ -146,7 +156,7 @@ describe("home-directory guard extension", () => {
 		expect(
 			pi.emitToolCall({
 				toolName: "read",
-				input: { path: "/Users/schrockn/code/sdl-tools/README.md" },
+				input: { path: join(SCOPED_HOME_DIRECTORY, "README.md") },
 			}),
 		).toBeUndefined();
 		expect(
@@ -164,8 +174,8 @@ describe("home-directory guard extension", () => {
 			pi.emitToolCall({
 				toolName: "write",
 				input: {
-					path: "/Users/schrockn/code/sdl-tools/notes.md",
-					content: "Document that /Users/schrockn is the home directory.",
+					path: join(SCOPED_HOME_DIRECTORY, "notes.md"),
+					content: `Document that ${HOME_ROOT} is the home directory.`,
 				},
 			}),
 		).toBeUndefined();

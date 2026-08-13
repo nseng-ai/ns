@@ -93,7 +93,7 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `.pi/extensions/skill-backed-commands.ts`                                                    | Project-local adapter over Internal Pi-tool package | Registers generated Skill-Backed Commands through `@internal/pi-tools/skill-backed-commands`.                                                                                                                                                                                                                                                                                                                                                                              |
 | `.pi/extensions/worktree-status.ts`                                                          | Project-local adapter over engineered behavior      | Worktree/session status display backed by package code.                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `@nseng-ai/pi-ns-herdr`                                                                      | Engineered package extension                        | Directly discovers the twelve-entry Herdr catalog: eleven base space/tab operations plus conditional `/ns:herdr:tab:handoff`, over `@nseng-ai/herdr/api`.                                                                                                                                                                                                                                                                                                                  |
-| `.pi/extensions/home-directory-guard.ts`                                                     | Vibecoded implementation                            | Tool-call guard that blocks model-visible tool calls targeting the home directory root itself (`/Users/schrockn`, `~`, `$HOME`, `${HOME}`) while allowing explicit subfolders; use `/reload` after changes under `.pi/extensions/`.                                                                                                                                                                                                                                        |
+| `.pi/installable-extensions/home-directory-guard.ts`                                         | Optional user-global installation source            | Checked-in, self-contained source for a user-global Pi guard. It is outside project auto-discovery and can be manually symlinked into `~/.pi/agent/extensions/`; it blocks direct targets of the current account's home root while allowing explicit descendants.                                                                                                                                                                                                          |
 | `.pi/extensions/ripgrep-defaults.ts` and `.pi/ripgrep.conf`                                  | Project-local adapter over engineered behavior      | Sets process-scoped generated-file exclusions for ripgrep during the Pi session lifecycle through `ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/kit/search/ripgrep-defaults.ts`; task subagents inherit or share the environment, shutdown restores the prior value, and `rg --no-config` bypasses the defaults.                                                                                                                                                 |
 | `.pi/extensions/just-fix.ts`                                                                 | Vibecoded implementation                            | Useful repo-local workflow; not yet promoted or package-tested.                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `ts/packages/incubating/hosts/pi/runtime/pi-runtime/CONTEXT.md`                              | Engineered context                                  | Domain language for this package and its project-local discovery adapters.                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -111,6 +111,36 @@ Do not promote behavior merely because the extension is checked in. Do not extra
 | `ts/packages/internal/hosts/pi/subagents/ns-pi-subagents/src/runner-subagents/extension-api.ts` and submodules | Internal Pi-tool package | Runner-subagent subprocess, JSON-event parsing, generated runtime extension, terminal capture, and final-text results. |
 | `ts/packages/incubating/hosts/pi/extensions/pi-ns-herdr/` | Engineered host-adapter implementation | Pi registration, interaction, presentation, launch construction, and optional Handoffs adapter composition over focused Herdr domain operations. |
 | `ts/packages/incubating/hosts/pi/runtime/pi-runtime/src/terminal/presentation.ts` | Engineered implementation | Shared terminal hyperlink/linkification and custom-message text helpers. |
+
+### Global home-directory guard
+
+The optional home-directory guard blocks Pi tool calls and direct `!`/`!!` Bash commands that target the current account's home root itself. It recognizes the absolute root and the shell forms `~`, `~/`, `$HOME`, `$HOME/`, `${HOME}`, and `${HOME}/`. Explicit descendants such as `~/code/ns` remain allowed. The source derives the absolute account root from Node's `homedir()` rather than from a checkout-specific path or the `HOME` environment variable.
+
+The canonical source is outside `.pi/extensions/` so it is not limited to this project's auto-discovery and cannot register once from the project path and again from a global symlink. Installation is an explicit, checkout-backed user choice: moving or deleting the checkout breaks the symlink, and changing checkouts requires manually repointing it.
+
+Inspect the destination before installation, then create a non-overwriting symlink:
+
+```bash
+ls -ld ~/.pi/agent/extensions ~/.pi/agent/extensions/home-directory-guard.ts 2>/dev/null || true
+mkdir -p ~/.pi/agent/extensions
+ln -s "$(git rev-parse --show-toplevel)/.pi/installable-extensions/home-directory-guard.ts" \
+  ~/.pi/agent/extensions/home-directory-guard.ts
+```
+
+Plain `ln -s` fails if the destination already exists. Do not replace an existing file until you have inspected and intentionally removed it. Verify the installed target with:
+
+```bash
+readlink ~/.pi/agent/extensions/home-directory-guard.ts
+ls -l ~/.pi/agent/extensions/home-directory-guard.ts
+```
+
+Start a new Pi process or run `/reload` in an existing process to activate the extension. To uninstall it, remove only the global symlink:
+
+```bash
+rm ~/.pi/agent/extensions/home-directory-guard.ts
+```
+
+This guard prevents common direct-target accidents. It is not a security sandbox and does not protect against shell indirection, subprocess behavior, non-Pi tools, or commands run in an external terminal.
 
 ### Repository-local ripgrep defaults
 

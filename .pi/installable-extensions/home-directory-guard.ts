@@ -1,10 +1,6 @@
-import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
+import { homedir } from "node:os";
 
-const { isRecord } = await importTypeScriptWorkspaceModule<
-	typeof import("@nseng-ai/pi-runtime/runtime/primitives")
->("@nseng-ai/pi-runtime/runtime/primitives");
-
-const HOME_ROOT = "/Users/schrockn";
+const HOME_ROOT = homedir();
 const BLOCK_REASON = "Blocked by home-directory-guard extension: home-directory root target is forbidden. Scope to a repo or explicit subfolder.";
 
 const PATH_LIKE_KEYS = new Set([
@@ -200,4 +196,9 @@ function stripSimpleMatchingQuotes(value: string): string {
 
 function isPathLikeKey(key: string): boolean {
 	return PATH_LIKE_KEYS.has(key);
+}
+
+// Deliberately local: this globally symlinkable source must not depend on ns workspace packages.
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
