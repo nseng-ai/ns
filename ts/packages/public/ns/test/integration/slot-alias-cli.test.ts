@@ -1,7 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import slotsExtension from "@nseng-ai/slots/ns-extension";
 import { runNsCli } from "../../src/cli/index.ts";
+
+const tempStateRoots: string[] = [];
+
+afterEach(() => {
+	for (const root of tempStateRoots.splice(0)) rmSync(root, { recursive: true });
+});
 
 describe("ns slot extension CLI", () => {
 	it("keeps CLI metadata on the owning ns entrypoint", async () => {
@@ -18,7 +28,7 @@ describe("ns slot extension CLI", () => {
 
 	it("loads the Slot extension command tree under ns slot", async () => {
 		const run = runScenario(["slot", "--help"]);
-		expect(await run.exit).toBe(0);
+		expect(await run.exit, run.stderr.join("")).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Usage: ns slot");
 		expect(output).toContain("list|ls");
@@ -28,13 +38,13 @@ describe("ns slot extension CLI", () => {
 
 	it("keeps hidden Slot extension exec commands invocable under ns slot", async () => {
 		const run = runScenario(["slot", "gt", "exec", "stack-branches", "--help"]);
-		expect(await run.exit).toBe(0);
+		expect(await run.exit, run.stderr.join("")).toBe(0);
 		expect(run.stdout.join("")).toContain("stack-branches");
 	});
 
 	it("shows canonical ns shell integration from the Slot extension shell command", async () => {
 		const run = runScenario(["slot", "shell", "show", "--shell", "zsh"]);
-		expect(await run.exit).toBe(0);
+		expect(await run.exit, run.stderr.join("")).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("ns() {");
 		expect(output).toContain("NS_CD_DIRECTIVE_FILE");
@@ -52,10 +62,20 @@ function runScenario(args: readonly string[]): {
 	const stdout: string[] = [];
 	const stderr: string[] = [];
 	const cwd = process.cwd();
+	const stateRoot = mkdtempSync(join(tmpdir(), "ns-slot-alias-cli-"));
+	const homeDir = join(stateRoot, "home");
+	tempStateRoots.push(stateRoot);
 	return {
 		exit: runNsCli(args, {
 			cwd,
-			env: process.env,
+			homeDir,
+			env: {
+				...process.env,
+				HOME: homeDir,
+				XDG_CONFIG_HOME: join(stateRoot, "xdg-config"),
+				XDG_DATA_HOME: join(stateRoot, "xdg-data"),
+				XDG_STATE_HOME: join(stateRoot, "xdg-state"),
+			},
 			preinstalledSources: () => [
 				{
 					label: "package:@nseng-ai/slots",
