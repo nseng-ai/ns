@@ -100,7 +100,7 @@ describe("brmem exec resolve-prompt", () => {
 		expect(payload.message).toContain(xdgGlobalPrompt("foo"));
 		expect(payload.message).not.toContain(legacyProjectPrompt("foo"));
 		expect(payload.message).not.toContain(legacyGlobalPrompt("foo"));
-		expect(payload.message).toContain("just install-tools");
+		expect(payload.message).toContain("just install-global-tools");
 	});
 
 	it("requires a git repo before considering global fallback", async () => {

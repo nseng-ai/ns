@@ -596,7 +596,8 @@ export class PrFeedbackWatchController {
 		}
 		return {
 			type: "failed",
-			message: "Could not find ns. Expected `ns` on PATH (installed with `just install-tools`).",
+			message:
+				"Could not find ns. Expected `ns` on PATH (installed with `just install-global-tools`).",
 		};
 	}
 

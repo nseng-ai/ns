@@ -11,7 +11,7 @@ It demonstrates the core workflow with:
 - generated `vibechk/<run-id>` result branches
 - the default local `vibechk` store
 
-The commands below assume you have installed `vibechk` via `just install-vibechk`.
+The commands below assume you have installed `vibechk` via `just install-global-vibechk`.
 For in-checkout development, replace `vibechk` with `node ts/packages/incubating/tools/vibechk/src/cli.ts`.
 
 ## 1. Preflight

@@ -149,7 +149,7 @@ remain reserved at both scopes.
 
 No extension scope automatically installs or removes harness skills. Skill lifecycle and
 lock state are owned by direct `npx skills` commands; ns workflows may invoke those commands
-but do not manage skills. Installing from this repository with `just install-ns` still
+but do not manage skills. Installing from this repository with `just install-global-ns` still
 installs only the source-backed ns executable shim and never edits user extension
 configuration.
 

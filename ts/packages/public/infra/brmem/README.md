@@ -20,9 +20,9 @@ It implements the current operation set:
 Public local installation uses a run-from-source shim; this cutover does not require npm publishing or a checkout-free bundle.
 
 ```text
-just install-brmem
+just install-global-brmem
 # or as part of the normal tool install bundle
-just install-tools
+just install-global-tools
 ```
 
 The recipe renders the shared TypeScript source CLI shim template to `$HOME/.local/bin/brmem`.

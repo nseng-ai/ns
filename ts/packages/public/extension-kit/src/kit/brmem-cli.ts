@@ -468,7 +468,7 @@ export function parseBrmemListEntries(
 
 export function formatBrmemUnavailableMessage(failures: readonly UnavailableBrmemRun[]): string {
 	return [
-		"No brmem command available. Install the TypeScript-backed public shim with `just install-brmem` or `just install-tools`, then ensure `brmem` is on PATH.",
+		"No brmem command available. Install the TypeScript-backed public shim with `just install-global-brmem` or `just install-global-tools`, then ensure `brmem` is on PATH.",
 		...failures.map((failure) => `\n${failure.failure}`),
 	].join("\n");
 }

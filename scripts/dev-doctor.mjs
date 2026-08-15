@@ -289,7 +289,7 @@ for (const tool of ["ns", "brmem", "vibechk", "packagechk"]) {
     fail(
       `${tool} source shim`,
       "not found on PATH",
-      command(`cd "${repoRoot}" && just install-tools`),
+      command(`cd "${repoRoot}" && just install-global-tools`),
     );
     continue;
   }
@@ -300,7 +300,7 @@ for (const tool of ["ns", "brmem", "vibechk", "packagechk"]) {
     fail(
       `${tool} source shim`,
       firstLine(result) || `exit ${result.status}`,
-      command(`cd "${repoRoot}" && just install-tools`),
+      command(`cd "${repoRoot}" && just install-global-tools`),
     );
   }
 }

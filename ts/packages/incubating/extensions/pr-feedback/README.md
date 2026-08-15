@@ -32,7 +32,7 @@ ADR 0004 keeps PR Address as the extension-facing seam: reusable GitHub backend 
 
 Address operations are mounted into the repo-local ns extension command face as `ns address exec ...`; nothing is bundled or published:
 
-- **Install**: `just install-tools` installs the `ns` shim.
+- **Install**: `just install-global-tools` installs the `ns` shim.
 - **Dispatch**: inside an ns checkout (any worktree), `ns address exec ...` loads `.ns/extensions/address` and invokes this package's operation handlers.
 - **Requirements**: `node` (Node 24+, matching the workspace `engines` floor) and `pnpm install` having been run in the checkout's `ts/` directory (`just ts-install`).
 

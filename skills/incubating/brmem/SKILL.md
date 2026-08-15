@@ -40,7 +40,7 @@ private tokens, binary assets, generated build output, or large datasets.
 
 ## Install and runtime
 
-If `brmem` is missing, run `just install-brmem` (or `just install-tools`) from
+If `brmem` is missing, run `just install-global-brmem` (or `just install-global-tools`) from
 an ns checkout; repair a broken checkout with `just ts-install`.
 
 ## Choosing a command
