@@ -23,7 +23,11 @@ Create one Objective.
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
 
-type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
+interface EffectiveSkillInfo {
+	name: string;
+	filePath: string;
+	baseDir: string;
+}
 
 interface Notification {
 	message: string;
@@ -34,11 +38,6 @@ class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentUserMessages: string[] = [];
 	readonly execCalls: Array<{ command: string; args: string[]; options: unknown }> = [];
-	private readonly commandInfos: CommandInfo[];
-
-	constructor(commandInfos: CommandInfo[] = []) {
-		this.commandInfos = commandInfos;
-	}
 
 	on(): { dispose(): void } {
 		return { dispose(): void {} };
@@ -53,10 +52,6 @@ class FakePi implements ObjectiveExtensionAPI {
 		return { stdout: "", stderr: "", code: 0, killed: false };
 	}
 
-	getCommands(): readonly CommandInfo[] {
-		return this.commandInfos;
-	}
-
 	sendMessage(): void {}
 
 	sendUserMessage(content: string): void {
@@ -64,7 +59,10 @@ class FakePi implements ObjectiveExtensionAPI {
 	}
 }
 
-function createContext(cwd = ROOT): {
+function createContext(
+	cwd = ROOT,
+	skills: readonly EffectiveSkillInfo[] = [],
+): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	waitForIdleCalls: () => number;
@@ -87,6 +85,9 @@ function createContext(cwd = ROOT): {
 			},
 			setStatus(): void {},
 		},
+		getSystemPromptOptions() {
+			return { skills };
+		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
@@ -96,20 +97,20 @@ function createContext(cwd = ROOT): {
 
 interface RunObjectiveCreateOptions {
 	args: string;
-	commandInfos?: CommandInfo[];
+	skills?: EffectiveSkillInfo[];
 	cwd?: string;
 }
 
 async function runObjectiveCreate({
 	args,
-	commandInfos = [],
+	skills = [],
 	cwd = ROOT,
 }: RunObjectiveCreateOptions): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(commandInfos);
+	const pi = new FakePi();
 	objectiveExtension(pi);
 	const command = pi.commands.get("ns:objective:create");
 	expect(command).toBeDefined();
@@ -117,7 +118,7 @@ async function runObjectiveCreate({
 		throw new Error("ns:objective:create was not registered");
 	}
 
-	const context = createContext(cwd);
+	const context = createContext(cwd, skills);
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -134,7 +135,7 @@ describe("ns:objective:create command", () => {
 		expect(command?.description).toContain("objective-create");
 	});
 
-	test("reads objective-create backing skill directly and preserves initial user request", async () => {
+	test("uses the exact effective project winner and preserves initial user request", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "objective-create",
@@ -144,6 +145,7 @@ describe("ns:objective:create command", () => {
 				const result = await runObjectiveCreate({
 					args: "  create slug alpha for typeahead-friendly Objective creation  ",
 					cwd: repoDir,
+					skills: [{ name: "objective-create", filePath: skillPath, baseDir: skillDir }],
 				});
 
 				expect(result.waitForIdleCalls()).toBe(1);
@@ -171,14 +173,39 @@ describe("ns:objective:create command", () => {
 		);
 	});
 
+	test("accepts an effective user skill outside a foreign cwd", async () => {
+		await withTempRepoSkill(
+			{
+				skillName: "objective-create",
+				markdown: CREATE_SKILL_MARKDOWN.replace("Create one Objective.", "Exact user winner."),
+			},
+			async ({ skillPath, skillDir }) => {
+				const result = await runObjectiveCreate({
+					args: "create from another checkout",
+					cwd: "/foreign/project",
+					skills: [{ name: "objective-create", filePath: skillPath, baseDir: skillDir }],
+				});
+
+				expect(result.pi.execCalls).toEqual([]);
+				expect(result.pi.sentUserMessages[0]).toContain("Exact user winner.");
+				expect(result.pi.sentUserMessages[0]).toContain(`location="${skillPath}"`);
+				expect(result.pi.sentUserMessages[0]).toContain(`References are relative to ${skillDir}.`);
+			},
+		);
+	});
+
 	test("empty args still invokes the objective-create interview from backing skill", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
 			},
-			async ({ repoDir, skillPath }) => {
-				const result = await runObjectiveCreate({ args: "", cwd: repoDir });
+			async ({ repoDir, skillPath, skillDir }) => {
+				const result = await runObjectiveCreate({
+					args: "",
+					cwd: repoDir,
+					skills: [{ name: "objective-create", filePath: skillPath, baseDir: skillDir }],
+				});
 
 				expect(result.waitForIdleCalls()).toBe(1);
 				expect(result.pi.sentUserMessages).toHaveLength(1);
@@ -208,9 +235,8 @@ describe("ns:objective:create command", () => {
 				'Could not load required skill "objective-create"',
 			);
 			expect(result.notifications[0]?.message).toContain(
-				"Could not find .agents/skills/objective-create/SKILL.md, .claude/skills/objective-create/SKILL.md",
+				"Pi did not include the skill in its effective skill inventory.",
 			);
-			expect(result.notifications[0]?.message).toContain(repoDir);
 		});
 	});
 
@@ -220,10 +246,11 @@ describe("ns:objective:create command", () => {
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
 			},
-			async ({ repoDir }) => {
+			async ({ repoDir, skillPath, skillDir }) => {
 				const result = await runObjectiveCreate({
 					args: "make `code` and ```nested``` safe",
 					cwd: repoDir,
+					skills: [{ name: "objective-create", filePath: skillPath, baseDir: skillDir }],
 				});
 
 				expect(result.pi.sentUserMessages[0]).toContain(

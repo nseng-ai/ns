@@ -16,7 +16,7 @@ export type {
 } from "@nseng-ai/foundation/command";
 
 /**
- * Single source of truth for repo-local skills that Pi surfaces as slash
+ * Single source of truth for effective skills that Pi surfaces as slash
  * commands instead of ordinary `/skill:<name>` invocations.
  *
  * Keep each mapping explicit: several surfaces intentionally do not follow a

@@ -108,6 +108,7 @@ export interface BaseContext {
 export interface CommandContext extends BaseContext {
 	model?: ModelInfo;
 	modelRegistry: ModelRegistry;
+	getSystemPromptOptions?(): SystemPromptOptionsLike;
 	waitForIdle(): Promise<void>;
 }
 
@@ -178,6 +179,16 @@ export interface CustomMessage {
 	content: string | Array<{ type: "text"; text: string }>;
 	display: boolean;
 	details?: unknown;
+}
+
+export interface EffectiveSkillInfoLike {
+	name: string;
+	filePath: string;
+	baseDir: string;
+}
+
+export interface SystemPromptOptionsLike {
+	skills?: readonly EffectiveSkillInfoLike[];
 }
 
 export interface SkillCommandInfoLike {

@@ -1,4 +1,4 @@
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -72,7 +72,11 @@ const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
 type MessageRenderer = Parameters<NonNullable<ObjectiveExtensionAPI["registerMessageRenderer"]>>[1];
-type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
+interface EffectiveSkillInfo {
+	name: string;
+	filePath: string;
+	baseDir: string;
+}
 
 interface ExecCall {
 	command: string;
@@ -127,7 +131,6 @@ class FakePi implements ObjectiveExtensionAPI {
 		this.sentMessages.push(message);
 	};
 	private readonly script: ScriptedQueue<ScriptedExec>;
-	private readonly commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]>;
 	private readonly eventHandlers: Record<
 		EventName,
 		Array<AgentEndHandler | AgentSettledHandler | InputHandler | SessionStartHandler>
@@ -138,12 +141,8 @@ class FakePi implements ObjectiveExtensionAPI {
 		session_start: [],
 	};
 
-	constructor(
-		script: ScriptedExec[] = [],
-		commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]> = [],
-	) {
+	constructor(script: ScriptedExec[] = []) {
 		this.script = new ScriptedQueue(script, (step) => step);
-		this.commandInfos = [...commandInfos];
 	}
 
 	on(event: "agent_end", handler: AgentEndHandler): void;
@@ -217,10 +216,6 @@ class FakePi implements ObjectiveExtensionAPI {
 			const message = error instanceof Error ? error.message : String(error);
 			return { type: "failed", message: `Malformed objective list JSON: ${message}` };
 		}
-	}
-
-	getCommands(): ReturnType<ObjectiveExtensionAPI["getCommands"]> {
-		return this.commandInfos;
 	}
 
 	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" }): void {
@@ -320,6 +315,7 @@ function createContext(
 		cwd?: string;
 		selectIndex?: number;
 		selectIndices?: number[];
+		skills?: readonly EffectiveSkillInfo[];
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -352,6 +348,9 @@ function createContext(
 			},
 			setStatus(): void {},
 		},
+		getSystemPromptOptions() {
+			return { skills: options.skills ?? [] };
+		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
@@ -383,15 +382,17 @@ function withAutorunSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Pr
 	);
 }
 
-function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
-	return {
-		name: `skill:${skillName}`,
-		source: "skill",
-		sourceInfo: {
-			path: skillPath,
-			baseDir,
-		},
-	};
+function effectiveSkillInfo(
+	skillName: string,
+	skillPath: string,
+	baseDir: string,
+): EffectiveSkillInfo {
+	return { name: skillName, filePath: skillPath, baseDir };
+}
+
+function defaultEffectiveSkillInfo(skillName: ObjectiveSkillName): EffectiveSkillInfo {
+	const baseDir = join(ROOT, "..", ".agents", "skills", skillName);
+	return effectiveSkillInfo(skillName, join(baseDir, "SKILL.md"), baseDir);
 }
 
 type ObjectiveCommandContextOptions = {
@@ -399,6 +400,7 @@ type ObjectiveCommandContextOptions = {
 	selectIndex?: number;
 	selectIndices?: number[];
 	cwd?: string;
+	skills?: readonly EffectiveSkillInfo[];
 };
 
 interface RunObjectiveListOptions {
@@ -411,14 +413,14 @@ async function runObjectiveAutorun(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: ObjectiveCommandContextOptions = {},
-	commandInfos: CommandInfo[] = [],
+	skills?: EffectiveSkillInfo[],
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos);
+	const pi = new FakePi(script);
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:autorun");
 	expect(command).toBeDefined();
@@ -426,12 +428,11 @@ async function runObjectiveAutorun(
 		throw new Error("ns:objective:autorun was not registered");
 	}
 
-	const skillPath = commandInfos[0]?.sourceInfo.path;
 	const context = createContext({
 		...contextOptions,
-		...(contextOptions.cwd === undefined && skillPath !== undefined
-			? { cwd: dirname(dirname(dirname(skillPath))) }
-			: {}),
+		skills:
+			skills ??
+			(contextOptions.cwd === undefined ? [defaultEffectiveSkillInfo("objective-autorun")] : []),
 	});
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
@@ -451,7 +452,12 @@ async function runObjectiveNext(
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:next");
 	expect(command).toBeDefined();
-	const context = createContext(contextOptions);
+	const context = createContext({
+		...contextOptions,
+		skills:
+			contextOptions.skills ??
+			(contextOptions.cwd === undefined ? [defaultEffectiveSkillInfo("objective-next")] : []),
+	});
 	await command?.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -461,14 +467,14 @@ async function runObjectiveCommand(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: ObjectiveCommandContextOptions = {},
-	commandInfos: CommandInfo[] = [],
+	skills?: EffectiveSkillInfo[],
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos);
+	const pi = new FakePi(script);
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get(commandName);
 	expect(command).toBeDefined();
@@ -476,12 +482,13 @@ async function runObjectiveCommand(
 		throw new Error(`${commandName} was not registered`);
 	}
 
-	const skillPath = commandInfos[0]?.sourceInfo.path;
 	const context = createContext({
 		...contextOptions,
-		...(contextOptions.cwd === undefined && skillPath !== undefined
-			? { cwd: dirname(dirname(dirname(skillPath))) }
-			: {}),
+		skills:
+			skills ??
+			(contextOptions.cwd === undefined
+				? [defaultEffectiveSkillInfo(OBJECTIVE_SKILLS_BY_COMMAND[commandName])]
+				: []),
 	});
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
@@ -922,7 +929,7 @@ describe("ns:objective:autorun command", () => {
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
 		await withAutorunSkill(async ({ skillPath, skillDir }) => {
 			const result = await runObjectiveAutorun("  bravo  ", [], {}, [
-				skillCommandInfo("objective-autorun", skillPath, skillDir),
+				effectiveSkillInfo("objective-autorun", skillPath, skillDir),
 			]);
 
 			result.pi.assertDone();
@@ -973,8 +980,8 @@ describe("ns:objective:autorun command", () => {
 			const result = await runObjectiveAutorun(
 				"",
 				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
-				{},
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				{ cwd: dirname(dirname(dirname(skillPath))) },
+				[effectiveSkillInfo("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1008,7 +1015,7 @@ describe("ns:objective:autorun command", () => {
 					statusStep(""),
 				],
 				{},
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				[effectiveSkillInfo("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1043,7 +1050,7 @@ describe("ns:objective:autorun command", () => {
 					statusStep(""),
 				],
 				{},
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				[effectiveSkillInfo("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1062,7 +1069,7 @@ describe("ns:objective:autorun command", () => {
 					statusStep(""),
 				],
 				{ selectIndices: [1, 1] },
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				[effectiveSkillInfo("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1693,7 +1700,7 @@ Use the selected Objective.
 					"bravo",
 					[],
 					{ cwd: repoDir },
-					[skillCommandInfo("objective-next", skillPath, skillDir)],
+					[effectiveSkillInfo("objective-next", skillPath, skillDir)],
 				);
 
 				result.pi.assertDone();

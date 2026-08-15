@@ -8,8 +8,10 @@ Pi registration and presentation out of the harness-independent Objectives packa
 consumes Objective behavior only through the curated `@nseng-ai/objectives/api` extension
 package API and uses neutral `@nseng-ai/pi-runtime/...` host helpers for Pi integration.
 
-The adapter owns Pi command registration, completion, selection presentation, skill
-expansion, and Pi parity metadata. After an explicit `/ns:objective:next` or
+The adapter owns Pi command registration, completion, selection presentation,
+harness-effective skill source capture and deferred expansion, and Pi parity metadata. Skill-backed
+commands use the exact source Pi selected in its effective skill inventory; they do not rediscover a
+repository copy or consult `/skill:*` commands. After an explicit `/ns:objective:next` or
 `/skill:objective-next` invocation, when the run's final assistant message contains exactly
 one `## ▶ Proposed prompt — ready to run` heading, the adapter extracts the railed
 blockquote prompt and presents a Pi-only chooser: execute the exact prompt as a

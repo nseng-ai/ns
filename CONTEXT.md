@@ -143,12 +143,12 @@ The repository-owned convention for how a skill is invoked across harnesses. The
 *Avoid*: Skill Exposure Policy, invocation kind, ambient-only, unlisted, inferred exposure, command-backed
 
 **Skill-Backed Command**:
-A namespaced Pi command whose workflow instructions come from a required skill loaded directly from its managed source. The command owns invocation and any specialized interaction; the skill remains the workflow authority and fails closed when it cannot be loaded.
-*Avoid*: command-backed skill, command-backed, copied skill prompt, optional backing skill
+A namespaced Pi command whose workflow instructions come from a required skill. Portable or globally installed commands consume the exact effective skill source selected by Pi; an explicitly checkout-authoritative workflow may instead use the separately named repository lookup contract. The command owns invocation and any specialized interaction; the skill remains the workflow authority and the command fails closed when that authority cannot be resolved or loaded.
+*Avoid*: command-backed skill, command-backed, copied skill prompt, optional backing skill, implicit repository fallback
 
 **Skill-Backed Command Registration**:
-The explicit association of a **Skill-Backed Command** surface with its required skill identity, used to verify replacement coverage and load the skill independently of ambient Pi skill discovery.
-*Avoid*: command-backed skill registration, command-backed registration, inferred replacement, ambient skill lookup
+The explicit association of a **Skill-Backed Command** surface with its required skill identity, used to verify replacement coverage and select its documented source-authority mode. Harness-effective registration is independent of optional `/skill:*` command exposure and ambient model visibility.
+*Avoid*: command-backed skill registration, command-backed registration, inferred replacement, command-inventory skill lookup
 
 **Harness Overlay**:
 The flat, checked-in per-harness integration surface for a globally named skill, such as `.agents/skills/<identity>`, `.claude/skills/<identity>`, Codex sidecars, and Pi settings exclusions. The repository owns canonical topology, these overlays, and invocation metadata directly; `npx skills` owns acquisition, installed-state lifecycle, and `skills-lock.json`. ns owns no skill-management command, package, manifest, or reconciliation interface.

@@ -53,6 +53,16 @@ export interface AutocompleteItem {
 	description?: string;
 }
 
+export interface EffectiveSkillInfo {
+	name: string;
+	filePath: string;
+	baseDir: string;
+}
+
+export interface SystemPromptOptions {
+	skills?: readonly EffectiveSkillInfo[];
+}
+
 export interface CommandInfo {
 	name: string;
 	source: string;
@@ -122,6 +132,7 @@ export interface BaseRuntimeContext extends ToolContext {
 
 export interface CommandContext extends BaseRuntimeContext {
 	sessionManager: PiSessionReader;
+	getSystemPromptOptions?(): SystemPromptOptions;
 	ui: BaseRuntimeContext["ui"] & {
 		select?(title: string, items: string[]): Promise<string | undefined>;
 		input?(title: string, placeholder?: string): Promise<string | undefined>;

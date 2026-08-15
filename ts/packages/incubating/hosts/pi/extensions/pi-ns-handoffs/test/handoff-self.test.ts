@@ -492,8 +492,12 @@ async function waitForCondition(condition: () => boolean): Promise<void> {
 
 function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	return {
-		async resolveCreateHandoffSkillPath() {
-			return FAKE_SKILL_PATH;
+		resolveCreateHandoffSkillSource() {
+			return {
+				name: "handoff-create",
+				filePath: FAKE_SKILL_PATH,
+				baseDir: "/repo/.agents/skills/handoff-create",
+			};
 		},
 		async loadCreateHandoffSkill() {
 			return {

@@ -11,17 +11,22 @@ import {
 	type SkillLookupIo,
 } from "./lookup.ts";
 
-export interface SkillCommandInfo {
+export interface EffectiveSkillInfo {
 	name: string;
-	source: string;
-	sourceInfo: {
-		path: string;
-		baseDir?: string;
+	filePath: string;
+	baseDir: string;
+}
+
+export interface EffectiveSkillInventoryHost {
+	getSystemPromptOptions(): {
+		skills?: readonly EffectiveSkillInfo[];
 	};
 }
 
-export interface SkillExpansionHost {
-	getCommands(): readonly SkillCommandInfo[];
+export interface ResolvedSkillSource {
+	name: string;
+	filePath: string;
+	baseDir: string;
 }
 
 export interface ExpandedSkillBlock {
@@ -52,7 +57,7 @@ export interface RepoSkillExpansionOptions extends SkillExpansionOptions, SkillL
 	skillName: string;
 }
 
-export interface SkillPromptTurnHost extends SkillExpansionHost {
+export interface EffectiveSkillPromptTurnHost {
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -68,9 +73,9 @@ export interface SkillPromptTurnContext {
 	waitForIdle(): Promise<void>;
 }
 
-export interface InvokeSkillPromptTurnOptions {
-	host: SkillPromptTurnHost;
-	ctx: SkillPromptTurnContext;
+export interface InvokeEffectiveSkillPromptTurnOptions extends SkillExpansionOptions {
+	host: EffectiveSkillPromptTurnHost;
+	ctx: SkillPromptTurnContext & EffectiveSkillInventoryHost;
 	skillName: string;
 	successMessage: string | ((skill: ExpandedSkillBlock) => string);
 	buildPrompt(skillBlock: string): string;
@@ -115,31 +120,60 @@ function buildSkillBlock(options: BuildSkillBlockOptions): string {
 	return `<skill name="${options.skillName}" location="${options.skillPath}">\nReferences are relative to ${options.baseDir}.\n\n${options.body}\n</skill>`;
 }
 
-export async function expandSkillBlock(
-	host: SkillExpansionHost,
+export function requireEffectiveSkillSource(
+	host: EffectiveSkillInventoryHost,
 	skillName: string,
-	options: SkillExpansionOptions = {},
-): Promise<ExpandedSkillBlock | undefined> {
-	const command = host
-		.getCommands()
-		.find((candidate) => candidate.source === "skill" && candidate.name === `skill:${skillName}`);
-	if (!command) {
-		return undefined;
+): ResolvedSkillSource {
+	try {
+		const matches = (host.getSystemPromptOptions().skills ?? []).filter(
+			(candidate) => candidate.name === skillName,
+		);
+		if (matches.length === 0) {
+			throw new Error(`Pi did not include the skill in its effective skill inventory.`);
+		}
+		if (matches.length !== 1) {
+			throw new Error(
+				`Effective skill inventory contains ${matches.length} entries named "${skillName}".`,
+			);
+		}
+		const match = matches[0];
+		if (match === undefined) throw new Error("Effective skill selection invariant failed.");
+		return { name: match.name, filePath: match.filePath, baseDir: match.baseDir };
+	} catch (error) {
+		throw requiredSkillError(skillName, error);
 	}
+}
 
-	const skillPath = command.sourceInfo.path;
-	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
+export async function expandEffectiveSkillBlock(
+	source: ResolvedSkillSource,
+	options: SkillExpansionOptions = {},
+): Promise<ExpandedSkillBlock> {
 	const readTextFile = options.readTextFile ?? ((path: string) => readFile(path, "utf8"));
-	const body = stripSkillFrontmatter(await readTextFile(skillPath));
-
+	const body = stripSkillFrontmatter(await readTextFile(source.filePath));
 	return {
-		name: skillName,
-		commandName: command.name,
-		path: skillPath,
-		baseDir,
+		name: source.name,
+		commandName: `effective:${source.name}`,
+		path: source.filePath,
+		baseDir: source.baseDir,
 		body,
-		block: buildSkillBlock({ skillName, skillPath, baseDir, body }),
+		block: buildSkillBlock({
+			skillName: source.name,
+			skillPath: source.filePath,
+			baseDir: source.baseDir,
+			body,
+		}),
 	};
+}
+
+export async function requireEffectiveSkillBlock(
+	source: ResolvedSkillSource,
+	options: SkillExpansionOptions = {},
+): Promise<ExpandedSkillBlock> {
+	try {
+		return await expandEffectiveSkillBlock(source, options);
+	} catch (error) {
+		throw requiredSkillError(source.name, error);
+	}
 }
 
 export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions): Promise<string> {
@@ -231,22 +265,15 @@ export async function expandSkillBlockFromPath(
 	};
 }
 
-export async function invokeSkillPromptTurn(options: InvokeSkillPromptTurnOptions): Promise<void> {
+export async function invokeEffectiveSkillPromptTurn(
+	options: InvokeEffectiveSkillPromptTurnOptions,
+): Promise<void> {
 	const { host, ctx, skillName } = options;
+	const source = requireEffectiveSkillSource(ctx, skillName);
 	await ctx.waitForIdle();
-
-	let skill: ExpandedSkillBlock | undefined;
-	try {
-		skill = await expandSkillBlock(host, skillName);
-	} catch (error) {
-		throw requiredSkillError(skillName, error);
-	}
-	if (skill === undefined) {
-		throw requiredSkillError(
-			skillName,
-			new Error(`Pi did not advertise the loaded skill:${skillName} command.`),
-		);
-	}
+	const skill = await requireEffectiveSkillBlock(source, {
+		...optionalEntry("readTextFile", options.readTextFile),
+	});
 
 	await deliverSkillPromptTurn({
 		host,
@@ -315,7 +342,7 @@ export function buildSkillInvocationPrompt(options: BuildSkillInvocationPromptOp
 }
 
 function skillPromptTurnSuccessMessage(
-	message: InvokeSkillPromptTurnOptions["successMessage"],
+	message: InvokeEffectiveSkillPromptTurnOptions["successMessage"],
 	skill: ExpandedSkillBlock,
 ): string {
 	if (typeof message === "string") {

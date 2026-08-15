@@ -587,20 +587,24 @@ function countingHandoffCreateSkillLoader(): HandoffCreateSkillLoader & { resolv
 	const loader = fakeHandoffCreateSkillLoader();
 	return {
 		resolveCalls: 0,
-		async resolveCreateHandoffSkillPath(cwd: string) {
+		resolveCreateHandoffSkillSource(ctx) {
 			this.resolveCalls += 1;
-			return loader.resolveCreateHandoffSkillPath(cwd);
+			return loader.resolveCreateHandoffSkillSource(ctx);
 		},
-		async loadCreateHandoffSkill(path: string) {
-			return loader.loadCreateHandoffSkill(path);
+		loadCreateHandoffSkill(source) {
+			return loader.loadCreateHandoffSkill(source);
 		},
 	};
 }
 
 function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	return {
-		async resolveCreateHandoffSkillPath() {
-			return "/repo/skills/handoff-create/SKILL.md";
+		resolveCreateHandoffSkillSource() {
+			return {
+				name: "handoff-create",
+				filePath: "/repo/skills/handoff-create/SKILL.md",
+				baseDir: "/repo/skills/handoff-create",
+			};
 		},
 		async loadCreateHandoffSkill() {
 			return {

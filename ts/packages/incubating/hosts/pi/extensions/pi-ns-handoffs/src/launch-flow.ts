@@ -18,7 +18,10 @@ import {
 	type HandoffInvestigationSourceOptions,
 } from "./investigation-sources.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
-import type { ExpandedSkillBlock } from "@nseng-ai/pi-runtime/skills/expansion";
+import type {
+	ExpandedSkillBlock,
+	ResolvedSkillSource,
+} from "@nseng-ai/pi-runtime/skills/expansion";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type {
@@ -195,9 +198,9 @@ export async function prepareHandoffCreateLaunch(
 	},
 ): Promise<PreparedHandoffCreateLaunch | undefined> {
 	const skillLoader = options.skillLoader ?? realHandoffCreateSkillLoader;
-	let skillPath: string;
+	let skillSource: ResolvedSkillSource;
 	try {
-		skillPath = await skillLoader.resolveCreateHandoffSkillPath(ctx.cwd);
+		skillSource = skillLoader.resolveCreateHandoffSkillSource(ctx);
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return undefined;
@@ -231,7 +234,7 @@ export async function prepareHandoffCreateLaunch(
 
 	let skill: ExpandedSkillBlock;
 	try {
-		skill = await skillLoader.loadCreateHandoffSkill(skillPath);
+		skill = await skillLoader.loadCreateHandoffSkill(skillSource);
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return undefined;

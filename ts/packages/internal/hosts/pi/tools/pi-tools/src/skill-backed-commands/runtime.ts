@@ -9,17 +9,17 @@ import type {
 	PiCommandHost,
 	PiCommandRegistration,
 } from "@nseng-ai/pi-runtime/runtime/command-host";
+import type { SystemPromptOptions } from "@nseng-ai/pi-runtime/runtime/extension-types";
 import {
 	buildSkillInvocationPrompt,
-	invokeRepoSkillPromptTurn,
+	invokeEffectiveSkillPromptTurn,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 
 import { genericSkillBackedCommandSpecs, type DerivedPiCommand } from "./specs.ts";
 
-export type SkillBackedCommandContext = Pick<
-	PiCommandContext,
-	"cwd" | "hasUI" | "ui" | "waitForIdle"
->;
+export type SkillBackedCommandContext = Pick<PiCommandContext, "hasUI" | "ui" | "waitForIdle"> & {
+	getSystemPromptOptions(): SystemPromptOptions;
+};
 
 export type SkillBackedCommand = Omit<PiCommandRegistration, "handler"> & {
 	handler(args: string, ctx: SkillBackedCommandContext): Promise<void> | void;
@@ -55,7 +55,7 @@ export default registerSkillBackedCommands;
 async function handleSkillBackedCommand(options: HandleSkillBackedCommandOptions): Promise<void> {
 	const { host, spec, args, ctx } = options;
 	try {
-		await invokeRepoSkillPromptTurn({
+		await invokeEffectiveSkillPromptTurn({
 			host,
 			ctx,
 			skillName: spec.skillName,

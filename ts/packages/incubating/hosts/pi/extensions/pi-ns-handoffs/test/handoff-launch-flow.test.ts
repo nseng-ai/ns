@@ -76,10 +76,11 @@ describe("handoff launch flow helpers", () => {
 	});
 
 	test("runHandoffCreateCommand prepares and sends the standard launch prompt", async () => {
-		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+		await withHandoffCreateSkill(async ({ skillPath, skillDir, repoDir }) => {
+			const pi = new FakePi([branchStep()]);
 			const context = createContext({
 				cwd: repoDir,
+				skills: [skillCommandInfo(skillPath, skillDir)],
 				sessionFile: "/sessions/launch-filename.jsonl",
 				sessionId: "launch-source-id",
 			});
@@ -110,9 +111,12 @@ describe("handoff launch flow helpers", () => {
 	});
 
 	test("runHandoffCreateCommand resolves the branch from supplied handoff context", async () => {
-		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([], [skillCommandInfo(skillPath)]);
-			const context = createContext({ cwd: repoDir });
+		await withHandoffCreateSkill(async ({ skillPath, skillDir, repoDir }) => {
+			const pi = new FakePi();
+			const context = createContext({
+				cwd: repoDir,
+				skills: [skillCommandInfo(skillPath, skillDir)],
+			});
 			const git = new InMemoryGitGateway({ currentBranch: "context/branch" });
 
 			await runHandoffCreateCommand(pi, "finish the widget", context.ctx, {

@@ -168,10 +168,10 @@ function commandContext(
 		onEditorTitle?: (title: string) => void;
 		onNotification?: (notification: Notification) => void;
 		cwd?: string;
+		skill?: { name: string; filePath: string; baseDir: string } | null;
 	} = {},
 ): GrillUiCommandContext {
 	return {
-		cwd: options.cwd ?? ROOT,
 		hasUI: options.hasUI ?? true,
 		ui: {
 			editor: async (title) => {
@@ -179,6 +179,15 @@ function commandContext(
 				return options.editorResult;
 			},
 			notify: (message, level) => options.onNotification?.({ message, level }),
+		},
+		getSystemPromptOptions: () => {
+			const defaultSkills = [GRILL_UI_SKILL_NAME, GRILL_WITH_DOCS_UI_SKILL_NAME].map((name) => ({
+				name,
+				filePath: resolve(ROOT, ".agents/skills", name, "SKILL.md"),
+				baseDir: resolve(ROOT, ".agents/skills", name),
+			}));
+			if (options.skill === null) return { skills: [] };
+			return { skills: options.skill === undefined ? defaultSkills : [options.skill] };
 		},
 		waitForIdle: async () => {},
 	};
@@ -242,10 +251,20 @@ describe("/pi:grill-me command", () => {
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBackend skill body from test.\n`,
 				prefix: "pi-grill-ui-test-",
 			},
-			async ({ repoDir, skillPath }) => {
+			async ({ skillPath }) => {
 				const { pi, command } = register();
 
-				await command.handler("Target design", commandContext({ cwd: repoDir, hasUI: false }));
+				await command.handler(
+					"Target design",
+					commandContext({
+						hasUI: false,
+						skill: {
+							name: GRILL_UI_SKILL_NAME,
+							filePath: skillPath,
+							baseDir: skillPath.replace(/\/SKILL\.md$/u, ""),
+						},
+					}),
+				);
 
 				expect(pi.sentUserMessages).toHaveLength(1);
 				expect(pi.sentUserMessages[0]).toContain(
@@ -308,12 +327,19 @@ describe("/pi:grill-with-docs command", () => {
 				markdown: `---\nname: ${GRILL_WITH_DOCS_UI_SKILL_NAME}\ndescription: test\n---\n\nDocs-aware backend skill body from test.\n`,
 				prefix: "pi-grill-with-docs-ui-test-",
 			},
-			async ({ repoDir, skillPath }) => {
+			async ({ skillPath }) => {
 				const { pi, docsCommand } = register();
 
 				await docsCommand.handler(
 					"Target docs design",
-					commandContext({ cwd: repoDir, hasUI: false }),
+					commandContext({
+						hasUI: false,
+						skill: {
+							name: GRILL_WITH_DOCS_UI_SKILL_NAME,
+							filePath: skillPath,
+							baseDir: skillPath.replace(/\/SKILL\.md$/u, ""),
+						},
+					}),
 				);
 
 				expect(pi.sentUserMessages).toHaveLength(1);
@@ -867,7 +893,7 @@ describe("grill_ask activation lifecycle", () => {
 		await command.handler(
 			"",
 			commandContext({
-				cwd: "/repo-without-skills",
+				skill: null,
 				editorResult: "must not be read",
 				onEditorTitle: (title) => editorTitles.push(title),
 				onNotification: (notification) => notifications.push(notification),
@@ -893,11 +919,21 @@ describe("grill_ask activation lifecycle", () => {
 				markdown: `---\nname: ${GRILL_UI_SKILL_NAME}\ndescription: test\n---\n\nBody.\n`,
 				prefix: "pi-grill-ui-activation-test-",
 			},
-			async ({ repoDir }) => {
+			async ({ skillDir, skillPath }) => {
 				const pi = new FakePi(["read"]);
 				const { command } = register(pi);
 
-				await command.handler("Target design", commandContext({ cwd: repoDir, hasUI: false }));
+				await command.handler(
+					"Target design",
+					commandContext({
+						hasUI: false,
+						skill: {
+							name: GRILL_UI_SKILL_NAME,
+							filePath: skillPath,
+							baseDir: skillDir,
+						},
+					}),
+				);
 
 				expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_TOOL_NAME]);
 				expect(pi.events).toEqual([`set-active:read,${GRILL_ASK_TOOL_NAME}`, "send"]);

@@ -6,8 +6,8 @@ import {
 } from "@nseng-ai/pi-runtime/grill/surfaces";
 import type { NotifyLevel } from "@nseng-ai/pi-runtime/runtime/tool-types";
 import {
-	requireRepoSkillBlockFromPath,
-	requireRepoSkillPath,
+	requireEffectiveSkillBlock,
+	requireEffectiveSkillSource,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 
 import { buildGrillUiPrompt, buildGrillWithDocsUiPrompt } from "./prompts.ts";
@@ -53,9 +53,9 @@ async function handleStructuredGrillCommand(
 	options: StructuredGrillCommandOptions,
 ): Promise<void> {
 	await ctx.waitForIdle();
-	let skillPath: string;
+	let skillSource;
 	try {
-		skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: options.skillName });
+		skillSource = requireEffectiveSkillSource(ctx, options.skillName);
 	} catch (error) {
 		notify(ctx, formatErrorMessage(error), "error");
 		return;
@@ -69,8 +69,7 @@ async function handleStructuredGrillCommand(
 
 	let skillBlock: string;
 	try {
-		skillBlock = (await requireRepoSkillBlockFromPath({ skillName: options.skillName, skillPath }))
-			.block;
+		skillBlock = (await requireEffectiveSkillBlock(skillSource)).block;
 	} catch (error) {
 		notify(ctx, formatErrorMessage(error), "error");
 		return;

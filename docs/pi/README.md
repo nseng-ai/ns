@@ -19,6 +19,8 @@ Pi auto-discovers project-local extension modules from:
 
 Use project-local extensions when the behavior is specific to this repo's workflows, CLIs, slots, or contributor conventions.
 
+Globally installed Pi extensions must not assume that the active repository contains their required skills. Portable Skill-Backed Commands consume the exact effective skill selected by Pi from `ExtensionCommandContext.getSystemPromptOptions().skills`, preserving its path and base directory through deferred loading. This works for trusted project, user, package, configured-path, and explicit-path winners and does not depend on optional `/skill:*` registration. Repository-only lookup remains a separate authority mode for workflows whose contract explicitly requires the current checkout's copy.
+
 Checked-in files under `.pi/extensions/` are the local discovery surface. They may contain a full repo-local implementation, or they may be thin adapters that delegate to engineered package code.
 
 ## Project-local implementation layers
@@ -174,7 +176,7 @@ Rules:
 - Avoid duplicate public slash-command names. If a wrapper and prompt share a name, choose one public entrypoint and make the other an internal asset, rename it, convert it to a skill, or document the intentional duplication.
 - Mutating commands that touch git or GitHub state need either engineered tests/adapters or explicit docs saying why the vibecoded command is retained and what safety checks it owns.
 - Command descriptions should distinguish adjacent commands in autocomplete. If two command names intentionally share behavior, say which one is the alias or focused entrypoint.
-- For a skill whose preferred surface is a Skill-Backed Command, retain the Skill-Backed Command mechanism and registration. After registration exists, maintain the skill's invoke-only frontmatter, Codex sidecar, and `.pi/settings.json` exclusion directly as reviewed repository files. The command mechanism may exist independently, while invocation metadata controls cross-harness exposure. `npx skills` does not create the Pi exclusion or all of this metadata.
+- For a skill whose preferred surface is a Skill-Backed Command, retain the Skill-Backed Command mechanism and registration. Portable/global registrations resolve the exact effective skill from the command context; they neither depend on `/skill:*` registration nor fall back to repository scanning. A repository-authoritative registration must state why the checkout copy is required and test that contract. After registration exists, maintain the skill's invoke-only frontmatter, Codex sidecar, and `.pi/settings.json` exclusion directly as reviewed repository files. The command mechanism may exist independently, while invocation metadata controls cross-harness exposure. `npx skills` does not create the Pi exclusion or all of this metadata.
 
 ### Command namespace conventions
 

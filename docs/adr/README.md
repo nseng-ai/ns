@@ -54,6 +54,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0056 | [Harness-Aware User Extension Layer](0056-harness-aware-user-extension-layer.md)                                                                     |
 | 0057 | [Retire the Standalone Objective Runner Step Skill](0057-retire-standalone-objective-runner-step-skill.md)                                           |
 | 0058 | [Repository-Neutral Activation and Caller-Independent User Extensions](0058-repository-neutral-activation-and-caller-independent-user-extensions.md) |
+| 0059 | [Harness-Effective Required Skill Resolution](0059-harness-effective-required-skill-resolution.md)                                                   |
 
 ## Proposed
 
