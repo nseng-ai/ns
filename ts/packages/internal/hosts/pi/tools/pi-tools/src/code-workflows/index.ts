@@ -24,7 +24,7 @@ export {
 	default as smartRestackExtension,
 	runSmartRestack,
 	smartRestackParity,
-	type LoadRestackSkillBlock,
+	type CaptureRestackSkill,
 	type SmartRestackExtensionAPI,
 	type SmartRestackExtensionOptions,
 } from "./smart-restack.ts";

@@ -6,6 +6,7 @@ import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-ki
 
 import {
 	buildSkillInvocationPrompt,
+	captureRequiredEffectiveSkill,
 	expandRepoSkillBlock,
 	expandSkillBlock,
 	expandSkillBlockFromPath,
@@ -789,5 +790,56 @@ describe("invokeRepoSkillPromptTurn", () => {
 				expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
 			},
 		);
+	});
+});
+
+describe("captureRequiredEffectiveSkill", () => {
+	test("captures exact immutable metadata and defers reading until load", async () => {
+		const reads: string[] = [];
+		const skills = [
+			{ name: "objective", filePath: "/user/objective/SKILL.md", baseDir: "/exact/base" },
+		];
+		const required = captureRequiredEffectiveSkill(
+			{ getSystemPromptOptions: () => ({ skills }) },
+			"objective",
+			{
+				readTextFile: async (path) => {
+					reads.push(path);
+					return "---\nname: objective\n---\nBody";
+				},
+			},
+		);
+		skills[0] = { name: "objective", filePath: "/changed/SKILL.md", baseDir: "/changed" };
+		expect(reads).toEqual([]);
+		expect(required).toMatchObject({
+			filePath: "/user/objective/SKILL.md",
+			baseDir: "/exact/base",
+		});
+		expect(Object.isFrozen(required)).toBe(true);
+		const expanded = await required.load();
+		expect(reads).toEqual(["/user/objective/SKILL.md"]);
+		expect(expanded.block).toContain('location="/user/objective/SKILL.md"');
+		expect(expanded.block).toContain("References are relative to /exact/base.");
+	});
+
+	test.each([
+		undefined,
+		[],
+		[
+			{ name: "objective", filePath: "/one", baseDir: "/one" },
+			{ name: "objective", filePath: "/two", baseDir: "/two" },
+		],
+	])("rejects missing or duplicate exact matches with a cause", (skills) => {
+		try {
+			captureRequiredEffectiveSkill(
+				{ getSystemPromptOptions: () => (skills === undefined ? {} : { skills }) },
+				"objective",
+			);
+			throw new Error("expected capture to fail");
+		} catch (error) {
+			expect(error).toBeInstanceOf(Error);
+			expect((error as Error).message).toContain('Could not load required skill "objective"');
+			expect((error as Error).cause).toBeInstanceOf(Error);
+		}
 	});
 });

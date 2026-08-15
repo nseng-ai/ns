@@ -492,17 +492,21 @@ async function waitForCondition(condition: () => boolean): Promise<void> {
 
 function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 	return {
-		async resolveCreateHandoffSkillPath() {
-			return FAKE_SKILL_PATH;
-		},
-		async loadCreateHandoffSkill() {
+		captureSkill() {
 			return {
 				name: "handoff-create",
-				commandName: "direct:handoff-create",
-				path: FAKE_SKILL_PATH,
+				filePath: FAKE_SKILL_PATH,
 				baseDir: "/repo/.agents/skills/handoff-create",
-				body: "# handoff-create\n\nCreate a handoff from the skill body.",
-				block: FAKE_SKILL_BLOCK,
+				async load() {
+					return {
+						name: "handoff-create",
+						commandName: "direct:handoff-create",
+						path: FAKE_SKILL_PATH,
+						baseDir: "/repo/.agents/skills/handoff-create",
+						body: "# handoff-create\n\nCreate a handoff from the skill body.",
+						block: FAKE_SKILL_BLOCK,
+					};
+				},
 			};
 		},
 	};

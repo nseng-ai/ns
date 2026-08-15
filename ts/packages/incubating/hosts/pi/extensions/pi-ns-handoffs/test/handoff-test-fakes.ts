@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { encodeBranchName } from "@nseng-ai/brmem";
 import {
@@ -34,7 +34,12 @@ export const BRANCH = "feature/handoff";
 
 export type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 export type RegisteredTool = Parameters<NonNullable<ExtensionAPI["registerTool"]>>[0];
-export type CommandInfo = NonNullable<ReturnType<NonNullable<ExtensionAPI["getCommands"]>>>[number];
+export interface EffectiveSkillInfo {
+	name: string;
+	filePath: string;
+	baseDir: string;
+}
+export type CommandInfo = EffectiveSkillInfo;
 export type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 export type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
 
@@ -140,7 +145,13 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, options);
+		this.commands.set(name, {
+			...options,
+			handler: (args, ctx) => {
+				ctx.getSystemPromptOptions = () => ({ skills: this.commandInfos });
+				return options.handler(args, ctx);
+			},
+		});
 	}
 
 	appendEntry(customType: string, data?: unknown): void {
@@ -178,10 +189,6 @@ export class FakePi implements ExtensionAPI {
 			return execResult({ code: 99, stderr: message });
 		}
 		return execResult(expected.result);
-	}
-
-	getCommands(): CommandInfo[] {
-		return this.commandInfos;
 	}
 
 	getAllTools(): Array<{ name: string }> {
@@ -297,6 +304,7 @@ export function createContext(
 		cwd?: string;
 		isNewSessionCancelled?: boolean;
 		newSessionError?: Error;
+		skills?: readonly EffectiveSkillInfo[];
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -393,6 +401,9 @@ export function createContext(
 			getSessionId: () => sessionId ?? "",
 		},
 		ui,
+		getSystemPromptOptions() {
+			return { skills: options.skills ?? [] };
+		},
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
@@ -569,16 +580,11 @@ export function withHandoffCreateSkill<T>(
 	);
 }
 
-export function skillCommandInfo(skillPath: string): CommandInfo {
+export function skillCommandInfo(skillPath: string, baseDir?: string): CommandInfo {
 	return {
-		name: "skill:handoff-create",
-		source: "skill",
-		sourceInfo: {
-			path: skillPath,
-			source: "project",
-			scope: "project",
-			origin: "top-level",
-		},
+		name: "handoff-create",
+		filePath: skillPath,
+		baseDir: baseDir ?? dirname(skillPath),
 	};
 }
 

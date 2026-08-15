@@ -20,7 +20,7 @@ published.
 **Objective Pi command surface**:
 The preserved `/ns:objective:*` Pi slash-command family registered by the **Objective Pi
 host adapter**, including list, create, next, update, close, and autorun workflows. The
-adapter owns Pi registration, completion, picker and notification presentation, skill
+adapter owns Pi registration, completion, picker and notification presentation, harness-effective skill source capture and deferred
 expansion, and parity metadata. After an explicit `/ns:objective:next` or
 `/skill:objective-next` invocation, when the run's final assistant message contains exactly
 one `## ▶ Proposed prompt — ready to run` heading, it extracts the railed blockquote prompt
@@ -34,7 +34,7 @@ Objective behavior and policy come from
 **Objective autorun injection boundary**:
 The boundary between the packaged `/ns:objective:autorun` command and the injected
 `objective-autorun` skill. The command belongs to the **Objective Pi host adapter** and owns
-only Objective selection plus skill injection; the skill owns portable and ns-bookended
-orchestration. The former project-local `objective_runner_step` tool is removed and is not
+only Objective selection plus injection of the exact effective skill source selected by Pi;
+the skill owns portable and ns-bookended orchestration. The former project-local `objective_runner_step` tool is removed and is not
 part of this boundary.
 *Avoid*: adapter-owned autorun protocol, command/skill conflation, reviving the removed project-local tool

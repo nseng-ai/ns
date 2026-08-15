@@ -1,4 +1,4 @@
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -60,6 +60,8 @@ const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillNa
 };
 
 const LEGACY_OBJECTIVE_LIST_COMMAND_NAME = ["objective", ":", "list"].join("");
+
+const COMMAND_SKILL_NAMES = OBJECTIVE_SKILLS_BY_COMMAND;
 
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"ns:objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
@@ -158,7 +160,26 @@ class FakePi implements ObjectiveExtensionAPI {
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, options);
+		this.commands.set(name, {
+			...options,
+			handler: (args, ctx) => {
+				const context = ctx as CommandContext & {
+					getSystemPromptOptions(): {
+						skills: Array<{ name: string; filePath: string; baseDir: string }>;
+					};
+				};
+				context.getSystemPromptOptions = () => ({
+					skills: this.commandInfos
+						.filter((command) => command.source === "skill")
+						.map((command) => ({
+							name: command.name.replace(/^skill:/, ""),
+							filePath: command.sourceInfo.path,
+							baseDir: command.sourceInfo.baseDir ?? dirname(command.sourceInfo.path),
+						})),
+				});
+				return options.handler(args, context);
+			},
+		});
 	}
 
 	registerMessageRenderer(customType: string, renderer: MessageRenderer): void {
@@ -383,6 +404,11 @@ function withAutorunSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Pr
 	);
 }
 
+function repoObjectiveSkillCommandInfo(skillName: ObjectiveSkillName): CommandInfo {
+	const skillPath = join(ROOT, "..", ".agents", "skills", skillName, "SKILL.md");
+	return skillCommandInfo(skillName, skillPath, dirname(skillPath));
+}
+
 function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
 	return {
 		name: `skill:${skillName}`,
@@ -411,14 +437,17 @@ async function runObjectiveAutorun(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: ObjectiveCommandContextOptions = {},
-	commandInfos: CommandInfo[] = [],
+	commandInfos?: CommandInfo[],
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos);
+	const effectiveCommandInfos = commandInfos ?? [
+		repoObjectiveSkillCommandInfo("objective-autorun"),
+	];
+	const pi = new FakePi(script, effectiveCommandInfos);
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:autorun");
 	expect(command).toBeDefined();
@@ -426,7 +455,7 @@ async function runObjectiveAutorun(
 		throw new Error("ns:objective:autorun was not registered");
 	}
 
-	const skillPath = commandInfos[0]?.sourceInfo.path;
+	const skillPath = effectiveCommandInfos[0]?.sourceInfo.path;
 	const context = createContext({
 		...contextOptions,
 		...(contextOptions.cwd === undefined && skillPath !== undefined
@@ -447,7 +476,7 @@ async function runObjectiveNext(
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script);
+	const pi = new FakePi(script, [repoObjectiveSkillCommandInfo("objective-next")]);
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:next");
 	expect(command).toBeDefined();
@@ -461,14 +490,17 @@ async function runObjectiveCommand(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: ObjectiveCommandContextOptions = {},
-	commandInfos: CommandInfo[] = [],
+	commandInfos?: CommandInfo[],
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos);
+	const effectiveCommandInfos = commandInfos ?? [
+		repoObjectiveSkillCommandInfo(COMMAND_SKILL_NAMES[commandName]),
+	];
+	const pi = new FakePi(script, effectiveCommandInfos);
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get(commandName);
 	expect(command).toBeDefined();
@@ -476,7 +508,7 @@ async function runObjectiveCommand(
 		throw new Error(`${commandName} was not registered`);
 	}
 
-	const skillPath = commandInfos[0]?.sourceInfo.path;
+	const skillPath = effectiveCommandInfos[0]?.sourceInfo.path;
 	const context = createContext({
 		...contextOptions,
 		...(contextOptions.cwd === undefined && skillPath !== undefined
@@ -956,7 +988,7 @@ describe("ns:objective:autorun command", () => {
 
 	test("missing required skill stops before picker, list, and git preparation", async () => {
 		await withTempGitRepo({ prefix: "objective-autorun-preflight-" }, async ({ repoDir }) => {
-			const result = await runObjectiveAutorun("", [], { cwd: repoDir });
+			const result = await runObjectiveAutorun("", [], { cwd: repoDir }, []);
 
 			result.pi.assertDone();
 			expect(result.pi.execCalls).toEqual([]);

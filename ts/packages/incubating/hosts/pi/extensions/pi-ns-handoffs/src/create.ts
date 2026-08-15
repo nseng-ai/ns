@@ -1,7 +1,7 @@
 import { buildFencedTextBlock, formatErrorMessage } from "@nseng-ai/foundation/primitives";
 
 import { resolveCreateFocus } from "./create-focus.ts";
-import { realHandoffCreateSkillLoader } from "./create-skill.ts";
+import { captureCreateHandoffSkill, realHandoffCreateSkillLoader } from "./create-skill.ts";
 import {
 	buildHandoffInvestigationSourcesPrompt,
 	deriveHandoffInvestigationSources,
@@ -50,9 +50,9 @@ export async function handleCreateHandoffCommand(
 	ctx: CommandContext,
 ): Promise<void> {
 	await ctx.waitForIdle();
-	let skillPath: string;
+	let requiredSkill;
 	try {
-		skillPath = await realHandoffCreateSkillLoader.resolveCreateHandoffSkillPath(ctx.cwd);
+		requiredSkill = captureCreateHandoffSkill(realHandoffCreateSkillLoader, ctx);
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;
@@ -65,7 +65,7 @@ export async function handleCreateHandoffCommand(
 
 	let skill;
 	try {
-		skill = await realHandoffCreateSkillLoader.loadCreateHandoffSkill(skillPath);
+		skill = await requiredSkill.load();
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return;

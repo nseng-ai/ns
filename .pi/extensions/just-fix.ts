@@ -10,7 +10,7 @@ const { registerCommandWithImmediateAck } =
 const { CliCommandStatusActivity } = await importTypeScriptWorkspaceModule<
 	typeof import("@nseng-ai/pi-runtime/commands/cli-command-status")
 >("@nseng-ai/pi-runtime/commands/cli-command-status");
-const { requireRepoSkillBlockFromPath, requireRepoSkillPath } =
+const { captureRequiredEffectiveSkill } =
 	await importTypeScriptWorkspaceModule<
 		typeof import("@nseng-ai/pi-runtime/skills/expansion")
 	>("@nseng-ai/pi-runtime/skills/expansion");
@@ -32,6 +32,13 @@ type ExecResult = {
 type CommandContext = {
 	cwd: string;
 	hasUI: boolean;
+	getSystemPromptOptions(): {
+		skills?: readonly {
+			name: string;
+			filePath: string;
+			baseDir: string;
+		}[];
+	};
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
@@ -145,17 +152,16 @@ async function runJustThenInvokeSkill(
 	command: JustCommand,
 	exec: ExecCommand,
 ): Promise<void> {
-	await ctx.waitForIdle();
-
-	let skillPath: string;
+	let requiredSkill: ReturnType<typeof captureRequiredEffectiveSkill>;
 	try {
-		skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: SKILL_NAME });
+		requiredSkill = captureRequiredEffectiveSkill(ctx, SKILL_NAME);
 	} catch (error) {
 		if (ctx.hasUI) {
 			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
 		}
 		return;
 	}
+	await ctx.waitForIdle();
 
 	const activity = new CliCommandStatusActivity(ctx, {
 		cliName: "just",
@@ -179,9 +185,9 @@ async function runJustThenInvokeSkill(
 		return;
 	}
 
-	let skill: Awaited<ReturnType<typeof requireRepoSkillBlockFromPath>>;
+	let skill: Awaited<ReturnType<typeof requiredSkill.load>>;
 	try {
-		skill = await requireRepoSkillBlockFromPath({ skillName: SKILL_NAME, skillPath });
+		skill = await requiredSkill.load();
 	} catch (error) {
 		if (ctx.hasUI) {
 			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");

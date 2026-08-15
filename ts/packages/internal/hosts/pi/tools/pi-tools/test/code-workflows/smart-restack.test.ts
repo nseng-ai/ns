@@ -12,8 +12,7 @@ import smartRestackExtension, {
 	SMART_RESTACK_COMMAND_NAME,
 	buildResolverPrompt,
 	runSmartRestack,
-	type LoadRestackSkillBlock,
-	type ResolveRestackSkillPath,
+	type CaptureRestackSkill,
 	type SmartRestackExtensionAPI,
 } from "../../src/code-workflows/smart-restack.ts";
 import type {
@@ -28,14 +27,14 @@ interface ExecCall {
 	cwd?: string;
 }
 
-interface SkillPathResolveCall {
-	cwd: string;
+interface SkillCaptureCall {
 	skillName: string;
 }
 
 interface SkillLoadCall {
-	skillName: string;
-	skillPath: string;
+	name: string;
+	filePath: string;
+	baseDir: string;
 }
 
 type RegisteredCommand = Parameters<SmartRestackExtensionAPI["registerCommand"]>[1];
@@ -158,17 +157,16 @@ function preflight(
 
 const SKILL_PATH = "/repo/.agents/skills/code-gt-restack-resolve/SKILL.md";
 const SKILL_BLOCK = '<skill name="code-gt-restack-resolve">body</skill>';
-const EXPECTED_SKILL_PATH_RESOLVE = {
-	cwd: "/repo",
-	skillName: "code-gt-restack-resolve",
+const SKILL_SOURCE = {
+	name: "code-gt-restack-resolve",
+	filePath: SKILL_PATH,
+	baseDir: "/repo/.agents/skills/code-gt-restack-resolve",
 } as const;
-const EXPECTED_SKILL_LOAD = {
-	skillName: "code-gt-restack-resolve",
-	skillPath: SKILL_PATH,
-} as const;
+const EXPECTED_SKILL_CAPTURE = { skillName: "code-gt-restack-resolve" } as const;
+const EXPECTED_SKILL_LOAD = SKILL_SOURCE;
 
 class RecordingSkillLoader {
-	readonly resolveCalls: SkillPathResolveCall[] = [];
+	readonly captureCalls: SkillCaptureCall[] = [];
 	readonly loadCalls: SkillLoadCall[] = [];
 	private readonly events: string[];
 
@@ -176,29 +174,43 @@ class RecordingSkillLoader {
 		this.events = events;
 	}
 
-	readonly resolveSkillPath: ResolveRestackSkillPath = async (options) => {
-		this.resolveCalls.push({ ...options });
-		this.events.push("resolve-skill-path");
-		return SKILL_PATH;
-	};
-
-	readonly loadSkillBlock: LoadRestackSkillBlock = async (options) => {
-		this.loadCalls.push({ ...options });
-		this.events.push("load-skill");
-		return { block: SKILL_BLOCK };
+	readonly captureSkill: CaptureRestackSkill = (_ctx, skillName) => {
+		this.captureCalls.push({ skillName });
+		this.events.push("capture-skill");
+		return {
+			...SKILL_SOURCE,
+			load: async () => {
+				this.loadCalls.push(SKILL_SOURCE);
+				this.events.push("load-skill");
+				return {
+					...SKILL_SOURCE,
+					commandName: `effective:${SKILL_SOURCE.name}`,
+					path: SKILL_SOURCE.filePath,
+					body: "body",
+					block: SKILL_BLOCK,
+				};
+			},
+		};
 	};
 }
 
-const resolveSkillPath: ResolveRestackSkillPath = async () => SKILL_PATH;
-const loadSkillBlock: LoadRestackSkillBlock = async () => ({ block: SKILL_BLOCK });
+const captureSkill: CaptureRestackSkill = () => ({
+	...SKILL_SOURCE,
+	load: async () => ({
+		...SKILL_SOURCE,
+		commandName: `effective:${SKILL_SOURCE.name}`,
+		path: SKILL_SOURCE.filePath,
+		body: "body",
+		block: SKILL_BLOCK,
+	}),
+});
 
 async function run(options: {
 	pi: FakePi;
 	ctx?: FakeCommandContext;
 	args?: string;
 	preflightResult?: SmartRestackPreflightResult;
-	resolveSkill?: ResolveRestackSkillPath;
-	loadSkill?: LoadRestackSkillBlock;
+	captureSkill?: CaptureRestackSkill;
 	skillLoader?: RecordingSkillLoader;
 }): Promise<FakeCommandContext> {
 	const ctx = options.ctx ?? new FakeCommandContext();
@@ -207,9 +219,7 @@ async function run(options: {
 		ctx,
 		args: options.args ?? "",
 		runPreflight: preflight(options.preflightResult ?? { type: "ready" }),
-		resolveSkillPath:
-			options.resolveSkill ?? options.skillLoader?.resolveSkillPath ?? resolveSkillPath,
-		loadSkillBlock: options.loadSkill ?? options.skillLoader?.loadSkillBlock ?? loadSkillBlock,
+		captureSkill: options.captureSkill ?? options.skillLoader?.captureSkill ?? captureSkill,
 	});
 	return ctx;
 }
@@ -221,8 +231,7 @@ describe("smart restack extension registration", () => {
 		const skillLoader = new RecordingSkillLoader(events);
 		smartRestackExtension(pi, {
 			runPreflight: preflight({ type: "ready" }, events),
-			resolveSkillPath: skillLoader.resolveSkillPath,
-			loadSkillBlock: skillLoader.loadSkillBlock,
+			captureSkill: skillLoader.captureSkill,
 		});
 		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
 		if (command === undefined) throw new Error("missing command");
@@ -239,12 +248,12 @@ describe("smart restack extension registration", () => {
 		expect(events.slice(0, 6)).toEqual([
 			`message:${IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE}`,
 			"wait-for-idle",
-			"resolve-skill-path",
+			"capture-skill",
 			"preflight",
 			"message:ns-command-progress",
 			"exec:gt restack",
 		]);
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([]);
 		expect(events.indexOf(`message:${IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE}`)).toBeLessThan(
 			events.indexOf("exec:gt restack"),
@@ -274,7 +283,7 @@ describe("smart restack default preflight wiring", () => {
 			}),
 			rawResult({ stdout: "Already up to date\n" }),
 		]);
-		smartRestackExtension(pi, { resolveSkillPath, loadSkillBlock });
+		smartRestackExtension(pi, { captureSkill });
 		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
 		if (command === undefined) throw new Error("missing command");
 
@@ -321,7 +330,7 @@ describe("smart restack default preflight wiring", () => {
 				}),
 			}),
 		]);
-		smartRestackExtension(pi, { resolveSkillPath, loadSkillBlock });
+		smartRestackExtension(pi, { captureSkill });
 		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
 		if (command === undefined) throw new Error("missing command");
 		const ctx = new FakeCommandContext();
@@ -364,7 +373,7 @@ describe("smart restack default preflight wiring", () => {
 				}),
 			}),
 		]);
-		smartRestackExtension(pi, { resolveSkillPath, loadSkillBlock });
+		smartRestackExtension(pi, { captureSkill });
 		const command = pi.commands.get(SMART_RESTACK_COMMAND_NAME);
 		if (command === undefined) throw new Error("missing command");
 		const ctx = new FakeCommandContext();
@@ -407,7 +416,7 @@ describe("smart restack workflow", () => {
 			skillLoader,
 		});
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toHaveLength(1);
@@ -423,7 +432,7 @@ describe("smart restack workflow", () => {
 
 		const ctx = await run({ pi, skillLoader });
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -440,7 +449,7 @@ describe("smart restack workflow", () => {
 			skillLoader,
 		});
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -456,7 +465,7 @@ describe("smart restack workflow", () => {
 
 		await run({ pi, ctx, args: "prefer parent stack", skillLoader });
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([EXPECTED_SKILL_LOAD]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(ctx.selectCalls).toEqual([
@@ -479,7 +488,7 @@ describe("smart restack workflow", () => {
 
 		await run({ pi, ctx, skillLoader });
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([
 			{ command: "gt", args: ["restack"], cwd: "/repo" },
@@ -501,7 +510,7 @@ describe("smart restack workflow", () => {
 
 		await run({ pi, ctx, skillLoader });
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -515,7 +524,7 @@ describe("smart restack workflow", () => {
 
 		await run({ pi, ctx, skillLoader });
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([{ command: "gt", args: ["restack"], cwd: "/repo" }]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -537,7 +546,7 @@ describe("smart restack workflow", () => {
 			skillLoader,
 		});
 
-		expect(skillLoader.resolveCalls).toEqual([EXPECTED_SKILL_PATH_RESOLVE]);
+		expect(skillLoader.captureCalls).toEqual([EXPECTED_SKILL_CAPTURE]);
 		expect(skillLoader.loadCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -552,7 +561,6 @@ describe("smart restack workflow", () => {
 		const pi = new FakePi();
 		const ctx = new FakeCommandContext();
 		let preflightCalls = 0;
-		let loadCalls = 0;
 
 		await runSmartRestack({
 			pi,
@@ -562,17 +570,12 @@ describe("smart restack workflow", () => {
 				preflightCalls += 1;
 				return { type: "ready" };
 			},
-			resolveSkillPath: async () => {
+			captureSkill: () => {
 				throw new Error("required skill missing");
-			},
-			loadSkillBlock: async () => {
-				loadCalls += 1;
-				return { block: "unexpected" };
 			},
 		});
 
 		expect(preflightCalls).toBe(0);
-		expect(loadCalls).toBe(0);
 		expect(pi.execCalls).toEqual([]);
 		expect(ctx.selectCalls).toEqual([]);
 		expect(pi.sentUserMessages).toEqual([]);
@@ -588,10 +591,14 @@ describe("smart restack workflow", () => {
 		await run({
 			pi,
 			ctx,
-			loadSkill: async (options) => {
-				skillLoadCalls.push({ ...options });
-				throw new Error('Could not load required skill "code-gt-restack-resolve": malformed');
-			},
+			captureSkill: (_commandCtx, name) => ({
+				...SKILL_SOURCE,
+				name,
+				load: async () => {
+					skillLoadCalls.push(SKILL_SOURCE);
+					throw new Error('Could not load required skill "code-gt-restack-resolve": malformed');
+				},
+			}),
 		});
 
 		expect(skillLoadCalls).toEqual([EXPECTED_SKILL_LOAD]);

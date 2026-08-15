@@ -121,6 +121,10 @@ class FakeCommandContext implements CommandContext {
 		};
 	}
 
+	getSystemPromptOptions(): { skills: [] } {
+		return { skills: [] };
+	}
+
 	async waitForIdle(): Promise<void> {
 		this.waitForIdleCalls += 1;
 		this.events.push("wait-for-idle");
@@ -145,7 +149,7 @@ function registerPicker(
 	options: { invokePromptTurn?: InvokeCodeWorkflowPromptTurn } = {},
 ): void {
 	codeWorkflowsExtension(pi, {
-		invokeRepoSkillPromptTurn: options.invokePromptTurn ?? fakePromptTurn(),
+		invokeEffectiveSkillPromptTurn: options.invokePromptTurn ?? fakePromptTurn(),
 	});
 }
 

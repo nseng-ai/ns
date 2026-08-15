@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 import { describe, expect, test } from "vitest";
 
@@ -45,7 +46,26 @@ class FakePi implements ObjectiveExtensionAPI {
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, options);
+		this.commands.set(name, {
+			...options,
+			handler: (args, ctx) => {
+				const context = ctx as CommandContext & {
+					getSystemPromptOptions(): {
+						skills: Array<{ name: string; filePath: string; baseDir: string }>;
+					};
+				};
+				context.getSystemPromptOptions = () => ({
+					skills: this.commandInfos
+						.filter((command) => command.source === "skill")
+						.map((command) => ({
+							name: command.name.replace(/^skill:/, ""),
+							filePath: command.sourceInfo.path,
+							baseDir: command.sourceInfo.baseDir ?? dirname(command.sourceInfo.path),
+						})),
+				});
+				return options.handler(args, context);
+			},
+		});
 	}
 
 	async exec(command: string, args: string[], options?: unknown): Promise<RawPiExecResult> {
@@ -92,6 +112,14 @@ function createContext(cwd = ROOT): {
 		},
 	};
 	return { ctx, notifications, waitForIdleCalls: () => waits };
+}
+
+function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
+	return {
+		name: `skill:${skillName}`,
+		source: "skill",
+		sourceInfo: { path: skillPath, baseDir },
+	};
 }
 
 interface RunObjectiveCreateOptions {
@@ -144,6 +172,7 @@ describe("ns:objective:create command", () => {
 				const result = await runObjectiveCreate({
 					args: "  create slug alpha for typeahead-friendly Objective creation  ",
 					cwd: repoDir,
+					commandInfos: [skillCommandInfo("objective-create", skillPath, skillDir)],
 				});
 
 				expect(result.waitForIdleCalls()).toBe(1);
@@ -178,7 +207,11 @@ describe("ns:objective:create command", () => {
 				markdown: CREATE_SKILL_MARKDOWN,
 			},
 			async ({ repoDir, skillPath }) => {
-				const result = await runObjectiveCreate({ args: "", cwd: repoDir });
+				const result = await runObjectiveCreate({
+					args: "",
+					cwd: repoDir,
+					commandInfos: [skillCommandInfo("objective-create", skillPath, dirname(skillPath))],
+				});
 
 				expect(result.waitForIdleCalls()).toBe(1);
 				expect(result.pi.sentUserMessages).toHaveLength(1);
@@ -200,7 +233,7 @@ describe("ns:objective:create command", () => {
 		await withTempGitRepo({ prefix: "objective-create-missing-repo-" }, async ({ repoDir }) => {
 			const result = await runObjectiveCreate({ args: "create alpha", cwd: repoDir });
 
-			expect(result.waitForIdleCalls()).toBe(1);
+			expect(result.waitForIdleCalls()).toBe(0);
 			expect(result.pi.sentUserMessages).toEqual([]);
 			expect(result.notifications).toHaveLength(1);
 			expect(result.notifications[0]?.level).toBe("error");
@@ -208,9 +241,8 @@ describe("ns:objective:create command", () => {
 				'Could not load required skill "objective-create"',
 			);
 			expect(result.notifications[0]?.message).toContain(
-				"Could not find .agents/skills/objective-create/SKILL.md, .claude/skills/objective-create/SKILL.md",
+				"Pi did not include the skill in its effective skill inventory.",
 			);
-			expect(result.notifications[0]?.message).toContain(repoDir);
 		});
 	});
 
@@ -220,10 +252,11 @@ describe("ns:objective:create command", () => {
 				skillName: "objective-create",
 				markdown: CREATE_SKILL_MARKDOWN,
 			},
-			async ({ repoDir }) => {
+			async ({ repoDir, skillPath, skillDir }) => {
 				const result = await runObjectiveCreate({
 					args: "make `code` and ```nested``` safe",
 					cwd: repoDir,
+					commandInfos: [skillCommandInfo("objective-create", skillPath, skillDir)],
 				});
 
 				expect(result.pi.sentUserMessages[0]).toContain(

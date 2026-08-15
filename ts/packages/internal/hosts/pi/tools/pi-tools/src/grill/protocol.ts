@@ -1,3 +1,4 @@
+import type { SystemPromptOptions } from "@nseng-ai/pi-runtime/runtime/extension-types";
 import type { NotifyLevel } from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 import type { GrillAskOutcome } from "./controller.ts";
@@ -104,12 +105,12 @@ export interface GrillAskToolContext {
 }
 
 export interface GrillUiCommandContext {
-	cwd: string;
 	hasUI: boolean;
 	ui: {
 		editor?(title: string, initialText?: string): Promise<string | undefined>;
 		notify?(message: string, level?: NotifyLevel): void;
 	};
+	getSystemPromptOptions(): SystemPromptOptions;
 	waitForIdle(): Promise<void>;
 }
 

@@ -18,6 +18,9 @@ interface RegisteredCommand {
 interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
+	getSystemPromptOptions(): {
+		skills: readonly { name: string; filePath: string; baseDir: string }[];
+	};
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
@@ -94,7 +97,10 @@ function execResult(overrides: Partial<RawPiExecResult> = {}): RawPiExecResult {
 	};
 }
 
-function createContext(cwd = ROOT): {
+function createContext(
+	cwd = ROOT,
+	skill?: { name: string; filePath: string; baseDir: string },
+): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	statuses: StatusUpdate[];
@@ -106,6 +112,7 @@ function createContext(cwd = ROOT): {
 	const ctx: CommandContext = {
 		cwd,
 		hasUI: true,
+		getSystemPromptOptions: () => ({ skills: skill === undefined ? [] : [skill] }),
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
@@ -168,7 +175,11 @@ Repair the failed just run.
 					throw new Error("just command was not registered");
 				}
 
-				const context = createContext(repoDir);
+				const context = createContext(repoDir, {
+					name: "code-just-fix",
+					filePath: skillPath,
+					baseDir: skillDir,
+				});
 				await command.handler("", context.ctx);
 
 				expect(context.waitForIdleCalls()).toBe(1);
@@ -217,11 +228,11 @@ Repair the failed just run.
 
 			expect(pi.execCalls).toEqual([]);
 			expect(pi.sentUserMessages).toEqual([]);
-			expect(context.waitForIdleCalls()).toBe(1);
+			expect(context.waitForIdleCalls()).toBe(0);
 			expect(context.notifications).toEqual([
 				{
 					message: expect.stringContaining(
-						'Could not load required skill "code-just-fix": Could not find .agents/skills/code-just-fix/SKILL.md, .claude/skills/code-just-fix/SKILL.md',
+						'Could not load required skill "code-just-fix": Pi did not include the skill in its effective skill inventory.',
 					),
 					level: "error",
 				},
@@ -236,7 +247,7 @@ Repair the failed just run.
 				markdown: "---\nname: code-just-fix\n# Missing fence\n",
 				prefix: "passing-code-just-fix-skill-",
 			},
-			async ({ repoDir }) => {
+			async ({ repoDir, skillDir, skillPath }) => {
 				const pi = new FakePi(execResult());
 				const justFixExtension = await loadJustFixExtension();
 				justFixExtension(pi, pi.exec.bind(pi));
@@ -248,7 +259,11 @@ Repair the failed just run.
 					throw new Error("just-ci command was not registered");
 				}
 
-				const context = createContext(repoDir);
+				const context = createContext(repoDir, {
+					name: "code-just-fix",
+					filePath: skillPath,
+					baseDir: skillDir,
+				});
 				await command.handler("", context.ctx);
 
 				expect(context.waitForIdleCalls()).toBe(1);
