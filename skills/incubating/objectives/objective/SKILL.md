@@ -122,7 +122,7 @@ Objective Close is a graph-aware tracking transaction, not only a marker write: 
 
 Objective selection must come from an explicit slug/path or checkout-local `ns objective list` inventory. Do not silently auto-select from candidate count or changed/touched files. Never infer from branch name, PR, package, roadmap keyword, or hidden attachment metadata — this includes branch names shown by `ns objective list`. Changed-path, branch, stack, or PR evidence belongs only to operation-specific checks after an Objective is selected.
 
-Two narrow sanctioned exceptions exist: `objective-update` (single active candidate, confirmed before proceeding) and `objective-critique` (single branch-changed record); each exception's terms live in its skill.
+One narrow sanctioned exception exists: `objective-update` can use a single active candidate after confirmation; its terms live in that skill.
 
 A picker UI may group changed active Objectives first and label a single changed record as suggested; the user must still confirm a changed Objective or choose another. The full non-binding picker grouping spec lives in `docs/objective-system.md` under Objective Selection.
 

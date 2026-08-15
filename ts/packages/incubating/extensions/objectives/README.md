@@ -73,8 +73,8 @@ Repository files own first-party sources and topology, checked-in Harness Overla
 invocation metadata. ns may invoke installed skills but does not manage them; there is no
 `ns skills`, top-level `ns update`, or `ns skill-exposure` command. The standalone
 `objective-runner-step` skill is retired; the first-party Objective skill set contains
-`objective`, `objective-autorun`, `objective-close`, `objective-create`, `objective-critique`,
-`objective-next`, `objective-refresh`, and `objective-update`.
+`objective`, `objective-autorun`, `objective-close`, `objective-create`, `objective-next`,
+`objective-refresh`, and `objective-update`.
 
 `ns extension install` writes files but never commits — review and commit them yourself.
 After the first install, `ns extension update` refreshes the extension's repository-neutral

@@ -224,11 +224,6 @@
       "sourceType": "local",
       "computedHash": "059e3d47258c0840c43e2d322351b150d4ecf03c36b1e8875a730da7f5c418e5"
     },
-    "objective-critique": {
-      "source": "skills/incubating/objectives/objective-critique",
-      "sourceType": "local",
-      "computedHash": "a70be9eadda040b62d25f66f3f1c19ef6f34cd82fd6a989adab2b0e8f1c0a4a0"
-    },
     "objective-next": {
       "source": "skills/incubating/objectives/objective-next",
       "sourceType": "local",
