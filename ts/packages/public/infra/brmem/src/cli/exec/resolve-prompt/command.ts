@@ -41,7 +41,7 @@ async function runResolvePrompt(ctx: BrmemCliContext, request: ResolvePromptRequ
 				...globalPaths.map((path) => `  - ${path} (global)`),
 			].join("\n") +
 			"\n" +
-			"Initialize the global default by running `just install-tools` from an ns checkout, " +
+			"Initialize the global default by running `just install-global-tools` from an ns checkout, " +
 			"or copy a packaged `default-prompt.md` to one of the paths above.",
 	);
 }

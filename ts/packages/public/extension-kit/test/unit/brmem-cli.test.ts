@@ -175,8 +175,8 @@ describe("runBrmem", () => {
 		expect(run.failures).toHaveLength(2);
 		const message = formatBrmemUnavailableMessage(run.failures);
 		expect(message).toContain("No brmem command available");
-		expect(message).toContain("just install-brmem");
-		expect(message).toContain("just install-tools");
+		expect(message).toContain("just install-global-brmem");
+		expect(message).toContain("just install-global-tools");
 		expect(message).not.toContain("uv run");
 	});
 
@@ -261,7 +261,7 @@ describe("runAvailableBrmemCommand", () => {
 		gateway.assertDone();
 		expect(run).toMatchObject({ ok: false, error: { code: "brmem_unavailable" } });
 		if (run.ok) throw new Error("expected unavailable result");
-		expect(run.error.message).toContain("just install-brmem");
+		expect(run.error.message).toContain("just install-global-brmem");
 		expect(run.error.message).toContain("Command: brmem list");
 		expect(run.error.message).not.toContain("uv run");
 	});

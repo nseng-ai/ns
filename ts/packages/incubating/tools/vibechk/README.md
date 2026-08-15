@@ -42,7 +42,7 @@ Until `publish` exists, generate a report with `vibechk diff` and paste it into 
 
 ## Prerequisites
 
-- A checkout of this repo with `vibechk` installed via `just install-vibechk`.
+- A checkout of this repo with `vibechk` installed via `just install-global-vibechk`.
 - `git` on `PATH`.
 - For real runs today, `claude` on `PATH` and authenticated/configured for non-interactive use.
 - One or two clean git workdirs checked out on named branches. Detached HEAD is rejected.
@@ -52,7 +52,7 @@ Until `publish` exists, generate a report with `vibechk diff` and paste it into 
 From the ns checkout, install the `vibechk` source shim:
 
 ```bash
-just install-vibechk
+just install-global-vibechk
 ```
 
 This creates `~/.local/bin/vibechk` that invokes the TypeScript CLI from source. Ensure `~/.local/bin` is on your `PATH`.

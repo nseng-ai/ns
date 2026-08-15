@@ -121,8 +121,8 @@ it:
   Ref shapes. (src/ref-layout.ts:9-12, src/index.ts:3-12)
 - **Key glob** — fnmatch-style Entry Key matching for list/gc filters.
   (src/key-glob.ts:3-9)
-- **Run-from-source shim distribution** — `just install-brmem` /
-  `just install-tools` render a source CLI shim to `~/.local/bin`; in-checkout
+- **Run-from-source shim distribution** — `just install-global-brmem` /
+  `just install-global-tools` render a source CLI shim to `~/.local/bin`; in-checkout
   runs use that checkout, outside runs use the baked-in path. (README.md:20-32)
 
 Suspects (simplification-weighted):

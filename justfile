@@ -137,64 +137,58 @@ release-reset VERSION *args: _ts-workspace-ready
 release VERSION *args: _ts-workspace-ready
     {{ts_pnpm}} --config.verify-deps-before-run=false --dir {{justfile_directory()}}/ts run release {{VERSION}} {{args}}
 
-# Install the ns shim to ~/.local/bin so `ns` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an ns checkout, this checkout's sources everywhere else.
-# The source @nseng-ai/ns manifest no longer advertises a workspace bin.
-# Remove legacy links left by the earlier package layout during safe upgrades;
-# ts/node_modules/.bin commonly precedes ~/.local/bin on PATH.
-install-ns: (_install-ts-shim "ns" "ts/packages/public/ns/src/cli.ts" "just install-ns or just install-tools")
+# Install the ns source shim to ~/.local/bin after installing TypeScript dependencies.
+# A caller checkout wins at runtime; outside ns checkouts the main worktree is the fallback.
+# Remove stale ns launchers at ts/node_modules/.bin/ns and .venv/bin/ns.
+install-global-ns: (_install-ts-shim "ns" "ts/packages/public/ns/src/cli.ts" "just install-global-ns or just install-global-tools")
     rm -f "{{justfile_directory()}}/ts/node_modules/.bin/ns"
     @echo "removed stale workspace ns shim if present"
     rm -f "{{justfile_directory()}}/.venv/bin/ns"
     @echo "removed stale project venv ns script if present"
 
-# Install the brmem shim to ~/.local/bin so `brmem` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an ns checkout, this checkout's sources everywhere else.
-# Remove the pnpm workspace link because ts/node_modules/.bin commonly
-# precedes ~/.local/bin on PATH and can retain an obsolete CLI entrypoint.
-install-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli/app.ts" "just install-brmem or just install-tools")
+# Install the brmem source shim to ~/.local/bin after installing TypeScript dependencies.
+# A caller checkout wins at runtime; outside ns checkouts the main worktree is the fallback.
+# Remove the stale brmem launcher at ts/node_modules/.bin/brmem.
+install-global-brmem: (_install-ts-shim "brmem" "ts/packages/public/infra/brmem/src/cli/app.ts" "just install-global-brmem or just install-global-tools")
     rm -f "{{justfile_directory()}}/ts/node_modules/.bin/brmem"
     @echo "removed stale workspace brmem shim if present"
 
-# Install the vibechk shim to ~/.local/bin so `vibechk` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an ns checkout, this checkout's sources everywhere else.
-install-vibechk: (_install-ts-shim "vibechk" "ts/packages/incubating/tools/vibechk/src/cli.ts" "just install-vibechk or just install-tools")
+# Install the vibechk source shim to ~/.local/bin after installing TypeScript dependencies.
+# A caller checkout wins at runtime; outside ns checkouts the main worktree is the fallback.
+# Remove the stale vibechk launcher at .venv/bin/vibechk.
+install-global-vibechk: (_install-ts-shim "vibechk" "ts/packages/incubating/tools/vibechk/src/cli.ts" "just install-global-vibechk or just install-global-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/vibechk"
     @echo "removed stale project venv vibechk script if present"
 
-# Install the packagechk shim to ~/.local/bin so `packagechk` on PATH runs the
-# TypeScript CLI from source: the enclosing checkout's sources when invoked
-# inside an ns checkout, this checkout's sources everywhere else.
-install-packagechk: (_install-ts-shim "packagechk" "ts/packages/public/tools/packagechk/src/cli.ts" "just install-packagechk or just install-tools")
+# Install the packagechk source shim to ~/.local/bin after installing TypeScript dependencies.
+# A caller checkout wins at runtime; outside ns checkouts the main worktree is the fallback.
+# Remove the stale packagechk launcher at .venv/bin/packagechk.
+install-global-packagechk: (_install-ts-shim "packagechk" "ts/packages/public/tools/packagechk/src/cli.ts" "just install-global-packagechk or just install-global-tools")
     rm -f "{{justfile_directory()}}/.venv/bin/packagechk"
     @echo "removed stale project venv packagechk script if present"
 
+# Install dependencies, render a source shim under ~/.local/bin, and make it executable.
+# The shim prefers a caller checkout and uses Git's main worktree outside ns checkouts.
 _install-ts-shim tool cli_rel_path install_hint: ts-install
     mkdir -p "$HOME/.local/bin"
-    rm -f "$HOME/.local/bin/{{tool}}"
-    NS_TOOL="{{tool}}" \
-    NS_CANONICAL_CHECKOUT="{{justfile_directory()}}" \
-    NS_CLI_REL_PATH="{{cli_rel_path}}" \
-    NS_INSTALL_HINT="{{install_hint}}" \
-    NS_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
-    NS_OUTPUT="$HOME/.local/bin/{{tool}}" \
-      {{ts_pnpm}} --dir "{{justfile_directory()}}/ts" exec ns-dev render-cli-shim
-    chmod +x "$HOME/.local/bin/{{tool}}"
-    @echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: {{justfile_directory()}})"
+    git_common_dir="$(git -C "{{justfile_directory()}}" rev-parse --path-format=absolute --git-common-dir)" || { echo "unable to discover the main worktree for {{justfile_directory()}}" >&2; exit 2; }; \
+      canonical_checkout="$(dirname "$git_common_dir")"; \
+      rm -f "$HOME/.local/bin/{{tool}}"; \
+      NS_TOOL="{{tool}}" \
+      NS_CANONICAL_CHECKOUT="$canonical_checkout" \
+      NS_CLI_REL_PATH="{{cli_rel_path}}" \
+      NS_INSTALL_HINT="{{install_hint}}" \
+      NS_TEMPLATE="{{justfile_directory()}}/ts/scripts/source-cli-shim-template" \
+      NS_OUTPUT="$HOME/.local/bin/{{tool}}" \
+        {{ts_pnpm}} --dir "{{justfile_directory()}}/ts" exec ns-dev render-cli-shim; \
+      chmod +x "$HOME/.local/bin/{{tool}}"; \
+      echo "installed: $HOME/.local/bin/{{tool}} (canonical checkout: $canonical_checkout)"
 
 # Retired: Branch Context is exposed through `ns branch-context ...`, not a
 # standalone `branch-context` binary.
 link-branch-context:
     @echo "branch-context standalone binary is retired; use: ns branch-context ..." >&2
     @exit 2
-
-_remove-stale-branch-context-bin:
-    rm -f "$HOME/.local/bin/branch-context"
-    rm -f "{{justfile_directory()}}/ts/node_modules/.bin/branch-context"
-    @echo "removed stale standalone branch-context shims if present"
 
 # Repo-wide Objective edge/blocked structural sweep (Record Frontmatter linter).
 objective-check: _ts-workspace-ready _objective-check
@@ -208,9 +202,11 @@ _objective-check:
 topology *args:
     {{justfile_directory()}}/skills/internal/review-system/architecture-topology-report/scripts/topology {{args}}
 
-# Install repository tools via TypeScript source shims.
-install-tools: _remove-stale-branch-context-bin install-ns install-brmem install-vibechk install-packagechk
-    @echo "installed: ns, brmem, vibechk, and packagechk (TypeScript shims); branch-context is available via ns branch-context"
+# Install the ns, brmem, vibechk, and packagechk source shims under ~/.local/bin.
+# Each install prepares TypeScript dependencies, uses caller-checkout precedence with a
+# main-worktree fallback, and removes only that tool's documented stale launchers.
+install-global-tools: install-global-ns install-global-brmem install-global-vibechk install-global-packagechk
+    @echo "installed global source shims: ns, brmem, vibechk, and packagechk"
 
 clean-stale-node-modules-leftovers:
     node {{justfile_directory()}}/scripts/clean-stale-node-modules-leftovers.mjs
