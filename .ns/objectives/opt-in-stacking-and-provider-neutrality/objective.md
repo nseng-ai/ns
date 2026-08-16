@@ -68,3 +68,16 @@ Pluggability follows the adapter-collapse decision: user customization of operat
 - Whether Objective Runner's replacement gate is "non-trunk branch with verified commit" alone, or repository-policy-selectable (stack membership checked only under explicit stack intent) — leaning the latter.
 - How the Flow submit compatibility phase is expressed (repo config selecting current-stack behavior vs a deprecation window) and what its removal trigger is.
 - Whether `deriveSubmitStackTopologyFacts` and land topology derivation share one neutral graph module or stay two consumers of the neutral model.
+
+## Closure
+
+Outcome: **closed by direction, incomplete**. The Objective established the architecture direction and removed the Herdr startup coupling, but the remaining provider-neutral migration is intentionally not being pursued under this Objective. Its unchecked roadmap rows are abandoned here rather than represented as completed or silently transferred.
+
+Durable evidence:
+
+- PR #3968 merged the accepted direction, ADR 0049, capability matrix, Objective record, and provider-neutral vocabulary.
+- PR #3971 merged Git-native Herdr trunk discovery and removed Herdr's startup Graphite coupling.
+- PRs #3985, #3986, #3997, #4002, #4016, and #4017 were associated follow-on attempts and are closed unmerged. Their PR history and commits remain historical evidence, not active landing candidates.
+- There are no Objective Edges requiring close-time propagation and no open associated PR remains to clean up.
+
+ADR 0049 and the landed conventions remain historical or standing repository records until separately superseded. Any future opt-in stacking or provider-neutrality work must start from current code and create new tracking rather than treating this Objective's incomplete roadmap as active scope.
