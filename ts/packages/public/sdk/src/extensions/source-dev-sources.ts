@@ -26,9 +26,9 @@ export interface SourceDevNsCommandSources {
 export interface LoadSourceDevNsCommandSourcesOptions {
 	readonly cwd: string;
 	/**
-	 * Package names already contributed by preinstalled, user, or project sources.
+	 * Package names owned by higher-authority Built-in or explicit Project sources.
 	 * A discovered workspace package with one of these names is skipped so the
-	 * declared source keeps sole ownership of its command routes.
+	 * authoritative source keeps sole ownership of its command routes.
 	 */
 	readonly contributedPackageNames: ReadonlySet<string>;
 	/** Test seam: workspace packages root override; defaults to this checkout's `ts/packages`. */

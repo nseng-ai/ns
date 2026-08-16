@@ -71,6 +71,8 @@ export interface LoadNsCommandSourceInventoryOptions {
 	readonly homeDir?: string;
 	readonly env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	readonly preinstalledSources?: PreinstalledNsCommandSourceLoader;
+	/** Source-dev discovery seam; defaults to this checkout's `ts/packages` root. */
+	readonly sourceDevPackagesRoot?: string;
 }
 
 export type UserExtensionPackageAvailabilityDiagnostic =
@@ -146,14 +148,35 @@ export async function loadNsCommandSourceInventory(
 		options.preinstalledSources === undefined ? [] : await options.preinstalledSources();
 	const project = await loadProjectSources(options.cwd);
 	const user = await loadUserSources(options, project.declaredSourceIdentities);
-	const declared = [...preinstalled, ...user.sources, ...project.sources];
 	const sourceDev = await loadSourceDevNsCommandSources({
 		cwd: options.cwd,
-		contributedPackageNames: new Set(
-			declared.flatMap((source) => (source.package === undefined ? [] : [source.package.name])),
-		),
+		...(options.sourceDevPackagesRoot === undefined
+			? {}
+			: { packagesRoot: options.sourceDevPackagesRoot }),
+		contributedPackageNames: packageNames([
+			...preinstalled.filter((source) => source.kind === "built-in"),
+			...project.sources,
+		]),
 	});
-	const sources = [...preinstalled, ...sourceDev.sources, ...user.sources, ...project.sources];
+	const sourceDevCommandPackageNames = packageNames(
+		sourceDev.sources.filter((source) => source.commandDirectory !== undefined),
+	);
+	const retainedPreinstalled = preinstalled.filter(
+		(source) =>
+			source.kind === "built-in" ||
+			source.package === undefined ||
+			!sourceDevCommandPackageNames.has(source.package.name),
+	);
+	const retainedUser = user.sources.filter(
+		(source) =>
+			source.package === undefined || !sourceDevCommandPackageNames.has(source.package.name),
+	);
+	const sources = [
+		...retainedPreinstalled,
+		...sourceDev.sources,
+		...retainedUser,
+		...project.sources,
+	];
 	return {
 		sources,
 		diagnostics: [...sourceDev.diagnostics, ...user.diagnostics, ...project.diagnostics],
@@ -166,6 +189,12 @@ export async function loadNsCommandSourceInventory(
 			),
 		),
 	};
+}
+
+function packageNames(sources: readonly NsCommandSource[]): ReadonlySet<string> {
+	return new Set(
+		sources.flatMap((source) => (source.package === undefined ? [] : [source.package.name])),
+	);
 }
 
 async function loadProjectSources(cwd: string): Promise<{
