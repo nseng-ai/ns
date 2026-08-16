@@ -100,17 +100,17 @@ describe("handoff extension", () => {
 
 	test("create command expands the handoff-create skill when available", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const result = await runCommand(
-				"ns:handoff:create",
-				"resume extension frontend work",
-				[],
-				{
+			const result = await runCommand({
+				commandName: "ns:handoff:create",
+				args: "resume extension frontend work",
+				script: [],
+				contextOptions: {
 					cwd: repoDir,
 					sessionFile: "/sessions/filename-id.jsonl",
 					sessionId: "authoritative-id",
 				},
-				[effectiveSkill(skillPath)],
-			);
+				skills: [effectiveSkill(skillPath)],
+			});
 
 			result.pi.assertDone();
 			expect(result.waitForIdleCalls()).toBe(1);
@@ -134,13 +134,13 @@ describe("handoff extension", () => {
 
 	test("create records an in-memory session id when no persisted log exists", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const result = await runCommand(
-				"ns:handoff:create",
-				"handoff focus",
-				[],
-				{ cwd: repoDir, sessionId: "in-memory-session-id" },
-				[effectiveSkill(skillPath)],
-			);
+			const result = await runCommand({
+				commandName: "ns:handoff:create",
+				args: "handoff focus",
+				script: [],
+				contextOptions: { cwd: repoDir, sessionId: "in-memory-session-id" },
+				skills: [effectiveSkill(skillPath)],
+			});
 
 			result.pi.assertDone();
 			expect(result.pi.sentUserMessages[0]).toContain("Source Pi session ID: in-memory-session-id");
@@ -152,13 +152,13 @@ describe("handoff extension", () => {
 
 	test("create with no args prompts for focus and continues when supplied", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const result = await runCommand(
-				"ns:handoff:create",
-				"",
-				[],
-				{ cwd: repoDir, inputResponse: "continue the list command" },
-				[effectiveSkill(skillPath)],
-			);
+			const result = await runCommand({
+				commandName: "ns:handoff:create",
+				args: "",
+				script: [],
+				contextOptions: { cwd: repoDir, inputResponse: "continue the list command" },
+				skills: [effectiveSkill(skillPath)],
+			});
 
 			result.pi.assertDone();
 			expect(result.inputs).toEqual([
@@ -174,9 +174,13 @@ describe("handoff extension", () => {
 
 	test("create with no args and cancelled input stops without create prompt", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const result = await runCommand("ns:handoff:create", "", [], { cwd: repoDir }, [
-				effectiveSkill(skillPath),
-			]);
+			const result = await runCommand({
+				commandName: "ns:handoff:create",
+				args: "",
+				script: [],
+				contextOptions: { cwd: repoDir },
+				skills: [effectiveSkill(skillPath)],
+			});
 
 			result.pi.assertDone();
 			expect(result.inputs).toHaveLength(1);
@@ -189,13 +193,13 @@ describe("handoff extension", () => {
 
 	test("create with no input UI asks the assistant to request focus without creating", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const result = await runCommand(
-				"ns:handoff:create",
-				"",
-				[],
-				{ cwd: repoDir, hasUI: false, inputUnavailable: true },
-				[effectiveSkill(skillPath)],
-			);
+			const result = await runCommand({
+				commandName: "ns:handoff:create",
+				args: "",
+				script: [],
+				contextOptions: { cwd: repoDir, hasUI: false, inputUnavailable: true },
+				skills: [effectiveSkill(skillPath)],
+			});
 
 			result.pi.assertDone();
 			expect(result.pi.sentUserMessages).toEqual([
@@ -207,14 +211,18 @@ describe("handoff extension", () => {
 
 	test("pickup command picks up an explicit slug from the current branch", async () => {
 		const artifact = "# Handoff: Continue tests\n\n## Next Steps\n\nRun the tests.";
-		const result = await runCommand("ns:handoff:pickup", "continue-tests", [
-			branchStep(),
-			...listStep(BRANCH, ["continue-tests.md"]),
-			branchPresenceStep(BRANCH),
-			...listStep(BRANCH, ["continue-tests.md"]),
-			branchPresenceStep(BRANCH),
-			...getStep(BRANCH, "continue-tests.md", artifact),
-		]);
+		const result = await runCommand({
+			commandName: "ns:handoff:pickup",
+			args: "continue-tests",
+			script: [
+				branchStep(),
+				...listStep(BRANCH, ["continue-tests.md"]),
+				branchPresenceStep(BRANCH),
+				...listStep(BRANCH, ["continue-tests.md"]),
+				branchPresenceStep(BRANCH),
+				...getStep(BRANCH, "continue-tests.md", artifact),
+			],
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls[0]).toMatchObject({
@@ -248,13 +256,17 @@ describe("handoff extension", () => {
 	});
 
 	test("pickup command uses an explicit branch and key without reading current branch", async () => {
-		const result = await runCommand("ns:handoff:pickup", "--branch other/branch foo.md", [
-			...listStep("other/branch", ["foo.md"]),
-			branchPresenceStep("other/branch"),
-			...listStep("other/branch", ["foo.md"]),
-			branchPresenceStep("other/branch"),
-			...getStep("other/branch", "foo.md", "# Handoff"),
-		]);
+		const result = await runCommand({
+			commandName: "ns:handoff:pickup",
+			args: "--branch other/branch foo.md",
+			script: [
+				...listStep("other/branch", ["foo.md"]),
+				branchPresenceStep("other/branch"),
+				...listStep("other/branch", ["foo.md"]),
+				branchPresenceStep("other/branch"),
+				...getStep("other/branch", "foo.md", "# Handoff"),
+			],
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls.every((call) => call.command === "git")).toBe(true);
@@ -268,10 +280,10 @@ describe("handoff extension", () => {
 	});
 
 	test("pickup command opens a picker with slug and preview labels", async () => {
-		const result = await runCommand(
-			"ns:handoff:pickup",
-			"",
-			[
+		const result = await runCommand({
+			commandName: "ns:handoff:pickup",
+			args: "",
+			script: [
 				branchStep(),
 				...listStep(BRANCH, ["alpha.md", "bravo.md"]),
 				branchPresenceStep(BRANCH),
@@ -285,8 +297,8 @@ describe("handoff extension", () => {
 				branchPresenceStep(BRANCH),
 				...getStep(BRANCH, "bravo.md", "# Bravo title\n\nBody"),
 			],
-			{ selectIndex: 1 },
-		);
+			contextOptions: { selectIndex: 1 },
+		});
 
 		result.pi.assertDone();
 		expect(result.selections).toEqual([
@@ -299,12 +311,16 @@ describe("handoff extension", () => {
 	});
 
 	test("pickup command asks for a slug when multiple handoffs exist without picker UI", async () => {
-		const result = await runCommand(
-			"ns:handoff:pickup",
-			"",
-			[branchStep(), ...listStep(BRANCH, ["alpha.md", "bravo.md"]), branchPresenceStep(BRANCH)],
-			{ hasUI: false },
-		);
+		const result = await runCommand({
+			commandName: "ns:handoff:pickup",
+			args: "",
+			script: [
+				branchStep(),
+				...listStep(BRANCH, ["alpha.md", "bravo.md"]),
+				branchPresenceStep(BRANCH),
+			],
+			contextOptions: { hasUI: false },
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages).toEqual([]);
@@ -317,18 +333,22 @@ describe("handoff extension", () => {
 	});
 
 	test("list current branch sends a card-style custom message", async () => {
-		const result = await runCommand("ns:handoff:list", "", [
-			branchStep(),
-			...listStep(BRANCH, ["address-review-feedback.md"]),
-			branchPresenceStep(BRANCH),
-			...listStep(BRANCH, ["address-review-feedback.md"]),
-			branchPresenceStep(BRANCH),
-			...getStep(
-				BRANCH,
-				"address-review-feedback.md",
-				"Continuation focus: Address review feedback\n",
-			),
-		]);
+		const result = await runCommand({
+			commandName: "ns:handoff:list",
+			args: "",
+			script: [
+				branchStep(),
+				...listStep(BRANCH, ["address-review-feedback.md"]),
+				branchPresenceStep(BRANCH),
+				...listStep(BRANCH, ["address-review-feedback.md"]),
+				branchPresenceStep(BRANCH),
+				...getStep(
+					BRANCH,
+					"address-review-feedback.md",
+					"Continuation focus: Address review feedback\n",
+				),
+			],
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls[0]).toMatchObject({
@@ -378,20 +398,24 @@ describe("handoff extension", () => {
 	});
 
 	test("list all branches sends grouped pickup commands", async () => {
-		const result = await runCommand("ns:handoff:list", "--all", [
-			...listAllStep([
-				{ key: "alpha.md", branch: "feat/a" },
-				{ key: "bravo.md", branch: "feat/b" },
-			]),
-			branchPresenceStep("feat/a"),
-			branchPresenceStep("feat/b"),
-			...listStep("feat/a", ["alpha.md"]),
-			branchPresenceStep("feat/a"),
-			...getStep("feat/a", "alpha.md", "# Alpha handoff\n"),
-			...listStep("feat/b", ["bravo.md"]),
-			branchPresenceStep("feat/b"),
-			...getStep("feat/b", "bravo.md", "Continuation focus: Bravo work\n"),
-		]);
+		const result = await runCommand({
+			commandName: "ns:handoff:list",
+			args: "--all",
+			script: [
+				...listAllStep([
+					{ key: "alpha.md", branch: "feat/a" },
+					{ key: "bravo.md", branch: "feat/b" },
+				]),
+				branchPresenceStep("feat/a"),
+				branchPresenceStep("feat/b"),
+				...listStep("feat/a", ["alpha.md"]),
+				branchPresenceStep("feat/a"),
+				...getStep("feat/a", "alpha.md", "# Alpha handoff\n"),
+				...listStep("feat/b", ["bravo.md"]),
+				branchPresenceStep("feat/b"),
+				...getStep("feat/b", "bravo.md", "Continuation focus: Bravo work\n"),
+			],
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls.every((call) => call.command === "git")).toBe(true);
@@ -421,10 +445,10 @@ describe("handoff extension", () => {
 	});
 
 	test("list falls back to a notification when custom messages are unavailable", async () => {
-		const result = await runCommand(
-			"ns:handoff:list",
-			"",
-			[
+		const result = await runCommand({
+			commandName: "ns:handoff:list",
+			args: "",
+			script: [
 				branchStep(),
 				...listStep(BRANCH, ["address-review-feedback.md"]),
 				branchPresenceStep(BRANCH),
@@ -436,10 +460,10 @@ describe("handoff extension", () => {
 					"Continuation focus: Address review feedback\n",
 				),
 			],
-			{},
-			[],
-			{ sendMessage: false },
-		);
+			contextOptions: {},
+			skills: [],
+			piOptions: { sendMessage: false },
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.sentMessages).toEqual([]);
@@ -452,7 +476,10 @@ describe("handoff extension", () => {
 	});
 
 	test("list parser rejects branch plus all branches", async () => {
-		const result = await runCommand("ns:handoff:list", "--branch feat/x --all");
+		const result = await runCommand({
+			commandName: "ns:handoff:list",
+			args: "--branch feat/x --all",
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.execCalls).toEqual([]);
@@ -463,11 +490,16 @@ describe("handoff extension", () => {
 	});
 
 	test("list empty messages distinguish current branch and all branches", async () => {
-		const current = await runCommand("ns:handoff:list", "", [
-			branchStep(),
-			...listStep(BRANCH, []),
-		]);
-		const all = await runCommand("ns:handoff:list", "--all", [...listAllStep([])]);
+		const current = await runCommand({
+			commandName: "ns:handoff:list",
+			args: "",
+			script: [branchStep(), ...listStep(BRANCH, [])],
+		});
+		const all = await runCommand({
+			commandName: "ns:handoff:list",
+			args: "--all",
+			script: [...listAllStep([])],
+		});
 
 		current.pi.assertDone();
 		all.pi.assertDone();

@@ -490,18 +490,20 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 	return { pi, ...context };
 }
 
-export async function runCommand(
-	commandName: "ns:handoff:create" | "ns:handoff:pickup" | "ns:handoff:list" | "ns:handoff:self",
-	args: string,
-	script: ScriptedExec[] = [],
-	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},
-	skills: EffectiveSkillInfo[] = [],
-	piOptions: {
+interface RunCommandOptions {
+	commandName: "ns:handoff:create" | "ns:handoff:pickup" | "ns:handoff:list" | "ns:handoff:self";
+	args: string;
+	script?: ScriptedExec[];
+	contextOptions?: RunExtensionCommandOptions["contextOptions"];
+	skills?: EffectiveSkillInfo[];
+	piOptions?: {
 		registerMessageRenderer?: boolean;
 		sendMessage?: boolean;
 		registerTool?: boolean;
-	} = {},
-): Promise<{
+	};
+}
+
+export async function runCommand(options: RunCommandOptions): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
@@ -515,12 +517,12 @@ export async function runCommand(
 }> {
 	return runExtensionCommand({
 		register: handoffExtension,
-		commandName,
-		args,
-		script,
-		contextOptions,
-		skills,
-		piOptions,
+		commandName: options.commandName,
+		args: options.args,
+		script: options.script ?? [],
+		contextOptions: options.contextOptions ?? {},
+		skills: options.skills ?? [],
+		piOptions: options.piOptions ?? {},
 	});
 }
 
