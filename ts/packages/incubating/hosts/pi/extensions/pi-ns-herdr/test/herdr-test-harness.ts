@@ -45,8 +45,11 @@ import type {
 	HerdrCreateWorkspaceOptions,
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
+	HerdrMetadataReportResult,
+	HerdrMetadataToken,
 	HerdrPaneRunResult,
 	HerdrTabRenameResult,
+	HerdrWorkspaceIdentityCandidatesResult,
 	HerdrWorkspaceRenameResult,
 } from "@nseng-ai/herdr/api";
 
@@ -406,6 +409,11 @@ export interface FakePaneRunCall {
 	command: string;
 }
 
+export interface FakeMetadataCall {
+	resourceId: string;
+	token: HerdrMetadataToken;
+}
+
 /** Default resolved caller identity used by ordinary happy-path tab tests. */
 export const FAKE_CALLER_WORKSPACE_ID = "caller-workspace";
 export const FAKE_CALLER_TAB_ID = "caller-tab";
@@ -418,6 +426,9 @@ export interface FakeHerdrGatewayOptions {
 	createTabResult?: HerdrCreateTabResult;
 	paneRunResult?: HerdrPaneRunResult;
 	callerPaneResult?: HerdrCallerPaneResult;
+	workspaceIdentityResults?: HerdrWorkspaceIdentityCandidatesResult[];
+	paneMetadataResult?: HerdrMetadataReportResult;
+	workspaceMetadataResult?: HerdrMetadataReportResult;
 }
 
 export function resolvedCallerPane(
@@ -440,7 +451,10 @@ export class FakeHerdrGateway implements HerdrGateway {
 	readonly createWorkspaceCalls: FakeCreateWorkspaceCall[] = [];
 	readonly createTabCalls: FakeCreateTabCall[] = [];
 	readonly paneRunCalls: FakePaneRunCall[] = [];
+	readonly paneMetadataCalls: FakeMetadataCall[] = [];
+	readonly workspaceMetadataCalls: FakeMetadataCall[] = [];
 	resolveCallerPaneCalls = 0;
+	resolveWorkspaceIdentityCalls: string[] = [];
 
 	private readonly renameResult: HerdrWorkspaceRenameResult;
 	private readonly renameTabResult: HerdrTabRenameResult;
@@ -448,6 +462,9 @@ export class FakeHerdrGateway implements HerdrGateway {
 	private readonly createTabResult: HerdrCreateTabResult;
 	private readonly paneRunResult: HerdrPaneRunResult;
 	private readonly callerPaneResult: HerdrCallerPaneResult;
+	private readonly workspaceIdentityResults: HerdrWorkspaceIdentityCandidatesResult[];
+	private readonly paneMetadataResult: HerdrMetadataReportResult;
+	private readonly workspaceMetadataResult: HerdrMetadataReportResult;
 
 	constructor(options: FakeHerdrGatewayOptions = {}) {
 		this.renameResult = options.renameResult ?? { type: "applied" };
@@ -466,6 +483,11 @@ export class FakeHerdrGateway implements HerdrGateway {
 			workspaceId: "fake-ws-1",
 		};
 		this.paneRunResult = options.paneRunResult ?? { type: "ok" };
+		this.workspaceIdentityResults = [
+			...(options.workspaceIdentityResults ?? [{ type: "ambiguous" }]),
+		];
+		this.paneMetadataResult = options.paneMetadataResult ?? { type: "reported" };
+		this.workspaceMetadataResult = options.workspaceMetadataResult ?? { type: "reported" };
 	}
 
 	async renameWorkspace(workspaceId: string, label: string): Promise<HerdrWorkspaceRenameResult> {
@@ -496,6 +518,29 @@ export class FakeHerdrGateway implements HerdrGateway {
 	async resolveCallerPane(): Promise<HerdrCallerPaneResult> {
 		this.resolveCallerPaneCalls += 1;
 		return this.callerPaneResult;
+	}
+
+	async reportPaneToken(
+		paneId: string,
+		token: HerdrMetadataToken,
+	): Promise<HerdrMetadataReportResult> {
+		this.paneMetadataCalls.push({ resourceId: paneId, token: { ...token } });
+		return this.paneMetadataResult;
+	}
+
+	async reportWorkspaceToken(
+		workspaceId: string,
+		token: HerdrMetadataToken,
+	): Promise<HerdrMetadataReportResult> {
+		this.workspaceMetadataCalls.push({ resourceId: workspaceId, token: { ...token } });
+		return this.workspaceMetadataResult;
+	}
+
+	async resolveWorkspaceIdentityCandidates(
+		workspaceId: string,
+	): Promise<HerdrWorkspaceIdentityCandidatesResult> {
+		this.resolveWorkspaceIdentityCalls.push(workspaceId);
+		return this.workspaceIdentityResults.shift() ?? { type: "ambiguous" };
 	}
 }
 

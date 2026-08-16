@@ -64,9 +64,9 @@ An ns-authored display label for a Herdr space or tab. Space labels use `s<numbe
 The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug and labels the explicit caller space `s<number>:obj:<objective-slug>` in a managed ns slot and `obj:<objective-slug>` otherwise.
 *Avoid*: sidebar workflow family, workspace metadata report, generic workspace summary
 
-**Label-only behavior**:
-The current `/ns:herdr:space:objective-summary` implementation applies only a space label. Branch metadata reporting remains deferred.
-*Avoid*: metadata transport, inferred slot from arbitrary basename, partial cmux parity
+**Repository metadata reporting**:
+The Herdr Consumer Gateway reports custom pane/workspace tokens through Herdr 0.8.0's CLI and resolves conservative workspace identity candidates from the first current tab. The Pi host reports Git-root basename as the `repo` token at every session start. Pane identity uses the exact caller; workspace identity is written only when every first-tab candidate produces the same set or clear patch and an immediate candidate re-read is unchanged. Space labels remain independent and unchanged.
+*Avoid*: repository identity in resource labels, caller-repository workspace overwrite, focus inference, pane-list position as root identity, Slot-path parsing
 
 **Contextual implementation branch basis**:
 The invocation-time policy shared by prompt-to-space, prompt-to-tab, session-to-space, session-to-tab, plan-to-space, and plan-to-tab implementation. Named `main` or `master` selects Local trunk automatically; another named branch offers Current branch (`<name>`) or Local trunk; detached HEAD or current-branch lookup failure offers confirmed Local-trunk fallback. Herdr never fetches or refreshes trunk: the local trunk branch name comes from the repository's cached `refs/remotes/origin/HEAD`, read only after Local trunk is selected and never at extension registration or through Graphite. A failed lookup, missing interaction UI, or cancellation stops before downstream mutation. Tab-targeted prompt, session, and plan workflows resolve and capture caller space identity through the Herdr Consumer Gateway immediately after acknowledgement, before idle waiting, Git inspection, interaction, or mutation.

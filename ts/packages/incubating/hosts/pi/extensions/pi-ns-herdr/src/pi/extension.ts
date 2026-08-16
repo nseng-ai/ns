@@ -21,6 +21,7 @@ import {
 	registerHerdrSidebarCommands,
 } from "./sidebar.ts";
 import { registerHerdrImplPromptBootstrap } from "./impl-prompt-bootstrap.ts";
+import { registerHerdrRepositoryMetadata } from "./repository-metadata.ts";
 import {
 	registerHerdrPromptSpaceImplCommand,
 	registerHerdrPromptTabImplCommand,
@@ -84,6 +85,7 @@ export async function registerHerdrPiExtension(
 	registerHerdrNewTabCommand(context);
 	registerHerdrTabGoalCommand(herdrPi);
 	registerHerdrImplPromptBootstrap(context);
+	registerHerdrRepositoryMetadata(context);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;
 	const load = options.loadHandoffIntegration ?? loadOptionalHandoffIntegration;

@@ -14,8 +14,12 @@ import type {
 	HerdrCreateWorkspaceOptions,
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
+	HerdrMetadataReportResult,
+	HerdrMetadataToken,
 	HerdrPaneRunResult,
 	HerdrTabRenameResult,
+	HerdrWorkspaceIdentityCandidate,
+	HerdrWorkspaceIdentityCandidatesResult,
 	HerdrWorkspaceRenameResult,
 } from "./herdr-gateway.ts";
 
@@ -52,6 +56,37 @@ export function buildHerdrPaneRunArgs(paneId: string, command: string): string[]
 	return ["pane", "run", paneId, command];
 }
 
+export function buildHerdrPaneReportTokenArgs(paneId: string, token: HerdrMetadataToken): string[] {
+	return buildHerdrReportTokenArgs("pane", paneId, token);
+}
+
+export function buildHerdrWorkspaceReportTokenArgs(
+	workspaceId: string,
+	token: HerdrMetadataToken,
+): string[] {
+	return buildHerdrReportTokenArgs("workspace", workspaceId, token);
+}
+
+export function buildHerdrTabListArgs(workspaceId: string): string[] {
+	return ["tab", "list", "--workspace", workspaceId];
+}
+
+export function buildHerdrPaneListArgs(workspaceId: string): string[] {
+	return ["pane", "list", "--workspace", workspaceId];
+}
+
+function buildHerdrReportTokenArgs(
+	resource: "pane" | "workspace",
+	resourceId: string,
+	token: HerdrMetadataToken,
+): string[] {
+	const tokenArgs =
+		token.value === null
+			? ["--clear-token", token.name]
+			: ["--token", `${token.name}=${token.value}`];
+	return [resource, "report-metadata", resourceId, "--source", token.source, ...tokenArgs];
+}
+
 /**
  * CLI-backed HerdrGateway adapter. All operations call the installed `herdr`
  * binary; no raw socket integration is included. The CLI is Herdr's recommended
@@ -76,6 +111,17 @@ export function createCliHerdrGateway(exec: CommandExecApi): HerdrGateway {
 		},
 		async resolveCallerPane(): Promise<HerdrCallerPaneResult> {
 			return resolveCallerPane(exec);
+		},
+		async reportPaneToken(paneId, token): Promise<HerdrMetadataReportResult> {
+			return reportToken(exec, buildHerdrPaneReportTokenArgs(paneId, token), "pane");
+		},
+		async reportWorkspaceToken(workspaceId, token): Promise<HerdrMetadataReportResult> {
+			return reportToken(exec, buildHerdrWorkspaceReportTokenArgs(workspaceId, token), "workspace");
+		},
+		async resolveWorkspaceIdentityCandidates(
+			workspaceId,
+		): Promise<HerdrWorkspaceIdentityCandidatesResult> {
+			return resolveWorkspaceIdentityCandidates(exec, workspaceId);
 		},
 	};
 }
@@ -121,6 +167,107 @@ async function resolveCallerPane(exec: CommandExecApi): Promise<HerdrCallerPaneR
 			type: "failed",
 			message: tailText(
 				`Could not resolve the Herdr caller pane.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
+				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+			),
+		};
+	}
+}
+
+async function reportToken(
+	exec: CommandExecApi,
+	args: string[],
+	resource: "pane" | "workspace",
+): Promise<HerdrMetadataReportResult> {
+	const command = "herdr";
+	const commandDisplay = formatCommand(command, args);
+	try {
+		const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
+		if (!commandSucceeded(result)) {
+			return {
+				type: "failed",
+				message: formatCommandFailure(
+					`Could not report Herdr ${resource} metadata.`,
+					commandDisplay,
+					result,
+				),
+			};
+		}
+		return { type: "reported" };
+	} catch (error) {
+		return {
+			type: "failed",
+			message: tailText(
+				`Could not report Herdr ${resource} metadata.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
+				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+			),
+		};
+	}
+}
+
+async function resolveWorkspaceIdentityCandidates(
+	exec: CommandExecApi,
+	workspaceId: string,
+): Promise<HerdrWorkspaceIdentityCandidatesResult> {
+	const tabs = await runJsonCommand(exec, buildHerdrTabListArgs(workspaceId), "list Herdr tabs");
+	if (!tabs.ok) return { type: "failed", message: tabs.message };
+	const tabItems = extractRecordArray(tabs.result, "tabs");
+	if (tabItems === undefined) {
+		return { type: "failed", message: "Could not list Herdr tabs: unexpected response shape." };
+	}
+	const firstTab = tabItems[0];
+	if (firstTab === undefined) return { type: "ambiguous" };
+	const firstTabId = nonblankString(firstTab.tab_id);
+	const firstTabWorkspaceId = nonblankString(firstTab.workspace_id);
+	if (firstTabId === undefined || firstTabWorkspaceId !== workspaceId) return { type: "ambiguous" };
+
+	const panes = await runJsonCommand(exec, buildHerdrPaneListArgs(workspaceId), "list Herdr panes");
+	if (!panes.ok) return { type: "failed", message: panes.message };
+	const paneItems = extractRecordArray(panes.result, "panes");
+	if (paneItems === undefined) {
+		return { type: "failed", message: "Could not list Herdr panes: unexpected response shape." };
+	}
+	const candidates: HerdrWorkspaceIdentityCandidate[] = [];
+	for (const pane of paneItems) {
+		if (pane.tab_id !== firstTabId) continue;
+		const paneId = nonblankString(pane.pane_id);
+		const tabId = nonblankString(pane.tab_id);
+		const candidateWorkspaceId = nonblankString(pane.workspace_id);
+		const cwd = nonblankString(pane.cwd);
+		if (
+			paneId === undefined ||
+			tabId !== firstTabId ||
+			candidateWorkspaceId !== workspaceId ||
+			cwd === undefined
+		) {
+			return { type: "ambiguous" };
+		}
+		candidates.push({ paneId, cwd });
+	}
+	return candidates.length === 0 ? { type: "ambiguous" } : { type: "resolved", candidates };
+}
+
+async function runJsonCommand(
+	exec: CommandExecApi,
+	args: string[],
+	action: string,
+): Promise<{ ok: true; result: HerdrCliResult } | { ok: false; message: string }> {
+	const command = "herdr";
+	const commandDisplay = formatCommand(command, args);
+	try {
+		const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
+		if (!commandSucceeded(result)) {
+			return {
+				ok: false,
+				message: formatCommandFailure(`Could not ${action}.`, commandDisplay, result),
+			};
+		}
+		const parsed = parseHerdrJsonOutput(result.stdout);
+		return parsed.ok ? parsed : { ok: false, message: `Could not ${action}: ${parsed.message}` };
+	} catch (error) {
+		return {
+			ok: false,
+			message: tailText(
+				`Could not ${action}.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
 				{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
 			),
 		};
@@ -326,6 +473,19 @@ function parseHerdrJsonOutput(
 		return { ok: false, message: '"result" field missing or not an object' };
 	}
 	return { ok: true, result };
+}
+
+function extractRecordArray(
+	result: HerdrCliResult,
+	fieldKey: string,
+): readonly Record<string, unknown>[] | undefined {
+	const value = result[fieldKey];
+	if (!Array.isArray(value) || !value.every(isRecord)) return undefined;
+	return value;
+}
+
+function nonblankString(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
 function extractString(
