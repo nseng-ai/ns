@@ -48,8 +48,8 @@ import {
 	type StackViewUiResult,
 } from "./overlay-ui.ts";
 
-/** The `/stack:view` slash-command name (also its `setStatus` key). */
-export const STACK_VIEW_COMMAND_NAME = "stack:view";
+/** The `/gt:stack:view` slash-command name (also its `setStatus` key). */
+export const STACK_VIEW_COMMAND_NAME = "gt:stack:view";
 
 /** Custom-message type for the plain stack snapshot emitted to the transcript. */
 export const STACK_VIEW_SNAPSHOT_MESSAGE_TYPE = "stack-view-snapshot";

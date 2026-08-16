@@ -1,5 +1,5 @@
 /**
- * The orchestration layer for the `/stack:view` panel. `loadStackView` is the
+ * The orchestration layer for the `/gt:stack:view` panel. `loadStackView` is the
  * single entry point: it reads the current Graphite stack, fetches per-branch PR
  * data and objective attribution through the injected exec seam, and joins
  * everything into the pure {@link StackViewModel} the render layer consumes.
@@ -63,7 +63,7 @@ export type LoadStackViewResult =
 	| { type: "error"; message: string };
 
 /**
- * Load the current Graphite stack and everything the `/stack:view` panel needs.
+ * Load the current Graphite stack and everything the `/gt:stack:view` panel needs.
  *
  * Steps: (1) LBYL-check the current branch and read the stack, mapping
  * detached / untracked / on-trunk to `not-on-stack`; (2) order the branches

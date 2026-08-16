@@ -1,5 +1,5 @@
 /**
- * Pure, host-agnostic plain-text layer for the `/stack:view` panel: the
+ * Pure, host-agnostic plain-text layer for the `/gt:stack:view` panel: the
  * on-close transcript snapshot. This module does
  * no I/O, spawns no processes, reads no clock/timers, and emits no ANSI — it
  * maps a {@link StackViewModel} to plain strings only. The styled, interactive

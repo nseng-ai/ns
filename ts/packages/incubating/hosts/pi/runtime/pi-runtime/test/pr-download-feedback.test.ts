@@ -5,7 +5,7 @@ import prExtension, {
 	PR_DESC_COMMAND_NAME,
 	PR_DESC_MESSAGE_TYPE,
 	PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
-	PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+	GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 	type ExtensionAPI,
 	type ExtensionContext,
 	type MessageRenderer,
@@ -195,7 +195,7 @@ async function runCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 async function runStackCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand({
 		pi,
-		commandName: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+		commandName: GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		rawArgs,
 	});
 }
@@ -335,7 +335,7 @@ describe("/pr:download-feedback", () => {
 		expect([...pi.commands.keys()]).toEqual([
 			PR_DESC_COMMAND_NAME,
 			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
-			PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+			GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		]);
 	});
 
@@ -462,7 +462,7 @@ describe("/pr:download-feedback", () => {
 	});
 });
 
-describe("/pr:download-stack-feedback", () => {
+describe("/gt:stack:download-feedback", () => {
 	test("discovers stack branches, downloads each PR, and pre-fills one stack report", async () => {
 		const pr101BodyMarkdown =
 			"## Target PR\n- PR: 101\n\n## Unresolved review threads\n\nThread 101";
@@ -600,11 +600,11 @@ describe("/pr:download-stack-feedback", () => {
 			level: "info",
 		});
 		expect(ctx.statuses.at(0)).toEqual({
-			key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+			key: GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			value: "PR stack feedback: discovering stack…",
 		});
 		expect(ctx.statuses.at(-1)).toEqual({
-			key: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+			key: GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			value: undefined,
 		});
 		expect(pi.userMessages).toEqual([]);
@@ -717,7 +717,7 @@ describe("/pr:download-stack-feedback", () => {
 		expect(pi.calls).toEqual([]);
 		expect(ctx.editorTexts).toEqual([]);
 		expect(ctx.notifications).toEqual([
-			{ message: "Usage: /pr:download-stack-feedback", level: "error" },
+			{ message: "Usage: /gt:stack:download-feedback", level: "error" },
 		]);
 	});
 });

@@ -1,5 +1,5 @@
 /**
- * GitHub GraphQL access for the `/stack:view` panel. This module builds ONE
+ * GitHub GraphQL access for the `/gt:stack:view` panel. This module builds ONE
  * batched query for every branch in the stack (one aliased `pullRequests`
  * selection per branch), runs it through the injected exec seam, and parses the
  * response defensively into per-branch PR data.

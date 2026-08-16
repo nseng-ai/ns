@@ -28,10 +28,10 @@ import { buildFeedbackDispositionGuidance } from "./feedback-disposition-guidanc
 export const PR_DESC_COMMAND_NAME = "pr:desc";
 export const PR_DESC_MESSAGE_TYPE = "pr-description";
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
-export const PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME = "pr:download-stack-feedback";
+export const GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME = "gt:stack:download-feedback";
 const PR_DESC_STATUS_KEY = PR_DESC_COMMAND_NAME;
 const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
-const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME;
+const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
 const STACK_DISCOVERY_TIMEOUT_MS = 120_000;
 const prDescriptionSchema = z.looseObject({
@@ -95,7 +95,7 @@ export const prExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+		surface: GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		workflow:
 			"Download every PR's feedback from the current Graphite downstack into the Pi editor as one report",
 		parity: "FULL",
@@ -194,7 +194,7 @@ export default function prExtension(pi: ExtensionAPI): void {
 	});
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: PR_DOWNLOAD_STACK_FEEDBACK_COMMAND_NAME,
+		commandName: GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Download feedback from every PR in the current Graphite downstack into the editor as a report.",
@@ -351,7 +351,7 @@ async function runPrDownloadStackFeedbackCommand(
 	rawArgs: string,
 	ctx: ExtensionContext,
 ): Promise<void> {
-	const parsedArgs = parseNoArgs(rawArgs, "Usage: /pr:download-stack-feedback");
+	const parsedArgs = parseNoArgs(rawArgs, "Usage: /gt:stack:download-feedback");
 	if (parsedArgs.type === "invalid") {
 		notify(ctx, parsedArgs.message, "error");
 		return;

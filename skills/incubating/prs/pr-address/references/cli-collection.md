@@ -22,7 +22,7 @@ The result includes `markdown` for editor/session viewing plus target/count meta
 
 ### `map-branch-prs`
 
-`/pr:download-stack-feedback` uses structured stack discovery plus per-PR downloads. `map-branch-prs` maps structured branch lists to PRs before download:
+`/gt:stack:download-feedback` uses structured stack discovery plus per-PR downloads. `map-branch-prs` maps structured branch lists to PRs before download:
 
 ```bash
 ns slot gt exec stack-branches --format json \
