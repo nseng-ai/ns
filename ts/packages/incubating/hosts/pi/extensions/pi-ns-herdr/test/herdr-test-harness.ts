@@ -22,6 +22,7 @@ import type {
 	RawPiExecOptions,
 	RawPiExecResult,
 	SessionStartContext,
+	SystemPromptOptions,
 	SessionStartEventLike,
 	ThinkingLevel,
 	WidgetContentFactoryLike,
@@ -365,6 +366,10 @@ export class FakeCommandContext implements CommandContext {
 						},
 					}),
 		};
+	}
+
+	getSystemPromptOptions(): SystemPromptOptions {
+		return { skills: [] };
 	}
 
 	async waitForIdle(): Promise<void> {

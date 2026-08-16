@@ -21,7 +21,7 @@ import {
 	createContext,
 	getRegisteredCommand,
 	getRegisteredTool,
-	skillCommandInfo,
+	effectiveSkill,
 	step,
 	withHandoffCreateSkill,
 } from "./handoff-test-fakes.ts";
@@ -70,9 +70,13 @@ describe("claude handoff command", () => {
 		{ name: "missing custom UI", options: { mode: "tui" as const, hasCustomUi: false } },
 	])("refuses command outside an interactive TUI: $name", async ({ options }) => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+			const pi = new FakePi([branchStep()]);
 			const runClaude = registerTestCommand(pi);
-			const context = createContext({ ...options, cwd: repoDir });
+			const context = createContext({
+				...options,
+				cwd: repoDir,
+				skills: [effectiveSkill(skillPath)],
+			});
 			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 			await command.handler("focus", context.ctx);
@@ -92,12 +96,13 @@ describe("claude handoff command", () => {
 
 	test("command prompts the current Pi session to create the handoff before launching Claude", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+			const pi = new FakePi([branchStep()]);
 			registerTestCommand(pi);
 			const context = createContext({
 				mode: "tui",
 				hasCustomUi: true,
 				cwd: repoDir,
+				skills: [effectiveSkill(skillPath)],
 				sessionFile: "/sessions/claude-filename.jsonl",
 				sessionId: "claude-source-id",
 			});
@@ -133,12 +138,13 @@ describe("claude handoff command", () => {
 
 	test("command prompts for focus when args are empty", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+			const pi = new FakePi([branchStep()]);
 			registerTestCommand(pi);
 			const context = createContext({
 				mode: "tui",
 				hasCustomUi: true,
 				cwd: repoDir,
+				skills: [effectiveSkill(skillPath)],
 				inputResponse: "continue from handoff",
 			});
 			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
@@ -158,9 +164,14 @@ describe("claude handoff command", () => {
 
 	test("command validates continuation focus before creating prompt", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([], [skillCommandInfo(skillPath)]);
+			const pi = new FakePi();
 			const runClaude = registerTestCommand(pi);
-			const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
+			const context = createContext({
+				mode: "tui",
+				hasCustomUi: true,
+				cwd: repoDir,
+				skills: [effectiveSkill(skillPath)],
+			});
 			const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 			await command.handler("!!!", context.ctx);
@@ -192,9 +203,14 @@ describe("claude handoff command", () => {
 		"command does not create prompt when branch lookup fails: $name",
 		async ({ branch, message }) => {
 			await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-				const pi = new FakePi([branch], [skillCommandInfo(skillPath)]);
+				const pi = new FakePi([branch]);
 				const runClaude = registerTestCommand(pi);
-				const context = createContext({ mode: "tui", hasCustomUi: true, cwd: repoDir });
+				const context = createContext({
+					mode: "tui",
+					hasCustomUi: true,
+					cwd: repoDir,
+					skills: [effectiveSkill(skillPath)],
+				});
 				const command = getRegisteredCommand(pi, CLAUDE_HANDOFF_COMMAND_NAME);
 
 				await command.handler("focus", context.ctx);

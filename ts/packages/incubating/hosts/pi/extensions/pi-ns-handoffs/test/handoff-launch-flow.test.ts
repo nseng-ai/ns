@@ -16,7 +16,7 @@ import {
 	FakePi,
 	branchStep,
 	createContext,
-	skillCommandInfo,
+	effectiveSkill,
 	withHandoffCreateSkill,
 } from "./handoff-test-fakes.ts";
 
@@ -50,8 +50,8 @@ describe("handoff launch integration", () => {
 
 	test("does not register the shared slug tool through a second scoped Pi API", () => {
 		const sharedToolNames = new Set<string>();
-		const firstPi = new FakePi([], [], { sharedToolNames });
-		const secondPi = new FakePi([], [], { sharedToolNames });
+		const firstPi = new FakePi([], { sharedToolNames });
+		const secondPi = new FakePi([], { sharedToolNames });
 
 		createHandoffLaunchIntegration(firstPi).registerContentSlugTool();
 		createHandoffLaunchIntegration(secondPi).registerContentSlugToolIfMissing();
@@ -76,10 +76,11 @@ describe("handoff launch flow helpers", () => {
 	});
 
 	test("runHandoffCreateCommand prepares and sends the standard launch prompt", async () => {
-		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([branchStep()], [skillCommandInfo(skillPath)]);
+		await withHandoffCreateSkill(async ({ skillPath, skillDir, repoDir }) => {
+			const pi = new FakePi([branchStep()]);
 			const context = createContext({
 				cwd: repoDir,
+				skills: [effectiveSkill(skillPath, skillDir)],
 				sessionFile: "/sessions/launch-filename.jsonl",
 				sessionId: "launch-source-id",
 			});
@@ -110,9 +111,12 @@ describe("handoff launch flow helpers", () => {
 	});
 
 	test("runHandoffCreateCommand resolves the branch from supplied handoff context", async () => {
-		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
-			const pi = new FakePi([], [skillCommandInfo(skillPath)]);
-			const context = createContext({ cwd: repoDir });
+		await withHandoffCreateSkill(async ({ skillPath, skillDir, repoDir }) => {
+			const pi = new FakePi();
+			const context = createContext({
+				cwd: repoDir,
+				skills: [effectiveSkill(skillPath, skillDir)],
+			});
 			const git = new InMemoryGitGateway({ currentBranch: "context/branch" });
 
 			await runHandoffCreateCommand(pi, "finish the widget", context.ctx, {

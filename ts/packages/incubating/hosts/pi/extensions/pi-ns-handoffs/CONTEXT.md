@@ -5,7 +5,10 @@
 ## Language
 
 **Handoff Pi Adapter**:
-The incubating host package at `ts/packages/incubating/hosts/pi/extensions/pi-ns-handoffs/`. It consumes Handoff lifecycle and identity behavior only through `@nseng-ai/handoffs/api`.
+The incubating host package at `ts/packages/incubating/hosts/pi/extensions/pi-ns-handoffs/`. It consumes Handoff lifecycle and identity behavior only through `@nseng-ai/handoffs/api`. Its
+skill-backed create flows capture the exact effective `handoff-create` source from the Pi command
+context before focus, Git, destination, or launch work, then defer content loading until prompt
+construction.
 *Avoid*: Handoff Domain Core, an `@nseng-ai/handoffs/pi` host surface, Herdr extraction.
 
 **Handoff Launch Adapter Surface**:

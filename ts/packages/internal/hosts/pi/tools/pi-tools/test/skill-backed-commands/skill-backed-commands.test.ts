@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import type { EffectiveSkillInfo } from "@nseng-ai/pi-runtime/runtime/types";
 const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
 const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 
@@ -48,13 +49,13 @@ class FakeSkillBackedCommandHost {
 	}
 }
 
-function commandContext(cwd: string): SkillBackedCommandContext & {
+function commandContext(skill?: EffectiveSkillInfo): SkillBackedCommandContext & {
 	notifications: Array<{ message: string; level: string | undefined }>;
 } {
 	const notifications: Array<{ message: string; level: string | undefined }> = [];
 	return {
-		cwd,
 		hasUI: true,
+		getSystemPromptOptions: () => ({ skills: skill === undefined ? [] : [skill] }),
 		notifications,
 		ui: {
 			notify(message: string, level?: "info" | "warning" | "error"): void {
@@ -243,20 +244,27 @@ describe("genericSkillBackedCommandSpecs", () => {
 });
 
 describe("registerSkillBackedCommands", () => {
-	test("registers generic commands that read repo-local backing skills", async () => {
+	test("registers generic commands that read effective backing skills", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: "code-workflows",
 				markdown: "---\nname: code-workflows\n---\n\n# Code Workflows\n",
 				prefix: "skill-backed-command-",
 			},
-			async ({ repoDir, skillPath }) => {
+			async ({ skillPath }) => {
 				const host = new FakeSkillBackedCommandHost();
 				registerSkillBackedCommands(host);
 				const command = host.commands.get("code:workflows");
 				expect(command).toBeDefined();
 
-				await command?.handler("fix ```this``` please", commandContext(repoDir));
+				await command?.handler(
+					"fix ```this``` please",
+					commandContext({
+						name: "code-workflows",
+						filePath: skillPath,
+						baseDir: skillPath.replace(/\/SKILL\.md$/u, ""),
+					}),
+				);
 
 				expect(host.ackMessages).toEqual([
 					expect.objectContaining({
@@ -276,12 +284,12 @@ describe("registerSkillBackedCommands", () => {
 	});
 
 	test("missing required skill reports an error and sends no prompt", async () => {
-		await withTempGitRepo({ prefix: "missing-skill-backed-command-" }, async ({ repoDir }) => {
+		await withTempGitRepo({ prefix: "missing-skill-backed-command-" }, async () => {
 			const host = new FakeSkillBackedCommandHost();
 			registerSkillBackedCommands(host);
 			const command = host.commands.get("code:workflows");
 			if (command === undefined) throw new Error("missing command");
-			const ctx = commandContext(repoDir);
+			const ctx = commandContext();
 
 			await command.handler("do work", ctx);
 
@@ -302,13 +310,20 @@ describe("registerSkillBackedCommands", () => {
 					"---\nname: improve-codebase-architecture\n---\n\n# Improve Codebase Architecture\n",
 				prefix: "vendored-skill-backed-command-",
 			},
-			async ({ repoDir, skillPath }) => {
+			async ({ skillPath }) => {
 				const host = new FakeSkillBackedCommandHost();
 				registerSkillBackedCommands(host);
 				const command = host.commands.get("improve:codebase-architecture");
 				expect(command).toBeDefined();
 
-				await command?.handler("", commandContext(repoDir));
+				await command?.handler(
+					"",
+					commandContext({
+						name: "improve-codebase-architecture",
+						filePath: skillPath,
+						baseDir: skillPath.replace(/\/SKILL\.md$/u, ""),
+					}),
+				);
 
 				expect(host.sentMessages).toHaveLength(1);
 				expect(host.sentMessages[0]).toContain(

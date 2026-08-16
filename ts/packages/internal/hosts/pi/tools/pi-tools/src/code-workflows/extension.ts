@@ -3,7 +3,7 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/a
 import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import {
 	buildSkillInvocationPrompt,
-	invokeRepoSkillPromptTurn,
+	invokeEffectiveSkillPromptTurn,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import { truncateDisplayLine } from "@nseng-ai/pi-runtime/terminal/presentation";
 import type {
@@ -59,19 +59,14 @@ interface CodeWorkflowRegisteredCommand {
 export interface CodeWorkflowsExtensionAPI {
 	registerCommand(name: string, command: CodeWorkflowRegisteredCommand): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
-	getCommands?(): readonly {
-		name: string;
-		source: string;
-		sourceInfo: { path: string; baseDir?: string };
-	}[];
 	sendMessage?(message: CustomMessage): void;
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
-export type InvokeCodeWorkflowPromptTurn = typeof invokeRepoSkillPromptTurn;
+export type InvokeCodeWorkflowPromptTurn = typeof invokeEffectiveSkillPromptTurn;
 
 export interface CodeWorkflowsExtensionOptions {
-	invokeRepoSkillPromptTurn?: InvokeCodeWorkflowPromptTurn;
+	invokeEffectiveSkillPromptTurn?: InvokeCodeWorkflowPromptTurn;
 }
 
 export interface WorkflowRoute {
@@ -133,7 +128,7 @@ export default function codeWorkflowsExtension(
 	pi: CodeWorkflowsExtensionAPI,
 	options: CodeWorkflowsExtensionOptions = {},
 ): void {
-	const invokePromptTurn = options.invokeRepoSkillPromptTurn ?? invokeRepoSkillPromptTurn;
+	const invokePromptTurn = options.invokeEffectiveSkillPromptTurn ?? invokeEffectiveSkillPromptTurn;
 	pi.registerMessageRenderer?.(CODE_WORKFLOWS_MESSAGE_TYPE, renderCodeWorkflowMessage);
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -228,7 +223,7 @@ export async function invokeGhCiDebugWorkflow(
 	pi: CodeWorkflowsExtensionAPI,
 	ctx: CommandContext,
 	args: string,
-	invokePromptTurn: InvokeCodeWorkflowPromptTurn = invokeRepoSkillPromptTurn,
+	invokePromptTurn: InvokeCodeWorkflowPromptTurn = invokeEffectiveSkillPromptTurn,
 ): Promise<void> {
 	try {
 		await invokePromptTurn({

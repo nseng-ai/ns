@@ -46,8 +46,8 @@ import {
 	type FullPiSurfaceParity,
 } from "@nseng-ai/pi-runtime/parity/extension";
 import {
-	requireRepoSkillBlockFromPath,
-	requireRepoSkillPath,
+	captureRequiredEffectiveSkill,
+	type RequiredEffectiveSkill,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import type {
 	AgentEndContext,
@@ -78,7 +78,7 @@ export type {
 } from "@nseng-ai/objectives/api";
 export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
-	"registerCommand" | "exec" | "getCommands" | "sendMessage"
+	"registerCommand" | "exec" | "sendMessage"
 > & {
 	on(
 		event: "agent_end",
@@ -180,7 +180,7 @@ interface ObjectiveInvocationContext<TSpec = ObjectiveCommandSpec> {
 }
 
 interface PreparedObjectiveInvocation extends ObjectiveInvocationContext {
-	skillPath: string;
+	requiredSkill: RequiredEffectiveSkill;
 }
 
 interface SkillPreparationInvocation {
@@ -196,22 +196,19 @@ type HandleObjectiveCreateCommandOptions = InvokeObjectiveCreateSkillOptions;
 
 async function prepareObjectiveSkill<TInvocation extends SkillPreparationInvocation>(
 	invocation: TInvocation,
-): Promise<TInvocation & { skillPath: string }> {
+): Promise<TInvocation & { requiredSkill: RequiredEffectiveSkill }> {
 	const { ctx, spec } = invocation;
+	const requiredSkill = captureRequiredEffectiveSkill(ctx, spec.skillName);
 	await ctx.waitForIdle();
-	const skillPath = await requireRepoSkillPath({ cwd: ctx.cwd, skillName: spec.skillName });
-	return { ...invocation, skillPath };
+	return { ...invocation, requiredSkill };
 }
 
 async function invokeObjectiveSkill(
 	invocation: PreparedObjectiveInvocation,
 	objective: string,
 ): Promise<void> {
-	const { pi, ctx, spec, skillPath } = invocation;
-	const skill = await requireRepoSkillBlockFromPath({
-		skillName: spec.skillName,
-		skillPath,
-	});
+	const { pi, ctx, spec, requiredSkill } = invocation;
+	const skill = await requiredSkill.load();
 	if (ctx.hasUI) {
 		ctx.ui.notify(`Invoking ${skill.name} for ${objective}.`, "info");
 	}
@@ -244,11 +241,8 @@ async function invokeObjectiveCreateSkill(
 ): Promise<void> {
 	const { pi, ctx, spec, rawArgs } = options;
 	const initialRequest = rawArgs.trim();
-	const { skillPath } = await prepareObjectiveSkill(options);
-	const skill = await requireRepoSkillBlockFromPath({
-		skillName: spec.skillName,
-		skillPath,
-	});
+	const { requiredSkill } = await prepareObjectiveSkill(options);
+	const skill = await requiredSkill.load();
 
 	if (ctx.hasUI) {
 		ctx.ui.notify(

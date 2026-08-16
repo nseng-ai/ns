@@ -1,4 +1,4 @@
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -33,6 +33,7 @@ import type {
 	RawPiExecOptions,
 	SessionStartContext,
 	SessionStartEventLike,
+	EffectiveSkillInfo,
 } from "@nseng-ai/pi-runtime/runtime/types";
 
 const ROOT = process.cwd();
@@ -61,6 +62,8 @@ const OBJECTIVE_SKILLS_BY_COMMAND: Record<ObjectiveCommandName, ObjectiveSkillNa
 
 const LEGACY_OBJECTIVE_LIST_COMMAND_NAME = ["objective", ":", "list"].join("");
 
+const COMMAND_SKILL_NAMES = OBJECTIVE_SKILLS_BY_COMMAND;
+
 const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 	"ns:objective:next": "Run objective-next for this explicitly selected Objective slug or path:",
 	"ns:objective:update":
@@ -72,7 +75,6 @@ const ACTION_PROMPTS: Record<ObjectiveCommandName, string> = {
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
 type MessageRenderer = Parameters<NonNullable<ObjectiveExtensionAPI["registerMessageRenderer"]>>[1];
-type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
 
 interface ExecCall {
 	command: string;
@@ -127,7 +129,6 @@ class FakePi implements ObjectiveExtensionAPI {
 		this.sentMessages.push(message);
 	};
 	private readonly script: ScriptedQueue<ScriptedExec>;
-	private readonly commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]>;
 	private readonly eventHandlers: Record<
 		EventName,
 		Array<AgentEndHandler | AgentSettledHandler | InputHandler | SessionStartHandler>
@@ -138,12 +139,8 @@ class FakePi implements ObjectiveExtensionAPI {
 		session_start: [],
 	};
 
-	constructor(
-		script: ScriptedExec[] = [],
-		commandInfos: ReturnType<ObjectiveExtensionAPI["getCommands"]> = [],
-	) {
+	constructor(script: ScriptedExec[] = []) {
 		this.script = new ScriptedQueue(script, (step) => step);
-		this.commandInfos = [...commandInfos];
 	}
 
 	on(event: "agent_end", handler: AgentEndHandler): void;
@@ -217,10 +214,6 @@ class FakePi implements ObjectiveExtensionAPI {
 			const message = error instanceof Error ? error.message : String(error);
 			return { type: "failed", message: `Malformed objective list JSON: ${message}` };
 		}
-	}
-
-	getCommands(): ReturnType<ObjectiveExtensionAPI["getCommands"]> {
-		return this.commandInfos;
 	}
 
 	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" }): void {
@@ -320,6 +313,7 @@ function createContext(
 		cwd?: string;
 		selectIndex?: number;
 		selectIndices?: number[];
+		skills?: readonly EffectiveSkillInfo[];
 	} = {},
 ): {
 	ctx: CommandContext;
@@ -338,6 +332,7 @@ function createContext(
 			find: () => undefined,
 		},
 		sessionManager: createTestSessionReader(),
+		getSystemPromptOptions: () => ({ skills: options.skills ?? [] }),
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
@@ -383,15 +378,13 @@ function withAutorunSkill<T>(callback: (skill: TempRepoSkill) => Promise<T>): Pr
 	);
 }
 
-function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
-	return {
-		name: `skill:${skillName}`,
-		source: "skill",
-		sourceInfo: {
-			path: skillPath,
-			baseDir,
-		},
-	};
+function repoObjectiveSkill(skillName: ObjectiveSkillName): EffectiveSkillInfo {
+	const filePath = join(ROOT, "..", ".agents", "skills", skillName, "SKILL.md");
+	return effectiveSkill(skillName, filePath, dirname(filePath));
+}
+
+function effectiveSkill(name: string, filePath: string, baseDir: string): EffectiveSkillInfo {
+	return { name, filePath, baseDir };
 }
 
 type ObjectiveCommandContextOptions = {
@@ -411,14 +404,15 @@ async function runObjectiveAutorun(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: ObjectiveCommandContextOptions = {},
-	commandInfos: CommandInfo[] = [],
+	skills?: EffectiveSkillInfo[],
 ): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos);
+	const effectiveSkills = skills ?? [repoObjectiveSkill("objective-autorun")];
+	const pi = new FakePi(script);
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:autorun");
 	expect(command).toBeDefined();
@@ -426,9 +420,10 @@ async function runObjectiveAutorun(
 		throw new Error("ns:objective:autorun was not registered");
 	}
 
-	const skillPath = commandInfos[0]?.sourceInfo.path;
+	const skillPath = effectiveSkills[0]?.filePath;
 	const context = createContext({
 		...contextOptions,
+		skills: effectiveSkills,
 		...(contextOptions.cwd === undefined && skillPath !== undefined
 			? { cwd: dirname(dirname(dirname(skillPath))) }
 			: {}),
@@ -451,39 +446,49 @@ async function runObjectiveNext(
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
 	const command = pi.commands.get("ns:objective:next");
 	expect(command).toBeDefined();
-	const context = createContext(contextOptions);
+	const context = createContext({
+		...contextOptions,
+		skills: [repoObjectiveSkill("objective-next")],
+	});
 	await command?.handler(args, context.ctx);
 	return { pi, ...context };
 }
 
-async function runObjectiveCommand(
-	commandName: ObjectiveCommandName,
-	args: string,
-	script: ScriptedExec[] = [],
-	contextOptions: ObjectiveCommandContextOptions = {},
-	commandInfos: CommandInfo[] = [],
-): Promise<{
+interface RunObjectiveCommandOptions {
+	commandName: ObjectiveCommandName;
+	args: string;
+	script?: ScriptedExec[];
+	contextOptions?: ObjectiveCommandContextOptions;
+	skills?: EffectiveSkillInfo[];
+}
+
+async function runObjectiveCommand(options: RunObjectiveCommandOptions): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	selections: Selection[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(script, commandInfos);
+	const effectiveSkills = options.skills ?? [
+		repoObjectiveSkill(COMMAND_SKILL_NAMES[options.commandName]),
+	];
+	const pi = new FakePi(options.script ?? []);
 	objectiveExtension(pi, { clock: createManualClock(NOW).clock });
-	const command = pi.commands.get(commandName);
+	const command = pi.commands.get(options.commandName);
 	expect(command).toBeDefined();
 	if (!command) {
-		throw new Error(`${commandName} was not registered`);
+		throw new Error(`${options.commandName} was not registered`);
 	}
 
-	const skillPath = commandInfos[0]?.sourceInfo.path;
+	const skillPath = effectiveSkills[0]?.filePath;
+	const contextOptions = options.contextOptions ?? {};
 	const context = createContext({
 		...contextOptions,
+		skills: effectiveSkills,
 		...(contextOptions.cwd === undefined && skillPath !== undefined
 			? { cwd: dirname(dirname(dirname(skillPath))) }
 			: {}),
 	});
-	await command.handler(args, context.ctx);
+	await command.handler(options.args, context.ctx);
 	return { pi, ...context };
 }
 
@@ -785,7 +790,10 @@ describe("objective-next proposed-prompt chooser", () => {
 	});
 
 	test("offers matching output after an explicit ns:objective:next invocation", async () => {
-		const result = await runObjectiveCommand("ns:objective:next", "bravo");
+		const result = await runObjectiveCommand({
+			commandName: "ns:objective:next",
+			args: "bravo",
+		});
 		let offers = 0;
 		const ctx = createAgentContext({
 			select: async () => {
@@ -922,7 +930,7 @@ describe("ns:objective:autorun command", () => {
 	test("explicit slug bypasses objective list, git evidence, and recursive slash dispatch", async () => {
 		await withAutorunSkill(async ({ skillPath, skillDir }) => {
 			const result = await runObjectiveAutorun("  bravo  ", [], {}, [
-				skillCommandInfo("objective-autorun", skillPath, skillDir),
+				effectiveSkill("objective-autorun", skillPath, skillDir),
 			]);
 
 			result.pi.assertDone();
@@ -956,7 +964,7 @@ describe("ns:objective:autorun command", () => {
 
 	test("missing required skill stops before picker, list, and git preparation", async () => {
 		await withTempGitRepo({ prefix: "objective-autorun-preflight-" }, async ({ repoDir }) => {
-			const result = await runObjectiveAutorun("", [], { cwd: repoDir });
+			const result = await runObjectiveAutorun("", [], { cwd: repoDir }, []);
 
 			result.pi.assertDone();
 			expect(result.pi.execCalls).toEqual([]);
@@ -974,7 +982,7 @@ describe("ns:objective:autorun command", () => {
 				"",
 				[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
 				{},
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				[effectiveSkill("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1008,7 +1016,7 @@ describe("ns:objective:autorun command", () => {
 					statusStep(""),
 				],
 				{},
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				[effectiveSkill("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1043,7 +1051,7 @@ describe("ns:objective:autorun command", () => {
 					statusStep(""),
 				],
 				{},
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				[effectiveSkill("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1062,7 +1070,7 @@ describe("ns:objective:autorun command", () => {
 					statusStep(""),
 				],
 				{ selectIndices: [1, 1] },
-				[skillCommandInfo("objective-autorun", skillPath, skillDir)],
+				[effectiveSkill("objective-autorun", skillPath, skillDir)],
 			);
 
 			result.pi.assertDone();
@@ -1452,11 +1460,15 @@ describe("objective picker suggestion", () => {
 	});
 
 	test("ns:objective:close uses normal changed-first selection, not compact suggestion UX", async () => {
-		const result = await runObjectiveCommand("ns:objective:close", "", [
-			listStep(["alpha", "bravo", "charlie"]),
-			diffStep("M\t.ns/objectives/bravo/objective.md\n"),
-			statusStep(""),
-		]);
+		const result = await runObjectiveCommand({
+			commandName: "ns:objective:close",
+			args: "",
+			script: [
+				listStep(["alpha", "bravo", "charlie"]),
+				diffStep("M\t.ns/objectives/bravo/objective.md\n"),
+				statusStep(""),
+			],
+		});
 
 		result.pi.assertDone();
 		expect(result.notifications).toContainEqual({
@@ -1564,7 +1576,11 @@ describe("objective command shared selection policy", () => {
 
 	test("empty-args picker commands never invoke the removed --current list flag", async () => {
 		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
-			const result = await runObjectiveCommand(commandName, "", [listStep([])]);
+			const result = await runObjectiveCommand({
+				commandName: commandName,
+				args: "",
+				script: [listStep([])],
+			});
 
 			result.pi.assertDone();
 			expectNoObjectiveListExec(result);
@@ -1580,7 +1596,10 @@ describe("objective command shared selection policy", () => {
 		describe(commandName, () => {
 			test("explicit slug or path bypasses objective list and git evidence", async () => {
 				const explicitObjective = ".ns/objectives/bravo/objective.md";
-				const result = await runObjectiveCommand(commandName, `  ${explicitObjective}  `);
+				const result = await runObjectiveCommand({
+					commandName: commandName,
+					args: `  ${explicitObjective}  `,
+				});
 
 				result.pi.assertDone();
 				expect(result.pi.execCalls).toEqual([]);
@@ -1593,12 +1612,12 @@ describe("objective command shared selection policy", () => {
 			});
 
 			test("empty args load active candidates with objective list json", async () => {
-				const result = await runObjectiveCommand(
-					commandName,
-					"",
-					[listStep(["alpha"]), diffStep(""), statusStep("")],
-					{ cancelSelect: true },
-				);
+				const result = await runObjectiveCommand({
+					commandName: commandName,
+					args: "",
+					script: [listStep(["alpha"]), diffStep(""), statusStep("")],
+					contextOptions: { cancelSelect: true },
+				});
 
 				result.pi.assertDone();
 				expectNoObjectiveListExec(result);
@@ -1607,7 +1626,11 @@ describe("objective command shared selection policy", () => {
 			});
 
 			test("zero active Objectives notify and send no prompt", async () => {
-				const result = await runObjectiveCommand(commandName, "", [listStep([])]);
+				const result = await runObjectiveCommand({
+					commandName: commandName,
+					args: "",
+					script: [listStep([])],
+				});
 
 				result.pi.assertDone();
 				expect(result.pi.execCalls).toHaveLength(0);
@@ -1623,9 +1646,11 @@ describe("objective command shared selection policy", () => {
 			});
 
 			test("invalid objective list JSON notifies and sends no prompt", async () => {
-				const result = await runObjectiveCommand(commandName, "", [
-					step("objective", ["list", "--format", "json"], { stdout: "{" }),
-				]);
+				const result = await runObjectiveCommand({
+					commandName: commandName,
+					args: "",
+					script: [step("objective", ["list", "--format", "json"], { stdout: "{" })],
+				});
 
 				result.pi.assertDone();
 				expect(result.pi.execCalls).toHaveLength(0);
@@ -1637,16 +1662,16 @@ describe("objective command shared selection policy", () => {
 			});
 
 			test("picker cancellation sends no prompt", async () => {
-				const result = await runObjectiveCommand(
-					commandName,
-					"",
-					[
+				const result = await runObjectiveCommand({
+					commandName: commandName,
+					args: "",
+					script: [
 						listStep(["alpha", "bravo"]),
 						diffStep("M\t.ns/objectives/bravo/objective.md\n"),
 						statusStep(""),
 					],
-					{ cancelSelect: true },
-				);
+					contextOptions: { cancelSelect: true },
+				});
 
 				result.pi.assertDone();
 				expect(result.notifications).toContainEqual({
@@ -1657,12 +1682,12 @@ describe("objective command shared selection policy", () => {
 			});
 
 			test("selected slug is embedded as an explicit selection in the generated skill prompt", async () => {
-				const result = await runObjectiveCommand(
-					commandName,
-					"",
-					[listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
-					{ selectIndex: 0 },
-				);
+				const result = await runObjectiveCommand({
+					commandName: commandName,
+					args: "",
+					script: [listStep(["alpha", "bravo"]), diffStep(""), statusStep("")],
+					contextOptions: { selectIndex: 0 },
+				});
 
 				result.pi.assertDone();
 				expectPromptSelectsObjective(commandName, result.pi.sentUserMessages[0], "alpha");
@@ -1688,13 +1713,13 @@ Use the selected Objective.
 				prefix: "objective-next-skill-",
 			},
 			async ({ repoDir, skillDir, skillPath }) => {
-				const result = await runObjectiveCommand(
-					"ns:objective:next",
-					"bravo",
-					[],
-					{ cwd: repoDir },
-					[skillCommandInfo("objective-next", skillPath, skillDir)],
-				);
+				const result = await runObjectiveCommand({
+					commandName: "ns:objective:next",
+					args: "bravo",
+					script: [],
+					contextOptions: { cwd: repoDir },
+					skills: [effectiveSkill("objective-next", skillPath, skillDir)],
+				});
 
 				result.pi.assertDone();
 				const prompt = result.pi.sentUserMessages[0] ?? "";
@@ -1715,7 +1740,10 @@ Use the selected Objective.
 	});
 
 	test("ns:objective:next canonical skill prompt requires a work-left estimate", async () => {
-		const result = await runObjectiveCommand("ns:objective:next", "bravo");
+		const result = await runObjectiveCommand({
+			commandName: "ns:objective:next",
+			args: "bravo",
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain("Form a best-effort work-left estimate");
@@ -1727,7 +1755,10 @@ Use the selected Objective.
 	});
 
 	test("ns:objective:next prompt preauthorizes clear staleness-check updates", async () => {
-		const result = await runObjectiveCommand("ns:objective:next", "bravo");
+		const result = await runObjectiveCommand({
+			commandName: "ns:objective:next",
+			args: "bravo",
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1743,7 +1774,10 @@ Use the selected Objective.
 	});
 
 	test("objective-update prompt includes the post-selection evidence workflow reminder", async () => {
-		const result = await runObjectiveCommand("ns:objective:update", "bravo");
+		const result = await runObjectiveCommand({
+			commandName: "ns:objective:update",
+			args: "bravo",
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain(
@@ -1752,7 +1786,10 @@ Use the selected Objective.
 	});
 
 	test("ns:objective:close skill and prompt include closure confirmation guidance", async () => {
-		const result = await runObjectiveCommand("ns:objective:close", "bravo");
+		const result = await runObjectiveCommand({
+			commandName: "ns:objective:close",
+			args: "bravo",
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).toContain("Confirm the closure outcome is clear");
@@ -1771,7 +1808,10 @@ Use the selected Objective.
 	});
 
 	test("ns:objective:next prompt does not include the objective-update evidence workflow reminder", async () => {
-		const result = await runObjectiveCommand("ns:objective:next", "bravo");
+		const result = await runObjectiveCommand({
+			commandName: "ns:objective:next",
+			args: "bravo",
+		});
 
 		result.pi.assertDone();
 		expect(result.pi.sentUserMessages[0]).not.toContain("normal post-selection evidence workflow");
@@ -1779,7 +1819,10 @@ Use the selected Objective.
 
 	test("objective command prompts contain no model-mediated chooser reminder", async () => {
 		for (const commandName of OBJECTIVE_COMMAND_NAMES) {
-			const result = await runObjectiveCommand(commandName, "bravo");
+			const result = await runObjectiveCommand({
+				commandName: commandName,
+				args: "bravo",
+			});
 			const prompt = result.pi.sentUserMessages[0] ?? "";
 			expect(prompt).not.toContain("Pi prompt-action note");
 			expect(prompt).not.toContain("objective_next_prompt_action");

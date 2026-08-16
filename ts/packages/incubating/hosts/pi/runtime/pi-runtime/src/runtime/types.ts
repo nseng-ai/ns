@@ -11,6 +11,7 @@ export type {
 	CommandContext,
 	CommandDefinition,
 	CustomMessage,
+	EffectiveSkillInfo,
 	RawPiExecOptions,
 	RawPiExecResult,
 	ExtensionAPI,
@@ -19,6 +20,7 @@ export type {
 	NotifyLevel,
 	SessionStartContext,
 	SessionStartEventLike,
+	SystemPromptOptions,
 	ThinkingLevel,
 	UiLike,
 } from "@nseng-ai/extension-kit/pi-types";

@@ -10,7 +10,11 @@ import { formatPickupHandoffCommand } from "./identity.ts";
 import { currentBranch } from "./branch-resolution.ts";
 import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";
 import { resolveCreateFocus } from "./create-focus.ts";
-import { realHandoffCreateSkillLoader, type HandoffCreateSkillLoader } from "./create-skill.ts";
+import {
+	captureCreateHandoffSkill,
+	realHandoffCreateSkillLoader,
+	type HandoffCreateSkillLoader,
+} from "./create-skill.ts";
 import { checkHandoffExists } from "./handoff-existence.ts";
 import {
 	buildHandoffInvestigationSourcesPrompt,
@@ -18,7 +22,10 @@ import {
 	type HandoffInvestigationSourceOptions,
 } from "./investigation-sources.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
-import type { ExpandedSkillBlock } from "@nseng-ai/pi-runtime/skills/expansion";
+import type {
+	ExpandedSkillBlock,
+	RequiredEffectiveSkill,
+} from "@nseng-ai/pi-runtime/skills/expansion";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type {
@@ -195,9 +202,9 @@ export async function prepareHandoffCreateLaunch(
 	},
 ): Promise<PreparedHandoffCreateLaunch | undefined> {
 	const skillLoader = options.skillLoader ?? realHandoffCreateSkillLoader;
-	let skillPath: string;
+	let requiredSkill: RequiredEffectiveSkill;
 	try {
-		skillPath = await skillLoader.resolveCreateHandoffSkillPath(ctx.cwd);
+		requiredSkill = captureCreateHandoffSkill(skillLoader, ctx);
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return undefined;
@@ -231,7 +238,7 @@ export async function prepareHandoffCreateLaunch(
 
 	let skill: ExpandedSkillBlock;
 	try {
-		skill = await skillLoader.loadCreateHandoffSkill(skillPath);
+		skill = await requiredSkill.load();
 	} catch (error) {
 		ctx.ui.notify(formatErrorMessage(error), "error");
 		return undefined;

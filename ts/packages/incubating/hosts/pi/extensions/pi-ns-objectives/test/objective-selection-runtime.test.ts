@@ -20,6 +20,7 @@ describe("objective selection runtime behavior", () => {
 			},
 			modelRegistry: { find: () => undefined },
 			sessionManager: createTestSessionReader(),
+			getSystemPromptOptions: () => ({ skills: [] }),
 			waitForIdle: async () => {},
 		};
 
@@ -45,6 +46,7 @@ describe("objective selection runtime behavior", () => {
 			},
 			modelRegistry: { find: () => undefined },
 			sessionManager: createTestSessionReader(),
+			getSystemPromptOptions: () => ({ skills: [] }),
 			waitForIdle: async () => {},
 		};
 		let clockReads = 0;
@@ -100,6 +102,7 @@ describe("objective selection runtime behavior", () => {
 			},
 			modelRegistry: { find: () => undefined },
 			sessionManager: createTestSessionReader(),
+			getSystemPromptOptions: () => ({ skills: [] }),
 			waitForIdle: async () => {},
 		};
 		let clockReads = 0;
@@ -156,6 +159,7 @@ describe("objective selection runtime behavior", () => {
 			},
 			modelRegistry: { find: () => undefined },
 			sessionManager: createTestSessionReader(),
+			getSystemPromptOptions: () => ({ skills: [] }),
 			waitForIdle: async () => {},
 		};
 		const host = {
@@ -196,6 +200,7 @@ describe("objective selection runtime behavior", () => {
 			},
 			modelRegistry: { find: () => undefined },
 			sessionManager: createTestSessionReader(),
+			getSystemPromptOptions: () => ({ skills: [] }),
 			waitForIdle: async () => {},
 		};
 		const host = {

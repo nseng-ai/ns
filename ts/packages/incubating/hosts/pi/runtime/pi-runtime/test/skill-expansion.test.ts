@@ -6,38 +6,23 @@ import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-ki
 
 import {
 	buildSkillInvocationPrompt,
+	captureRequiredEffectiveSkill,
 	expandRepoSkillBlock,
-	expandSkillBlock,
 	expandSkillBlockFromPath,
+	invokeEffectiveSkillPromptTurn,
 	invokeRepoSkillPromptTurn,
-	invokeSkillPromptTurn,
 	requireRepoSkillBlock,
 	requireRepoSkillPath,
 	resolveRepoSkillPath,
-	type SkillCommandInfo,
 } from "../src/kit/skills/expansion.ts";
 
-function host(commands: readonly SkillCommandInfo[]): {
-	getCommands(): readonly SkillCommandInfo[];
-} {
-	return {
-		getCommands(): readonly SkillCommandInfo[] {
-			return commands;
-		},
-	};
-}
-
-function promptTurnHost(commands: readonly SkillCommandInfo[]): {
+function promptTurnHost(): {
 	sentUserMessages: string[];
-	getCommands(): readonly SkillCommandInfo[];
 	sendUserMessage(content: string): void;
 } {
 	const sentUserMessages: string[] = [];
 	return {
 		sentUserMessages,
-		getCommands(): readonly SkillCommandInfo[] {
-			return commands;
-		},
 		sendUserMessage(content: string): void {
 			sentUserMessages.push(content);
 		},
@@ -71,201 +56,6 @@ function promptTurnContext(): {
 		},
 	};
 }
-
-function skillCommand(skillName: string, path: string, baseDir?: string): SkillCommandInfo {
-	return {
-		name: `skill:${skillName}`,
-		source: "skill",
-		sourceInfo: {
-			path,
-			...(baseDir === undefined ? {} : { baseDir }),
-		},
-	};
-}
-
-describe("expandSkillBlock", () => {
-	test("returns undefined and performs no read when the skill command is missing", async () => {
-		const reads: string[] = [];
-
-		const expanded = await expandSkillBlock(host([]), "objective-next", {
-			readTextFile: async (path) => {
-				reads.push(path);
-				return "# unused";
-			},
-		});
-
-		expect(expanded).toBeUndefined();
-		expect(reads).toEqual([]);
-	});
-
-	test("ignores non-skill commands with the matching command name", async () => {
-		const reads: string[] = [];
-
-		const expanded = await expandSkillBlock(
-			host([
-				{
-					name: "skill:objective-next",
-					source: "prompt",
-					sourceInfo: { path: "/tmp/prompt.md" },
-				},
-			]),
-			"objective-next",
-			{
-				readTextFile: async (path) => {
-					reads.push(path);
-					return "# unused";
-				},
-			},
-		);
-
-		expect(expanded).toBeUndefined();
-		expect(reads).toEqual([]);
-	});
-
-	test("reads the skill file, strips frontmatter, trims body, and formats the exact block", async () => {
-		const expanded = await expandSkillBlock(
-			host([
-				skillCommand("objective-next", "/skills/objective-next/SKILL.md", "/skills/objective-next"),
-			]),
-			"objective-next",
-			{
-				readTextFile: async (path) => {
-					expect(path).toBe("/skills/objective-next/SKILL.md");
-					return `---
-name: objective-next
-description: hidden
----
-
-# Objective Next
-
-Do next work.  \n`;
-				},
-			},
-		);
-
-		expect(expanded).toEqual({
-			name: "objective-next",
-			commandName: "skill:objective-next",
-			path: "/skills/objective-next/SKILL.md",
-			baseDir: "/skills/objective-next",
-			body: "# Objective Next\n\nDo next work.",
-			block: `<skill name="objective-next" location="/skills/objective-next/SKILL.md">
-References are relative to /skills/objective-next.
-
-# Objective Next
-
-Do next work.
-</skill>`,
-		});
-	});
-
-	test("uses sourceInfo.baseDir when present", async () => {
-		const expanded = await expandSkillBlock(
-			host([skillCommand("code-just-fix", "/resolved/SKILL.md", "/source/base")]),
-			"code-just-fix",
-			{
-				readTextFile: async () => "# Internal Code Just Fix",
-			},
-		);
-
-		expect(expanded?.baseDir).toBe("/source/base");
-		expect(expanded?.block).toContain("References are relative to /source/base.");
-	});
-
-	test("falls back to dirname(sourceInfo.path) when baseDir is absent", async () => {
-		const expanded = await expandSkillBlock(
-			host([skillCommand("code-just-fix", "/resolved/code-just-fix/SKILL.md")]),
-			"code-just-fix",
-			{
-				readTextFile: async () => "# Internal Code Just Fix",
-			},
-		);
-
-		expect(expanded?.baseDir).toBe("/resolved/code-just-fix");
-		expect(expanded?.block).toContain("References are relative to /resolved/code-just-fix.");
-	});
-
-	test("propagates read errors", async () => {
-		await expect(
-			expandSkillBlock(
-				host([skillCommand("code-just-fix", "/missing/SKILL.md")]),
-				"code-just-fix",
-				{
-					readTextFile: async () => {
-						throw new Error("cannot read skill");
-					},
-				},
-			),
-		).rejects.toThrow("cannot read skill");
-	});
-
-	test("trims Markdown without frontmatter", async () => {
-		const expanded = await expandSkillBlock(
-			host([skillCommand("code-just-fix", "/skills/code-just-fix/SKILL.md")]),
-			"code-just-fix",
-			{
-				readTextFile: async () => "\n\n# Internal Code Just Fix\n\nFix it.\n\n",
-			},
-		);
-
-		expect(expanded?.body).toBe("# Internal Code Just Fix\n\nFix it.");
-	});
-
-	test("strips CRLF frontmatter", async () => {
-		const expanded = await expandSkillBlock(
-			host([
-				skillCommand(
-					"objective-next",
-					"C:/skills/objective-next/SKILL.md",
-					"C:/skills/objective-next",
-				),
-			]),
-			"objective-next",
-			{
-				readTextFile: async () => "---\r\nname: objective-next\r\n---\r\n# Objective Next\r\n",
-			},
-		);
-
-		expect(expanded?.body).toBe("# Objective Next");
-		expect(expanded?.body).not.toContain("name: objective-next");
-	});
-
-	test("rejects exact opening frontmatter without an exact closing fence", async () => {
-		await expect(
-			expandSkillBlock(
-				host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]),
-				"objective-next",
-				{
-					readTextFile: async () => "---\nname: objective-next\n# Objective Next\n",
-				},
-			),
-		).rejects.toThrow('Skill Markdown frontmatter is missing a closing "---" fence.');
-	});
-
-	test("treats near opening fences as body text", async () => {
-		const expanded = await expandSkillBlock(
-			host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]),
-			"objective-next",
-			{
-				readTextFile: async () => "--- \nname: objective-next\n---\n# Objective Next\n",
-			},
-		);
-
-		expect(expanded?.body).toBe("--- \nname: objective-next\n---\n# Objective Next");
-	});
-
-	test("does not strip prose fences after the first line", async () => {
-		const expanded = await expandSkillBlock(
-			host([skillCommand("objective-next", "/skills/objective-next/SKILL.md")]),
-			"objective-next",
-			{
-				readTextFile: async () => "# Objective Next\n\n---\nnot frontmatter\n---\n",
-			},
-		);
-
-		expect(expanded?.body).toBe("# Objective Next\n\n---\nnot frontmatter\n---");
-	});
-});
 
 describe("repo skill expansion", () => {
 	test("walks up from cwd and expands flat .agents/skills/<name>/SKILL.md", async () => {
@@ -452,7 +242,6 @@ describe("expandSkillBlockFromPath", () => {
 
 		expect(expanded).toEqual({
 			name: "objective-create",
-			commandName: "direct:objective-create",
 			path: "/repo/skills/objective-create/SKILL.md",
 			baseDir: "/repo/skills/objective-create",
 			body: "# Objective Create",
@@ -474,114 +263,6 @@ References are relative to /repo/skills/objective-create.
 				},
 			}),
 		).rejects.toThrow("cannot read direct skill");
-	});
-});
-
-describe("invokeSkillPromptTurn", () => {
-	test("waits, expands the skill, notifies, and sends the built prompt", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "objective-create",
-				markdown: "---\nname: objective-create\n---\n\n# Objective Create\n",
-				prefix: "skill-prompt-turn-",
-			},
-			async ({ skillDir, skillPath }) => {
-				const testHost = promptTurnHost([skillCommand("objective-create", skillPath, skillDir)]);
-				const context = promptTurnContext();
-
-				await invokeSkillPromptTurn({
-					host: testHost,
-					ctx: context.ctx,
-					skillName: "objective-create",
-					successMessage: (skill) => `Starting ${skill.name}`,
-					buildPrompt: (skillBlock) => `prompt:\n${skillBlock}`,
-				});
-
-				expect(context.waits()).toBe(1);
-				expect(context.notifications).toEqual([
-					{ message: "Starting objective-create", level: "info" },
-				]);
-				expect(testHost.sentUserMessages).toHaveLength(1);
-				expect(testHost.sentUserMessages[0]).toContain(
-					`<skill name="objective-create" location="${skillPath}">`,
-				);
-				expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
-			},
-		);
-	});
-
-	test("fails closed without sending a prompt when the required skill is not loaded", async () => {
-		const testHost = promptTurnHost([]);
-		const context = promptTurnContext();
-
-		const invocation = invokeSkillPromptTurn({
-			host: testHost,
-			ctx: context.ctx,
-			skillName: "objective-create",
-			successMessage: "unused",
-			buildPrompt: (skillBlock) => skillBlock,
-		});
-
-		await expect(invocation).rejects.toThrow(
-			'Could not load required skill "objective-create": Pi did not advertise the loaded skill:objective-create command.',
-		);
-		expect(context.waits()).toBe(1);
-		expect(context.notifications).toEqual([]);
-		expect(testHost.sentUserMessages).toEqual([]);
-	});
-
-	test("wraps unreadable loaded skills with context and preserves the original cause", async () => {
-		const testHost = promptTurnHost([
-			skillCommand("objective-create", "/missing/objective-create/SKILL.md"),
-		]);
-		const context = promptTurnContext();
-
-		let thrown: unknown;
-		try {
-			await invokeSkillPromptTurn({
-				host: testHost,
-				ctx: context.ctx,
-				skillName: "objective-create",
-				successMessage: "unused",
-				buildPrompt: (skillBlock) => skillBlock,
-			});
-		} catch (error) {
-			thrown = error;
-		}
-
-		expect(thrown).toBeInstanceOf(Error);
-		if (!(thrown instanceof Error)) throw new Error("Expected invocation to throw an Error.");
-		expect(thrown.message).toContain('Could not load required skill "objective-create"');
-		expect(thrown.message).toContain("ENOENT");
-		expect(thrown.cause).toBeInstanceOf(Error);
-		expect(testHost.sentUserMessages).toEqual([]);
-	});
-
-	test("does not send a prompt when a loaded skill is malformed", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "objective-create",
-				markdown: "---\nname: objective-create\n# Missing fence\n",
-				prefix: "malformed-skill-prompt-turn-",
-			},
-			async ({ skillDir, skillPath }) => {
-				const testHost = promptTurnHost([skillCommand("objective-create", skillPath, skillDir)]);
-				const context = promptTurnContext();
-
-				await expect(
-					invokeSkillPromptTurn({
-						host: testHost,
-						ctx: context.ctx,
-						skillName: "objective-create",
-						successMessage: "unused",
-						buildPrompt: (skillBlock) => skillBlock,
-					}),
-				).rejects.toThrow(
-					'Could not load required skill "objective-create": Skill Markdown frontmatter is missing a closing "---" fence.',
-				);
-				expect(testHost.sentUserMessages).toEqual([]);
-			},
-		);
 	});
 });
 
@@ -640,7 +321,6 @@ describe("required repo skill loading", () => {
 
 				expect(expanded).toMatchObject({
 					name: "objective-create",
-					commandName: "direct:objective-create",
 					path: skillPath,
 					body: "# Objective Create",
 				});
@@ -741,9 +421,7 @@ describe("required repo skill loading", () => {
 describe("invokeRepoSkillPromptTurn", () => {
 	test("fails on repo-local absence without sending a prompt", async () => {
 		await withTempGitRepo({ prefix: "missing-repo-prompt-skill-" }, async ({ repoDir }) => {
-			const testHost = promptTurnHost([
-				skillCommand("objective-create", "/loaded/objective-create/SKILL.md"),
-			]);
+			const testHost = promptTurnHost();
 			const context = promptTurnContext();
 
 			await expect(
@@ -770,7 +448,7 @@ describe("invokeRepoSkillPromptTurn", () => {
 				prefix: "required-repo-prompt-skill-",
 			},
 			async ({ repoDir }) => {
-				const testHost = promptTurnHost([]);
+				const testHost = promptTurnHost();
 				const context = promptTurnContext();
 
 				await invokeRepoSkillPromptTurn({
@@ -789,5 +467,104 @@ describe("invokeRepoSkillPromptTurn", () => {
 				expect(testHost.sentUserMessages[0]).toContain("# Objective Create");
 			},
 		);
+	});
+});
+
+describe("captureRequiredEffectiveSkill", () => {
+	test("captures exact immutable metadata and defers reading until load", async () => {
+		const reads: string[] = [];
+		const skills = [
+			{ name: "objective", filePath: "/user/objective/SKILL.md", baseDir: "/exact/base" },
+		];
+		const required = captureRequiredEffectiveSkill(
+			{ getSystemPromptOptions: () => ({ skills }) },
+			"objective",
+			{
+				readTextFile: async (path) => {
+					reads.push(path);
+					return "---\nname: objective\n---\nBody";
+				},
+			},
+		);
+		skills[0] = { name: "objective", filePath: "/changed/SKILL.md", baseDir: "/changed" };
+		expect(reads).toEqual([]);
+		expect(required).toMatchObject({
+			filePath: "/user/objective/SKILL.md",
+			baseDir: "/exact/base",
+		});
+		expect(Object.isFrozen(required)).toBe(true);
+		const expanded = await required.load();
+		expect(reads).toEqual(["/user/objective/SKILL.md"]);
+		expect(expanded.block).toContain('location="/user/objective/SKILL.md"');
+		expect(expanded.block).toContain("References are relative to /exact/base.");
+	});
+
+	test.each([
+		{
+			name: "unreadable content",
+			readTextFile: async (): Promise<string> => {
+				throw new Error("cannot read effective skill");
+			},
+			expectedCause: "cannot read effective skill",
+		},
+		{
+			name: "malformed frontmatter",
+			readTextFile: async (): Promise<string> => "---\nname: objective\n# Missing fence\n",
+			expectedCause: 'Skill Markdown frontmatter is missing a closing "---" fence.',
+		},
+	])(
+		"fails closed for $name without delivering a prompt",
+		async ({ readTextFile, expectedCause }) => {
+			const testHost = promptTurnHost();
+			const context = promptTurnContext();
+			const thrown = await captureError(() =>
+				invokeEffectiveSkillPromptTurn({
+					host: testHost,
+					ctx: {
+						...context.ctx,
+						getSystemPromptOptions: () => ({
+							skills: [
+								{
+									name: "objective",
+									filePath: "/effective/objective/SKILL.md",
+									baseDir: "/effective/objective",
+								},
+							],
+						}),
+					},
+					skillName: "objective",
+					successMessage: "unused",
+					buildPrompt: (skillBlock) => skillBlock,
+					readTextFile,
+				}),
+			);
+
+			expect(thrown.message).toBe(`Could not load required skill "objective": ${expectedCause}`);
+			expect(thrown.cause).toEqual(new Error(expectedCause));
+			expect(context.waits()).toBe(1);
+			expect(context.notifications).toEqual([]);
+			expect(testHost.sentUserMessages).toEqual([]);
+		},
+	);
+
+	test.each([
+		undefined,
+		[],
+		[
+			{ name: "objective", filePath: "/one", baseDir: "/one" },
+			{ name: "objective", filePath: "/two", baseDir: "/two" },
+		],
+	])("rejects missing or duplicate exact matches with a cause", (skills) => {
+		try {
+			captureRequiredEffectiveSkill(
+				{ getSystemPromptOptions: () => (skills === undefined ? {} : { skills }) },
+				"objective",
+			);
+			throw new Error("expected capture to fail");
+		} catch (error) {
+			expect(error).toBeInstanceOf(Error);
+			expect((error as Error).message).toContain('Could not load required skill "objective"');
+			expect((error as Error).cause).toBeInstanceOf(Error);
+		}
 	});
 });

@@ -179,6 +179,7 @@ function adaptCommandContext(ctx: CommandContext) {
 		sessionManager: ctx.sessionManager,
 		ui: ctx.ui,
 		modelRegistry: ctx.modelRegistry ?? { find: () => undefined },
+		getSystemPromptOptions: () => ctx.getSystemPromptOptions(),
 		waitForIdle: () => ctx.waitForIdle(),
 	};
 }

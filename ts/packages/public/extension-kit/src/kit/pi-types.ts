@@ -105,9 +105,20 @@ export interface BaseContext {
 	sessionManager: PiSessionReader;
 }
 
+export interface EffectiveSkillInfo {
+	name: string;
+	filePath: string;
+	baseDir: string;
+}
+
+export interface SystemPromptOptions {
+	skills?: readonly EffectiveSkillInfo[];
+}
+
 export interface CommandContext extends BaseContext {
 	model?: ModelInfo;
 	modelRegistry: ModelRegistry;
+	getSystemPromptOptions(): SystemPromptOptions;
 	waitForIdle(): Promise<void>;
 }
 

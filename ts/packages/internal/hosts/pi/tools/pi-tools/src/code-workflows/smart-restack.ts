@@ -23,8 +23,8 @@ import {
 	type RawPiExecApi,
 } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
-	requireRepoSkillBlockFromPath,
-	requireRepoSkillPath,
+	captureRequiredEffectiveSkill,
+	type RequiredEffectiveSkill,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 
 import {
@@ -72,20 +72,14 @@ export interface SmartRestackExtensionAPI extends RawPiExecApi {
 	sendUserMessage?(content: string): Promise<void> | void;
 }
 
-export type ResolveRestackSkillPath = (options: {
-	cwd: string;
-	skillName: string;
-}) => Promise<string>;
-
-export type LoadRestackSkillBlock = (options: {
-	skillName: string;
-	skillPath: string;
-}) => Promise<{ block: string }>;
+export type CaptureRestackSkill = (
+	ctx: CommandContext,
+	skillName: string,
+) => RequiredEffectiveSkill;
 
 export interface SmartRestackExtensionOptions {
 	runPreflight?: RunSmartRestackPreflight;
-	resolveSkillPath?: ResolveRestackSkillPath;
-	loadSkillBlock?: LoadRestackSkillBlock;
+	captureSkill?: CaptureRestackSkill;
 }
 
 type ResolverPromptContext = { type: "interrupted-restack" } | { type: "failed-fast-path" };
@@ -95,8 +89,7 @@ interface RunSmartRestackOptions {
 	ctx: CommandContext;
 	args: string;
 	runPreflight: RunSmartRestackPreflight;
-	resolveSkillPath: ResolveRestackSkillPath;
-	loadSkillBlock: LoadRestackSkillBlock;
+	captureSkill: CaptureRestackSkill;
 }
 
 interface HandleRestackFailureOptions {
@@ -104,8 +97,7 @@ interface HandleRestackFailureOptions {
 	ctx: CommandContext;
 	args: string;
 	restack: ExecResult;
-	skillPath: string;
-	loadSkillBlock: LoadRestackSkillBlock;
+	requiredSkill: RequiredEffectiveSkill;
 }
 
 interface InvokeLmResolverOptions {
@@ -113,8 +105,7 @@ interface InvokeLmResolverOptions {
 	ctx: CommandContext;
 	args: string;
 	promptContext: ResolverPromptContext;
-	skillPath: string;
-	loadSkillBlock: LoadRestackSkillBlock;
+	requiredSkill: RequiredEffectiveSkill;
 }
 
 export default function smartRestackExtension(
@@ -123,8 +114,7 @@ export default function smartRestackExtension(
 ): void {
 	const commands = createPiCommandExecApi(pi);
 	const runPreflight = options.runPreflight ?? createCommandRestackPreflight({ commands });
-	const resolveSkillPath = options.resolveSkillPath ?? requireRepoSkillPath;
-	const loadSkillBlock = options.loadSkillBlock ?? requireRepoSkillBlockFromPath;
+	const captureSkill = options.captureSkill ?? captureRequiredEffectiveSkill;
 
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -140,8 +130,7 @@ export default function smartRestackExtension(
 					ctx,
 					args,
 					runPreflight,
-					resolveSkillPath,
-					loadSkillBlock,
+					captureSkill,
 				});
 			},
 		},
@@ -150,13 +139,10 @@ export default function smartRestackExtension(
 }
 
 export async function runSmartRestack(options: RunSmartRestackOptions): Promise<void> {
-	const { pi, ctx, args, runPreflight, resolveSkillPath, loadSkillBlock } = options;
-	let skillPath: string;
+	const { pi, ctx, args, runPreflight, captureSkill } = options;
+	let requiredSkill: RequiredEffectiveSkill;
 	try {
-		skillPath = await resolveSkillPath({
-			cwd: ctx.cwd,
-			skillName: RESTACK_RESOLVE_SKILL_NAME,
-		});
+		requiredSkill = captureSkill(ctx, RESTACK_RESOLVE_SKILL_NAME);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		notifyCommandUi(ctx, message, "error");
@@ -181,8 +167,7 @@ export async function runSmartRestack(options: RunSmartRestackOptions): Promise<
 			ctx,
 			args,
 			promptContext: { type: "interrupted-restack" },
-			skillPath,
-			loadSkillBlock,
+			requiredSkill,
 		});
 		return;
 	}
@@ -202,11 +187,11 @@ export async function runSmartRestack(options: RunSmartRestackOptions): Promise<
 		return;
 	}
 
-	await handleRestackFailure({ pi, ctx, args, restack, skillPath, loadSkillBlock });
+	await handleRestackFailure({ pi, ctx, args, restack, requiredSkill });
 }
 
 async function handleRestackFailure(options: HandleRestackFailureOptions): Promise<void> {
-	const { pi, ctx, args, restack, skillPath, loadSkillBlock } = options;
+	const { pi, ctx, args, restack, requiredSkill } = options;
 	const failureMessage = formatRestackFailureMessage(restack);
 	if (ctx.hasUI === false || ctx.ui.select === undefined) {
 		notifyCommandUi(
@@ -229,8 +214,7 @@ async function handleRestackFailure(options: HandleRestackFailureOptions): Promi
 				ctx,
 				args,
 				promptContext: { type: "failed-fast-path" },
-				skillPath,
-				loadSkillBlock,
+				requiredSkill,
 			});
 			return;
 		case LEAVE_STOPPED_OPTION:
@@ -276,7 +260,7 @@ function formatFailureHeadline(command: string, result: ExecResult): string {
 }
 
 async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void> {
-	const { pi, ctx, args, promptContext, skillPath, loadSkillBlock } = options;
+	const { pi, ctx, args, promptContext, requiredSkill } = options;
 	if (pi.sendUserMessage === undefined) {
 		notifyCommandUi(
 			ctx,
@@ -288,12 +272,7 @@ async function invokeLmResolver(options: InvokeLmResolverOptions): Promise<void>
 
 	let skillBlock: string;
 	try {
-		skillBlock = (
-			await loadSkillBlock({
-				skillName: RESTACK_RESOLVE_SKILL_NAME,
-				skillPath,
-			})
-		).block;
+		skillBlock = (await requiredSkill.load()).block;
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		notifyCommandUi(ctx, message, "error");
