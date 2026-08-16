@@ -48,7 +48,7 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 	{ skillName: "code-just-fix", surface: "code:just-fix", kind: "specialized-command" },
 	{
 		skillName: "code-just-the-stack",
-		surface: "code:just-the-stack",
+		surface: "gt:stack:just",
 		kind: "generic-backing-skill",
 	},
 	{
@@ -56,7 +56,11 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 		surface: "code:resolve-merge-conflicts",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "code-thermostack", surface: "code:thermostack", kind: "generic-backing-skill" },
+	{
+		skillName: "code-thermostack",
+		surface: "gt:stack:thermostack",
+		kind: "generic-backing-skill",
+	},
 	{ skillName: "code-workflows", surface: "code:workflows", kind: "generic-backing-skill" },
 	{
 		skillName: "context-bundle-analysis",

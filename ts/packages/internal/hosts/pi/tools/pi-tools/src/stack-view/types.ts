@@ -1,5 +1,5 @@
 /**
- * Domain model for the `/stack:view` panel plus the pure merge-readiness
+ * Domain model for the `/gt:stack:view` panel plus the pure merge-readiness
  * derivation. This module is intentionally dependency-light: it holds only
  * plain-data shapes and pure transformations so downstream data/render modules
  * can depend on it without pulling in exec or GraphQL concerns.

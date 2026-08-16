@@ -43,7 +43,7 @@ For multiple addressed thread IDs, default to `close-review-threads` rather than
 
 ## Safety policy
 
-Agents should use `/pr:download-feedback` or `/pr:download-stack-feedback` to view downloaded Markdown reports. Download is non-mutating. It triggers the read-only disposition planning defined in `SKILL.md`, but neither planning nor download starts an addressing run or authorizes edits or GitHub mutation.
+Agents should use `/pr:download-feedback` or `/gt:stack:download-feedback` to view downloaded Markdown reports. Download is non-mutating. It triggers the read-only disposition planning defined in `SKILL.md`, but neither planning nor download starts an addressing run or authorizes edits or GitHub mutation.
 
 After the human approves the addressing plan, current repo state has been inspected, fixes are implemented or verified, and appropriate validation has passed, default to using the mutation primitives above for review-thread replies/resolutions rather than raw `gh api graphql`. Do not ask for a second confirmation before closing addressed threads unless the feedback is ambiguous, broad, or outside the approved scope.
 

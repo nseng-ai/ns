@@ -9,7 +9,7 @@ The old addressing workflow engine — payload sessions, classification, plannin
 The retained foundation is:
 
 - `ns address exec download-feedback [--pr-number <number>] --format json` for a Markdown feedback report.
-- `ns address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/pr:download-stack-feedback`.
+- `ns address exec map-branch-prs --format json` as minimal branch-to-PR lookup plumbing for `/gt:stack:download-feedback`.
 - `ns address exec branch-pr-checks --branches-json '{"branches":[...]}' --format json` as one-invocation branch-to-PR triage: it returns complete normalized checks and review-thread counts, follows required GitHub continuation pages, and adds `pr_status`, `head_commit_committed_at`, per-check `freshness`, and `is_trailing`. Status precedence is draft, fresh/unknown check failure, unresolved threads, then ready; pending checks may coexist with ready. Freshness uses the verified head commit's `committedDate`, not observed push time, so re-pushing the same SHA is not detectable.
 - Read primitives: `pr-details`, `branch-pr`, `open-prs`, `pr-reviews`, `pr-review-threads`, `pr-discussion-comments`, and `pr-checks`.
 - Mutation primitives: `reply-review-thread`, `resolve-review-thread`, and `close-review-threads`.

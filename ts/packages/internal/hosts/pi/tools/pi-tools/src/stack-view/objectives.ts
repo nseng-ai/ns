@@ -1,5 +1,5 @@
 /**
- * Per-PR objective attribution for the `/stack:view` panel: which durable
+ * Per-PR objective attribution for the `/gt:stack:view` panel: which durable
  * Objectives a branch touches relative to its parent. We diff the branch against
  * its parent restricted to `.ns/objectives` and map the changed paths to slugs.
  *

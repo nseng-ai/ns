@@ -1,5 +1,5 @@
 /**
- * Interactive bordered overlay for the `/stack:view` panel: a master/detail modal
+ * Interactive bordered overlay for the `/gt:stack:view` panel: a master/detail modal
  * with a header rollup, a scrolling list of stack rows, and a scrollable detail
  * pane for the selection.
  *

@@ -1,5 +1,5 @@
 /**
- * Data-assembly tests for `loadStackView` (the `/stack:view` orchestration layer).
+ * Data-assembly tests for `loadStackView` (the `/gt:stack:view` orchestration layer).
  *
  * Seams (verified against source):
  * - `execApi` drives the LBYL `git branch --show-current` check, the stack

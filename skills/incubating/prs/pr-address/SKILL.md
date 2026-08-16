@@ -12,7 +12,7 @@ Address is the repo-owned PR feedback surface: feedback report download plus sha
 Prefer the Pi commands when available:
 
 - `/pr:download-feedback [pr-number]` — download one PR's feedback into the current session.
-- `/pr:download-stack-feedback` — download feedback for the current Graphite stack.
+- `/gt:stack:download-feedback` — download feedback for the current Graphite stack.
 
 Manual CLI fallback:
 
