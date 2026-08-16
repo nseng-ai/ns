@@ -5,6 +5,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 ## Where to Put Documentation
 
 - `CONTEXT.md`: durable domain language and repo-wide conceptual grounding.
+- `DEVELOPING.md`: setup instructions for contributors and maintainers.
 - `docs/`: cross-package design docs, system behavior, and contributor-facing documentation topology.
 - `ts/packages/<pkg>/README.md`: package-specific usage, public CLI notes, and package-local entrypoints.
 - `skills/<disposition>/<family>/<name>/SKILL.md`: canonical first-party agent procedure (with `skills/incubating/<name>/` for approved top-level product exceptions). Public skills should describe CLI operations and avoid implementation internals; harnesses discover them through the flat `.agents/skills/<name>` overlay.
@@ -15,6 +16,7 @@ Start here before broad documentation searches. This directory collects cross-pa
 
 ## Index
 
+- [Development setup](../DEVELOPING.md): setup instructions for contributors and maintainers, including the Pi self-hosting profile.
 - [ADR maintenance policy](adr/README.md): how to preserve accepted ADRs while keeping mutable guidance current.
 - [Points guide](guides/points.md): user-facing guide to the point system — installing hooks and prompts via `ns.toml`/`.ns/prompts/`, and defining points in extension descriptors.
 - [Writing an ns extension](../ts/packages/public/sdk/docs/writing-an-ns-extension.md): extension-author package layout, typed descriptor modules, command modules, points, activation, and initialized-project installation from explicit `npm:` or local source specs with `ns extension install`.

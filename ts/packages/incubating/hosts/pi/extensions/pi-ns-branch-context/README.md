@@ -4,4 +4,4 @@ Pi host adapter for the [`@nseng-ai/branch-context`](../../../../extensions/bran
 
 This incubating package preserves the `/ns:branch-context:*` and `/ns:plan:*` Pi commands while keeping Pi registration, prompt/status presentation, plan-save tooling, Grill activation, and session replacement out of the harness-independent Branch Context package. It consumes portable behavior through `@nseng-ai/branch-context/api` and `@nseng-ai/plans/api`, and uses neutral `@nseng-ai/pi-runtime/...` host contracts.
 
-The package declares its own `pi.extensions` entrypoint and is loaded directly from `.pi/settings.json`; no project-local `.pi` discovery adapter is required.
+The package declares its own `pi.extensions` entrypoint and is loaded directly from `.pi/settings.json`, so each ns worktree runs its own package code. The optional ns Slot development profile omits any global copy of this package to prevent duplicate tool registration. No project-local `.pi` discovery adapter is required.
