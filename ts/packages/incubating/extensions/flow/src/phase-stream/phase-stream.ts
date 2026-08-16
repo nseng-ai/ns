@@ -74,6 +74,7 @@ export interface CreatePhaseStreamOptions {
 
 export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
 	const isForwarding = options.forward?.isLive === true;
+	const ownsStreamPresentation = !isForwarding;
 	const sink = createStreamSink(options.caps, options.deps);
 	const phases = createPhaseStateStore(options.specs);
 	const tail = createTranscriptTail();
@@ -94,6 +95,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 			});
 		}
 		renderer.setTitle(title);
+		if (!ownsStreamPresentation) return;
 		lifecycle.startLiveRegion();
 		renderer.render();
 		lifecycle.startPump();
@@ -102,7 +104,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	function setTitle(title: string): void {
 		if (isForwarding) options.forward?.phase({ type: "title-changed", title });
 		renderer.setTitle(title);
-		renderer.render();
+		if (ownsStreamPresentation) renderer.render();
 	}
 
 	function emit(event: NsProgressPhaseEvent): void {
@@ -112,24 +114,24 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 			case "ignored":
 				return;
 			case "surface":
-				if (!isForwarding || options.caps.isTty) renderer.surface(transition.line);
+				if (ownsStreamPresentation) renderer.surface(transition.line);
 				return;
 			case "render":
 				if (transition.clearTranscript) tail.clear();
-				renderer.render();
+				if (ownsStreamPresentation) renderer.render();
 				return;
 		}
 	}
 
 	function note(text: string): void {
-		if (!options.caps.isTty) return;
+		if (!ownsStreamPresentation || !options.caps.isTty) return;
 		tail.note(text);
 		renderer.render();
 	}
 
 	function fail(): void {
 		phases.failActive();
-		renderer.render();
+		if (ownsStreamPresentation) renderer.render();
 	}
 
 	async function stop(): Promise<void> {
@@ -137,7 +139,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	}
 
 	async function finish(finalLines: readonly string[] = []): Promise<void> {
-		await lifecycle.drainPump();
+		if (ownsStreamPresentation) await lifecycle.drainPump();
 		// On overall success, settle every still-open phase; a failure leaves its red row standing.
 		phases.settleOpenPhases();
 		// A live structured consumer owns progress presentation. Flow settles its internal state and

@@ -297,17 +297,19 @@ describe("forwarded progress", () => {
 		expect(writes).toEqual([]);
 	});
 
-	test("live forward preserves tty surface rendering", async () => {
+	test("live forward suppresses tty surface rendering defensively", async () => {
 		const c = caps();
-		const { deps, redraws } = harness();
+		const { deps, redraws, writes } = harness();
 		const progress = recordingProgress();
-		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps, forward: progress.sink });
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps, forward: progress.sink });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
-
-		expect(redraws[redraws.length - 1]).toContain("alpha working…");
 		await stream.finish();
+
+		expect(progress.events.some((event) => event.type === "phase-started")).toBe(true);
+		expect(redraws).toEqual([]);
+		expect(writes).toEqual([]);
 	});
 
 	test("inactive forward keeps non-tty transient output unchanged", async () => {
