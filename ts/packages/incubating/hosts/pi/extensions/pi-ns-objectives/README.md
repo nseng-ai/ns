@@ -25,10 +25,11 @@ the Objectives extension and the repository's canonical Objective-system context
 
 ## Current status
 
-The package is implemented on the current feature branch but has not landed or been
-published. Its `pi.extensions` manifest makes the package itself the Pi entry point; this
-repository loads the local workspace package directly from `.pi/settings.json`, without a
-`.pi/extensions/objective.ts` discovery adapter.
+The package is not published. Its `pi.extensions` manifest makes the package itself the Pi
+entry point, and this repository loads the active worktree package directly from
+`.pi/settings.json`. The optional ns Slot development profile omits any global copy of this
+package to prevent duplicate registration. No `.pi/extensions/objective.ts` discovery
+adapter is required.
 
 `/ns:objective:autorun` is a thin Objective picker and skill injector. The injected
 `objective-autorun` skill owns both portable and ns-bookended orchestration; the former
