@@ -128,6 +128,37 @@ async function flush(times: number): Promise<void> {
 }
 
 describe("resolveFlowStreamCaps", () => {
+	test("live structured progress overrides inherited physical TTY caps", () => {
+		const progress = recordingProgress();
+		const renderCapabilities = { canEmitAnsi: false, caps: caps() };
+		const resolved = resolveFlowStreamCaps(
+			ctx({
+				progress: progress.sink,
+				renderCapabilities,
+			}),
+		);
+
+		expect(resolved).toEqual({
+			isTty: false,
+			colorDepth: "none",
+			columns: DEFAULT_COLUMNS,
+			canRenderUnicode: expect.any(Boolean),
+		});
+	});
+
+	test("standalone execution preserves genuine TTY caps", () => {
+		const terminalCaps = caps();
+		const renderCapabilities = { canEmitAnsi: true, caps: terminalCaps };
+		expect(
+			resolveFlowStreamCaps(
+				ctx({
+					progress: noopNsProgress,
+					renderCapabilities,
+				}),
+			),
+		).toEqual(terminalCaps);
+	});
+
 	test("callback sinks resolve to settled non-interactive caps", () => {
 		vi.stubEnv("FORCE_COLOR", "3");
 		const resolved = resolveFlowStreamCaps(
@@ -249,7 +280,7 @@ describe("forwarded progress", () => {
 		});
 	});
 
-	test("live forward suppresses non-tty transient surfaces but leaves settled output unchanged", async () => {
+	test("live forward emits events only and suppresses non-tty stream output through completion", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, redraws, outputs } = harness();
 		const progress = recordingProgress();
@@ -263,12 +294,7 @@ describe("forwarded progress", () => {
 
 		expect(outputs).toEqual([]);
 		expect(redraws).toHaveLength(0);
-		expect(writes).toHaveLength(1);
-		const settled = writes[0] ?? "";
-		expectNoCursorEscapes(settled);
-		expect(settled).toContain("alpha done");
-		expect(settled).toContain("beta done");
-		expect(settled).toContain("gamma done");
+		expect(writes).toEqual([]);
 	});
 
 	test("live forward preserves tty surface rendering", async () => {

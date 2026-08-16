@@ -46,25 +46,30 @@ describe("submit progress resolution", () => {
 		expect(stripAnsi(capture.redraws.at(-1) ?? "")).toContain("raw transcript");
 	});
 
-	test("live-only sends raw output and structured events to their live channels", () => {
+	test("live-only uses event presentation without terminal or settled writes", async () => {
 		const recording = recordingProgress();
+		const capture = streamCapture();
 		const raw: string[] = [];
 		const resolved = resolveSubmitProgress({
 			caps: caps(),
-			deps: streamCapture().deps,
+			deps: capture.deps,
 			liveProgress: recording.progress,
 			liveOutput: (_stream, text) => raw.push(text),
 			hasChecks: false,
 		});
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
 		resolved.onOutput?.("stdout", "raw transcript");
+		await resolved.matrix.finish();
 
-		expect(recording.events.map((event) => event.type)).toEqual([
+		expect(recording.events.slice(0, 3).map((event) => event.type)).toEqual([
 			"phases-declared",
 			"matrix-declared",
 			"phase-started",
 		]);
+		expect(recording.events.slice(3).every((event) => event.type === "phase-done")).toBe(true);
 		expect(raw).toEqual(["raw transcript"]);
+		expect(capture.redraws).toEqual([]);
+		expect(capture.writes).toEqual([]);
 	});
 
 	test("combined TTY and live fans out structure once without forwarding raw output", () => {
