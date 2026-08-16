@@ -8,6 +8,7 @@ import objectiveExtension, {
 	type ObjectiveExtensionAPI,
 	type NotifyLevel,
 } from "../src/extension.ts";
+import type { EffectiveSkillInfo } from "@nseng-ai/pi-runtime/runtime/types";
 import { createTestSessionReader } from "./test-session-reader.ts";
 
 const ROOT = "/repo";
@@ -24,8 +25,6 @@ Create one Objective.
 
 type RegisteredCommand = Parameters<ObjectiveExtensionAPI["registerCommand"]>[1];
 
-type CommandInfo = ReturnType<ObjectiveExtensionAPI["getCommands"]>[number];
-
 interface Notification {
 	message: string;
 	level: NotifyLevel | undefined;
@@ -35,46 +34,17 @@ class FakePi implements ObjectiveExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly sentUserMessages: string[] = [];
 	readonly execCalls: Array<{ command: string; args: string[]; options: unknown }> = [];
-	private readonly commandInfos: CommandInfo[];
-
-	constructor(commandInfos: CommandInfo[] = []) {
-		this.commandInfos = commandInfos;
-	}
-
 	on(): { dispose(): void } {
 		return { dispose(): void {} };
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, {
-			...options,
-			handler: (args, ctx) => {
-				const context = ctx as CommandContext & {
-					getSystemPromptOptions(): {
-						skills: Array<{ name: string; filePath: string; baseDir: string }>;
-					};
-				};
-				context.getSystemPromptOptions = () => ({
-					skills: this.commandInfos
-						.filter((command) => command.source === "skill")
-						.map((command) => ({
-							name: command.name.replace(/^skill:/, ""),
-							filePath: command.sourceInfo.path,
-							baseDir: command.sourceInfo.baseDir ?? dirname(command.sourceInfo.path),
-						})),
-				});
-				return options.handler(args, context);
-			},
-		});
+		this.commands.set(name, options);
 	}
 
 	async exec(command: string, args: string[], options?: unknown): Promise<RawPiExecResult> {
 		this.execCalls.push({ command, args: [...args], options });
 		return { stdout: "", stderr: "", code: 0, killed: false };
-	}
-
-	getCommands(): readonly CommandInfo[] {
-		return this.commandInfos;
 	}
 
 	sendMessage(): void {}
@@ -84,7 +54,10 @@ class FakePi implements ObjectiveExtensionAPI {
 	}
 }
 
-function createContext(cwd = ROOT): {
+function createContext(
+	cwd = ROOT,
+	skills: readonly EffectiveSkillInfo[] = [],
+): {
 	ctx: CommandContext;
 	notifications: Notification[];
 	waitForIdleCalls: () => number;
@@ -98,6 +71,7 @@ function createContext(cwd = ROOT): {
 			find: () => undefined,
 		},
 		sessionManager: createTestSessionReader(),
+		getSystemPromptOptions: () => ({ skills }),
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
@@ -114,30 +88,26 @@ function createContext(cwd = ROOT): {
 	return { ctx, notifications, waitForIdleCalls: () => waits };
 }
 
-function skillCommandInfo(skillName: string, skillPath: string, baseDir: string): CommandInfo {
-	return {
-		name: `skill:${skillName}`,
-		source: "skill",
-		sourceInfo: { path: skillPath, baseDir },
-	};
+function effectiveSkill(skillName: string, skillPath: string, baseDir: string): EffectiveSkillInfo {
+	return { name: skillName, filePath: skillPath, baseDir };
 }
 
 interface RunObjectiveCreateOptions {
 	args: string;
-	commandInfos?: CommandInfo[];
+	skills?: readonly EffectiveSkillInfo[];
 	cwd?: string;
 }
 
 async function runObjectiveCreate({
 	args,
-	commandInfos = [],
+	skills = [],
 	cwd = ROOT,
 }: RunObjectiveCreateOptions): Promise<{
 	pi: FakePi;
 	notifications: Notification[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(commandInfos);
+	const pi = new FakePi();
 	objectiveExtension(pi);
 	const command = pi.commands.get("ns:objective:create");
 	expect(command).toBeDefined();
@@ -145,7 +115,7 @@ async function runObjectiveCreate({
 		throw new Error("ns:objective:create was not registered");
 	}
 
-	const context = createContext(cwd);
+	const context = createContext(cwd, skills);
 	await command.handler(args, context.ctx);
 	return { pi, ...context };
 }
@@ -172,7 +142,7 @@ describe("ns:objective:create command", () => {
 				const result = await runObjectiveCreate({
 					args: "  create slug alpha for typeahead-friendly Objective creation  ",
 					cwd: repoDir,
-					commandInfos: [skillCommandInfo("objective-create", skillPath, skillDir)],
+					skills: [effectiveSkill("objective-create", skillPath, skillDir)],
 				});
 
 				expect(result.waitForIdleCalls()).toBe(1);
@@ -210,7 +180,7 @@ describe("ns:objective:create command", () => {
 				const result = await runObjectiveCreate({
 					args: "",
 					cwd: repoDir,
-					commandInfos: [skillCommandInfo("objective-create", skillPath, dirname(skillPath))],
+					skills: [effectiveSkill("objective-create", skillPath, dirname(skillPath))],
 				});
 
 				expect(result.waitForIdleCalls()).toBe(1);
@@ -256,7 +226,7 @@ describe("ns:objective:create command", () => {
 				const result = await runObjectiveCreate({
 					args: "make `code` and ```nested``` safe",
 					cwd: repoDir,
-					commandInfos: [skillCommandInfo("objective-create", skillPath, skillDir)],
+					skills: [effectiveSkill("objective-create", skillPath, skillDir)],
 				});
 
 				expect(result.pi.sentUserMessages[0]).toContain(

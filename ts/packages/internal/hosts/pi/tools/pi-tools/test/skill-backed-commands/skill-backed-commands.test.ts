@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import type { EffectiveSkillInfo } from "@nseng-ai/pi-runtime/runtime/types";
 const BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME = "ns:branch-context:from-plan";
 const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 
@@ -48,11 +49,7 @@ class FakeSkillBackedCommandHost {
 	}
 }
 
-function commandContext(skill?: {
-	name: string;
-	filePath: string;
-	baseDir: string;
-}): SkillBackedCommandContext & {
+function commandContext(skill?: EffectiveSkillInfo): SkillBackedCommandContext & {
 	notifications: Array<{ message: string; level: string | undefined }>;
 } {
 	const notifications: Array<{ message: string; level: string | undefined }> = [];

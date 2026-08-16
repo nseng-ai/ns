@@ -1,4 +1,8 @@
-import type { EntryRenderer, PiSessionReader } from "@nseng-ai/extension-kit/pi-types";
+import type {
+	EntryRenderer,
+	PiSessionReader,
+	SystemPromptOptions,
+} from "@nseng-ai/extension-kit/pi-types";
 
 import type {
 	SessionReplacementContext,
@@ -23,11 +27,13 @@ export interface RawPiExecOptions {
 }
 export type {
 	CustomEntryLike,
+	EffectiveSkillInfo,
 	EntryRenderComponent,
 	EntryRenderer,
 	EntryRenderTheme,
 	PiSessionEntry,
 	PiSessionReader,
+	SystemPromptOptions,
 } from "@nseng-ai/extension-kit/pi-types";
 export type { ModelInfo, ThinkingLevel } from "./types.ts";
 export type {
@@ -51,16 +57,6 @@ export interface AutocompleteItem {
 	value: string;
 	label?: string;
 	description?: string;
-}
-
-export interface EffectiveSkillInfo {
-	name: string;
-	filePath: string;
-	baseDir: string;
-}
-
-export interface SystemPromptOptions {
-	skills?: readonly EffectiveSkillInfo[];
 }
 
 export interface CommandInfo {
@@ -132,7 +128,7 @@ export interface BaseRuntimeContext extends ToolContext {
 
 export interface CommandContext extends BaseRuntimeContext {
 	sessionManager: PiSessionReader;
-	getSystemPromptOptions?(): SystemPromptOptions;
+	getSystemPromptOptions(): SystemPromptOptions;
 	ui: BaseRuntimeContext["ui"] & {
 		select?(title: string, items: string[]): Promise<string | undefined>;
 		input?(title: string, placeholder?: string): Promise<string | undefined>;

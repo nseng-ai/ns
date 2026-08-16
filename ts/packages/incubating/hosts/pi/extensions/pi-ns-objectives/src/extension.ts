@@ -47,7 +47,6 @@ import {
 } from "@nseng-ai/pi-runtime/parity/extension";
 import {
 	captureRequiredEffectiveSkill,
-	type EffectiveSkillInventoryHost,
 	type RequiredEffectiveSkill,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import type {
@@ -81,11 +80,6 @@ export type ObjectiveExtensionAPI = Pick<
 	ExtensionAPI,
 	"registerCommand" | "exec" | "sendMessage"
 > & {
-	getCommands(): readonly {
-		name: string;
-		source: string;
-		sourceInfo: { path: string; baseDir?: string };
-	}[];
 	on(
 		event: "agent_end",
 		handler: (event: AgentEndEventLike, ctx: AgentEndContext) => Promise<void> | void,
@@ -204,22 +198,9 @@ async function prepareObjectiveSkill<TInvocation extends SkillPreparationInvocat
 	invocation: TInvocation,
 ): Promise<TInvocation & { requiredSkill: RequiredEffectiveSkill }> {
 	const { ctx, spec } = invocation;
-	const requiredSkill = captureObjectiveSkill(ctx, spec.skillName);
+	const requiredSkill = captureRequiredEffectiveSkill(ctx, spec.skillName);
 	await ctx.waitForIdle();
 	return { ...invocation, requiredSkill };
-}
-
-function captureObjectiveSkill(ctx: CommandContext, skillName: string): RequiredEffectiveSkill {
-	const getSystemPromptOptions = (
-		ctx as CommandContext & {
-			getSystemPromptOptions?: EffectiveSkillInventoryHost["getSystemPromptOptions"];
-		}
-	).getSystemPromptOptions;
-	const host: EffectiveSkillInventoryHost = {
-		getSystemPromptOptions:
-			getSystemPromptOptions === undefined ? () => ({}) : () => getSystemPromptOptions.call(ctx),
-	};
-	return captureRequiredEffectiveSkill(host, skillName);
 }
 
 async function invokeObjectiveSkill(

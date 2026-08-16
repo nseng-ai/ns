@@ -24,7 +24,6 @@ import {
 } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
 	captureRequiredEffectiveSkill,
-	type EffectiveSkillInventoryHost,
 	type RequiredEffectiveSkill,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 
@@ -109,22 +108,13 @@ interface InvokeLmResolverOptions {
 	requiredSkill: RequiredEffectiveSkill;
 }
 
-function captureRestackSkill(ctx: CommandContext, skillName: string): RequiredEffectiveSkill {
-	const getSystemPromptOptions = ctx.getSystemPromptOptions;
-	const host: EffectiveSkillInventoryHost = {
-		getSystemPromptOptions:
-			getSystemPromptOptions === undefined ? () => ({}) : () => getSystemPromptOptions.call(ctx),
-	};
-	return captureRequiredEffectiveSkill(host, skillName);
-}
-
 export default function smartRestackExtension(
 	pi: SmartRestackExtensionAPI,
 	options: SmartRestackExtensionOptions = {},
 ): void {
 	const commands = createPiCommandExecApi(pi);
 	const runPreflight = options.runPreflight ?? createCommandRestackPreflight({ commands });
-	const captureSkill = options.captureSkill ?? captureRestackSkill;
+	const captureSkill = options.captureSkill ?? captureRequiredEffectiveSkill;
 
 	registerCommandWithImmediateAck({
 		host: pi,

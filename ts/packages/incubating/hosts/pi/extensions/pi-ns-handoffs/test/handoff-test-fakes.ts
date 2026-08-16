@@ -23,6 +23,7 @@ import type {
 	ThinkingLevel,
 	TuiHandle,
 } from "../src/runtime-types.ts";
+import type { EffectiveSkillInfo } from "@nseng-ai/extension-kit/pi-types";
 
 export const ROOT = "/repo";
 const MODEL_ROOT = mkdtempSync(join(tmpdir(), "handoff-root-"));
@@ -34,12 +35,6 @@ export const BRANCH = "feature/handoff";
 
 export type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 export type RegisteredTool = Parameters<NonNullable<ExtensionAPI["registerTool"]>>[0];
-export interface EffectiveSkillInfo {
-	name: string;
-	filePath: string;
-	baseDir: string;
-}
-export type CommandInfo = EffectiveSkillInfo;
 export type CustomMessage = Parameters<NonNullable<ExtensionAPI["sendMessage"]>>[0];
 export type MessageRenderer = Parameters<NonNullable<ExtensionAPI["registerMessageRenderer"]>>[1];
 
@@ -96,13 +91,11 @@ export class FakePi implements ExtensionAPI {
 	readonly sendMessage?: (message: CustomMessage) => void;
 	readonly registerTool?: (tool: RegisteredTool) => void;
 	private readonly script: ScriptedQueue<ScriptedExec>;
-	private readonly commandInfos: CommandInfo[];
 	private readonly sharedToolNames: Set<string> | undefined;
 	private thinkingLevel: ThinkingLevel = "medium";
 
 	constructor(
 		script: ScriptedExec[] = [],
-		commandInfos: CommandInfo[] = [],
 		options: {
 			registerMessageRenderer?: boolean;
 			sendMessage?: boolean;
@@ -111,7 +104,6 @@ export class FakePi implements ExtensionAPI {
 		} = {},
 	) {
 		this.script = new ScriptedQueue(script, (step) => step);
-		this.commandInfos = [...commandInfos];
 		this.sharedToolNames = options.sharedToolNames;
 		if (options.registerMessageRenderer ?? true) {
 			this.registerMessageRenderer = (customType: string, renderer: MessageRenderer): void => {
@@ -145,13 +137,7 @@ export class FakePi implements ExtensionAPI {
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
-		this.commands.set(name, {
-			...options,
-			handler: (args, ctx) => {
-				ctx.getSystemPromptOptions = () => ({ skills: this.commandInfos });
-				return options.handler(args, ctx);
-			},
-		});
+		this.commands.set(name, options);
 	}
 
 	appendEntry(customType: string, data?: unknown): void {
@@ -477,7 +463,7 @@ interface RunExtensionCommandOptions {
 		isNewSessionCancelled?: boolean;
 		newSessionError?: Error;
 	};
-	commandInfos?: CommandInfo[];
+	skills?: EffectiveSkillInfo[];
 	piOptions?: { registerMessageRenderer?: boolean; sendMessage?: boolean; registerTool?: boolean };
 }
 
@@ -493,10 +479,13 @@ export async function runExtensionCommand(options: RunExtensionCommandOptions): 
 	replacementNotifications: Notification[];
 	waitForIdleCalls: () => number;
 }> {
-	const pi = new FakePi(options.script, options.commandInfos, options.piOptions);
+	const pi = new FakePi(options.script, options.piOptions);
 	options.register(pi);
 	const command = getRegisteredCommand(pi, options.commandName);
-	const context = createContext(options.contextOptions);
+	const context = createContext({
+		...options.contextOptions,
+		...(options.skills === undefined ? {} : { skills: options.skills }),
+	});
 	await command.handler(options.args, context.ctx);
 	return { pi, ...context };
 }
@@ -506,7 +495,7 @@ export async function runCommand(
 	args: string,
 	script: ScriptedExec[] = [],
 	contextOptions: RunExtensionCommandOptions["contextOptions"] = {},
-	commandInfos: CommandInfo[] = [],
+	skills: EffectiveSkillInfo[] = [],
 	piOptions: {
 		registerMessageRenderer?: boolean;
 		sendMessage?: boolean;
@@ -530,7 +519,7 @@ export async function runCommand(
 		args,
 		script,
 		contextOptions,
-		commandInfos,
+		skills,
 		piOptions,
 	});
 }
@@ -580,7 +569,7 @@ export function withHandoffCreateSkill<T>(
 	);
 }
 
-export function skillCommandInfo(skillPath: string, baseDir?: string): CommandInfo {
+export function effectiveSkill(skillPath: string, baseDir?: string): EffectiveSkillInfo {
 	return {
 		name: "handoff-create",
 		filePath: skillPath,

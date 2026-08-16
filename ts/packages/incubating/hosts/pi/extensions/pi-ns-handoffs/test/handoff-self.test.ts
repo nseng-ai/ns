@@ -500,7 +500,6 @@ function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 				async load() {
 					return {
 						name: "handoff-create",
-						commandName: "direct:handoff-create",
 						path: FAKE_SKILL_PATH,
 						baseDir: "/repo/.agents/skills/handoff-create",
 						body: "# handoff-create\n\nCreate a handoff from the skill body.",

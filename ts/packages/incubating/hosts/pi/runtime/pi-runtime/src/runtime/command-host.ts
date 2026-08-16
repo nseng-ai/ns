@@ -1,5 +1,5 @@
-import type { ModelInfo } from "../runtime/types.ts";
 import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { ModelInfo, SystemPromptOptions } from "../runtime/types.ts";
 import type { NotifyLevel, SetWidgetFunction } from "./tool-types.ts";
 
 export interface PiCommandContext {
@@ -12,6 +12,7 @@ export interface PiCommandContext {
 		setStatus?(key: string, value: string | undefined): void;
 		setWidget?: SetWidgetFunction;
 	};
+	getSystemPromptOptions(): SystemPromptOptions;
 	waitForIdle(): Promise<void>;
 }
 

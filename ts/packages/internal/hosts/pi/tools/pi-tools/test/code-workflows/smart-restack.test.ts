@@ -4,6 +4,7 @@ import { IMMEDIATE_COMMAND_ACK_MESSAGE_TYPE } from "@nseng-ai/pi-runtime/command
 import type {
 	CommandContext,
 	CustomMessage,
+	EffectiveSkillInfo,
 	MessageRenderer,
 	RawPiExecResult,
 } from "@nseng-ai/pi-runtime/runtime/extension-types";
@@ -31,11 +32,7 @@ interface SkillCaptureCall {
 	skillName: string;
 }
 
-interface SkillLoadCall {
-	name: string;
-	filePath: string;
-	baseDir: string;
-}
+type SkillLoadCall = EffectiveSkillInfo;
 
 type RegisteredCommand = Parameters<SmartRestackExtensionAPI["registerCommand"]>[1];
 
@@ -126,6 +123,10 @@ class FakeCommandContext implements CommandContext {
 		};
 	}
 
+	getSystemPromptOptions(): ReturnType<CommandContext["getSystemPromptOptions"]> {
+		return { skills: [] };
+	}
+
 	async waitForIdle(): Promise<void> {
 		this.events.push("wait-for-idle");
 	}
@@ -184,7 +185,6 @@ class RecordingSkillLoader {
 				this.events.push("load-skill");
 				return {
 					...SKILL_SOURCE,
-					commandName: `effective:${SKILL_SOURCE.name}`,
 					path: SKILL_SOURCE.filePath,
 					body: "body",
 					block: SKILL_BLOCK,
@@ -198,7 +198,6 @@ const captureSkill: CaptureRestackSkill = () => ({
 	...SKILL_SOURCE,
 	load: async () => ({
 		...SKILL_SOURCE,
-		commandName: `effective:${SKILL_SOURCE.name}`,
 		path: SKILL_SOURCE.filePath,
 		body: "body",
 		block: SKILL_BLOCK,

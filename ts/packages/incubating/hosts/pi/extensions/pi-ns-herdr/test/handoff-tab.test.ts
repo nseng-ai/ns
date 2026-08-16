@@ -604,7 +604,6 @@ function fakeHandoffCreateSkillLoader(): HandoffCreateSkillLoader {
 				async load() {
 					return {
 						name: "handoff-create",
-						commandName: "direct:handoff-create",
 						path: "/repo/skills/handoff-create/SKILL.md",
 						baseDir: "/repo/skills/handoff-create",
 						body: "# handoff-create",
@@ -635,6 +634,7 @@ function commandContext(
 			getSessionFile: () => undefined,
 			getSessionId: () => "test-session-id",
 		},
+		getSystemPromptOptions: () => ({ skills: [] }),
 		ui: {
 			notify(message: string, level?: string): void {
 				notifications?.push(`${level ?? "info"}: ${message}`);

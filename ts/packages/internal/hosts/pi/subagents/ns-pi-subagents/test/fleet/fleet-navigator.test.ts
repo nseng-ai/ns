@@ -101,6 +101,7 @@ function noUiCommandContext(notifications: string[]): CommandContext {
 			},
 			setStatus() {},
 		},
+		getSystemPromptOptions: () => ({ skills: [] }),
 		waitForIdle: async () => {},
 	} as CommandContext;
 }

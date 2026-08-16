@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import type { SystemPromptOptions } from "@nseng-ai/extension-kit/pi-types";
 import { splitMarkdownFrontmatter } from "@nseng-ai/foundation/markdown-frontmatter";
 import { buildFencedTextBlock, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { NotifyLevel } from "../../runtime/tool-types.ts";
@@ -11,29 +12,8 @@ import {
 	type SkillLookupIo,
 } from "./lookup.ts";
 
-export interface SkillCommandInfo {
-	name: string;
-	source: string;
-	sourceInfo: {
-		path: string;
-		baseDir?: string;
-	};
-}
-
-export interface SkillExpansionHost {
-	getCommands(): readonly SkillCommandInfo[];
-}
-
-export interface EffectiveSkillInfo {
-	name: string;
-	filePath: string;
-	baseDir: string;
-}
-
 export interface EffectiveSkillInventoryHost {
-	getSystemPromptOptions(): {
-		skills?: readonly EffectiveSkillInfo[];
-	};
+	getSystemPromptOptions(): SystemPromptOptions;
 }
 
 export interface RequiredEffectiveSkill {
@@ -45,7 +25,6 @@ export interface RequiredEffectiveSkill {
 
 export interface ExpandedSkillBlock {
 	name: string;
-	commandName: string;
 	path: string;
 	baseDir: string;
 	body: string;
@@ -71,11 +50,7 @@ export interface RepoSkillExpansionOptions extends SkillExpansionOptions, SkillL
 	skillName: string;
 }
 
-export interface EffectiveSkillPromptTurnHost {
-	sendUserMessage(content: string): Promise<void> | void;
-}
-
-export interface RepoSkillPromptTurnHost {
+export interface SkillPromptTurnHost {
 	sendUserMessage(content: string): Promise<void> | void;
 }
 
@@ -88,7 +63,7 @@ export interface SkillPromptTurnContext {
 }
 
 export interface InvokeEffectiveSkillPromptTurnOptions extends SkillExpansionOptions {
-	host: EffectiveSkillPromptTurnHost;
+	host: SkillPromptTurnHost;
 	ctx: SkillPromptTurnContext & EffectiveSkillInventoryHost;
 	skillName: string;
 	successMessage: string | ((skill: ExpandedSkillBlock) => string);
@@ -100,7 +75,7 @@ export interface RepoSkillPromptTurnContext extends SkillPromptTurnContext {
 }
 
 export interface InvokeRepoSkillPromptTurnOptions extends SkillLookupIo {
-	host: RepoSkillPromptTurnHost;
+	host: SkillPromptTurnHost;
 	ctx: RepoSkillPromptTurnContext;
 	skillName: string;
 	successMessage: string | ((skill: ExpandedSkillBlock) => string);
@@ -140,9 +115,11 @@ export function captureRequiredEffectiveSkill(
 	options: SkillExpansionOptions = {},
 ): RequiredEffectiveSkill {
 	try {
-		const matches = (host.getSystemPromptOptions().skills ?? []).filter(
-			(candidate) => candidate.name === skillName,
-		);
+		const skills = host.getSystemPromptOptions().skills;
+		if (skills === undefined) {
+			throw new Error("Pi did not include its effective skill inventory.");
+		}
+		const matches = skills.filter((candidate) => candidate.name === skillName);
 		if (matches.length === 0) {
 			throw new Error("Pi did not include the skill in its effective skill inventory.");
 		}
@@ -166,7 +143,6 @@ export function captureRequiredEffectiveSkill(
 					const body = stripSkillFrontmatter(await readTextFile(filePath));
 					return {
 						name,
-						commandName: `effective:${name}`,
 						path: filePath,
 						baseDir,
 						body,
@@ -180,57 +156,6 @@ export function captureRequiredEffectiveSkill(
 	} catch (error) {
 		throw requiredSkillError(skillName, error);
 	}
-}
-
-export async function expandSkillBlock(
-	host: SkillExpansionHost,
-	skillName: string,
-	options: SkillExpansionOptions = {},
-): Promise<ExpandedSkillBlock | undefined> {
-	const command = host
-		.getCommands()
-		.find((candidate) => candidate.source === "skill" && candidate.name === `skill:${skillName}`);
-	if (command === undefined) return undefined;
-	const skillPath = command.sourceInfo.path;
-	const baseDir = command.sourceInfo.baseDir ?? dirname(skillPath);
-	const readTextFile = options.readTextFile ?? ((path: string) => readFile(path, "utf8"));
-	const body = stripSkillFrontmatter(await readTextFile(skillPath));
-	return {
-		name: skillName,
-		commandName: command.name,
-		path: skillPath,
-		baseDir,
-		body,
-		block: buildSkillBlock({ skillName, skillPath, baseDir, body }),
-	};
-}
-
-export async function invokeSkillPromptTurn(
-	options: Omit<InvokeEffectiveSkillPromptTurnOptions, "ctx" | "host"> & {
-		host: EffectiveSkillPromptTurnHost & SkillExpansionHost;
-		ctx: SkillPromptTurnContext;
-	},
-): Promise<void> {
-	await options.ctx.waitForIdle();
-	let skill: ExpandedSkillBlock | undefined;
-	try {
-		skill = await expandSkillBlock(options.host, options.skillName, options);
-	} catch (error) {
-		throw requiredSkillError(options.skillName, error);
-	}
-	if (skill === undefined) {
-		throw requiredSkillError(
-			options.skillName,
-			new Error(`Pi did not advertise the loaded skill:${options.skillName} command.`),
-		);
-	}
-	await deliverSkillPromptTurn({
-		host: options.host,
-		ctx: options.ctx,
-		skill,
-		successMessage: options.successMessage,
-		buildPrompt: options.buildPrompt,
-	});
 }
 
 export async function resolveRepoSkillPath(options: RepoSkillPathResolveOptions): Promise<string> {
@@ -309,7 +234,6 @@ export async function expandSkillBlockFromPath(
 
 	return {
 		name: options.skillName,
-		commandName: `direct:${options.skillName}`,
 		path: options.skillPath,
 		baseDir,
 		body,

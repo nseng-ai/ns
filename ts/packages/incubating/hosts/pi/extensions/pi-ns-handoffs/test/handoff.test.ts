@@ -26,7 +26,7 @@ import {
 	listAllStep,
 	listStep,
 	runCommand,
-	skillCommandInfo,
+	effectiveSkill,
 	type CustomMessage,
 	withHandoffCreateSkill,
 } from "./handoff-test-fakes.ts";
@@ -73,7 +73,7 @@ function expectInvalidHandoffParse(result: InvalidHandoffParseResult, pattern: R
 
 describe("handoff extension", () => {
 	test("registers core handoff commands and list renderer without tool support", () => {
-		const pi = new FakePi([], [], { registerTool: false });
+		const pi = new FakePi([], { registerTool: false });
 
 		handoffExtension(pi);
 
@@ -109,7 +109,7 @@ describe("handoff extension", () => {
 					sessionFile: "/sessions/filename-id.jsonl",
 					sessionId: "authoritative-id",
 				},
-				[skillCommandInfo(skillPath)],
+				[effectiveSkill(skillPath)],
 			);
 
 			result.pi.assertDone();
@@ -139,7 +139,7 @@ describe("handoff extension", () => {
 				"handoff focus",
 				[],
 				{ cwd: repoDir, sessionId: "in-memory-session-id" },
-				[skillCommandInfo(skillPath)],
+				[effectiveSkill(skillPath)],
 			);
 
 			result.pi.assertDone();
@@ -157,7 +157,7 @@ describe("handoff extension", () => {
 				"",
 				[],
 				{ cwd: repoDir, inputResponse: "continue the list command" },
-				[skillCommandInfo(skillPath)],
+				[effectiveSkill(skillPath)],
 			);
 
 			result.pi.assertDone();
@@ -175,7 +175,7 @@ describe("handoff extension", () => {
 	test("create with no args and cancelled input stops without create prompt", async () => {
 		await withHandoffCreateSkill(async ({ skillPath, repoDir }) => {
 			const result = await runCommand("ns:handoff:create", "", [], { cwd: repoDir }, [
-				skillCommandInfo(skillPath),
+				effectiveSkill(skillPath),
 			]);
 
 			result.pi.assertDone();
@@ -194,7 +194,7 @@ describe("handoff extension", () => {
 				"",
 				[],
 				{ cwd: repoDir, hasUI: false, inputUnavailable: true },
-				[skillCommandInfo(skillPath)],
+				[effectiveSkill(skillPath)],
 			);
 
 			result.pi.assertDone();

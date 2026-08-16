@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 
-import type { SkillCommandInfo } from "../src/kit/skills/expansion.ts";
+import type { SystemPromptOptions } from "@nseng-ai/extension-kit/pi-types";
 import type { RawPiExecResult } from "../src/kit/shared/command-exec.ts";
 const ROOT = "/repo";
 const JUST_TIMEOUT_MS = 10 * 60 * 1000;
@@ -18,9 +18,7 @@ interface RegisteredCommand {
 interface CommandContext {
 	cwd: string;
 	hasUI: boolean;
-	getSystemPromptOptions(): {
-		skills: readonly { name: string; filePath: string; baseDir: string }[];
-	};
+	getSystemPromptOptions(): SystemPromptOptions;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
@@ -57,12 +55,10 @@ class FakePi {
 	readonly commands = new Map<string, RegisteredCommand>();
 	readonly execCalls: ExecCall[] = [];
 	readonly sentUserMessages: string[] = [];
-	private readonly commandInfos: SkillCommandInfo[];
 	private readonly execResult: RawPiExecResult;
 
-	constructor(execResult: RawPiExecResult, commandInfos: SkillCommandInfo[] = []) {
+	constructor(execResult: RawPiExecResult) {
 		this.execResult = execResult;
-		this.commandInfos = commandInfos;
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
@@ -78,10 +74,6 @@ class FakePi {
 		options?.onStdout?.(this.execResult.stdout ?? "");
 		options?.onStderr?.(this.execResult.stderr ?? "");
 		return this.execResult;
-	}
-
-	getCommands(): SkillCommandInfo[] {
-		return this.commandInfos;
 	}
 
 	sendUserMessage(content: string): void {
@@ -112,7 +104,7 @@ function createContext(
 	const ctx: CommandContext = {
 		cwd,
 		hasUI: true,
-		getSystemPromptOptions: () => ({ skills: skill === undefined ? [] : [skill] }),
+		getSystemPromptOptions: () => (skill === undefined ? {} : { skills: [skill] }),
 		ui: {
 			notify(message: string, level?: NotifyLevel): void {
 				notifications.push({ message, level });
@@ -127,14 +119,6 @@ function createContext(
 	};
 
 	return { ctx, notifications, statuses, waitForIdleCalls: () => waits };
-}
-
-function skillCommandInfo(skillPath: string, baseDir: string): SkillCommandInfo {
-	return {
-		name: "skill:code-just-fix",
-		source: "skill",
-		sourceInfo: { path: skillPath, baseDir },
-	};
 }
 
 async function loadJustFixExtension(): Promise<JustFixExtension> {
@@ -165,7 +149,6 @@ Repair the failed just run.
 			async ({ repoDir, skillDir, skillPath }) => {
 				const pi = new FakePi(
 					execResult({ code: 1, stdout: "unit failed\n", stderr: "lint failed\n" }),
-					[skillCommandInfo(skillPath, skillDir)],
 				);
 				const justFixExtension = await loadJustFixExtension();
 				justFixExtension(pi, pi.exec.bind(pi));
@@ -232,7 +215,7 @@ Repair the failed just run.
 			expect(context.notifications).toEqual([
 				{
 					message: expect.stringContaining(
-						'Could not load required skill "code-just-fix": Pi did not include the skill in its effective skill inventory.',
+						'Could not load required skill "code-just-fix": Pi did not include its effective skill inventory.',
 					),
 					level: "error",
 				},

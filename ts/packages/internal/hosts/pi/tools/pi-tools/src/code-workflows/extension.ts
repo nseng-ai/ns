@@ -4,7 +4,6 @@ import { notifyCommandUi } from "@nseng-ai/pi-runtime/commands/helpers";
 import {
 	buildSkillInvocationPrompt,
 	invokeEffectiveSkillPromptTurn,
-	type EffectiveSkillInventoryHost,
 } from "@nseng-ai/pi-runtime/skills/expansion";
 import { truncateDisplayLine } from "@nseng-ai/pi-runtime/terminal/presentation";
 import type {
@@ -229,7 +228,7 @@ export async function invokeGhCiDebugWorkflow(
 	try {
 		await invokePromptTurn({
 			host: pi,
-			ctx: effectiveSkillContext(ctx),
+			ctx,
 			skillName: CODE_WORKFLOWS_SKILL_NAME,
 			successMessage: `Invoking ${GH_CI_DEBUG_COMMAND_NAME}.`,
 			buildPrompt: (skillBlock) => buildGhCiDebugPrompt(skillBlock, args),
@@ -237,22 +236,6 @@ export async function invokeGhCiDebugWorkflow(
 	} catch (error) {
 		notifyCommandUi(ctx, formatErrorMessage(error), "error");
 	}
-}
-
-function effectiveSkillContext(ctx: CommandContext): {
-	hasUI: boolean;
-	ui: CommandContext["ui"];
-	waitForIdle(): Promise<void>;
-	getSystemPromptOptions: EffectiveSkillInventoryHost["getSystemPromptOptions"];
-} {
-	const getSystemPromptOptions = ctx.getSystemPromptOptions;
-	return {
-		hasUI: ctx.hasUI,
-		ui: ctx.ui,
-		waitForIdle: () => ctx.waitForIdle(),
-		getSystemPromptOptions:
-			getSystemPromptOptions === undefined ? () => ({}) : () => getSystemPromptOptions.call(ctx),
-	};
 }
 
 export function buildGhCiDebugPrompt(skillBlock: string, args: string): string {

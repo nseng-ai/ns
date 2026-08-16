@@ -1,3 +1,4 @@
+import type { SystemPromptOptions } from "@nseng-ai/extension-kit/pi-types";
 import { importTypeScriptWorkspaceModule } from "../lib/workspace-packages.ts";
 
 const { runCommand } = await importTypeScriptWorkspaceModule<
@@ -32,13 +33,7 @@ type ExecResult = {
 type CommandContext = {
 	cwd: string;
 	hasUI: boolean;
-	getSystemPromptOptions(): {
-		skills?: readonly {
-			name: string;
-			filePath: string;
-			baseDir: string;
-		}[];
-	};
+	getSystemPromptOptions(): SystemPromptOptions;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
