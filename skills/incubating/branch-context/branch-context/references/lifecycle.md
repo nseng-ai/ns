@@ -58,7 +58,7 @@ Pi surfaces:
 - `/ns:gs:new-branch-from-plan` and `/ns:gs:impl-branch-from-plan` for GitHub Stacks
 - `/ns:branch-context:impl-attached-plan` implements the branch-scoped Attached Plan independent of creation provider, including its documented local-plan-store fallback when no attached entry is available.
 
-The three `new-branch-from-plan` commands retain or restore the original branch. The three `impl-branch-from-plan` commands leave the target checked out and dispatch implementation in a fresh Pi session. Provider namespaces are the selection mechanism; provider-selection flags are unsupported.
+The three `new-branch-from-plan` commands retain or restore the original branch. The three `impl-branch-from-plan` commands require a Saved Plan, create and attach a new target, leave it checked out, and dispatch implementation in a fresh Pi session. They do not reuse existing Attached Plan evidence. Continue an existing implementation branch by checking it out and running `/ns:branch-context:impl-attached-plan [<key>]`. Provider namespaces are the selection mechanism; provider-selection flags are unsupported.
 
 `impl-saved-plan` names the durable artifact boundary rather than implying recency. It accepts only a **Saved plan**, distinct from the **Attached plan** consumed through the branch-context workflow.
 

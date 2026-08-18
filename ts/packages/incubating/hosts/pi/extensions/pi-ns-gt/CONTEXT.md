@@ -4,7 +4,7 @@
 
 **GT branch from plan** — Pi workflow that selects a Saved Plan, derives a Branch Context slug, creates a local Git branch without checking it out, tracks it with Graphite, and attaches the plan.
 
-**GT branch and implement from plan** — The same GT creation or verified reuse followed by exact target checkout, fresh Pi session replacement, and attached-plan dispatch.
+**GT branch and implement from plan** — Strict GT creation from a required Saved Plan followed by exact target checkout, fresh Pi session replacement, and Attached Plan dispatch. Missing Saved Plan evidence is terminal before provider, Git, Branch Memory, checkout, or session mutation; existing branches resume through `/ns:branch-context:impl-attached-plan [<key>]`.
 
 ## Boundary
 

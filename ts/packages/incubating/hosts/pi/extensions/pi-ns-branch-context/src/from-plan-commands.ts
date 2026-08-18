@@ -33,14 +33,11 @@ import {
 	formatBranchSelectionLines,
 	selectBranchContextCreateOperationTarget,
 	buildBranchContextCreateOperation,
-	formatExistingBranchContextReuse,
 	formatLoadedAttachedPlanEvidence,
-	resolveExistingBranchContextReuse,
 	type BranchContextBranchSelection,
 	type BranchContextEvidence,
 	type BranchContextOutputDetails,
 	type BranchCreationMethod,
-	type ExistingBranchContextReuse,
 	type PlanContentSlugEvidence,
 } from "@nseng-ai/branch-context/api";
 import {
@@ -48,11 +45,7 @@ import {
 	type RepoIdentitySource,
 	type SelectedSavedPlanFile,
 } from "@nseng-ai/plans/api";
-import {
-	formatErrorMessage,
-	optionalEntries,
-	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
+import { optionalEntries, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
@@ -220,7 +213,7 @@ interface RunCreateBranchContextCommandOptions {
 	): BranchContextExtensionOptions;
 	formatDryRunMessage(preview: CreateBranchContextPreview): string;
 	onCreated(evidence: BranchContextEvidence): Promise<void> | void;
-	handleSelectedPlanError?(args: CreateBranchContextArgs, error: unknown): Promise<boolean>;
+	handleSelectedPlanError?(error: unknown): boolean;
 }
 
 class CreateBranchContextUsageError extends Error {
@@ -724,24 +717,21 @@ export async function handleGitImplBranchFromPlanCommand(
 				preview.targetBranch,
 				preview.planKey,
 			),
-		handleSelectedPlanError: async (args, error) => {
-			if (!(error instanceof NoSavedPlanAvailableError)) {
-				return false;
-			}
-			await handleImplBranchExistingReuse({
+		handleSelectedPlanError: (error) => {
+			if (!(error instanceof NoSavedPlanAvailableError)) return false;
+			presentBranchContextMessage(
 				pi,
-				args,
 				ctx,
-				originalError: error,
-				extensionOptions: options,
-			});
+				formatStrictSavedPlanRequiredError(error),
+				{ status: "failure", error: error.message },
+				"error",
+			);
 			return true;
 		},
 		onCreated: async (evidence) => {
 			await runImplBranchLaunchTail({
 				pi,
 				ctx,
-				mode: "created",
 				target: evidence,
 				successBody: formatBranchContextEvidence(evidence),
 				outputDetails: { status: "success", evidence },
@@ -791,7 +781,7 @@ async function runCreateBranchContextCommand(
 		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, previewOptions);
 	} catch (error) {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
-		if ((await commandOptions.handleSelectedPlanError?.(args, error)) === true) {
+		if (commandOptions.handleSelectedPlanError?.(error) === true) {
 			return;
 		}
 		presentBranchContextFailure(
@@ -864,67 +854,6 @@ interface CreateBranchContextFromPreviewOptions {
 	extensionOptions: BranchContextExtensionOptions;
 }
 
-interface HandleImplBranchExistingReuseOptions {
-	pi: BranchContextPiCommandApi;
-	args: CreateBranchContextArgs;
-	ctx: CommandContext;
-	originalError: unknown;
-	extensionOptions: BranchContextExtensionOptions;
-}
-
-async function handleImplBranchExistingReuse(
-	options: HandleImplBranchExistingReuseOptions,
-): Promise<void> {
-	const { pi, args, ctx, originalError, extensionOptions } = options;
-	let reuse: ExistingBranchContextReuse;
-	setRuntimeStatus(ctx, IMPL_BRANCH_STATUS_KEY, "finding existing branch context…");
-	try {
-		const sessionEntries = ctx.sessionManager?.getBranch?.() ?? [];
-		reuse = await resolveExistingBranchContextReuse(
-			pi,
-			args.branchName === undefined
-				? { sessionEntries }
-				: { explicitBranch: args.branchName, sessionEntries },
-			{ cwd: ctx.cwd, context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions) },
-		);
-	} catch (reuseError) {
-		presentBranchContextMessage(
-			pi,
-			ctx,
-			formatExistingReuseFailureMessage(originalError, reuseError),
-			{ status: "failure", error: formatErrorMessage(reuseError) },
-			"error",
-		);
-		return;
-	} finally {
-		setRuntimeStatus(ctx, IMPL_BRANCH_STATUS_KEY, undefined);
-	}
-
-	if (args.dryRun) {
-		presentBranchContextMessage(
-			pi,
-			ctx,
-			formatImplBranchDryRunMessage(
-				formatExistingBranchContextReuse(reuse),
-				reuse.branch,
-				reuse.key,
-			),
-			{ status: "dry-run", targetBranch: reuse.branch, key: reuse.key },
-			"info",
-		);
-		return;
-	}
-
-	await runImplBranchLaunchTail({
-		pi,
-		ctx,
-		mode: "reused",
-		target: reuse,
-		successBody: `Reusing existing branch context and attached plan.\n\n${formatExistingBranchContextReuse(reuse)}`,
-		outputDetails: { status: "reuse" },
-	});
-}
-
 async function createBranchContextFromPreview({
 	pi,
 	preview,
@@ -958,19 +887,19 @@ async function createBranchContextFromPreview({
 	});
 }
 
-function formatExistingReuseFailureMessage(originalError: unknown, reuseError: unknown): string {
+function formatStrictSavedPlanRequiredError(error: NoSavedPlanAvailableError): string {
 	return [
-		"Failed to resolve saved plan file or derive branch slug.",
+		"A Saved Plan is now required to create an implementation branch; this command no longer falls back to an existing Attached Plan.",
 		"",
-		"Original saved-plan resolution failure:",
-		formatErrorMessage(originalError),
+		"Original Saved Plan resolution evidence:",
+		error.message,
 		"",
-		"Existing branch-context reuse failure:",
-		formatErrorMessage(reuseError),
+		"No Attached Plan candidate was searched or reused.",
+		"No provider inspection or call, Git branch creation or checkout, Branch Memory write, or fresh session mutation occurred.",
+		`Recovery: check out the implementation branch, then run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} [<key>].`,
+		"Maintainer fallback locator (private and dormant; not in the production call graph): src/dormant-existing-branch-context-reuse.ts#runDormantGitExistingBranchContextReuse.",
 	].join("\n");
 }
-
-type ImplBranchMode = "created" | "reused";
 
 type ImplSavedPlanLaunchResult =
 	| { type: "launched"; parentSession?: string }
@@ -985,14 +914,13 @@ interface ImplSavedPlanLaunchOptions {
 interface ImplBranchLaunchTailOptions {
 	pi: BranchContextPiCommandApi;
 	ctx: CommandContext;
-	mode: ImplBranchMode;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
 	successBody: string;
 	outputDetails: BranchContextOutputDetails;
 }
 
 async function runImplBranchLaunchTail(options: ImplBranchLaunchTailOptions): Promise<void> {
-	const { pi, ctx, mode, target } = options;
+	const { pi, ctx, target } = options;
 	presentBranchContextMessage(pi, ctx, options.successBody, options.outputDetails, "info");
 
 	const launchResult = await runBranchContextImplBranchLaunch({
@@ -1008,7 +936,7 @@ async function runImplBranchLaunchTail(options: ImplBranchLaunchTailOptions): Pr
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatImplBranchCancelledMessage(mode, launchResult.branch, launchResult.key),
+			formatImplBranchCancelledMessage(launchResult.branch, launchResult.key),
 			{ status: "cancelled" },
 			"warning",
 		);
@@ -1018,7 +946,7 @@ async function runImplBranchLaunchTail(options: ImplBranchLaunchTailOptions): Pr
 	presentBranchContextFailure(
 		pi,
 		ctx,
-		formatImplBranchLaunchFailureTitle(mode, launchResult.phase),
+		formatImplBranchLaunchFailureTitle(launchResult.phase),
 		launchResult.message,
 	);
 }
@@ -1070,30 +998,15 @@ function formatImplSavedPlanCancelledMessage(filePath: string): string {
 	return `Selected the saved plan, but starting the implementation session was cancelled. Run /${IMPL_SAVED_PLAN_COMMAND_NAME} ${filePath} again, or manually open /new on the current branch and paste/use the saved plan content.`;
 }
 
-function formatImplBranchLaunchFailureTitle(
-	mode: ImplBranchMode,
-	phase: "checkout" | "new-session",
-): string {
-	if (mode === "created") {
-		return phase === "checkout"
-			? "Created branch context and attached the plan, but failed to check out the branch context."
-			: "Created branch context, attached the plan, and checked out the branch context, but failed to start the implementation session.";
-	}
+function formatImplBranchLaunchFailureTitle(phase: "checkout" | "new-session"): string {
 	return phase === "checkout"
-		? "Reused existing branch context and attached plan, but failed to check out the branch context."
-		: "Reused existing branch context, verified the attached plan, and checked out the branch context, but failed to start the implementation session.";
+		? "Created branch context and attached the plan, but failed to check out the branch context."
+		: "Created branch context, attached the plan, and checked out the branch context, but failed to start the implementation session.";
 }
 
-function formatImplBranchCancelledMessage(
-	mode: ImplBranchMode,
-	branch: string,
-	key: string,
-): string {
+function formatImplBranchCancelledMessage(branch: string, key: string): string {
 	const command = formatImplBranchContextCommand(key);
-	if (mode === "created") {
-		return `Created branch context, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run ${command} to continue.`;
-	}
-	return `Reused existing branch context, verified the attached plan, and checked out ${branch}, but starting the implementation session was cancelled. Run ${command} to continue.`;
+	return `Created branch context, attached the plan, and checked out ${branch}, but starting the implementation session was cancelled. Run ${command} to continue.`;
 }
 
 async function resolveSelectedSavedPlanFile(

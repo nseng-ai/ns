@@ -120,16 +120,19 @@ function createHandlerFixture(
 	state: {
 		gs?: ConstructorParameters<typeof InMemoryGsGateway>[0];
 		attachFailure?: { code: string; message: string };
-		noSavedPlan?: boolean;
-		reuse?: { branch: string; key: string };
+		noSavedPlan?: "missing-directory" | "no-plan-files";
 	} = {},
 ) {
 	const pi = new HandlerPi();
 	const git = new HandlerGitGateway();
 	const baseGs = new InMemoryGsGateway(state.gs);
-	const brmem = new InMemoryBranchMemoryGateway(
-		state.attachFailure === undefined ? {} : { attachFailure: state.attachFailure },
-	);
+	const brmem = new InMemoryBranchMemoryGateway({
+		entries: [
+			{ branch: "existing-target", key: "existing-target-plan.md" },
+			{ branch: "feature", key: "current-branch-plan.md" },
+		],
+		...(state.attachFailure === undefined ? {} : { attachFailure: state.attachFailure }),
+	});
 	const gs = {
 		inspectLocalStack: baseGs.inspectLocalStack.bind(baseGs),
 		async addAboveCurrentStack(options: { cwd: string; targetBranch: string }) {
@@ -163,7 +166,10 @@ function createHandlerFixture(
 		async waitForIdle() {
 			pi.events.push("wait");
 		},
-		sessionManager: { getBranch: () => [], getSessionFile: () => "/sessions/parent.jsonl" },
+		sessionManager: {
+			getBranch: () => [{ branch: "session-target", key: "session-target-plan.md" }],
+			getSessionFile: () => "/sessions/parent.jsonl",
+		},
 		async newSession(options) {
 			sessionCalls.push(options);
 			await options?.withSession?.({
@@ -179,11 +185,14 @@ function createHandlerFixture(
 		createContext: () => ({ git, brmem, gs }),
 		operations: {
 			async resolveSelectedSavedPlanFile() {
-				if (state.noSavedPlan === true) {
+				if (state.noSavedPlan !== undefined) {
 					throw new NoSavedPlanAvailableError({
-						reason: "no-plan-files",
+						reason: state.noSavedPlan,
 						directoryPath: "/plans",
-						message: "no Saved Plan",
+						message:
+							state.noSavedPlan === "missing-directory"
+								? "no Saved Plan store"
+								: "no Markdown Saved Plans",
 					});
 				}
 				return selectedPlan;
@@ -194,13 +203,6 @@ function createHandlerFixture(
 					rawOutput: `${TARGET}\n`,
 					provider: "test-provider",
 					model: "test-model",
-				};
-			},
-			async resolveExistingBranchContextReuse() {
-				return {
-					branch: state.reuse?.branch ?? "existing-target",
-					key: state.reuse?.key ?? "existing.md",
-					source: "current-branch",
 				};
 			},
 		},
@@ -251,17 +253,41 @@ describe("registered GS command handlers", () => {
 		expect(fixture.pi.messages.at(-1)?.content).toContain(`Target branch: ${TARGET}`);
 	});
 
-	test("no-Saved-Plan reuse skips GS and launches implementation", async () => {
-		const fixture = createHandlerFixture({ noSavedPlan: true });
-		await invoke(fixture, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME, "");
-		expectImmediateAckFirst(fixture);
-		expect(fixture.gs.inspectionCalls).toEqual([]);
-		expect(fixture.gs.addCalls).toEqual([]);
-		expect(fixture.gs.initializeCalls).toEqual([]);
-		expect(fixture.brmem.putEntryCalls).toEqual([]);
-		expect(fixture.sessionCalls).toHaveLength(1);
-		expect(fixture.dispatches).toEqual(["/ns:branch-context:impl-attached-plan existing.md"]);
-	});
+	test.each([
+		["missing-directory", "no Saved Plan store"],
+		["no-plan-files", "no Markdown Saved Plans"],
+	] as const)(
+		"%s Saved Plan failure ignores explicit, session, and current evidence without topology or mutation",
+		async (noSavedPlan, evidence) => {
+			const fixture = createHandlerFixture({ noSavedPlan });
+			await invoke(fixture, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME, "--branch existing-target");
+			expectImmediateAckFirst(fixture);
+			expect(fixture.gs.inspectionCalls).toEqual([]);
+			expect(fixture.gs.addCalls).toEqual([]);
+			expect(fixture.gs.initializeCalls).toEqual([]);
+			expect(fixture.git.createBranchAtStartPointCalls).toEqual([]);
+			expect(fixture.git.checkoutCalls).toEqual([]);
+			expect(fixture.brmem.listEntriesCalls).toEqual([]);
+			expect(fixture.brmem.putEntryCalls).toEqual([]);
+			expect(fixture.sessionCalls).toEqual([]);
+			expect(fixture.dispatches).toEqual([]);
+			const content = fixture.pi.messages.at(-1)?.content ?? "";
+			expect(content).toContain("A Saved Plan is now required");
+			expect(content).toBe(
+				[
+					"A Saved Plan is now required to create an implementation branch; this command no longer falls back to an existing Attached Plan.",
+					"",
+					"Original Saved Plan resolution evidence:",
+					evidence,
+					"",
+					"No Attached Plan candidate was searched or reused.",
+					"No provider inspection or call, Git branch creation or checkout, Branch Memory write, or fresh session mutation occurred.",
+					"Recovery: check out the implementation branch, then run /ns:branch-context:impl-attached-plan [<key>].",
+					"Maintainer fallback locator (private and dormant; not in the production call graph): src/dormant-existing-branch-context-reuse.ts#runDormantGsExistingBranchContextReuse.",
+				].join("\n"),
+			);
+		},
+	);
 
 	test("creation failure prevents attachment and session launch", async () => {
 		const fixture = createHandlerFixture({

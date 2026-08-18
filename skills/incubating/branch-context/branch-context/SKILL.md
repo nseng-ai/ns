@@ -14,7 +14,7 @@ Step entrypoints carry their own command and recovery and are runnable standalon
 - `branch-context-from-plan` — create a branch and attach a named plan key as branch context from a saved plan.
 - `branch-context-impl` — load and implement an attached plan.
 
-The Pi Git, GT, and GS `impl-branch-from-plan` commands have no separate step skill: each composes `branch-context-from-plan` (create/attach through an explicitly selected provider) and then provider-independent `branch-context-impl` in a fresh session.
+The Pi Git, GT, and GS `impl-branch-from-plan` commands have no separate step skill: each strictly requires a Saved Plan, composes `branch-context-from-plan` (new create/attach through an explicitly selected provider), and then runs provider-independent `branch-context-impl` in a fresh session. They do not search for or reuse an existing Attached Plan. To continue an existing implementation branch, check it out and use `/ns:branch-context:impl-attached-plan [<key>]` or the `branch-context-impl` skill.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
 

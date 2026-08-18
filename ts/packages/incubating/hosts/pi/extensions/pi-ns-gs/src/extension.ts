@@ -7,11 +7,8 @@ import {
 	buildBranchContextCreateOperation,
 	createBranchContextContext,
 	derivePlanContentSlug,
-	formatExistingBranchContextReuse,
 	formatImplBranchContextCommand,
-	resolveExistingBranchContextReuse,
 	selectBranchContextCreateOperationTarget,
-	type ExistingBranchContextReuse,
 } from "@nseng-ai/branch-context/api";
 import {
 	createBranchWithProvider,
@@ -30,6 +27,7 @@ import {
 
 import { RealGsConsumerGateway, type GsConsumerGateway } from "./gs-gateway.ts";
 import type { CommandContext, ExtensionAPI } from "./host-types.ts";
+import { runGsImplementationLaunch } from "./implementation-launch.ts";
 import { createGsPiCommandApi, type GsPiCommandApi } from "./pi-command-api.ts";
 
 export { GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME };
@@ -47,11 +45,11 @@ Options:
 
 export const GS_IMPL_BRANCH_FROM_PLAN_USAGE = `Usage: /${GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
-Create or reuse a GitHub Stacks branch with Attached Plan, keep it checked out, then open a fresh Pi session and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <key>.
+Create a GitHub Stacks branch from a Saved Plan, attach it, keep it checked out, then open a fresh Pi session and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <key>.
 
 Options:
   --dry-run          Show exact topology, checkout, session, and dispatch actions without mutation.
-  --branch <name>    Use an explicit target branch; collisions are refused for creation and verified for reuse.
+  --branch <name>    Use an explicit target branch; collisions are refused.
   --help, -h         Show this help.`;
 
 export interface GsExtensionContext {
@@ -63,14 +61,6 @@ export interface GsExtensionContext {
 export interface GsExtensionOperations {
 	resolveSelectedSavedPlanFile: typeof resolveSelectedSavedPlanFile;
 	derivePlanContentSlug: typeof derivePlanContentSlug;
-	resolveExistingBranchContextReuse(
-		pi: GsPiCommandApi,
-		options: { explicitBranch?: string; sessionEntries: unknown[] },
-		context: {
-			cwd: string;
-			context: { commands: GsPiCommandApi; git: GitGateway; brmem: BrmemGateway };
-		},
-	): Promise<ExistingBranchContextReuse>;
 }
 
 export interface GsExtensionOptions {
@@ -103,9 +93,10 @@ export const gsExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
 		surface: GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
-		workflow: "Create or reuse a GitHub Stacks branch and implement its Attached Plan",
+		workflow: "Create a GitHub Stacks branch from a Saved Plan and implement its Attached Plan",
 		parity: "WAIVED",
-		fallback: "Create or select the branch, then run the attached-plan implementation command.",
+		fallback:
+			"Create the branch from a Saved Plan, then run the attached-plan implementation command.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@nseng-ai/pi-ns-gs",
 		sourceModule: "gs-extension",
@@ -132,7 +123,8 @@ export default function registerGsExtension(
 		host: pi,
 		commandName: GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
-			description: "Create or reuse a GitHub Stacks branch and implement its Attached Plan",
+			description:
+				"Create a GitHub Stacks branch from a Saved Plan and implement its Attached Plan",
 			handler: async (rawArgs, ctx) =>
 				handleGsNewBranchFromPlan(commandApi, rawArgs, ctx, options, true),
 		},
@@ -187,33 +179,11 @@ async function handleGsNewBranchFromPlan(
 				...optionalEntry("planStoreRoot", options.planStoreRoot),
 			});
 		} catch (error) {
-			if (!shouldLaunch || !(error instanceof NoSavedPlanAvailableError)) throw error;
-			const reuse = await operations.resolveExistingBranchContextReuse(
-				pi,
-				args.branchName === undefined
-					? { sessionEntries: ctx.sessionManager?.getBranch?.() ?? [] }
-					: {
-							explicitBranch: args.branchName,
-							sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
-						},
-				{ cwd: ctx.cwd, context: { commands: pi, git: context.git, brmem: context.brmem } },
-			);
-			if (args.dryRun) {
-				present(
-					pi,
-					ctx,
-					formatImplDryRun(
-						formatExistingBranchContextReuse(reuse),
-						"provider skipped",
-						reuse.branch,
-						reuse.key,
-					),
-					"info",
-				);
+			if (shouldLaunch && error instanceof NoSavedPlanAvailableError) {
+				present(pi, ctx, formatStrictSavedPlanRequiredError(error), "error");
 				return;
 			}
-			await launchImplementation(pi, ctx, context.git, reuse.branch, reuse.key, "reused");
-			return;
+			throw error;
 		}
 		const file = selectedFile(selected);
 		const slug = await operations.derivePlanContentSlug(pi, {
@@ -266,7 +236,14 @@ async function handleGsNewBranchFromPlan(
 		});
 		present(pi, ctx, result.message, result.type === "success" ? "info" : "error", result);
 		if (result.type === "success" && shouldLaunch) {
-			await launchImplementation(pi, ctx, context.git, result.targetBranch, result.key, "created");
+			await runGsImplementationLaunch({
+				pi,
+				ctx,
+				git: context.git,
+				branch: result.targetBranch,
+				key: result.key,
+				attachment: "created",
+			});
 		}
 	} catch (error) {
 		present(
@@ -437,52 +414,18 @@ async function resolveTopologyAction(
 	return { action: current.branch === trunk.value ? "init" : "init/adopt" };
 }
 
-export async function launchImplementation(
-	pi: GsPiCommandApi,
-	ctx: CommandContext,
-	git: Pick<GitGateway, "checkout">,
-	branch: string,
-	key: string,
-	mode: "created" | "reused",
-): Promise<void> {
-	const checkout = await git.checkout({ cwd: ctx.cwd, branch });
-	if (!checkout.ok) {
-		present(
-			pi,
-			ctx,
-			`${mode === "created" ? "Created" : "Reused"} Attached Plan, but exact checkout failed.\nTarget: ${branch}\nKey: ${key}\nRecovery: git checkout ${shellQuote(branch)} then run ${formatImplBranchContextCommand(key)}\n${checkout.error.message}`,
-			"error",
-		);
-		return;
-	}
-	let activated = false;
-	const parentSession = ctx.sessionManager?.getSessionFile?.();
-	try {
-		if (ctx.newSession === undefined) throw new Error("Pi session replacement is unavailable.");
-		const result = await ctx.newSession({
-			...optionalEntry("parentSession", parentSession),
-			withSession: async (newCtx) => {
-				activated = true;
-				await newCtx.sendUserMessage(formatImplBranchContextCommand(key));
-			},
-		});
-		if (result.cancelled) {
-			present(
-				pi,
-				ctx,
-				`Fresh session was cancelled; ${branch} remains checked out. Run ${formatImplBranchContextCommand(key)} to continue.`,
-				"warning",
-			);
-		}
-	} catch (error) {
-		if (activated) throw error;
-		present(
-			pi,
-			ctx,
-			`Fresh session failed before activation; ${branch} remains checked out.\nTarget: ${branch}\nKey: ${key}\nRecovery: run ${formatImplBranchContextCommand(key)}\n${formatErrorMessage(error)}`,
-			"error",
-		);
-	}
+function formatStrictSavedPlanRequiredError(error: NoSavedPlanAvailableError): string {
+	return [
+		"A Saved Plan is now required to create an implementation branch; this command no longer falls back to an existing Attached Plan.",
+		"",
+		"Original Saved Plan resolution evidence:",
+		error.message,
+		"",
+		"No Attached Plan candidate was searched or reused.",
+		"No provider inspection or call, Git branch creation or checkout, Branch Memory write, or fresh session mutation occurred.",
+		`Recovery: check out the implementation branch, then run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} [<key>].`,
+		"Maintainer fallback locator (private and dormant; not in the production call graph): src/dormant-existing-branch-context-reuse.ts#runDormantGsExistingBranchContextReuse.",
+	].join("\n");
 }
 
 function formatImplDryRun(body: string, action: string, branch: string, key: string): string {
@@ -545,8 +488,6 @@ function resolveOperations(options: GsExtensionOptions): GsExtensionOperations {
 		resolveSelectedSavedPlanFile:
 			options.operations?.resolveSelectedSavedPlanFile ?? resolveSelectedSavedPlanFile,
 		derivePlanContentSlug: options.operations?.derivePlanContentSlug ?? derivePlanContentSlug,
-		resolveExistingBranchContextReuse:
-			options.operations?.resolveExistingBranchContextReuse ?? resolveExistingBranchContextReuse,
 	};
 }
 

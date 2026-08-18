@@ -26,7 +26,8 @@ export const gtExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
 		surface: GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
-		workflow: "Create or reuse a Graphite branch context and launch a fresh implementation session",
+		workflow:
+			"Create a Graphite branch context from a Saved Plan and launch a fresh implementation session",
 		parity: "WAIVED",
 		fallback:
 			"Create with the portable Branch Context CLI, check out the branch, then implement the attached plan.",

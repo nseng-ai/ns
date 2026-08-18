@@ -10,7 +10,7 @@ The `/ns:gs:new-branch-from-plan` workflow selects and prepares a Saved Plan thr
 
 ## GS impl-branch-from-plan
 
-The `/ns:gs:impl-branch-from-plan` workflow shares package-local GS selection, topology, collision, creation, verification, and attachment policy. New targets remain checked out and launch implementation in a fresh Pi replacement session. A uniquely verified existing Attached Plan is reusable without provider mutation when no Saved Plan is available.
+The `/ns:gs:impl-branch-from-plan` workflow requires a Saved Plan, then applies package-local GS topology, collision, creation, verification, and attachment policy. New targets remain checked out and launch implementation in a fresh Pi replacement session. Missing Saved Plan evidence is terminal before GS topology inspection or any provider, Git, Branch Memory, checkout, or session mutation. Existing branches resume through provider-independent `/ns:branch-context:impl-attached-plan [<key>]`, not this creation command.
 
 ## Boundaries
 
