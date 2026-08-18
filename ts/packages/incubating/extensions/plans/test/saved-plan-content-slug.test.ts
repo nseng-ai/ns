@@ -17,6 +17,7 @@ type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResul
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 
 const CWD = mkdtempSync(join(tmpdir(), "saved-plan-slug-root-"));
+const UNCONFIGURED_CWD = mkdtempSync(join(tmpdir(), "saved-plan-slug-unconfigured-root-"));
 writeFileSync(
 	join(CWD, "ns.toml"),
 	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
@@ -33,15 +34,17 @@ interface ExecCall {
 class FakeSlugPi implements CommandExecApi {
 	readonly calls: ExecCall[] = [];
 	private readonly behavior: { result?: ExecResultFixture; error?: Error };
+	private readonly repoRoot: string;
 
-	constructor(behavior: { result?: ExecResultFixture; error?: Error }) {
+	constructor(behavior: { result?: ExecResultFixture; error?: Error }, repoRoot: string = CWD) {
 		this.behavior = behavior;
+		this.repoRoot = repoRoot;
 	}
 
 	async exec(command: string, args: string[], options?: ExecOptions): Promise<ExecResult> {
 		this.calls.push({ command, args: [...args], options });
 		if (command === "git" && args[0] === "rev-parse") {
-			return { type: "exited", stdout: `${CWD}\n`, stderr: "", code: 0, signal: null };
+			return { type: "exited", stdout: `${this.repoRoot}\n`, stderr: "", code: 0, signal: null };
 		}
 		if (this.behavior.error !== undefined) {
 			throw this.behavior.error;
@@ -94,6 +97,47 @@ describe("deriveSavedPlanContentSlug", () => {
 			),
 		);
 		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
+	});
+
+	test("falls back to the parent session model when fast is not configured", async () => {
+		const fallbackModelSelection = {
+			provider: "anthropic",
+			modelId: "claude-sonnet-4-6",
+			thinking: "high" as const,
+		};
+		const pi = new FakeSlugPi(
+			{ result: { stdout: "branch-scoped-plan-extension\n" } },
+			UNCONFIGURED_CWD,
+		);
+
+		const evidence = await deriveSavedPlanContentSlug(pi, {
+			content: SAVED_PLAN_CONTENT,
+			cwd: UNCONFIGURED_CWD,
+			fallbackModelSelection,
+		});
+
+		expect(evidence).toMatchObject({
+			provider: fallbackModelSelection.provider,
+			model: fallbackModelSelection.modelId,
+		});
+		expect(pi.calls[1]?.args).toEqual(
+			buildRawTextModelArgs(
+				buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT),
+				fallbackModelSelection,
+			),
+		);
+	});
+
+	test("still requires fast when no fallback model is supplied", async () => {
+		const pi = new FakeSlugPi({}, UNCONFIGURED_CWD);
+
+		await expect(
+			deriveSavedPlanContentSlug(pi, {
+				content: SAVED_PLAN_CONTENT,
+				cwd: UNCONFIGURED_CWD,
+			}),
+		).rejects.toThrow("[models.profiles.fast]");
+		expect(pi.calls).toHaveLength(1);
 	});
 
 	test("invalid normalized slug output fails with saved-plan-specific failure text", async () => {

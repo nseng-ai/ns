@@ -182,7 +182,8 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("Validation guidance and expected results");
 		expect(prompt).toContain("leave ordinary validation coverage to the implementing agent");
 		expect(prompt).toContain("do not generate or pass a slug");
-		expect(prompt).toContain("Codex-backed slug model");
+		expect(prompt).toContain("configured slug model");
+		expect(prompt).toContain("current parent-session model");
 		expect(prompt).toContain('"content": "# Plan');
 		expect(prompt).not.toContain('"slug": "semantic-kebab-case-slug"');
 		expect(prompt).not.toContain("create_brmem_plan_branch_from_file");

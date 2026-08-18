@@ -8,6 +8,7 @@ import {
 } from "@nseng-ai/extension-kit/content-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
@@ -29,6 +30,7 @@ export interface PlanContentSlugVariantSeed {
 export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
+	fallbackModelSelection?: ModelSelection;
 	signal?: AbortSignal;
 }
 
@@ -46,14 +48,27 @@ export async function deriveContentSlug(
 		repoRoot: repository.value,
 		gateway: createNodeProjectConfigGateway(),
 	});
-	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
-	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
+	const modelSelection = resolveSlugModelSelection(policy, input.fallbackModelSelection);
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },
-		{ ...input, modelSelection: model.value.selection },
+		{ ...input, modelSelection },
 		toKitContentSlugVariant(variant),
 	);
+}
+
+function resolveSlugModelSelection(
+	policy: ReturnType<typeof loadModelPolicy>,
+	fallbackModelSelection: ModelSelection | undefined,
+): ModelSelection {
+	if (!policy.ok) {
+		if (policy.error.code === "missing-fast-profile" && fallbackModelSelection !== undefined) {
+			return fallbackModelSelection;
+		}
+		throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
+	}
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
+	return model.value.selection;
 }
 
 export function buildContentSlugPrompt(

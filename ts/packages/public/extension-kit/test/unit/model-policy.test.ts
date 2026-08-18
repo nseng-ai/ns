@@ -22,7 +22,7 @@ describe("model policy", () => {
 		expect(parseModelPolicyToml("")).toMatchObject({
 			ok: false,
 			error: {
-				code: "missing-profile",
+				code: "missing-fast-profile",
 				message: expect.stringContaining("[models.profiles.fast]"),
 			},
 		});
@@ -107,7 +107,11 @@ thinking = "high"
 	});
 
 	test("rejects dangling profiles, malformed tables, and malformed refs", () => {
-		expect(parseModelPolicyToml('[models.operations]\nfoo = "missing"')).toMatchObject({
+		expect(
+			parseModelPolicyToml(
+				'[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n[models.operations]\nfoo = "missing"',
+			),
+		).toMatchObject({
 			ok: false,
 			error: { code: "missing-profile" },
 		});
@@ -152,7 +156,7 @@ thinking = "high"
 		expect(loadModelPolicy({ repoRoot: "/repo", gateway: missing })).toMatchObject({
 			ok: false,
 			error: {
-				code: "missing-profile",
+				code: "missing-fast-profile",
 				message: expect.stringContaining("[models.profiles.fast]"),
 			},
 		});

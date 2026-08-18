@@ -186,12 +186,12 @@ export function buildWriteSavedPlanFileTool(
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`). The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`). The tool derives the saved-plan filename slug from the content through the configured slug model, falling back to the current parent-session model when `[models.profiles.fast]` is absent; derives repo and current branch from git; validates the slug; creates parent directories; refuses to overwrite an existing file; writes the full Markdown content; and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`).",
 		promptGuidelines: [
 			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` after producing a reviewed final Markdown plan.`,
-			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
+			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the configured slug model or the current parent-session model fallback.",
 			"write_saved_plan_file writes the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`); it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
 			"If planning used external/off-repo research, write_saved_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
@@ -220,9 +220,14 @@ export function buildWriteSavedPlanFileTool(
 					phase: "validating",
 				});
 				const toolParams = parseWriteSavedPlanFileToolParams(params);
-				emitWriteSavedPlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", {
-					phase: "deriving-slug",
-				});
+				emitWriteSavedPlanProgress(
+					onUpdate,
+					ctx,
+					"Deriving saved-plan filename slug with a model…",
+					{
+						phase: "deriving-slug",
+					},
+				);
 				const slugStartedAt = Date.now();
 				const slugProgressInterval: ScheduledTimer | undefined =
 					onUpdate === undefined && !canSetWriteSavedPlanStatus(ctx)
@@ -232,7 +237,7 @@ export function buildWriteSavedPlanFileTool(
 								emitWriteSavedPlanProgress(
 									onUpdate,
 									ctx,
-									`Deriving saved-plan filename slug with Codex… ${elapsedSeconds}s elapsed`,
+									`Deriving saved-plan filename slug with a model… ${elapsedSeconds}s elapsed`,
 									{
 										phase: "deriving-slug",
 										elapsedSeconds,
@@ -244,6 +249,15 @@ export function buildWriteSavedPlanFileTool(
 					slugEvidence = await deriveSavedPlanContentSlug(pi, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
+						...(ctx.model === undefined
+							? {}
+							: {
+									fallbackModelSelection: {
+										provider: ctx.model.provider,
+										modelId: ctx.model.id,
+										thinking: pi.getThinkingLevel(),
+									},
+								}),
 						...optionalEntry("signal", signal),
 					});
 				} finally {
@@ -373,7 +387,7 @@ function parseWriteSavedPlanFileToolParamsForName(
 	}
 	if ("slug" in params) {
 		throw new Error(
-			`${toolName} derives \`slug\` from content through Codex; do not pass \`slug\`.`,
+			`${toolName} derives \`slug\` from content through its selected model; do not pass \`slug\`.`,
 		);
 	}
 

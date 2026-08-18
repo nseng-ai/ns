@@ -41,7 +41,11 @@ export interface ResolvedModelOperation {
 	readonly source: "project-profile" | "project-operation";
 }
 
-export type ModelPolicyErrorCode = "invalid-toml" | "invalid-model-policy" | "missing-profile";
+export type ModelPolicyErrorCode =
+	| "invalid-toml"
+	| "invalid-model-policy"
+	| "missing-fast-profile"
+	| "missing-profile";
 export interface ModelPolicyError {
 	readonly code: ModelPolicyErrorCode;
 	readonly message: string;
@@ -140,7 +144,7 @@ function modelPolicyFromSettings(
 	}
 	if (profiles.fast === undefined) {
 		return resultErrOf(
-			"missing-profile",
+			"missing-fast-profile",
 			'Model profile "fast" is required in ns.toml at [models.profiles.fast].',
 		);
 	}

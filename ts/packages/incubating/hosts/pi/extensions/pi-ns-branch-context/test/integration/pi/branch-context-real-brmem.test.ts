@@ -76,6 +76,10 @@ class StdinDroppingPi implements ExtensionAPI {
 		this.tools.set(definition.name, definition);
 	}
 
+	getThinkingLevel(): "minimal" {
+		return "minimal";
+	}
+
 	async exec(
 		command: string,
 		args: string[],

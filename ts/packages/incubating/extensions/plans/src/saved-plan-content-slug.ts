@@ -1,4 +1,5 @@
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import {
 	buildContentSlugPrompt,
 	deriveContentSlug,
@@ -21,7 +22,12 @@ const SAVED_PLAN_CONTENT_SLUG_VARIANT: PlanContentSlugVariantSeed = {
 
 export async function deriveSavedPlanContentSlug(
 	pi: CommandExecApi,
-	input: { content: string; cwd: string; signal?: AbortSignal },
+	input: {
+		content: string;
+		cwd: string;
+		fallbackModelSelection?: ModelSelection;
+		signal?: AbortSignal;
+	},
 ): Promise<SavedPlanContentSlugEvidence> {
 	return deriveContentSlug(pi, input, SAVED_PLAN_CONTENT_SLUG_VARIANT);
 }

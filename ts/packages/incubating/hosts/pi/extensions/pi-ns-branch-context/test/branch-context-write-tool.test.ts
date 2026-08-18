@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const TEST_MODEL_SELECTION = {
@@ -6,6 +9,8 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 import registerBranchContextExtension from "../src/extension.ts";
+import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
+import { buildSavedPlanContentSlugPrompt } from "@nseng-ai/plans/api";
 
 import {
 	DEFAULT_PLAN_CONTENT,
@@ -38,7 +43,8 @@ describe("write_saved_plan_file tool", () => {
 		expect(tool.description).toContain("refuses to overwrite");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");
 		expect(tool.description).toContain("self-contained");
-		expect(tool.description).toContain("Codex-backed slug model");
+		expect(tool.description).toContain("configured slug model");
+		expect(tool.description).toContain("current parent-session model");
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
 		expect(tool.promptGuidelines?.join("\n")).toContain("/ns:plan:save");
@@ -53,7 +59,7 @@ describe("write_saved_plan_file tool", () => {
 		expect(Object.keys(parameters.properties ?? {})).toEqual(["content", "summary"]);
 	});
 
-	test("derives the saved-plan filename slug with the Codex slug model before writing", async () => {
+	test("derives the saved-plan filename slug with the configured slug model before writing", async () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
 		const fakes = createBranchContextOperationFakes();
@@ -92,6 +98,47 @@ describe("write_saved_plan_file tool", () => {
 		});
 	});
 
+	test("falls back to the current parent-session model when fast is not configured", async () => {
+		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
+		const parentModel = { provider: "anthropic", id: "claude-sonnet-4-6" };
+		const parentSelection = {
+			provider: parentModel.provider,
+			modelId: parentModel.id,
+			thinking: "high" as const,
+		};
+		const unconfiguredRoot = mkdtempSync(join(tmpdir(), "branch-context-unconfigured-root-"));
+		const pi = new FakePi(
+			[
+				{
+					command: "pi",
+					args: buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content), parentSelection),
+					result: { stdout: `${PLAN_SLUG}\n` },
+				},
+			],
+			undefined,
+			{ modelRoot: unconfiguredRoot, thinkingLevel: "high" },
+		);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const tool = registeredTool(pi, "write_saved_plan_file");
+
+		const result = await tool.execute(
+			"tool-call",
+			{ content },
+			undefined,
+			undefined,
+			createToolContext({ model: parentModel }).ctx,
+		);
+
+		pi.assertDone();
+		expect(result.details).toMatchObject({
+			slugEvidence: {
+				provider: parentSelection.provider,
+				model: parentSelection.modelId,
+			},
+		});
+	});
+
 	test("streams progress while deriving the saved-plan slug and writing the plan file", async () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
@@ -114,7 +161,7 @@ describe("write_saved_plan_file tool", () => {
 			text.includes("Validating saved plan input"),
 		);
 		const slugIndex = updateTexts.findIndex((text) =>
-			text.includes("Deriving saved-plan filename slug with Codex"),
+			text.includes("Deriving saved-plan filename slug with a model"),
 		);
 		const writingIndex = updateTexts.findIndex((text) => text.includes("Writing plan file"));
 
@@ -135,7 +182,7 @@ describe("write_saved_plan_file tool", () => {
 		});
 		expect(toolContext.statuses).toContainEqual({
 			key: "ns:plan:save",
-			value: "Deriving saved-plan filename slug with Codex…",
+			value: "Deriving saved-plan filename slug with a model…",
 		});
 		expect(toolContext.statuses).toContainEqual({
 			key: "ns:plan:save",
@@ -162,7 +209,7 @@ describe("write_saved_plan_file tool", () => {
 		});
 	});
 
-	test("rejects assistant-provided saved-plan slugs so /ns:plan:save cannot bypass Codex slugging", async () => {
+	test("rejects assistant-provided saved-plan slugs so /ns:plan:save cannot bypass model slugging", async () => {
 		const pi = new FakePi();
 		registerBranchContextExtension(pi);
 		const tool = registeredTool(pi, "write_saved_plan_file");
@@ -175,7 +222,7 @@ describe("write_saved_plan_file tool", () => {
 				undefined,
 				{ cwd: ROOT },
 			),
-		).rejects.toThrow("derives `slug` from content through Codex");
+		).rejects.toThrow("derives `slug` from content through its selected model");
 		expect(pi.execCalls).toEqual([]);
 	});
 
@@ -250,7 +297,7 @@ describe("write_saved_plan_file tool", () => {
 		}
 
 		const partial = renderResult(
-			{ content: [{ type: "text", text: "Deriving saved-plan filename slug with Codex…" }] },
+			{ content: [{ type: "text", text: "Deriving saved-plan filename slug with a model…" }] },
 			{ isPartial: true },
 			undefined,
 			undefined,
@@ -264,7 +311,7 @@ describe("write_saved_plan_file tool", () => {
 
 		expect(partial.render(100).join("\n")).toContain("Saving branch-context plan…");
 		expect(partial.render(100).join("\n")).toContain(
-			"Deriving saved-plan filename slug with Codex…",
+			"Deriving saved-plan filename slug with a model…",
 		);
 		expect(final.render(100).join("\n").trimEnd()).toBe("Path: /tmp/plan.md");
 	});

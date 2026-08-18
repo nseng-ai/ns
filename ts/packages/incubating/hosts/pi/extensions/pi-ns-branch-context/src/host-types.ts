@@ -13,6 +13,7 @@ import type {
 import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
 import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type { SendMessageOptions } from "@nseng-ai/pi-runtime/shared/message-delivery";
+import type { ModelInfo, ThinkingLevel } from "@nseng-ai/extension-kit/pi-types";
 
 export type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 
@@ -77,6 +78,7 @@ export interface BranchContextExtensionOptions {
 
 export interface ToolContext {
 	cwd: string;
+	model?: ModelInfo;
 	hasUI?: boolean;
 	ui?: {
 		setStatus?(key: string, value: string | undefined): void;
@@ -132,6 +134,7 @@ export interface ExtensionAPI {
 		},
 	): void;
 	registerTool(definition: ToolDefinition): void;
+	getThinkingLevel(): ThinkingLevel;
 	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	sendMessage?(message: CustomMessage, options?: SendMessageOptions): void;
 	sendUserMessage(content: string): void;

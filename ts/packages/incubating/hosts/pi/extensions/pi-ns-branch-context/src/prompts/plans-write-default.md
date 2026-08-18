@@ -44,7 +44,7 @@ Local plan store contract:
 
 Saved-plan filename slug rules:
 
-- write_saved_plan_file derives the final saved-plan filename slug from the final plan content through the Codex-backed slug model.
+- write_saved_plan_file derives the final saved-plan filename slug from the final plan content through the configured slug model, falling back to the current parent-session model when `[models.profiles.fast]` is absent.
 - Do not generate, guess, or pass a slug yourself.
 - The derived slug is kebab-case, 3–7 words, specific to the work described by the final plan, and rejects dates, random IDs, and generic-only slugs.
 

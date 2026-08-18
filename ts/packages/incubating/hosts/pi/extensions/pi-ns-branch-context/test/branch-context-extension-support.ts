@@ -22,6 +22,7 @@ import {
 } from "@nseng-ai/branch-context/api";
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
+import type { ModelInfo, ThinkingLevel } from "@nseng-ai/extension-kit/pi-types";
 import type { RawPiExecOptions, RawPiExecResult } from "../src/host-types.ts";
 
 type ExecResultFixture = Partial<RawPiExecResult>;
@@ -101,10 +102,18 @@ export class FakePi implements ExtensionAPI {
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly events: string[] | undefined;
+	readonly thinkingLevel: ThinkingLevel;
+	private readonly modelRoot: string;
 
-	constructor(script: ScriptedExec[] = [], events?: string[]) {
+	constructor(
+		script: ScriptedExec[] = [],
+		events?: string[],
+		options: { modelRoot?: string; thinkingLevel?: ThinkingLevel } = {},
+	) {
 		this.script = new ScriptedQueue(script, (step) => step);
 		this.events = events;
+		this.modelRoot = options.modelRoot ?? MODEL_ROOT;
+		this.thinkingLevel = options.thinkingLevel ?? "minimal";
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
@@ -113,6 +122,10 @@ export class FakePi implements ExtensionAPI {
 
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
+	}
+
+	getThinkingLevel(): ThinkingLevel {
+		return this.thinkingLevel;
 	}
 
 	async exec(
@@ -128,7 +141,7 @@ export class FakePi implements ExtensionAPI {
 		if (command === "git" && sameArgs(args, ["rev-parse", "--show-toplevel"])) {
 			const next = this.script.peek();
 			if (next === undefined || next.command !== "git" || !sameArgs(next.args, args)) {
-				return execResult({ stdout: `${MODEL_ROOT}\n` });
+				return execResult({ stdout: `${this.modelRoot}\n` });
 			}
 		}
 		this.execCalls.push({ command, args: [...args], options });
@@ -819,7 +832,9 @@ export function createContext(
 	};
 }
 
-export function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
+export function createToolContext(
+	options: { hasUI?: boolean; cwd?: string; model?: ModelInfo } = {},
+): {
 	ctx: ToolContext;
 	statuses: Array<{ key: string; value: string | undefined }>;
 } {
@@ -827,6 +842,7 @@ export function createToolContext(options: { hasUI?: boolean; cwd?: string } = {
 	return {
 		ctx: {
 			cwd: options.cwd ?? ROOT,
+			...(options.model === undefined ? {} : { model: options.model }),
 			hasUI: options.hasUI ?? true,
 			ui: {
 				setStatus(key, value): void {
