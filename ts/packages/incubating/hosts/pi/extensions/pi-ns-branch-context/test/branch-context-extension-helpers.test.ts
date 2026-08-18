@@ -9,9 +9,9 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 import {
-	GIT_BRANCH_FROM_PLAN_USAGE,
+	GIT_NEW_BRANCH_FROM_PLAN_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
-	GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
+	GIT_IMPL_BRANCH_FROM_PLAN_USAGE,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	formatCreateBranchContextPreview,
@@ -90,13 +90,13 @@ describe("branch-context from-plan policy docs", () => {
 		expect(skillText).toContain("references/lifecycle.md");
 		expectBranchCreationPolicyPrecedence(lifecycleText);
 		expect(lifecycleText).toContain(describeBranchContextGraphiteCreationSteps("<current-branch>"));
-		expect(GIT_BRANCH_FROM_PLAN_USAGE).not.toContain("Graphite");
-		expect(GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE).not.toContain("Graphite");
+		expect(GIT_NEW_BRANCH_FROM_PLAN_USAGE).not.toContain("Graphite");
+		expect(GIT_IMPL_BRANCH_FROM_PLAN_USAGE).not.toContain("Graphite");
 		expect(skillText).not.toContain("Omit `--branch-creation` for the portable default");
 	});
 });
 
-describe("ns:git:branch-from-plan argument parsing", () => {
+describe("ns:git:new-branch-from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
 		expect(

@@ -14,11 +14,11 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 ## Public workflow surface
 
 1. Save a source-branch plan with Pi `/ns:plan:save` or `/ns:plan:grill-and-save`.
-2. Choose the provider-namespaced Pi command: `/ns:git:*` for plain Git, `/ns:gt:*` for Graphite, or `/ns:gs:*` for GitHub Stacks. Each namespace provides `branch-from-plan` and `branch-and-impl-from-plan`; provider-selection flags are not accepted.
+2. Choose the provider-namespaced Pi command: `/ns:git:*` for plain Git, `/ns:gt:*` for Graphite, or `/ns:gs:*` for GitHub Stacks. Each namespace provides `new-branch-from-plan` and `impl-branch-from-plan`; provider-selection flags are not accepted.
 3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
 4. Load and implement with the provider-independent `/ns:branch-context:impl-attached-plan` command or `ns branch-context exec load`.
 
-Every `branch-from-plan` command creates and attaches without changing the caller's final checkout: Git and GT create without switching, while GS temporarily checks out as required and restores the original named branch. Every `branch-and-impl-from-plan` command finishes on the target branch, starts a fresh Pi session, and sends `/ns:branch-context:impl-attached-plan <key>` in that session.
+Every `new-branch-from-plan` command creates and attaches without changing the caller's final checkout: Git and GT create without switching, while GS temporarily checks out as required and restores the original named branch. Every `impl-branch-from-plan` command finishes on the target branch, starts a fresh Pi session, and sends `/ns:branch-context:impl-attached-plan <key>` in that session.
 
 ## Save a source-branch plan
 
@@ -58,7 +58,7 @@ enriched-plan list [--format json] [--plan-store-root <path>]
 
 ## Create a branch and attach its branch context
 
-Pi users run `/ns:git:branch-from-plan`, `/ns:gt:branch-from-plan`, or `/ns:gs:branch-from-plan`. CLI/agent workflows use:
+Pi users run `/ns:git:new-branch-from-plan`, `/ns:gt:new-branch-from-plan`, or `/ns:gs:new-branch-from-plan`. CLI/agent workflows use:
 
 ```text
 ns branch-context exec from-plan --slug <branch-context-slug> --plan-file <path> [--branch <branch>] [--branch-creation plain-git|graphite] [--summary <text>] [--format json]
@@ -80,7 +80,7 @@ The attached Branch Memory entry is the implementation branch identity. Branch n
 
 ## Start or resume implementation in one Pi command
 
-Pi users can run `/ns:git:branch-and-impl-from-plan`, `/ns:gt:branch-and-impl-from-plan`, or `/ns:gs:branch-and-impl-from-plan` after saving a plan. Each command resolves a Saved plan, creates or reuses a branch with attached branch context, leaves the target checked out, starts a new Pi session, and sends `/ns:branch-context:impl-attached-plan`.
+Pi users can run `/ns:git:impl-branch-from-plan`, `/ns:gt:impl-branch-from-plan`, or `/ns:gs:impl-branch-from-plan` after saving a plan. Each command resolves a Saved plan, creates or reuses a branch with attached branch context, leaves the target checked out, starts a new Pi session, and sends `/ns:branch-context:impl-attached-plan`.
 
 ```text
 Resolve Saved plan from Local plan store
@@ -139,11 +139,11 @@ Use `attach --plan` to attach a saved plan as `<saved-plan-slug>.md`. Use `attac
 
 Provider choice is explicit. The portable CLI uses `plain-git` when `--branch-creation` is omitted; Pi users instead select `/ns:git:*`, `/ns:gt:*`, or `/ns:gs:*`, with no provider-selection flags or project-wide Graphite default.
 
-Git creation creates the target from the current start point without switching. Graphite creation uses the method defined in `skills/incubating/branch-context/branch-context/references/lifecycle.md` and also leaves the original branch checked out. GitHub Stacks creation may switch while updating local stack topology, then `branch-from-plan` restores the original named branch. In every case the plan attachment names the target branch explicitly, so storage does not depend on the current checkout.
+Git creation creates the target from the current start point without switching. Graphite creation uses the method defined in `skills/incubating/branch-context/branch-context/references/lifecycle.md` and also leaves the original branch checked out. GitHub Stacks creation may switch while updating local stack topology, then `new-branch-from-plan` restores the original named branch. In every case the plan attachment names the target branch explicitly, so storage does not depend on the current checkout.
 
 ### Branch-and-implement creation and resumption
 
-On the creation path, any provider-namespaced `branch-and-impl-from-plan` command resolves a Saved plan from the Local plan store before creating or attaching anything. With no explicit plan path, it prefers the most recent Saved plan created in the current Pi session, then falls back to the newest Markdown file in the current repository/source-branch Local plan store directory.
+On the creation path, any provider-namespaced `impl-branch-from-plan` command resolves a Saved plan from the Local plan store before creating or attaching anything. With no explicit plan path, it prefers the most recent Saved plan created in the current Pi session, then falls back to the newest Markdown file in the current repository/source-branch Local plan store directory.
 
 An explicit plan path may be absolute or current-user home-relative with `~` or `~/`; a leading `@` is accepted and stripped, and the normalized path must be absolute and end in `.md`.
 
@@ -170,19 +170,19 @@ Recovery examples:
 Preview what the command would do:
 
 ```text
-/ns:gt:branch-and-impl-from-plan --dry-run
+/ns:gt:impl-branch-from-plan --dry-run
 ```
 
 Resume from a branch created earlier in the same Pi session after the source branch no longer has a Saved plan in its Local plan store:
 
 ```text
-/ns:gt:branch-and-impl-from-plan
+/ns:gt:impl-branch-from-plan
 ```
 
 If resumption reports multiple candidates, choose explicitly:
 
 ```text
-/ns:gt:branch-and-impl-from-plan --branch <target-branch>
+/ns:gt:impl-branch-from-plan --branch <target-branch>
 ```
 
 If checkout or new-session launch is cancelled after resumption succeeds, continue from the checked-out branch:
@@ -228,6 +228,6 @@ brmem get <key> --namespace branch-context --branch <branch>
 
 ## Related surfaces
 
-- Pi commands: `/ns:plan:save`, `/ns:plan:grill-and-save`, the Git/GT/GS `branch-from-plan` and `branch-and-impl-from-plan` families, and `/ns:branch-context:impl-attached-plan`.
+- Pi commands: `/ns:plan:save`, `/ns:plan:grill-and-save`, the Git/GT/GS `new-branch-from-plan` and `impl-branch-from-plan` families, and `/ns:branch-context:impl-attached-plan`.
 - CLIs: `enriched-plan`, `branch-context`, and low-level `brmem`.
 - Agent skills: `branch-context`, `branch-context-from-plan`, and `branch-context-impl`.

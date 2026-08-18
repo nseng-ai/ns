@@ -1,7 +1,7 @@
 import {
 	BRANCH_CONTEXT_NAMESPACE,
-	GS_BRANCH_FROM_PLAN_COMMAND_NAME,
-	GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	attachBranchContext,
 	buildBranchContextCreateOperation,
@@ -32,11 +32,11 @@ import { RealGsConsumerGateway, type GsConsumerGateway } from "./gs-gateway.ts";
 import type { CommandContext, ExtensionAPI } from "./host-types.ts";
 import { createGsPiCommandApi, type GsPiCommandApi } from "./pi-command-api.ts";
 
-export { GS_BRANCH_FROM_PLAN_COMMAND_NAME, GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME };
-const STATUS_KEY = GS_BRANCH_FROM_PLAN_COMMAND_NAME;
-const IMPL_STATUS_KEY = GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME;
+export { GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME };
+const STATUS_KEY = GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME;
+const IMPL_STATUS_KEY = GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME;
 
-export const GS_BRANCH_FROM_PLAN_USAGE = `Usage: /${GS_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GS_NEW_BRANCH_FROM_PLAN_USAGE = `Usage: /${GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create a GitHub Stacks branch from a Saved Plan, attach it as Branch Context, then restore the original branch.
 
@@ -45,7 +45,7 @@ Options:
   --branch <name>    Use an explicit target branch; collisions are refused.
   --help, -h         Show this help.`;
 
-export const GS_BRANCH_AND_IMPL_FROM_PLAN_USAGE = `Usage: /${GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GS_IMPL_BRANCH_FROM_PLAN_USAGE = `Usage: /${GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create or reuse a GitHub Stacks branch with Attached Plan, keep it checked out, then open a fresh Pi session and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <key>.
 
@@ -89,7 +89,7 @@ interface CommandArgs {
 export const gsExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
-		surface: GS_BRANCH_FROM_PLAN_COMMAND_NAME,
+		surface: GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		workflow: "Create a GitHub Stacks branch from a Saved Plan and attach Branch Context",
 		parity: "WAIVED",
 		fallback:
@@ -102,7 +102,7 @@ export const gsExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+		surface: GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		workflow: "Create or reuse a GitHub Stacks branch and implement its Attached Plan",
 		parity: "WAIVED",
 		fallback: "Create or select the branch, then run the attached-plan implementation command.",
@@ -120,27 +120,27 @@ export default function registerGsExtension(
 	const commandApi = createGsPiCommandApi(pi);
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: GS_BRANCH_FROM_PLAN_COMMAND_NAME,
+		commandName: GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description: "Create a GitHub Stacks branch from a Saved Plan and attach Branch Context",
 			handler: async (rawArgs, ctx) =>
-				handleGsBranchFromPlan(commandApi, rawArgs, ctx, options, false),
+				handleGsNewBranchFromPlan(commandApi, rawArgs, ctx, options, false),
 		},
 		options: { delivery: "message" },
 	});
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+		commandName: GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description: "Create or reuse a GitHub Stacks branch and implement its Attached Plan",
 			handler: async (rawArgs, ctx) =>
-				handleGsBranchFromPlan(commandApi, rawArgs, ctx, options, true),
+				handleGsNewBranchFromPlan(commandApi, rawArgs, ctx, options, true),
 		},
 		options: { delivery: "message" },
 	});
 }
 
-async function handleGsBranchFromPlan(
+async function handleGsNewBranchFromPlan(
 	pi: GsPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -154,7 +154,7 @@ async function handleGsBranchFromPlan(
 		present(
 			pi,
 			ctx,
-			`Usage error: ${formatErrorMessage(error)}\n\n${shouldLaunch ? GS_BRANCH_AND_IMPL_FROM_PLAN_USAGE : GS_BRANCH_FROM_PLAN_USAGE}`,
+			`Usage error: ${formatErrorMessage(error)}\n\n${shouldLaunch ? GS_IMPL_BRANCH_FROM_PLAN_USAGE : GS_NEW_BRANCH_FROM_PLAN_USAGE}`,
 			"error",
 		);
 		return;
@@ -164,7 +164,7 @@ async function handleGsBranchFromPlan(
 		present(
 			pi,
 			ctx,
-			shouldLaunch ? GS_BRANCH_AND_IMPL_FROM_PLAN_USAGE : GS_BRANCH_FROM_PLAN_USAGE,
+			shouldLaunch ? GS_IMPL_BRANCH_FROM_PLAN_USAGE : GS_NEW_BRANCH_FROM_PLAN_USAGE,
 			"info",
 		);
 		return;
@@ -258,7 +258,7 @@ async function handleGsBranchFromPlan(
 			return;
 		}
 		ctx.ui.setStatus(statusKey, "creating GitHub Stacks branch…");
-		const result = await executeGsBranchFromPlan({
+		const result = await executeGsNewBranchFromPlan({
 			cwd: ctx.cwd,
 			context,
 			restoreOriginal: !shouldLaunch,
@@ -280,16 +280,16 @@ async function handleGsBranchFromPlan(
 	}
 }
 
-export type GsBranchFromPlanResult =
+export type GsNewBranchFromPlanResult =
 	| { type: "success"; message: string; originalBranch: string; targetBranch: string; key: string }
 	| { type: "failure"; message: string; targetBranch: string; key: string };
 
-export async function executeGsBranchFromPlan(options: {
+export async function executeGsNewBranchFromPlan(options: {
 	cwd: string;
 	context: GsExtensionContext;
 	operation: { branch: string; key: string; sourceFile: string };
 	restoreOriginal?: boolean;
-}): Promise<GsBranchFromPlanResult> {
+}): Promise<GsNewBranchFromPlanResult> {
 	const { git, gs, brmem } = options.context;
 	const original = await git.currentBranch({ cwd: options.cwd });
 	if (original.type === "detached")
@@ -569,7 +569,7 @@ function selectedFile(selected: SelectedSavedPlanFile): { filePath: string } {
 function failure(
 	options: { operation: { branch: string; key: string } },
 	message: string,
-): GsBranchFromPlanResult {
+): GsNewBranchFromPlanResult {
 	return {
 		type: "failure",
 		message,
@@ -582,7 +582,7 @@ function providerPostCreationFailure(
 	options: { operation: { branch: string; key: string } },
 	originalBranch: string,
 	detail: string,
-): GsBranchFromPlanResult {
+): GsNewBranchFromPlanResult {
 	return failure(
 		options,
 		[
@@ -600,7 +600,7 @@ function postCreationFailure(
 	options: { operation: { branch: string; key: string } },
 	originalBranch: string,
 	detail: string,
-): GsBranchFromPlanResult {
+): GsNewBranchFromPlanResult {
 	return failure(
 		options,
 		[
@@ -648,7 +648,12 @@ function present(
 	details?: unknown,
 ): void {
 	if (pi.rawPi.sendMessage !== undefined) {
-		pi.rawPi.sendMessage({ customType: "ns.gs.branch-from-plan", content, display: true, details });
+		pi.rawPi.sendMessage({
+			customType: "ns.gs.new-branch-from-plan",
+			content,
+			display: true,
+			details,
+		});
 		return;
 	}
 	ctx.ui.notify(content, level);

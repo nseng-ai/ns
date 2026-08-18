@@ -8,13 +8,13 @@ import {
 } from "@nseng-ai/pi-runtime/commands/ack";
 import { setRuntimeStatus } from "@nseng-ai/pi-runtime/runtime/status";
 import {
-	formatBranchContextBranchAndImplFollowUpFlow,
-	runBranchContextBranchAndImplLaunch,
-} from "./session/branch-and-impl-launch.ts";
-import { createBranchAndImplGitGateway } from "./session/git-gateway.ts";
+	formatBranchContextImplBranchFollowUpFlow,
+	runBranchContextImplBranchLaunch,
+} from "./session/impl-branch-launch.ts";
+import { createImplBranchGitGateway } from "./session/git-gateway.ts";
 import {
-	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
-	GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
@@ -63,13 +63,13 @@ import type {
 } from "./host-types.ts";
 import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
-export { GIT_BRANCH_FROM_PLAN_COMMAND_NAME, GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME };
+export { GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME, GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME };
 export { IMPL_SAVED_PLAN_COMMAND_NAME };
-const BRANCH_CONTEXT_STATUS_KEY = GIT_BRANCH_FROM_PLAN_COMMAND_NAME;
-const BRANCH_AND_IMPL_STATUS_KEY = GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME;
+const BRANCH_CONTEXT_STATUS_KEY = GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME;
+const IMPL_BRANCH_STATUS_KEY = GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 const IMPL_SAVED_PLAN_STATUS_KEY = IMPL_SAVED_PLAN_COMMAND_NAME;
-export const GIT_BRANCH_FROM_PLAN_USAGE = `Usage: /${GIT_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GIT_NEW_BRANCH_FROM_PLAN_USAGE = `Usage: /${GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, default target branches auto-suffix on collisions, then the plan is attached to the branch in Branch Memory as <content-derived-slug>.md.
 
@@ -84,7 +84,7 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE = `Usage: /${GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GIT_IMPL_BRANCH_FROM_PLAN_USAGE = `Usage: /${GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create a plain Git branch context from the current HEAD, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
@@ -674,7 +674,7 @@ export async function handleImplSavedPlanCommand(
 	);
 }
 
-export async function handleGitBranchFromPlanCommand(
+export async function handleGitNewBranchFromPlanCommand(
 	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -685,7 +685,7 @@ export async function handleGitBranchFromPlanCommand(
 		rawArgs,
 		ctx,
 		extensionOptions: options,
-		usage: GIT_BRANCH_FROM_PLAN_USAGE,
+		usage: GIT_NEW_BRANCH_FROM_PLAN_USAGE,
 		statusKey: BRANCH_CONTEXT_STATUS_KEY,
 		progressMessage: "Finding saved plan for branch context…",
 		derivePreviewOptions: (extensionOptions) => extensionOptions,
@@ -703,7 +703,7 @@ export async function handleGitBranchFromPlanCommand(
 	});
 }
 
-export async function handleGitBranchAndImplFromPlanCommand(
+export async function handleGitImplBranchFromPlanCommand(
 	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -714,12 +714,12 @@ export async function handleGitBranchAndImplFromPlanCommand(
 		rawArgs,
 		ctx,
 		extensionOptions: options,
-		usage: GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
-		statusKey: BRANCH_AND_IMPL_STATUS_KEY,
+		usage: GIT_IMPL_BRANCH_FROM_PLAN_USAGE,
+		statusKey: IMPL_BRANCH_STATUS_KEY,
 		progressMessage: "Finding saved plan for implementation branch context implementation…",
 		derivePreviewOptions: (extensionOptions) => extensionOptions,
 		formatDryRunMessage: (preview) =>
-			formatBranchAndImplDryRunMessage(
+			formatImplBranchDryRunMessage(
 				formatCreateBranchContextPreview(preview),
 				preview.targetBranch,
 				preview.planKey,
@@ -728,7 +728,7 @@ export async function handleGitBranchAndImplFromPlanCommand(
 			if (!(error instanceof NoSavedPlanAvailableError)) {
 				return false;
 			}
-			await handleBranchAndImplExistingReuse({
+			await handleImplBranchExistingReuse({
 				pi,
 				args,
 				ctx,
@@ -738,7 +738,7 @@ export async function handleGitBranchAndImplFromPlanCommand(
 			return true;
 		},
 		onCreated: async (evidence) => {
-			await runBranchAndImplLaunchTail({
+			await runImplBranchLaunchTail({
 				pi,
 				ctx,
 				mode: "created",
@@ -864,7 +864,7 @@ interface CreateBranchContextFromPreviewOptions {
 	extensionOptions: BranchContextExtensionOptions;
 }
 
-interface HandleBranchAndImplExistingReuseOptions {
+interface HandleImplBranchExistingReuseOptions {
 	pi: BranchContextPiCommandApi;
 	args: CreateBranchContextArgs;
 	ctx: CommandContext;
@@ -872,12 +872,12 @@ interface HandleBranchAndImplExistingReuseOptions {
 	extensionOptions: BranchContextExtensionOptions;
 }
 
-async function handleBranchAndImplExistingReuse(
-	options: HandleBranchAndImplExistingReuseOptions,
+async function handleImplBranchExistingReuse(
+	options: HandleImplBranchExistingReuseOptions,
 ): Promise<void> {
 	const { pi, args, ctx, originalError, extensionOptions } = options;
 	let reuse: ExistingBranchContextReuse;
-	setRuntimeStatus(ctx, BRANCH_AND_IMPL_STATUS_KEY, "finding existing branch context…");
+	setRuntimeStatus(ctx, IMPL_BRANCH_STATUS_KEY, "finding existing branch context…");
 	try {
 		const sessionEntries = ctx.sessionManager?.getBranch?.() ?? [];
 		reuse = await resolveExistingBranchContextReuse(
@@ -897,14 +897,14 @@ async function handleBranchAndImplExistingReuse(
 		);
 		return;
 	} finally {
-		setRuntimeStatus(ctx, BRANCH_AND_IMPL_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, IMPL_BRANCH_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatBranchAndImplDryRunMessage(
+			formatImplBranchDryRunMessage(
 				formatExistingBranchContextReuse(reuse),
 				reuse.branch,
 				reuse.key,
@@ -915,7 +915,7 @@ async function handleBranchAndImplExistingReuse(
 		return;
 	}
 
-	await runBranchAndImplLaunchTail({
+	await runImplBranchLaunchTail({
 		pi,
 		ctx,
 		mode: "reused",
@@ -970,7 +970,7 @@ function formatExistingReuseFailureMessage(originalError: unknown, reuseError: u
 	].join("\n");
 }
 
-type BranchAndImplMode = "created" | "reused";
+type ImplBranchMode = "created" | "reused";
 
 type ImplSavedPlanLaunchResult =
 	| { type: "launched"; parentSession?: string }
@@ -982,23 +982,23 @@ interface ImplSavedPlanLaunchOptions {
 	prompt: string;
 }
 
-interface BranchAndImplLaunchTailOptions {
+interface ImplBranchLaunchTailOptions {
 	pi: BranchContextPiCommandApi;
 	ctx: CommandContext;
-	mode: BranchAndImplMode;
+	mode: ImplBranchMode;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
 	successBody: string;
 	outputDetails: BranchContextOutputDetails;
 }
 
-async function runBranchAndImplLaunchTail(options: BranchAndImplLaunchTailOptions): Promise<void> {
+async function runImplBranchLaunchTail(options: ImplBranchLaunchTailOptions): Promise<void> {
 	const { pi, ctx, mode, target } = options;
 	presentBranchContextMessage(pi, ctx, options.successBody, options.outputDetails, "info");
 
-	const launchResult = await runBranchContextBranchAndImplLaunch({
-		git: createBranchAndImplGitGateway(pi),
+	const launchResult = await runBranchContextImplBranchLaunch({
+		git: createImplBranchGitGateway(pi),
 		ctx,
-		statusKey: BRANCH_AND_IMPL_STATUS_KEY,
+		statusKey: IMPL_BRANCH_STATUS_KEY,
 		target,
 	});
 	if (launchResult.type === "launched") {
@@ -1008,7 +1008,7 @@ async function runBranchAndImplLaunchTail(options: BranchAndImplLaunchTailOption
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatBranchAndImplCancelledMessage(mode, launchResult.branch, launchResult.key),
+			formatImplBranchCancelledMessage(mode, launchResult.branch, launchResult.key),
 			{ status: "cancelled" },
 			"warning",
 		);
@@ -1018,7 +1018,7 @@ async function runBranchAndImplLaunchTail(options: BranchAndImplLaunchTailOption
 	presentBranchContextFailure(
 		pi,
 		ctx,
-		formatBranchAndImplLaunchFailureTitle(mode, launchResult.phase),
+		formatImplBranchLaunchFailureTitle(mode, launchResult.phase),
 		launchResult.message,
 	);
 }
@@ -1062,16 +1062,16 @@ async function runImplSavedPlanLaunch(
 	}
 }
 
-function formatBranchAndImplDryRunMessage(body: string, branch: string, key: string): string {
-	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextBranchAndImplFollowUpFlow(branch, key)}`;
+function formatImplBranchDryRunMessage(body: string, branch: string, key: string): string {
+	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextImplBranchFollowUpFlow(branch, key)}`;
 }
 
 function formatImplSavedPlanCancelledMessage(filePath: string): string {
 	return `Selected the saved plan, but starting the implementation session was cancelled. Run /${IMPL_SAVED_PLAN_COMMAND_NAME} ${filePath} again, or manually open /new on the current branch and paste/use the saved plan content.`;
 }
 
-function formatBranchAndImplLaunchFailureTitle(
-	mode: BranchAndImplMode,
+function formatImplBranchLaunchFailureTitle(
+	mode: ImplBranchMode,
 	phase: "checkout" | "new-session",
 ): string {
 	if (mode === "created") {
@@ -1084,8 +1084,8 @@ function formatBranchAndImplLaunchFailureTitle(
 		: "Reused existing branch context, verified the attached plan, and checked out the branch context, but failed to start the implementation session.";
 }
 
-function formatBranchAndImplCancelledMessage(
-	mode: BranchAndImplMode,
+function formatImplBranchCancelledMessage(
+	mode: ImplBranchMode,
 	branch: string,
 	key: string,
 ): string {
@@ -1205,22 +1205,22 @@ export function registerBranchContextCommands(
 ): void {
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+		commandName: GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
-			handler: async (args, ctx) => handleGitBranchFromPlanCommand(pi, args, ctx, options),
+			handler: async (args, ctx) => handleGitNewBranchFromPlanCommand(pi, args, ctx, options),
 		},
 		options: { delivery: "message" },
 	});
 
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+		commandName: GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Create a plain Git branch context, check it out, and implement the attached plan in a fresh Pi session.",
-			handler: async (args, ctx) => handleGitBranchAndImplFromPlanCommand(pi, args, ctx, options),
+			handler: async (args, ctx) => handleGitImplBranchFromPlanCommand(pi, args, ctx, options),
 		},
 		options: { delivery: "message" },
 	});

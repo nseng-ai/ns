@@ -8,8 +8,8 @@ import {
 	registerSavedPlanCommandsAndTools,
 } from "./saved-plan-commands.ts";
 import {
-	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
-	GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 	registerBranchContextCommands,
 } from "./from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./host-types.ts";
@@ -44,7 +44,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+		surface: GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		workflow: "Create an implementation branch from a saved plan and attach branch context",
 		parity: "FULL",
 		cli: "ns branch-context exec from-plan",
@@ -57,7 +57,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+		surface: GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		workflow: "Create a plain-Git branch context and launch a fresh implementation session",
 		parity: "WAIVED",
 		fallback:
@@ -108,10 +108,10 @@ export {
 	handleWritePlanCommand,
 } from "./saved-plan-commands.ts";
 export {
-	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
-	GIT_BRANCH_FROM_PLAN_USAGE,
-	GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
-	GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
+	GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_NEW_BRANCH_FROM_PLAN_USAGE,
+	GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_IMPL_BRANCH_FROM_PLAN_USAGE,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	IMPL_SAVED_PLAN_USAGE,
 	buildImplSavedPlanPrompt,
@@ -119,9 +119,9 @@ export {
 	deriveImplSavedPlanPreview,
 	formatCreateBranchContextPreview,
 	formatImplSavedPlanEvidence,
-	handleGitBranchFromPlanCommand,
+	handleGitNewBranchFromPlanCommand,
 	handleImplBranchContextCommand,
-	handleGitBranchAndImplFromPlanCommand,
+	handleGitImplBranchFromPlanCommand,
 	handleImplSavedPlanCommand,
 	parseCreateBranchContextArgs,
 	parseImplSavedPlanArgs,

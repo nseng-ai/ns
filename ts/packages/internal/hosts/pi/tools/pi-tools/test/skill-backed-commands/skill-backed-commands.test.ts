@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { withTempGitRepo, withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
 import type { EffectiveSkillInfo } from "@nseng-ai/pi-runtime/runtime/types";
-const GIT_BRANCH_FROM_PLAN_COMMAND_NAME = "ns:git:branch-from-plan";
+const GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME = "ns:git:new-branch-from-plan";
 const IMPL_BRANCH_CONTEXT_COMMAND_NAME = "ns:branch-context:impl-attached-plan";
 
 const OBJECTIVE_COMMAND_SURFACES = [
@@ -69,7 +69,7 @@ function commandContext(skill?: EffectiveSkillInfo): SkillBackedCommandContext &
 describe("skill-backed command registry", () => {
 	test("uses one local composed registry with provider-owned Handoff and Objective rows", () => {
 		expect(skillBackedCommandSurface("branch-context-from-plan")).toBe(
-			GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+			GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		);
 		expect(skillBackedCommandSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
 		expect(skillBackedCommandSurface("objective-refresh")).toBe("ns:objective:refresh");

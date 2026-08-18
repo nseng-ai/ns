@@ -36,6 +36,6 @@ ns branch-context exec load [key] --prompt-file "$prompt_file" --format json
 
 ## Recovery
 
-- No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `branch-context-from-plan`, switch to the implementation branch, or pass an explicit saved plan to `/ns:git:branch-from-plan` first.
+- No attached entry and saved-plan fallback also fails: report both failures and ask whether to run `branch-context-from-plan`, switch to the implementation branch, or pass an explicit saved plan to `/ns:git:new-branch-from-plan` first.
 - Missing, unexpected, or ambiguous attached plan key: inspect `brmem list --namespace branch-context --branch <branch>` and rerun `load <key>` only when the user explicitly chooses the key.
 - Current branch is trunk/default/detached: stop and ask for the intended implementation branch.

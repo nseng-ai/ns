@@ -53,12 +53,12 @@ Pi surfaces:
 - `/ns:plan:save`
 - `/ns:plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
 - `/ns:plan:impl-saved-plan` directly implements a selected Saved plan in a fresh Pi session on the current branch without attaching Branch Context or writing Branch Memory. With no path it prefers current-session Saved Plan evidence, then the newest branch-scoped local-store plan; an explicit path selects that file even when it is older.
-- `/ns:git:branch-from-plan` and `/ns:git:branch-and-impl-from-plan` for plain Git
-- `/ns:gt:branch-from-plan` and `/ns:gt:branch-and-impl-from-plan` for Graphite
-- `/ns:gs:branch-from-plan` and `/ns:gs:branch-and-impl-from-plan` for GitHub Stacks
+- `/ns:git:new-branch-from-plan` and `/ns:git:impl-branch-from-plan` for plain Git
+- `/ns:gt:new-branch-from-plan` and `/ns:gt:impl-branch-from-plan` for Graphite
+- `/ns:gs:new-branch-from-plan` and `/ns:gs:impl-branch-from-plan` for GitHub Stacks
 - `/ns:branch-context:impl-attached-plan` implements the branch-scoped Attached Plan independent of creation provider, including its documented local-plan-store fallback when no attached entry is available.
 
-The three `branch-from-plan` commands retain or restore the original branch. The three `branch-and-impl-from-plan` commands leave the target checked out and dispatch implementation in a fresh Pi session. Provider namespaces are the selection mechanism; provider-selection flags are unsupported.
+The three `new-branch-from-plan` commands retain or restore the original branch. The three `impl-branch-from-plan` commands leave the target checked out and dispatch implementation in a fresh Pi session. Provider namespaces are the selection mechanism; provider-selection flags are unsupported.
 
 `impl-saved-plan` names the durable artifact boundary rather than implying recency. It accepts only a **Saved plan**, distinct from the **Attached plan** consumed through the branch-context workflow.
 

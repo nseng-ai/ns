@@ -16,7 +16,7 @@ import { FakePi, ROOT, step } from "./gt-extension-support.ts";
 
 const BRANCH = "branch-contexts/widget-flow";
 const KEY = "widget-flow.md";
-const STATUS_KEY = "ns:gt:branch-and-impl-from-plan";
+const STATUS_KEY = "ns:gt:impl-branch-from-plan";
 
 class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 	readonly cwd = ROOT;

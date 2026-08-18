@@ -22,8 +22,8 @@ describe("enriched-plan-commands", () => {
 
 		expect([...pi.commands.keys()].sort()).toEqual([
 			"ns:branch-context:impl-attached-plan",
-			"ns:git:branch-and-impl-from-plan",
-			"ns:git:branch-from-plan",
+			"ns:git:impl-branch-from-plan",
+			"ns:git:new-branch-from-plan",
 			"ns:plan:grill-and-save",
 			"ns:plan:impl-saved-plan",
 			"ns:plan:save",

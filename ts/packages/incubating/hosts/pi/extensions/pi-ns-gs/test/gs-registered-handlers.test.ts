@@ -12,8 +12,8 @@ import type {
 import { NoSavedPlanAvailableError, type SelectedSavedPlanFile } from "@nseng-ai/plans/api";
 
 import registerGsExtension, {
-	GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
-	GS_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 	type GsExtensionOptions,
 } from "../src/extension.ts";
 import type { CommandContext, ExtensionAPI } from "../src/host-types.ts";
@@ -227,7 +227,7 @@ function expectImmediateAckFirst(fixture: ReturnType<typeof createHandlerFixture
 describe("registered GS command handlers", () => {
 	test("reject provider flags before constructing mutation context", async () => {
 		const fixture = createHandlerFixture();
-		await invoke(fixture, GS_BRANCH_FROM_PLAN_COMMAND_NAME, "--graphite");
+		await invoke(fixture, GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME, "--graphite");
 		expectImmediateAckFirst(fixture);
 		expect(fixture.gs.inspectionCalls).toEqual([]);
 		expect(fixture.git.checkoutCalls).toEqual([]);
@@ -238,7 +238,7 @@ describe("registered GS command handlers", () => {
 
 	test("creation dry-run resolves exact init/adopt topology without mutation", async () => {
 		const fixture = createHandlerFixture();
-		await invoke(fixture, GS_BRANCH_FROM_PLAN_COMMAND_NAME, "--dry-run");
+		await invoke(fixture, GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME, "--dry-run");
 		expectImmediateAckFirst(fixture);
 		expect(fixture.gs.inspectionCalls).toEqual([{ cwd: "/repo" }]);
 		expect(fixture.gs.addCalls).toEqual([]);
@@ -253,7 +253,7 @@ describe("registered GS command handlers", () => {
 
 	test("no-Saved-Plan reuse skips GS and launches implementation", async () => {
 		const fixture = createHandlerFixture({ noSavedPlan: true });
-		await invoke(fixture, GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME, "");
+		await invoke(fixture, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME, "");
 		expectImmediateAckFirst(fixture);
 		expect(fixture.gs.inspectionCalls).toEqual([]);
 		expect(fixture.gs.addCalls).toEqual([]);
@@ -267,7 +267,7 @@ describe("registered GS command handlers", () => {
 		const fixture = createHandlerFixture({
 			gs: { initializeResult: { ok: false, error: { code: "gs-init", message: "init failed" } } },
 		});
-		await invoke(fixture, GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME, "");
+		await invoke(fixture, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME, "");
 		expectImmediateAckFirst(fixture);
 		expect(fixture.brmem.putEntryCalls).toEqual([]);
 		expect(fixture.sessionCalls).toEqual([]);
@@ -278,7 +278,7 @@ describe("registered GS command handlers", () => {
 		const fixture = createHandlerFixture({
 			attachFailure: { code: "attach", message: "attach failed" },
 		});
-		await invoke(fixture, GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME, "");
+		await invoke(fixture, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME, "");
 		expectImmediateAckFirst(fixture);
 		expect(fixture.brmem.putEntryCalls).toHaveLength(1);
 		expect(fixture.sessionCalls).toEqual([]);
@@ -287,7 +287,7 @@ describe("registered GS command handlers", () => {
 
 	test("successful create attaches and dispatches in a fresh session", async () => {
 		const fixture = createHandlerFixture();
-		await invoke(fixture, GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME, "");
+		await invoke(fixture, GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME, "");
 		expectImmediateAckFirst(fixture);
 		expect(fixture.gs.initializeCalls).toEqual([
 			{ cwd: "/repo", trunkBranch: "main", branches: ["feature", TARGET] },

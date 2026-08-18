@@ -9,7 +9,7 @@ import type {
 	GitOperationResult,
 	GitResult,
 } from "@nseng-ai/foundation/git";
-import { executeGsBranchFromPlan } from "../src/extension.ts";
+import { executeGsNewBranchFromPlan } from "../src/extension.ts";
 import { InMemoryGsGateway } from "../src/testing.ts";
 
 const HEAD = "0123456789abcdef0123456789abcdef01234567";
@@ -132,7 +132,7 @@ async function run(
 	const brmem = new InMemoryBranchMemoryGateway(
 		options.attachFailure === undefined ? {} : { attachFailure: options.attachFailure },
 	);
-	const result = await executeGsBranchFromPlan({
+	const result = await executeGsNewBranchFromPlan({
 		cwd: "/repo",
 		context: { git, gs: gs.gateway, brmem },
 		operation,
@@ -140,7 +140,7 @@ async function run(
 	return { result, git, gs: gs.base, brmem };
 }
 
-describe("GS branch-from-plan workflow", () => {
+describe("GS new-branch-from-plan workflow", () => {
 	test("adds above an existing stack, verifies, attaches, and restores", async () => {
 		const fixture = await run({
 			gsState: {

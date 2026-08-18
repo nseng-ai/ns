@@ -16,8 +16,8 @@ import {
 } from "./gt/upstack-impl-launch.ts";
 import { createGtUpstackImplGitGateway } from "./gt/git-gateway.ts";
 import {
-	GT_BRANCH_FROM_PLAN_COMMAND_NAME,
-	GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
@@ -68,16 +68,16 @@ import type {
 } from "./host-types.ts";
 import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
-export { GT_BRANCH_FROM_PLAN_COMMAND_NAME, GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME };
+export { GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME, GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME };
 export { IMPL_SAVED_PLAN_COMMAND_NAME };
-const BRANCH_CONTEXT_STATUS_KEY = GT_BRANCH_FROM_PLAN_COMMAND_NAME;
-const GT_UPSTACK_IMPL_STATUS_KEY = GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME;
+const BRANCH_CONTEXT_STATUS_KEY = GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME;
+const GT_UPSTACK_IMPL_STATUS_KEY = GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 const IMPL_SAVED_PLAN_STATUS_KEY = IMPL_SAVED_PLAN_COMMAND_NAME;
 const GRAPHITE_BRANCH_CREATION_HELP =
 	describeBranchContextGraphiteCreationSteps("<current-branch>");
 
-export const GT_BRANCH_FROM_PLAN_USAGE = `Usage: /${GT_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GT_NEW_BRANCH_FROM_PLAN_USAGE = `Usage: /${GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, default target branches auto-suffix on collisions, then the plan is attached to the branch in Branch Memory as <content-derived-slug>.md.
 
@@ -93,7 +93,7 @@ With no file path, the command prefers the most recent saved plan created in the
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const GT_BRANCH_AND_IMPL_FROM_PLAN_USAGE = `Usage: /${GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GT_IMPL_BRANCH_FROM_PLAN_USAGE = `Usage: /${GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Stack a branch context on the current branch with the branch-context Graphite method, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
@@ -685,7 +685,7 @@ export async function handleImplSavedPlanCommand(
 	);
 }
 
-export async function handleGtBranchFromPlanCommand(
+export async function handleGtNewBranchFromPlanCommand(
 	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -696,7 +696,7 @@ export async function handleGtBranchFromPlanCommand(
 		rawArgs,
 		ctx,
 		extensionOptions: options,
-		usage: GT_BRANCH_FROM_PLAN_USAGE,
+		usage: GT_NEW_BRANCH_FROM_PLAN_USAGE,
 		statusKey: BRANCH_CONTEXT_STATUS_KEY,
 		progressMessage: "Finding saved plan for branch context…",
 		derivePreviewOptions: (extensionOptions) => extensionOptions,
@@ -714,7 +714,7 @@ export async function handleGtBranchFromPlanCommand(
 	});
 }
 
-export async function handleGtBranchAndImplFromPlanCommand(
+export async function handleGtImplBranchFromPlanCommand(
 	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -725,7 +725,7 @@ export async function handleGtBranchAndImplFromPlanCommand(
 		rawArgs,
 		ctx,
 		extensionOptions: options,
-		usage: GT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
+		usage: GT_IMPL_BRANCH_FROM_PLAN_USAGE,
 		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
 		progressMessage: "Finding saved plan for upstack branch-context implementation…",
 		derivePreviewOptions: (extensionOptions) => extensionOptions,
@@ -1249,22 +1249,22 @@ export function registerGtCommands(
 ): void {
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: GT_BRANCH_FROM_PLAN_COMMAND_NAME,
+		commandName: GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
-			handler: async (args, ctx) => handleGtBranchFromPlanCommand(pi, args, ctx, options),
+			handler: async (args, ctx) => handleGtNewBranchFromPlanCommand(pi, args, ctx, options),
 		},
 		options: { delivery: "message" },
 	});
 
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+		commandName: GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
-			handler: async (args, ctx) => handleGtBranchAndImplFromPlanCommand(pi, args, ctx, options),
+			handler: async (args, ctx) => handleGtImplBranchFromPlanCommand(pi, args, ctx, options),
 		},
 		options: { delivery: "message" },
 	});

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
@@ -11,7 +12,8 @@ import {
 
 describe("branch-context Pi command surfaces", () => {
 	test("owns concrete branch-context and saved-plan command constants", () => {
-		expect(GIT_BRANCH_FROM_PLAN_COMMAND_NAME).toBe("ns:git:branch-from-plan");
+		expect(GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME).toBe("ns:git:new-branch-from-plan");
+		expect(GIT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME).toBe("ns:git:impl-branch-from-plan");
 		expect(IMPL_BRANCH_CONTEXT_COMMAND_NAME).toBe("ns:branch-context:impl-attached-plan");
 		expect(IMPL_SAVED_PLAN_COMMAND_NAME).toBe("ns:plan:impl-saved-plan");
 		expect(WRITE_PLAN_COMMAND_NAME).toBe("ns:plan:save");

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 
 import registerGsExtension, {
-	GS_BRANCH_FROM_PLAN_COMMAND_NAME,
-	GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 	gsExtensionParity,
 } from "../src/extension.ts";
 import type { ExtensionAPI } from "../src/host-types.ts";
@@ -26,20 +26,25 @@ class RegistrationFake implements ExtensionAPI {
 }
 
 describe("GS Pi surfaces", () => {
+	test("owns GS-namespaced commands", () => {
+		expect(GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME).toBe("ns:gs:new-branch-from-plan");
+		expect(GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME).toBe("ns:gs:impl-branch-from-plan");
+	});
+
 	test("registers only GS-owned commands", () => {
 		const pi = new RegistrationFake();
 		registerGsExtension(pi);
 		expect([...pi.commands.keys()]).toEqual([
-			GS_BRANCH_FROM_PLAN_COMMAND_NAME,
-			GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+			GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+			GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		]);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("ns:gt:"))).toBe(false);
 	});
 
 	test("parity metadata names the registered command", () => {
 		expect(gsExtensionParity.map((entry) => entry.surface)).toEqual([
-			GS_BRANCH_FROM_PLAN_COMMAND_NAME,
-			GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+			GS_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+			GS_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		]);
 	});
 });

@@ -1,5 +1,5 @@
 import {
-	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 } from "@nseng-ai/branch-context/api";
 import { flowSkillBackedCommandRegistrations } from "@nseng-ai/flow/api";
@@ -26,7 +26,7 @@ export type {
 const SKILL_BACKED_COMMAND_REGISTRY = [
 	{
 		skillName: "branch-context-from-plan",
-		surface: GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+		surface: GIT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		kind: "specialized-command",
 	},
 	{

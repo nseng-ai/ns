@@ -45,7 +45,7 @@ The colon-separated repo-owned Pi slash command surface chosen by workflow owner
 *Avoid*: package path, visibility flag, arbitrary grouping, legacy top-level aliases.
 
 **Branch Context Pi command surface**:
-The Pi-owned slash-command presentation for Branch Context workflows: provider-namespaced Git, GT, and GS `branch-from-plan` and `branch-and-impl-from-plan` pairs, provider-independent `/ns:plan:*` and `/ns:branch-context:impl-attached-plan`, and implementation launch formatting as `/ns:branch-context:impl-attached-plan <attached-key>` for Pi sessions or Herdr launch commands. `@nseng-ai/pi-ns-branch-context` owns shared and plain-Git presentation; `@nseng-ai/pi-ns-gt` and `@nseng-ai/pi-ns-gs` own Graphite and GitHub Stacks presentation. Branch Context domain/API behavior stays in `@nseng-ai/branch-context/api`; saved-plan selection stays in `@nseng-ai/plans/api`.
+The Pi-owned slash-command presentation for Branch Context workflows: provider-namespaced Git, GT, and GS `new-branch-from-plan` and `impl-branch-from-plan` pairs, provider-independent `/ns:plan:*` and `/ns:branch-context:impl-attached-plan`, and implementation launch formatting as `/ns:branch-context:impl-attached-plan <attached-key>` for Pi sessions or Herdr launch commands. `@nseng-ai/pi-ns-branch-context` owns shared and plain-Git presentation; `@nseng-ai/pi-ns-gt` and `@nseng-ai/pi-ns-gs` own Graphite and GitHub Stacks presentation. Branch Context domain/API behavior stays in `@nseng-ai/branch-context/api`; saved-plan selection stays in `@nseng-ai/plans/api`.
 *Avoid*: Branch Context domain owner, ambient provider default, attached-plan storage semantics, Saved Plan domain owner, extension-package-API replacement.
 
 **Thin extension mirror**:

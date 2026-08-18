@@ -1,6 +1,6 @@
 import {
-	GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
-	GT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 } from "@nseng-ai/branch-context/api";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 
@@ -11,7 +11,7 @@ import { createBranchContextPiCommandApi } from "./pi-command-api.ts";
 export const gtExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
-		surface: GT_BRANCH_FROM_PLAN_COMMAND_NAME,
+		surface: GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
 		workflow:
 			"Create a Graphite-tracked implementation branch from a saved plan and attach Branch Context",
 		parity: "FULL",
@@ -25,7 +25,7 @@ export const gtExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+		surface: GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
 		workflow: "Create or reuse a Graphite branch context and launch a fresh implementation session",
 		parity: "WAIVED",
 		fallback:
@@ -45,10 +45,10 @@ export default function registerGtExtension(
 }
 
 export {
-	GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
-	GT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
-	GT_BRANCH_FROM_PLAN_COMMAND_NAME,
-	GT_BRANCH_FROM_PLAN_USAGE,
+	GT_IMPL_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GT_IMPL_BRANCH_FROM_PLAN_USAGE,
+	GT_NEW_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GT_NEW_BRANCH_FROM_PLAN_USAGE,
 } from "./from-plan-commands.ts";
 export type {
 	BranchContextExtensionOptions,

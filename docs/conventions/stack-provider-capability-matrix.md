@@ -48,4 +48,4 @@ Neutral conformance suites should exercise semantics rather than command parity:
 - partial providers that implement only topology or publication;
 - Git- and GitHub-observed postcondition verification.
 
-Graphite remains the sole real adapter required by ADR 0049. The Pi GS branch-from-plan workflow has revalidated and implemented only gh-stack v0.1.0 local branch creation and topology inspection; it does not imply reconciliation or publication support. No Jujutsu adapter or conformance run is implied.
+Graphite remains the sole real adapter required by ADR 0049. The Pi GS new-branch-from-plan workflow has revalidated and implemented only gh-stack v0.1.0 local branch creation and topology inspection; it does not imply reconciliation or publication support. No Jujutsu adapter or conformance run is implied.

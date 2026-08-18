@@ -4,14 +4,14 @@ import { setRuntimeStatus } from "@nseng-ai/pi-runtime/runtime/status";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { NewSessionOptions, NewSessionResult } from "../host-types.ts";
 
-export type BranchContextBranchAndImplNewSessionOptions = NewSessionOptions;
-export type BranchContextBranchAndImplNewSessionResult = NewSessionResult;
+export type BranchContextImplBranchNewSessionOptions = NewSessionOptions;
+export type BranchContextImplBranchNewSessionResult = NewSessionResult;
 
 interface LaunchStatusUi {
 	setStatus?(key: string, value: string | undefined): void;
 }
 
-export interface BranchContextBranchAndImplContext {
+export interface BranchContextImplBranchContext {
 	cwd: string;
 	hasUI: boolean;
 	ui: LaunchStatusUi;
@@ -19,38 +19,38 @@ export interface BranchContextBranchAndImplContext {
 		getSessionFile?(): string | undefined;
 	};
 	newSession(
-		options?: BranchContextBranchAndImplNewSessionOptions,
-	): Promise<BranchContextBranchAndImplNewSessionResult>;
+		options?: BranchContextImplBranchNewSessionOptions,
+	): Promise<BranchContextImplBranchNewSessionResult>;
 }
 
-export interface BranchContextBranchAndImplLaunchOptions {
+export interface BranchContextImplBranchLaunchOptions {
 	git: Pick<GitGateway, "checkout">;
-	ctx: BranchContextBranchAndImplContext;
+	ctx: BranchContextImplBranchContext;
 	statusKey: string;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
 	signal?: AbortSignal;
 }
 
-export type BranchContextBranchAndImplLaunchPhase = "checkout" | "new-session";
+export type BranchContextImplBranchLaunchPhase = "checkout" | "new-session";
 
-export type BranchContextBranchAndImplLaunchResult =
+export type BranchContextImplBranchLaunchResult =
 	| { type: "launched"; branch: string; key: string; parentSession?: string }
 	| { type: "cancelled"; branch: string; key: string; parentSession?: string }
 	| {
 			type: "failed";
 			branch: string;
 			key: string;
-			phase: BranchContextBranchAndImplLaunchPhase;
+			phase: BranchContextImplBranchLaunchPhase;
 			message: string;
 			parentSession?: string;
 	  };
 
-export async function runBranchContextBranchAndImplLaunch(
-	options: BranchContextBranchAndImplLaunchOptions,
-): Promise<BranchContextBranchAndImplLaunchResult> {
+export async function runBranchContextImplBranchLaunch(
+	options: BranchContextImplBranchLaunchOptions,
+): Promise<BranchContextImplBranchLaunchResult> {
 	const { branch, key } = options.target;
 	let isReplacementSessionActive = false;
-	let phase: BranchContextBranchAndImplLaunchPhase = "checkout";
+	let phase: BranchContextImplBranchLaunchPhase = "checkout";
 	let parentSession: string | undefined;
 
 	try {
@@ -69,7 +69,7 @@ export async function runBranchContextBranchAndImplLaunch(
 		setRuntimeStatus(options.ctx, options.statusKey, "starting implementation session…");
 		parentSession = options.ctx.sessionManager?.getSessionFile?.();
 		const parentSessionPart = parentSession === undefined ? {} : { parentSession };
-		const newSessionOptions: BranchContextBranchAndImplNewSessionOptions = {
+		const newSessionOptions: BranchContextImplBranchNewSessionOptions = {
 			withSession: async (newCtx) => {
 				isReplacementSessionActive = true;
 				await newCtx.sendUserMessage(formatImplBranchContextCommand(key));
@@ -104,7 +104,7 @@ export async function runBranchContextBranchAndImplLaunch(
 	}
 }
 
-export function formatBranchContextBranchAndImplFollowUpFlow(
+export function formatBranchContextImplBranchFollowUpFlow(
 	targetBranch: string,
 	key: string,
 ): string {

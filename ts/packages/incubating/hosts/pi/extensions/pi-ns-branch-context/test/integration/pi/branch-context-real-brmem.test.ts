@@ -42,13 +42,15 @@ describe("branch-context extension with real Branch Memory", () => {
 			const planFile = await createPlanFile();
 			const pi = new StdinDroppingPi();
 			registerBranchContextExtension(pi);
-			const command = pi.commands.get("ns:git:branch-from-plan");
+			const command = pi.commands.get("ns:git:new-branch-from-plan");
 			if (command === undefined) throw new Error("missing branch-context command");
 
 			await command.handler(planFile, createContext([], { cwd: repo.path }).ctx);
 
 			expect(pi.sentMessages).toHaveLength(2);
-			expect(pi.sentMessages[0]?.content).toContain("/ns:git:branch-from-plan received; starting");
+			expect(pi.sentMessages[0]?.content).toContain(
+				"/ns:git:new-branch-from-plan received; starting",
+			);
 			expect(pi.sentMessages[1]?.content).toContain("Created branch context and attached plan.");
 			const encodedBranch = PLAN_SLUG.replaceAll("/", "---");
 			const show = await pi.delegate.exec(
