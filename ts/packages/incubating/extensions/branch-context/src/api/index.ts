@@ -1,6 +1,10 @@
 export {
-	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
-	BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME,
+	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GS_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GS_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
@@ -13,6 +17,7 @@ export {
 	buildBranchContextCreateOperation,
 	buildBranchContextPlanKey,
 	createBranchContextFromFile,
+	createBranchContextFromResolvedSource,
 	deriveTargetBranch,
 	selectBranchContextCreateOperationTarget,
 	formatBranchContextEvidence,
@@ -27,10 +32,18 @@ export {
 	type BranchContextCreationPolicy,
 	type BranchContextEvidence,
 	type BranchContextEvidenceCreation,
+	type CreateBranchContextFromResolvedSourceOptions,
 	type BranchCreationMethod,
 } from "../core/branch-context-creation.ts";
 export {
+	attachBranchContext,
+	assertBrmemEntryAbsent,
+	type AttachBranchContextOptions,
+} from "../core/attach.ts";
+export {
 	buildImplBranchContextPrompt,
+	loadAttachedPlan,
+	loadedPlanTitle,
 	formatLoadedAttachedPlanEvidence,
 	loadBranchContextPlan,
 	type LoadedAttachedPlan,

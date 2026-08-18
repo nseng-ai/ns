@@ -11,7 +11,7 @@ import registerBranchContextExtension, { branchContextExtensionParity } from "..
 async function collectBranchContextPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, (host: Parameters<typeof registerBranchContextExtension>[0]) => {
-		registerBranchContextExtension(host, { branchContextDefaultCreation: "graphite" });
+		registerBranchContextExtension(host);
 	});
 	return pi.surfaces();
 }

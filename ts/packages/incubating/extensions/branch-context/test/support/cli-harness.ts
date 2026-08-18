@@ -11,6 +11,8 @@ import {
 	InMemoryBranchMemoryGateway,
 	type InMemoryBrmemGatewayState,
 } from "@nseng-ai/branch-context/testing";
+import { PlainGitBranchCreationProvider } from "@nseng-ai/extension-kit/branch-creation";
+import { GraphiteBranchCreationProvider } from "@nseng-ai/extension-kit/graphite/branch";
 import {
 	InMemoryGraphiteBranchGateway,
 	type InMemoryGraphiteGatewayState,
@@ -113,7 +115,12 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 		brmem,
 		graphite,
 		exit: runCli(args, {
-			context: { commands, git, brmem, graphite },
+			context: { commands, git, brmem },
+			createBranchProvider(method, parentBranch) {
+				return method === "graphite"
+					? new GraphiteBranchCreationProvider({ git, graphite, parentBranch })
+					: new PlainGitBranchCreationProvider(git);
+			},
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),

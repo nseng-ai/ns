@@ -34,6 +34,11 @@ import {
 } from "@nseng-ai/branch-context/api";
 import { prepareLatestSessionSavedPlan, type ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
+import type { BranchCreationProvider } from "@nseng-ai/extension-kit/branch-creation";
+import {
+	GraphiteBranchCreationProvider,
+	RealGraphiteBranchGateway,
+} from "@nseng-ai/extension-kit/graphite/branch";
 import {
 	prepareLocalGraphiteTrunk,
 	type LocalGraphiteTrunkPreparation,
@@ -62,9 +67,19 @@ export interface ImplPlanConfig {
 	destination: ImplDestination;
 }
 
+export interface HerdrBranchCreationProviderFactoryOptions {
+	context: BranchContextContext;
+	parentBranch: string;
+}
+
+export type HerdrBranchCreationProviderFactory = (
+	options: HerdrBranchCreationProviderFactoryOptions,
+) => BranchCreationProvider;
+
 export interface HerdrSlotImplPlanOptions {
 	planStoreRoot?: string;
 	createBranchContextContext?: BranchContextContextFactory<[pi: HerdrPiCommandApi, cwd: string]>;
+	createBranchCreationProvider?: HerdrBranchCreationProviderFactory;
 	slotClient?: SlotClient;
 }
 
@@ -283,6 +298,15 @@ function parseCommandArgs(rawArgs: string): CommandArgs | { error: string } {
 	return parsed;
 }
 
+async function requireCurrentBranch(git: GitGateway, cwd: string): Promise<string> {
+	const current = await git.currentBranch({ cwd });
+	if (current.type === "branch") return current.branch;
+	if (current.type === "detached") {
+		throw new Error("Graphite branch creation requires a named current branch.");
+	}
+	throw new Error(current.error.message);
+}
+
 async function createAttachAndImplement(options: {
 	pi: HerdrPiCommandApi;
 	herdr: HerdrGateway;
@@ -300,7 +324,21 @@ async function createAttachAndImplement(options: {
 
 	let evidence: BranchContextEvidence;
 	try {
-		evidence = await createPreparedPlanBranchContext(pi, prepared);
+		const parentBranch =
+			operation.creation.type === "graphite-explicit"
+				? operation.creation.parentBranch
+				: await requireCurrentBranch(prepared.context.git, checkout.repoRoot);
+		const provider =
+			planImplOptions.createBranchCreationProvider?.({
+				context: prepared.context,
+				parentBranch,
+			}) ??
+			new GraphiteBranchCreationProvider({
+				git: prepared.context.git,
+				graphite: new RealGraphiteBranchGateway(prepared.context.commands),
+				parentBranch,
+			});
+		evidence = await createPreparedPlanBranchContext(pi, prepared, provider);
 	} catch (error) {
 		present(
 			ctx,

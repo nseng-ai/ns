@@ -3,6 +3,8 @@
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-objectives",
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-handoffs",
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-branch-context",
+		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-gt",
+		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-gs",
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-herdr",
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-flow"
 	],

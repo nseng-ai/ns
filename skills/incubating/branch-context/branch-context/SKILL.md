@@ -1,6 +1,6 @@
 ---
 name: branch-context
-description: "Explicit branch-context (branch context) work: enriched-plan local plan store, source branch plan file, branch-context slug, attached plan, Branch Memory attachment, change/retarget a saved plan's source branch, move/copy saved plans, inspect plan store, repair branch-context metadata, or Pi commands `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`. Not for generic planning, branch creation, or implementation unless branch-context intent is explicit."
+description: "Explicit branch-context (branch context) work: enriched-plan local plan store, source branch plan file, branch-context slug, attached plan, Branch Memory attachment, change/retarget a saved plan's source branch, move/copy saved plans, inspect plan store, repair branch-context metadata, or Pi Git/GT/GS `branch-from-plan` and `branch-and-impl-from-plan` commands plus `/ns:branch-context:impl-attached-plan`. Not for generic planning, branch creation, or implementation unless branch-context intent is explicit."
 ---
 
 # branch-context
@@ -14,7 +14,7 @@ Step entrypoints carry their own command and recovery and are runnable standalon
 - `branch-context-from-plan` — create a branch and attach a named plan key as branch context from a saved plan.
 - `branch-context-impl` — load and implement an attached plan.
 
-The Pi `/ns:branch-context:upstack-impl-from-plan` command has no separate step skill: it composes `branch-context-from-plan` (create/attach) and then `branch-context-impl` (implementation) in a fresh session.
+The Pi Git, GT, and GS `branch-and-impl-from-plan` commands have no separate step skill: each composes `branch-context-from-plan` (create/attach through an explicitly selected provider) and then provider-independent `branch-context-impl` in a fresh session.
 
 Use this skill for the shared model the step skills assume, and for diagnostics, admin, and repair work the step skills do not cover.
 

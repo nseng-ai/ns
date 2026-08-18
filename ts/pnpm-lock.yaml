@@ -125,6 +125,12 @@ importers:
       '@nseng-ai/pi-ns-flow':
         specifier: workspace:*
         version: link:packages/incubating/hosts/pi/extensions/pi-ns-flow
+      '@nseng-ai/pi-ns-gs':
+        specifier: workspace:*
+        version: link:packages/incubating/hosts/pi/extensions/pi-ns-gs
+      '@nseng-ai/pi-ns-gt':
+        specifier: workspace:*
+        version: link:packages/incubating/hosts/pi/extensions/pi-ns-gt
       '@nseng-ai/pi-ns-herdr':
         specifier: workspace:*
         version: link:packages/incubating/hosts/pi/extensions/pi-ns-herdr
@@ -417,6 +423,51 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/incubating/hosts/pi/extensions/pi-ns-gs:
+    dependencies:
+      '@nseng-ai/branch-context':
+        specifier: workspace:*
+        version: link:../../../../extensions/branch-context
+      '@nseng-ai/brmem':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/brmem
+      '@nseng-ai/extension-kit':
+        specifier: workspace:*
+        version: link:../../../../../public/extension-kit
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/foundation
+      '@nseng-ai/pi-runtime':
+        specifier: workspace:*
+        version: link:../../runtime/pi-runtime
+      '@nseng-ai/plans':
+        specifier: workspace:*
+        version: link:../../../../extensions/plans
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/incubating/hosts/pi/extensions/pi-ns-gt:
+    dependencies:
+      '@earendil-works/pi-tui':
+        specifier: 'catalog:'
+        version: 0.80.5
+      '@nseng-ai/branch-context':
+        specifier: workspace:*
+        version: link:../../../../extensions/branch-context
+      '@nseng-ai/extension-kit':
+        specifier: workspace:*
+        version: link:../../../../../public/extension-kit
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/foundation
+      '@nseng-ai/pi-runtime':
+        specifier: workspace:*
+        version: link:../../runtime/pi-runtime
+      '@nseng-ai/plans':
+        specifier: workspace:*
+        version: link:../../../../extensions/plans
 
   packages/incubating/hosts/pi/extensions/pi-ns-handoffs:
     dependencies:

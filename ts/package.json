@@ -61,7 +61,9 @@
 		"vitest": "catalog:",
 		"@nseng-ai/pi-ns-branch-context": "workspace:*",
 		"@nseng-ai/pi-ns-herdr": "workspace:*",
-		"@nseng-ai/pi-ns-flow": "workspace:*"
+		"@nseng-ai/pi-ns-flow": "workspace:*",
+		"@nseng-ai/pi-ns-gt": "workspace:*",
+		"@nseng-ai/pi-ns-gs": "workspace:*"
 	},
 	"workspaces": [
 		"packages/public/**",

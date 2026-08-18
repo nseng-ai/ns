@@ -122,7 +122,7 @@ export class InMemoryGitGateway implements GitGateway {
 	private readonly createBranchFailure: GitErrorInfo | undefined;
 	private readonly dirtyPaths: ReadonlySet<string>;
 	private readonly dirtyPathFailures: Readonly<Record<string, GitErrorInfo>>;
-	private readonly localBranchTipsState: readonly GitLocalBranchTip[];
+	private localBranchTipsState: readonly GitLocalBranchTip[];
 	private readonly localBranchTipsFailure: GitErrorInfo | undefined;
 	private readonly treeOids: ReadonlyMap<string, string | null | GitErrorInfo>;
 	private readonly changedPaths: ReadonlyMap<string, readonly string[] | GitErrorInfo>;
@@ -464,7 +464,16 @@ export class InMemoryGitGateway implements GitGateway {
 
 	async createBranchAtHead(params: GitBranchParams): Promise<GitOperationResult> {
 		this.createBranchAtHeadLog.push(branchCallFromParams(params));
-		return this.createBranch(params.branch);
+		if (this.createBranchFailure !== undefined) {
+			return { ok: false, error: this.createBranchFailure };
+		}
+		const headCommit = valueResult(
+			this.headCommitState,
+			"head_commit_failed",
+			"Could not resolve HEAD commit.",
+		);
+		if (!headCommit.ok) return headCommit;
+		return this.createBranch(params.branch, headCommit.value);
 	}
 
 	async createBranchAtStartPoint(params: GitBranchAtStartPointParams): Promise<GitOperationResult> {
@@ -472,14 +481,18 @@ export class InMemoryGitGateway implements GitGateway {
 			...branchCallFromParams(params),
 			startPoint: params.startPoint,
 		});
-		return this.createBranch(params.branch);
+		return this.createBranch(params.branch, params.startPoint);
 	}
 
-	private createBranch(branch: string): GitOperationResult {
+	private createBranch(branch: string, headSha: string): GitOperationResult {
 		if (this.createBranchFailure !== undefined) {
 			return { ok: false, error: this.createBranchFailure };
 		}
 		this.branches.add(branch);
+		this.localBranchTipsState = [
+			...this.localBranchTipsState.filter((tip) => tip.name !== branch),
+			{ name: branch, headSha, headIso: null },
+		];
 		return { ok: true };
 	}
 

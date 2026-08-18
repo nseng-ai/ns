@@ -6,19 +6,19 @@ import {
 	formatImplBranchContextCommand,
 } from "@nseng-ai/branch-context/api";
 import {
-	formatBranchContextGtUpstackImplFollowUpFlow,
-	runBranchContextGtUpstackImplLaunch,
-	type BranchContextGtUpstackImplContext,
-	type BranchContextGtUpstackImplNewSessionOptions,
-} from "../src/gt/upstack-impl-launch.ts";
-import { createGtUpstackImplGitGateway } from "../src/gt/git-gateway.ts";
+	formatBranchContextBranchAndImplFollowUpFlow,
+	runBranchContextBranchAndImplLaunch,
+	type BranchContextBranchAndImplContext,
+	type BranchContextBranchAndImplNewSessionOptions,
+} from "../src/session/branch-and-impl-launch.ts";
+import { createBranchAndImplGitGateway } from "../src/session/git-gateway.ts";
 import { FakePi, ROOT, step } from "./branch-context-extension-support.ts";
 
 const BRANCH = "branch-contexts/widget-flow";
 const KEY = "widget-flow.md";
-const STATUS_KEY = "ns:branch-context:upstack-impl-from-plan";
+const STATUS_KEY = "ns:git:branch-and-impl-from-plan";
 
-class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
+class FakeBranchAndImplContext implements BranchContextBranchAndImplContext {
 	readonly cwd = ROOT;
 	readonly hasUI = true;
 	readonly statuses: Array<{ key: string; value: string | undefined }> = [];
@@ -43,7 +43,7 @@ class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 	}
 
 	async newSession(
-		options?: BranchContextGtUpstackImplNewSessionOptions,
+		options?: BranchContextBranchAndImplNewSessionOptions,
 	): Promise<{ cancelled: boolean }> {
 		this.assertActiveSession();
 		this.newSessionParentSessions.push(options?.parentSession);
@@ -91,13 +91,13 @@ function checkoutStep(result: Parameters<typeof step>[2] = {}): ReturnType<typeo
 	return step("git", ["checkout", BRANCH], result);
 }
 
-describe("branch-context Gt upstack impl Pi launch orchestration", () => {
+describe("branch-context Git branch-and-impl Pi launch orchestration", () => {
 	test("checks out the branch and dispatches impl in a new session", async () => {
 		const pi = new FakePi([checkoutStep()]);
-		const ctx = new FakeGtUpstackImplContext({ parentSession: "/sessions/source.jsonl" });
+		const ctx = new FakeBranchAndImplContext({ parentSession: "/sessions/source.jsonl" });
 
-		const result = await runBranchContextGtUpstackImplLaunch({
-			git: createGtUpstackImplGitGateway(createPiCommandExecApi(pi)),
+		const result = await runBranchContextBranchAndImplLaunch({
+			git: createBranchAndImplGitGateway(createPiCommandExecApi(pi)),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -134,20 +134,20 @@ describe("branch-context Gt upstack impl Pi launch orchestration", () => {
 	});
 
 	test("formats the manual follow-up flow", () => {
-		expect(formatBranchContextGtUpstackImplFollowUpFlow(BRANCH, "branch-scoped-plan.md")).toBe(
+		expect(formatBranchContextBranchAndImplFollowUpFlow(BRANCH, "branch-scoped-plan.md")).toBe(
 			`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand("branch-scoped-plan.md")}`,
 		);
-		expect(formatBranchContextGtUpstackImplFollowUpFlow(BRANCH, KEY)).toBe(
+		expect(formatBranchContextBranchAndImplFollowUpFlow(BRANCH, KEY)).toBe(
 			`git checkout ${BRANCH}\n/new\n${formatImplBranchContextCommand(KEY)}`,
 		);
 	});
 
 	test("returns checkout failure without starting a new session", async () => {
 		const pi = new FakePi([checkoutStep({ code: 2, stderr: "checkout failed" })]);
-		const ctx = new FakeGtUpstackImplContext();
+		const ctx = new FakeBranchAndImplContext();
 
-		const result = await runBranchContextGtUpstackImplLaunch({
-			git: createGtUpstackImplGitGateway(createPiCommandExecApi(pi)),
+		const result = await runBranchContextBranchAndImplLaunch({
+			git: createBranchAndImplGitGateway(createPiCommandExecApi(pi)),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -177,10 +177,10 @@ checkout failed`,
 		const pi = new FakePi([
 			{ command: "git", args: ["checkout", BRANCH], error: new Error("git is unavailable") },
 		]);
-		const ctx = new FakeGtUpstackImplContext();
+		const ctx = new FakeBranchAndImplContext();
 
-		const result = await runBranchContextGtUpstackImplLaunch({
-			git: createGtUpstackImplGitGateway(createPiCommandExecApi(pi)),
+		const result = await runBranchContextBranchAndImplLaunch({
+			git: createBranchAndImplGitGateway(createPiCommandExecApi(pi)),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -207,11 +207,11 @@ git is unavailable`,
 
 	test("returns cancellation facts for the caller to format", async () => {
 		const pi = new FakePi([checkoutStep()]);
-		const ctx = new FakeGtUpstackImplContext();
+		const ctx = new FakeBranchAndImplContext();
 		ctx.shouldCancelNewSession = true;
 
-		const result = await runBranchContextGtUpstackImplLaunch({
-			git: createGtUpstackImplGitGateway(createPiCommandExecApi(pi)),
+		const result = await runBranchContextBranchAndImplLaunch({
+			git: createBranchAndImplGitGateway(createPiCommandExecApi(pi)),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -224,11 +224,11 @@ git is unavailable`,
 
 	test("returns new-session failure before replacement activation", async () => {
 		const pi = new FakePi([checkoutStep()]);
-		const ctx = new FakeGtUpstackImplContext();
+		const ctx = new FakeBranchAndImplContext();
 		ctx.shouldThrowBeforeReplacement = true;
 
-		const result = await runBranchContextGtUpstackImplLaunch({
-			git: createGtUpstackImplGitGateway(createPiCommandExecApi(pi)),
+		const result = await runBranchContextBranchAndImplLaunch({
+			git: createBranchAndImplGitGateway(createPiCommandExecApi(pi)),
 			ctx,
 			statusKey: STATUS_KEY,
 			target: { branch: BRANCH, key: KEY },
@@ -247,12 +247,12 @@ git is unavailable`,
 
 	test("rethrows replacement-session failures after activation", async () => {
 		const pi = new FakePi([checkoutStep()]);
-		const ctx = new FakeGtUpstackImplContext();
+		const ctx = new FakeBranchAndImplContext();
 		ctx.shouldThrowDuringReplacementSend = true;
 
 		await expect(
-			runBranchContextGtUpstackImplLaunch({
-				git: createGtUpstackImplGitGateway(createPiCommandExecApi(pi)),
+			runBranchContextBranchAndImplLaunch({
+				git: createBranchAndImplGitGateway(createPiCommandExecApi(pi)),
 				ctx,
 				statusKey: STATUS_KEY,
 				target: { branch: BRANCH, key: KEY },

@@ -3,16 +3,10 @@ import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi, StdinCapableCommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import {
-	RealGraphiteBranchGateway,
-	type GraphiteBranchGateway,
-} from "@nseng-ai/extension-kit/graphite/branch";
-
 export interface BranchContextContext {
 	commands: CommandExecApi;
 	git: GitGateway;
 	brmem: BrmemGateway;
-	graphite: GraphiteBranchGateway;
 }
 
 export interface BranchContextContextOptions {
@@ -37,7 +31,6 @@ export function createBranchContextContext(
 		commands,
 		git,
 		brmem,
-		graphite: new RealGraphiteBranchGateway(commands),
 	};
 }
 

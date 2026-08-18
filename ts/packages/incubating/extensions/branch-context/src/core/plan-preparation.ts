@@ -1,3 +1,4 @@
+import type { BranchCreationProvider } from "@nseng-ai/extension-kit/branch-creation";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
@@ -111,6 +112,7 @@ export async function preparePlanBranchContext(
 export async function createPreparedPlanBranchContext(
 	pi: CommandExecApi,
 	prepared: PreparedPlanBranchContext,
+	provider: BranchCreationProvider,
 ): Promise<BranchContextEvidence> {
 	if (
 		describeBranchContextCreationPolicy(prepared.operation.creation).start.type === "current-head"
@@ -118,6 +120,7 @@ export async function createPreparedPlanBranchContext(
 		return createBranchContextFromFile(pi, prepared.operation.params, {
 			cwd: prepared.checkout.repoRoot,
 			context: prepared.context,
+			provider,
 		});
 	}
 	const sourceFile = await resolvePlanSourceFile(pi, {
@@ -131,6 +134,6 @@ export async function createPreparedPlanBranchContext(
 		sourceFile,
 		git: prepared.context.git,
 		brmem: prepared.context.brmem,
-		graphite: prepared.context.graphite,
+		provider,
 	});
 }

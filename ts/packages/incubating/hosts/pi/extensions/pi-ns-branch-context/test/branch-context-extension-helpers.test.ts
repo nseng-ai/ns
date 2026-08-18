@@ -9,9 +9,9 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 import {
-	CREATE_BRANCH_CONTEXT_USAGE,
+	GIT_BRANCH_FROM_PLAN_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
-	GT_UPSTACK_IMPL_USAGE,
+	GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	formatCreateBranchContextPreview,
@@ -83,64 +83,41 @@ describe("branch-context from-plan policy docs", () => {
 			"utf8",
 		);
 		const agentsText = await readFile(join(REPO_ROOT, "AGENTS.md"), "utf8");
-		const projectExtensionText = await readFile(
-			join(
-				REPO_ROOT,
-				"ts",
-				"packages",
-				"incubating",
-				"hosts",
-				"pi",
-				"extensions",
-				"pi-ns-branch-context",
-				"src",
-				"project-extension.ts",
-			),
-			"utf8",
-		);
-
 		expect(agentsText).toContain(
 			"This repo uses Graphite (`gt`) as the default tool for branch and PR workflow",
 		);
-		expect(projectExtensionText).toContain('branchContextDefaultCreation: "graphite"');
-		expect(skillText).toContain("For precedence and Graphite method details");
+		expect(skillText).toContain("For precedence and provider details");
 		expect(skillText).toContain("references/lifecycle.md");
 		expectBranchCreationPolicyPrecedence(lifecycleText);
 		expect(lifecycleText).toContain(describeBranchContextGraphiteCreationSteps("<current-branch>"));
-		expect(CREATE_BRANCH_CONTEXT_USAGE).toContain(
-			describeBranchContextGraphiteCreationSteps("<current-branch>"),
-		);
-		expect(GT_UPSTACK_IMPL_USAGE).toContain(
-			describeBranchContextGraphiteCreationSteps("<current-branch>"),
-		);
+		expect(GIT_BRANCH_FROM_PLAN_USAGE).not.toContain("Graphite");
+		expect(GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE).not.toContain("Graphite");
 		expect(skillText).not.toContain("Omit `--branch-creation` for the portable default");
 	});
 });
 
-describe("ns:branch-context:from-plan argument parsing", () => {
+describe("ns:git:branch-from-plan argument parsing", () => {
 	test("parses empty args and supported flags", () => {
 		expect(parseCreateBranchContextArgs("")).toEqual({ help: false, dryRun: false, yes: false });
 		expect(
 			parseCreateBranchContextArgs(
-				"--dry-run --yes --graphite --branch branch-contexts/add-widget /tmp/my-source-plan.md",
+				"--dry-run --yes --branch branch-contexts/add-widget /tmp/my-source-plan.md",
 			),
 		).toEqual({
 			help: false,
 			dryRun: true,
 			yes: true,
-			branchCreation: "graphite",
 			branchName: "branch-contexts/add-widget",
 			filePath: "/tmp/my-source-plan.md",
 		});
 		expect(
 			parseCreateBranchContextArgs(
-				"-y --plain-git --branch=branch-contexts/add-widget @/tmp/my-source-plan.md",
+				"-y --branch=branch-contexts/add-widget @/tmp/my-source-plan.md",
 			),
 		).toEqual({
 			help: false,
 			dryRun: false,
 			yes: true,
-			branchCreation: "plain-git",
 			branchName: "branch-contexts/add-widget",
 			filePath: "@/tmp/my-source-plan.md",
 		});
@@ -149,9 +126,8 @@ describe("ns:branch-context:from-plan argument parsing", () => {
 	});
 
 	test("rejects parse errors before mutation", () => {
-		expect(() => parseCreateBranchContextArgs("--graphite --plain-git")).toThrow(
-			"Cannot pass both",
-		);
+		expect(() => parseCreateBranchContextArgs("--graphite")).toThrow("not supported");
+		expect(() => parseCreateBranchContextArgs("--plain-git")).toThrow("not supported");
 		expect(() => parseCreateBranchContextArgs("--unknown")).toThrow("Unknown flag");
 		expect(() => parseCreateBranchContextArgs("--branch")).toThrow("Missing value");
 		expect(() => parseCreateBranchContextArgs("/tmp/one.md /tmp/two.md")).toThrow("at most one");
@@ -309,8 +285,8 @@ describe("formatCreateBranchContextPreview", () => {
 			fileName: "local-filename-plan.md",
 			planKey: PLAN_KEY,
 			targetBranch: TARGET_BRANCH,
-			branchCreation: "graphite",
 			isExplicitTargetBranch: false,
+			branchCreation: "plain-git",
 			slugEvidence: contentSlugEvidence(),
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",
@@ -330,7 +306,7 @@ describe("formatCreateBranchContextPreview", () => {
 		expect(text).toContain("Repo key: gh--owner--repo");
 		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
-		expect(text).toContain("Branch creation: graphite");
+		expect(text).toContain("Branch creation: plain-git");
 		expect(text).toContain(`Branch Memory key: ${PLAN_KEY}`);
 	});
 
@@ -343,8 +319,8 @@ describe("formatCreateBranchContextPreview", () => {
 			fileName: "session-file-plan.md",
 			planKey: PLAN_KEY,
 			targetBranch: TARGET_BRANCH,
-			branchCreation: "plain-git",
 			isExplicitTargetBranch: false,
+			branchCreation: "plain-git",
 			slugEvidence: contentSlugEvidence(),
 			repoRoot: ROOT,
 			repoKey: "gh--owner--repo",

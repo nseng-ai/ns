@@ -20,6 +20,11 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import type { BranchContextContext } from "../src/core/context.ts";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import {
+	PlainGitBranchCreationProvider,
+	type BranchCreationProvider,
+} from "@nseng-ai/extension-kit/branch-creation";
+import { GraphiteBranchCreationProvider } from "@nseng-ai/extension-kit/graphite/branch";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 
 const PLAN_SLUG = "branch-scoped-plan";
@@ -44,8 +49,19 @@ function branchContext(overrides: Partial<BranchContextContext> = {}): BranchCon
 		commands,
 		git: overrides.git ?? new InMemoryGitGateway(),
 		brmem: overrides.brmem ?? new InMemoryBranchMemoryGateway(),
-		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
 	};
+}
+
+function plainGitProvider(git: InMemoryGitGateway): BranchCreationProvider {
+	return new PlainGitBranchCreationProvider(git);
+}
+
+function graphiteProvider(
+	git: InMemoryGitGateway,
+	graphite: InMemoryGraphiteBranchGateway,
+	parentBranch = SOURCE_BRANCH,
+): BranchCreationProvider {
+	return new GraphiteBranchCreationProvider({ git, graphite, parentBranch });
 }
 
 afterEach(async () => {
@@ -266,7 +282,6 @@ describe("branch-context create execution", () => {
 			headCommit: START_POINT,
 		});
 		const brmem = new InMemoryBranchMemoryGateway();
-		const graphite = new InMemoryGraphiteBranchGateway();
 		const sourceFile = await makePlanFile();
 		const operation = buildBranchContextCreateOperation({
 			slug: PLAN_SLUG,
@@ -282,7 +297,7 @@ describe("branch-context create execution", () => {
 			sourceFile,
 			git,
 			brmem,
-			graphite,
+			provider: plainGitProvider(git),
 		});
 
 		expect(evidence).toMatchObject({
@@ -295,10 +310,14 @@ describe("branch-context create execution", () => {
 		});
 		expect(git.validateBranchRefCalls).toEqual([]);
 		expect(git.headCommitCalls).toEqual([{ cwd: ROOT }]);
-		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
-		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
-		expect(graphite.checkBranchTrackedCalls).toEqual([]);
-		expect(graphite.trackBranchCalls).toEqual([]);
+		expect(git.localBranchPresenceCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH },
+			{ cwd: ROOT, branch: TARGET_BRANCH },
+			{ cwd: ROOT, branch: TARGET_BRANCH },
+		]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, startPoint: START_POINT },
+		]);
 		expect(brmem.attachPlanCalls).toMatchObject([
 			{
 				namespace: BRANCH_CONTEXT_NAMESPACE,
@@ -313,7 +332,6 @@ describe("branch-context create execution", () => {
 		const invalidBranch = "bad branch";
 		const git = new InMemoryGitGateway({ invalidBranchRefs: [invalidBranch] });
 		const brmem = new InMemoryBranchMemoryGateway();
-		const graphite = new InMemoryGraphiteBranchGateway();
 		const filePath = await makePlanFile();
 
 		await expect(
@@ -325,7 +343,7 @@ describe("branch-context create execution", () => {
 					branchName: invalidBranch,
 					creation: { type: "plain-git-current-head" },
 				},
-				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+				{ cwd: ROOT, context: branchContext({ git, brmem }), provider: plainGitProvider(git) },
 			),
 		).rejects.toThrow(`Invalid branch ref: ${invalidBranch}`);
 		expect(git.validateBranchRefCalls).toEqual([{ cwd: ROOT, branch: invalidBranch }]);
@@ -334,8 +352,6 @@ describe("branch-context create execution", () => {
 		expect(git.createBranchAtHeadCalls).toEqual([]);
 		expect(brmem.attachmentPresenceCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([]);
-		expect(graphite.checkBranchTrackedCalls).toEqual([]);
-		expect(graphite.trackBranchCalls).toEqual([]);
 	});
 
 	test("explicit basis creates at the supplied ref and tracks under its coherent parent", async () => {
@@ -357,7 +373,11 @@ describe("branch-context create execution", () => {
 					parentBranch: SOURCE_BRANCH,
 				},
 			},
-			{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			{
+				cwd: ROOT,
+				context: branchContext({ git, brmem }),
+				provider: graphiteProvider(git, graphite),
+			},
 		);
 
 		expect(evidence).toMatchObject({
@@ -400,7 +420,11 @@ describe("branch-context create execution", () => {
 						parentBranch: SOURCE_BRANCH,
 					},
 				},
-				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+				{
+					cwd: ROOT,
+					context: branchContext({ git, brmem }),
+					provider: graphiteProvider(git, graphite),
+				},
 			),
 		).rejects.toThrow(
 			expect.objectContaining({
@@ -432,7 +456,11 @@ describe("branch-context create execution", () => {
 				branchName: TARGET_BRANCH,
 				creation: { type: "graphite-current-parent-current-head" },
 			},
-			{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+			{
+				cwd: ROOT,
+				context: branchContext({ git, brmem }),
+				provider: graphiteProvider(git, graphite),
+			},
 		);
 
 		expect(evidence).toMatchObject({
@@ -441,7 +469,9 @@ describe("branch-context create execution", () => {
 			sourceFile: filePath,
 		});
 		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: SOURCE_BRANCH }]);
-		expect(git.createBranchAtHeadCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
+		expect(git.createBranchAtStartPointCalls).toEqual([
+			{ cwd: ROOT, branch: TARGET_BRANCH, startPoint: START_POINT },
+		]);
 		expect(graphite.trackBranchCalls).toEqual([
 			{ cwd: ROOT, branch: TARGET_BRANCH, parentBranch: SOURCE_BRANCH },
 		]);
@@ -552,7 +582,6 @@ describe("branch-context create execution", () => {
 		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [{ branch: TARGET_BRANCH, key: PLAN_KEY, content: "# Old plan\n" }],
 		});
-		const graphite = new InMemoryGraphiteBranchGateway();
 		const sourceFile = await makePlanFile();
 		const operation = buildBranchContextCreateOperation({
 			slug: PLAN_SLUG,
@@ -568,7 +597,7 @@ describe("branch-context create execution", () => {
 				sourceFile,
 				git,
 				brmem,
-				graphite,
+				provider: plainGitProvider(git),
 			}),
 		).rejects.toThrow("Target branch already exists; refusing to overwrite.");
 		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
@@ -585,7 +614,6 @@ describe("branch-context create execution", () => {
 		const brmem = new InMemoryBranchMemoryGateway({
 			entries: [{ branch: TARGET_BRANCH, key: PLAN_KEY, content: "# Old plan\n" }],
 		});
-		const graphite = new InMemoryGraphiteBranchGateway();
 		const sourceFile = await makePlanFile();
 		const operation = buildBranchContextCreateOperation({
 			slug: PLAN_SLUG,
@@ -601,7 +629,7 @@ describe("branch-context create execution", () => {
 				sourceFile,
 				git,
 				brmem,
-				graphite,
+				provider: plainGitProvider(git),
 			}),
 		).rejects.toThrow(
 			[
@@ -629,7 +657,6 @@ describe("branch-context create execution", () => {
 			},
 		});
 		const brmem = new InMemoryBranchMemoryGateway();
-		const graphite = new InMemoryGraphiteBranchGateway();
 		const filePath = await makePlanFile();
 
 		await expect(
@@ -641,7 +668,7 @@ describe("branch-context create execution", () => {
 					branchName: TARGET_BRANCH,
 					creation: { type: "plain-git-current-head" },
 				},
-				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+				{ cwd: ROOT, context: branchContext({ git, brmem }), provider: plainGitProvider(git) },
 			),
 		).rejects.toThrow("Could not determine local branch presence.");
 		expect(git.localBranchPresenceCalls).toEqual([{ cwd: ROOT, branch: TARGET_BRANCH }]);
@@ -673,7 +700,11 @@ describe("branch-context create execution", () => {
 					branchName: TARGET_BRANCH,
 					creation: { type: "graphite-current-parent-current-head" },
 				},
-				{ cwd: ROOT, context: branchContext({ git, brmem, graphite }) },
+				{
+					cwd: ROOT,
+					context: branchContext({ git, brmem }),
+					provider: graphiteProvider(git, graphite),
+				},
 			),
 		).rejects.toThrow(
 			"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
@@ -681,7 +712,6 @@ describe("branch-context create execution", () => {
 		expect(git.createBranchAtHeadCalls).toEqual([]);
 		expect(git.existingBranches).not.toContain(TARGET_BRANCH);
 		expect(graphite.checkBranchTrackedCalls).toEqual([{ cwd: ROOT, branch: SOURCE_BRANCH }]);
-		expect(graphite.trackBranchCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([]);
 	});
 });

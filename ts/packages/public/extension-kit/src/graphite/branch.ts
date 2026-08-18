@@ -1,4 +1,10 @@
+import type {
+	BranchCreationProvider,
+	BranchCreationProviderResult,
+	BranchCreationRequest,
+} from "../branch-creation/contract.ts";
 import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	type CommandExecApi,
 	type CommandRunner,
@@ -45,6 +51,81 @@ export interface GraphiteBranchGateway {
 		params: GraphiteCheckBranchTrackedParams,
 	): Promise<GraphiteBranchTrackedResult>;
 	trackBranch(params: GraphiteTrackBranchParams): Promise<GraphiteOperationResult>;
+}
+
+export type GraphiteBranchCreationGitGateway = Pick<
+	GitGateway,
+	"createBranchAtHead" | "createBranchAtStartPoint"
+>;
+
+export class GraphiteBranchCreationProvider implements BranchCreationProvider<"graphite"> {
+	readonly id = "graphite" as const;
+	private readonly git: GraphiteBranchCreationGitGateway;
+	private readonly graphite: GraphiteBranchGateway;
+	private readonly parentBranch: string;
+
+	constructor(options: {
+		git: GraphiteBranchCreationGitGateway;
+		graphite: GraphiteBranchGateway;
+		parentBranch: string;
+	}) {
+		this.git = options.git;
+		this.graphite = options.graphite;
+		this.parentBranch = options.parentBranch;
+	}
+
+	async createBranch(request: BranchCreationRequest): Promise<BranchCreationProviderResult> {
+		const parentTracked = await this.graphite.checkBranchTracked({
+			cwd: request.cwd,
+			branch: this.parentBranch,
+			signal: request.signal,
+		});
+		if (!parentTracked.ok) {
+			return { ok: false, error: parentTracked.error, branchCreated: false };
+		}
+		if (!parentTracked.tracked) {
+			return {
+				ok: false,
+				branchCreated: false,
+				error: {
+					code: "graphite-parent-untracked",
+					message: [
+						"Current branch is not tracked by Graphite; refusing to stack a branch context on it.",
+						`Parent branch: ${this.parentBranch}`,
+						"No branch was created.",
+						"",
+						parentTracked.detail,
+					].join("\n"),
+				},
+			};
+		}
+		const create =
+			request.startPoint === "HEAD"
+				? await this.git.createBranchAtHead({
+						cwd: request.cwd,
+						branch: request.targetBranch,
+						signal: request.signal,
+					})
+				: await this.git.createBranchAtStartPoint({
+						cwd: request.cwd,
+						branch: request.targetBranch,
+						startPoint: request.startPoint,
+						signal: request.signal,
+					});
+		if (!create.ok) {
+			return { ok: false, error: create.error, branchCreated: false };
+		}
+		const track = await this.graphite.trackBranch({
+			cwd: request.cwd,
+			branch: request.targetBranch,
+			parentBranch: this.parentBranch,
+			signal: request.signal,
+		});
+		if (!track.ok) {
+			return { ok: false, error: track.error, branchCreated: true };
+		}
+		return { ok: true };
+	}
 }
 
 export interface GraphiteCommandRunParams {

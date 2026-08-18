@@ -1,7 +1,6 @@
 import type { Component } from "@earendil-works/pi-tui";
 import type {
 	BranchContextContextFactory,
-	BranchCreationMethod,
 	createBranchContextFromFile,
 	loadBranchContextPlan,
 } from "@nseng-ai/branch-context/api";
@@ -67,7 +66,6 @@ export interface BranchContextOperations {
 }
 
 export interface BranchContextExtensionOptions {
-	branchContextDefaultCreation?: BranchCreationMethod;
 	branchContextPrefix?: string;
 	planStoreRoot?: string;
 	branchContextOperations?: BranchContextOperations;

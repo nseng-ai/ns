@@ -58,7 +58,7 @@ category for runtime extensions and adapters. For example, `incubating/extension
 harness-independent Herdr behavior, while
 `incubating/hosts/pi/extensions/pi-ns-herdr/` correctly owns Pi registration, interaction, and
 presentation. Live on the current feature branch: `incubating/hosts/pi/runtime/pi-runtime/`,
-`incubating/hosts/pi/extensions/{pi-ns-branch-context,pi-ns-flow,pi-ns-handoffs,pi-ns-herdr,pi-ns-objectives}/`,
+`incubating/hosts/pi/extensions/{pi-ns-branch-context,pi-ns-gt,pi-ns-gs,pi-ns-flow,pi-ns-handoffs,pi-ns-herdr,pi-ns-objectives}/`,
 and `internal/hosts/pi/{tools,subagents}/`. These incubating adapters are implemented in the
 current tree but have not been published.
 

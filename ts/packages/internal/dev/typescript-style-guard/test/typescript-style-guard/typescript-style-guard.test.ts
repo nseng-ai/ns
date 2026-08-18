@@ -1429,6 +1429,16 @@ describe("TypeScript style guard Pi ownership topology rules", () => {
 		for (const adapterName of adapterNames) {
 			const domain = adapterName.slice("@nseng-ai/pi-ns-".length);
 			const extension = metadata.get(`@nseng-ai/${domain}`);
+			if (domain === "gt" || domain === "gs") {
+				const adapter = metadata.get(adapterName);
+				const dependencies = adapter?.manifest.dependencies;
+				expect(
+					typeof dependencies === "object" &&
+						dependencies !== null &&
+						"@nseng-ai/branch-context" in dependencies,
+				).toBe(true);
+				continue;
+			}
 			expect(extension?.packageDir).toMatch(/\/extensions\/[^/]+$/);
 			expect(extension?.nsTier).toBe("extension");
 		}

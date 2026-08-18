@@ -8,8 +8,8 @@ import {
 	registerSavedPlanCommandsAndTools,
 } from "./saved-plan-commands.ts";
 import {
-	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
-	GT_UPSTACK_IMPL_COMMAND_NAME,
+	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
 	registerBranchContextCommands,
 } from "./from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./host-types.ts";
@@ -44,7 +44,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: CREATE_BRANCH_CONTEXT_COMMAND_NAME,
+		surface: GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
 		workflow: "Create an implementation branch from a saved plan and attach branch context",
 		parity: "FULL",
 		cli: "ns branch-context exec from-plan",
@@ -57,8 +57,8 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 	},
 	{
 		kind: "command",
-		surface: GT_UPSTACK_IMPL_COMMAND_NAME,
-		workflow: "Create an upstack branch context and launch a fresh implementation session",
+		surface: GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+		workflow: "Create a plain-Git branch context and launch a fresh implementation session",
 		parity: "WAIVED",
 		fallback:
 			"Use the from-plan skill to create the branch context, then use branch-context-impl to implement the attached plan.",
@@ -108,10 +108,10 @@ export {
 	handleWritePlanCommand,
 } from "./saved-plan-commands.ts";
 export {
-	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
-	CREATE_BRANCH_CONTEXT_USAGE,
-	GT_UPSTACK_IMPL_COMMAND_NAME,
-	GT_UPSTACK_IMPL_USAGE,
+	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_BRANCH_FROM_PLAN_USAGE,
+	GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
+	GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	IMPL_SAVED_PLAN_USAGE,
 	buildImplSavedPlanPrompt,
@@ -119,9 +119,9 @@ export {
 	deriveImplSavedPlanPreview,
 	formatCreateBranchContextPreview,
 	formatImplSavedPlanEvidence,
-	handleCreateBranchContextCommand,
+	handleGitBranchFromPlanCommand,
 	handleImplBranchContextCommand,
-	handleGtUpstackImplCommand,
+	handleGitBranchAndImplFromPlanCommand,
 	handleImplSavedPlanCommand,
 	parseCreateBranchContextArgs,
 	parseImplSavedPlanArgs,

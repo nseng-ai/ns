@@ -33,6 +33,13 @@ const entry = defineCli<BranchContextCliContext, CliDeps, undefined>({
 				: {
 						context: deps.context,
 						cwd,
+						createBranchProvider:
+							deps.createBranchProvider ??
+							(() => {
+								throw new Error(
+									"Injected Branch Context CLI composition must supply a branch creation provider factory.",
+								);
+							}),
 						...optionalEntry("planStoreRoot", deps.planStoreRoot),
 					};
 		return { type: "run", context, buildState: undefined };

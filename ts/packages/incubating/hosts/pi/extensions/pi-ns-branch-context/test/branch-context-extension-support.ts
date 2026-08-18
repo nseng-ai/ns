@@ -98,6 +98,7 @@ export class FakePi implements ExtensionAPI {
 	readonly execCalls: ExecCall[] = [];
 	readonly defaultBranchAvailabilityProbeCalls: ExecCall[] = [];
 	readonly sentMessages: SentMessage[] = [];
+	readonly immediateAckMessages: SentMessage[] = [];
 	readonly sentUserMessages: string[] = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly events: string[] | undefined;
@@ -169,11 +170,13 @@ export class FakePi implements ExtensionAPI {
 
 	sendMessage(message: Parameters<SendMessage>[0], options?: Parameters<SendMessage>[1]): void {
 		this.events?.push("message");
+		const target =
+			message.customType === "ns-command-ack" ? this.immediateAckMessages : this.sentMessages;
 		if (options === undefined) {
-			this.sentMessages.push(message);
+			target.push(message);
 			return;
 		}
-		this.sentMessages.push({ ...message, options });
+		target.push({ ...message, options });
 	}
 
 	sendUserMessage(content: string): void {

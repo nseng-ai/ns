@@ -19,7 +19,7 @@ Use this reference to keep branch-context storage, slugs, branches, and workflow
 - **Branch-context slug**: the implementation slug derived before create. It drives the default target branch and from-plan attached key `<branch-context-slug>.md`.
 - **Source branch plan file**: one saved plan scoped to the repository and source branch where planning happened.
 - **Branch context**: the branch's standing working context stored in Branch Memory namespace `branch-context`. A plan can be the founding entry, but branch context is not a special branch type.
-- **Branch creation method**: `plain-git` or `graphite`; this is independent from the storage backend.
+- **Branch creation method**: an explicitly selected provider workflow. The portable core ships `plain-git` and `graphite`; Pi also provides a GitHub Stacks (`gs`) consumer adapter. Provider choice is independent from the storage backend.
 
 ## Storage contracts
 
@@ -53,9 +53,12 @@ Pi surfaces:
 - `/ns:plan:save`
 - `/ns:plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
 - `/ns:plan:impl-saved-plan` directly implements a selected Saved plan in a fresh Pi session on the current branch without attaching Branch Context or writing Branch Memory. With no path it prefers current-session Saved Plan evidence, then the newest branch-scoped local-store plan; an explicit path selects that file even when it is older.
-- `/ns:branch-context:from-plan`
-- `/ns:branch-context:upstack-impl-from-plan`
-- `/ns:branch-context:impl-attached-plan` implements the branch-scoped Attached Plan selected by the branch-context loader, including its documented local-plan-store fallback when no attached entry is available.
+- `/ns:git:branch-from-plan` and `/ns:git:branch-and-impl-from-plan` for plain Git
+- `/ns:gt:branch-from-plan` and `/ns:gt:branch-and-impl-from-plan` for Graphite
+- `/ns:gs:branch-from-plan` and `/ns:gs:branch-and-impl-from-plan` for GitHub Stacks
+- `/ns:branch-context:impl-attached-plan` implements the branch-scoped Attached Plan independent of creation provider, including its documented local-plan-store fallback when no attached entry is available.
+
+The three `branch-from-plan` commands retain or restore the original branch. The three `branch-and-impl-from-plan` commands leave the target checked out and dispatch implementation in a fresh Pi session. Provider namespaces are the selection mechanism; provider-selection flags are unsupported.
 
 `impl-saved-plan` names the durable artifact boundary rather than implying recency. It accepts only a **Saved plan**, distinct from the **Attached plan** consumed through the branch-context workflow.
 
@@ -74,12 +77,11 @@ CLI surfaces:
 
 Choose the branch creation method before invoking `ns branch-context exec from-plan`. Policy precedence is:
 
-1. Explicit user request. Users or harnesses may say `--graphite`, `--plain-git`, or plain-language equivalents; direct CLI invocations translate these to `--branch-creation graphite` or `--branch-creation plain-git`.
-2. Wrapper/harness default, such as a Pi adapter-provided branch creation method.
-3. Repo policy from loaded project instructions/docs.
-4. Portable CLI default (`plain-git`) only when no higher-priority policy exists.
+1. Explicit user request. Pi users select `/ns:git:*`, `/ns:gt:*`, or `/ns:gs:*`; direct CLI invocations translate built-in Git/Graphite choices to `--branch-creation plain-git` or `--branch-creation graphite`.
+2. An explicitly documented wrapper or repo policy for direct CLI use.
+3. Portable CLI default (`plain-git`) only when no higher-priority policy exists.
 
-The portable CLI default is still `plain-git` when `--branch-creation` is omitted. In this repo, direct skill/CLI execution should include `--branch-creation graphite`; omitting `--branch-creation` is correct only for portable/default contexts without a repo policy.
+Pi has no ambient or project-wide Graphite default, and provider-selection flags are not accepted by provider-namespaced commands. GitHub Stacks creation is owned by its Pi consumer adapter rather than the portable CLI provider registry.
 
 Branch-context Graphite branch creation is `git branch <target> HEAD` plus `gt track <target> --parent <current-branch> --no-interactive`, not `gt create`.
 

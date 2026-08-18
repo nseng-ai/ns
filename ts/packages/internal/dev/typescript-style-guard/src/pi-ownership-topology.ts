@@ -111,7 +111,10 @@ function collectAdapterManifestViolations(
 
 	const extensionName = `@nseng-ai/${domain}`;
 	const extension = metadataByName.get(extensionName);
-	if (extension?.nsTier !== "extension") {
+	const providerWorkflowAdapter =
+		(domain === "gt" || domain === "gs") &&
+		hasRuntimeDependency(metadata, "@nseng-ai/branch-context");
+	if (extension?.nsTier !== "extension" && !providerWorkflowAdapter) {
 		violations.push(
 			manifestViolation(
 				metadata,
@@ -122,7 +125,7 @@ function collectAdapterManifestViolations(
 		return violations;
 	}
 
-	if (!hasRuntimeDependency(metadata, extensionName)) {
+	if (!providerWorkflowAdapter && !hasRuntimeDependency(metadata, extensionName)) {
 		const reason = hasDependency(metadata, "devDependencies", extensionName)
 			? `declares its matching extension ${extensionName} only in devDependencies; devDependencies do not satisfy adapter composition`
 			: `must runtime-depend on its matching ns extension ${extensionName}`;

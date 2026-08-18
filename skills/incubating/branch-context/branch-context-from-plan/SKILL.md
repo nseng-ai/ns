@@ -1,7 +1,7 @@
 ---
 name: branch-context-from-plan
 disable-model-invocation: true
-description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach its branch context as a named Markdown key — "from plan", "branch this saved plan" — or to continue a Pi `/ns:branch-context:from-plan` handoff.
+description: Use when a user explicitly wants to create an implementation branch from a saved plan and attach its branch context as a named Markdown key — "from plan", "branch this saved plan" — or to continue a Pi Git, GT, or GS `branch-from-plan` handoff.
 ---
 
 # branch-context-from-plan
@@ -33,7 +33,7 @@ ns branch-context exec from-plan \
 1. Resolve the saved plan first if a path is given or none is known.
 
 2. Derive `<branch-context-slug>` from plan content: kebab-case, 3-7 specific words, no dates/random IDs/generic-only names. This drives the default target branch and the attached-plan key `<branch-context-slug>.md`.
-3. Choose the branch creation method before invoking `ns branch-context exec from-plan`. In this repo, include `--branch-creation graphite` unless the user explicitly requested plain Git. For precedence and Graphite method details, see the `branch-context` umbrella's `references/lifecycle.md` (`## Branch creation policy`).
+3. Choose the branch creation method before invoking `ns branch-context exec from-plan`. An explicit `/ns:git:*`, `/ns:gt:*`, or `/ns:gs:*` request selects plain Git, Graphite, or GitHub Stacks respectively; Pi provider commands do not accept provider-selection flags. Direct CLI use supports built-in `plain-git` and `graphite` creation. For precedence and provider details, see the `branch-context` umbrella's `references/lifecycle.md` (`## Branch creation policy`).
 4. Pass `--branch` only when the user requested a specific target branch.
 5. Parse the standard Clinkr JSON envelope and report `data.branch`, `data.branchCreation`, `data.namespace`, `data.key`, `data.refName`, `data.commit`, `data.sourceFile`, and `data.slug`.
 
@@ -43,4 +43,4 @@ ns branch-context exec from-plan \
 - Slug rejected: derive a clearer 3-7 word slug and retry once before asking.
 - Target branch exists: stop; ask whether to choose another `--branch` or inspect the existing branch.
 - Branch Memory entry exists: do not overwrite; report namespace/key and ask.
-- Graphite setup fails after branch creation: report the partial branch state; do not attach a plan manually unless the user explicitly directs recovery.
+- Provider setup fails after branch creation: report the partial branch state; do not attach a plan manually unless the user explicitly directs recovery.

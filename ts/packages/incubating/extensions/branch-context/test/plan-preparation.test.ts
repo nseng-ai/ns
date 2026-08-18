@@ -11,6 +11,7 @@ import {
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
+import { GraphiteBranchCreationProvider } from "@nseng-ai/extension-kit/graphite/branch";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
@@ -102,7 +103,6 @@ function context(
 		},
 		git: options.git ?? new InMemoryGitGateway(),
 		brmem: options.brmem ?? new InMemoryBranchMemoryGateway(),
-		graphite: options.graphite ?? new InMemoryGraphiteBranchGateway(),
 	};
 }
 
@@ -180,6 +180,7 @@ describe("plan branch-context preparation public API", () => {
 				},
 			},
 			prepared,
+			new GraphiteBranchCreationProvider({ git, graphite, parentBranch: SOURCE_BRANCH }),
 		);
 
 		expect(evidence).toMatchObject({
@@ -224,6 +225,7 @@ describe("plan branch-context preparation public API", () => {
 					},
 				},
 				prepared,
+				new GraphiteBranchCreationProvider({ git, graphite, parentBranch: SOURCE_BRANCH }),
 			),
 		).rejects.toThrow("Graphite refused tracking.");
 		expect(git.existingBranches).toContain("add-dispatch-preparation-tests");

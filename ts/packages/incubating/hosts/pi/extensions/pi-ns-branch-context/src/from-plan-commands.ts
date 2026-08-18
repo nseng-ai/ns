@@ -1,18 +1,20 @@
 import { readFile } from "node:fs/promises";
 
+import { PlainGitBranchCreationProvider } from "@nseng-ai/extension-kit/branch-creation";
+
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi-runtime/commands/ack";
 import { setRuntimeStatus } from "@nseng-ai/pi-runtime/runtime/status";
 import {
-	formatBranchContextGtUpstackImplFollowUpFlow,
-	runBranchContextGtUpstackImplLaunch,
-} from "./gt/upstack-impl-launch.ts";
-import { createGtUpstackImplGitGateway } from "./gt/git-gateway.ts";
+	formatBranchContextBranchAndImplFollowUpFlow,
+	runBranchContextBranchAndImplLaunch,
+} from "./session/branch-and-impl-launch.ts";
+import { createBranchAndImplGitGateway } from "./session/git-gateway.ts";
 import {
-	BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME,
-	BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME,
+	GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
+	GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
 	IMPL_BRANCH_CONTEXT_COMMAND_NAME,
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 	formatImplBranchContextCommand,
@@ -28,7 +30,6 @@ import {
 	derivePlanContentSlug,
 	deriveTargetBranch,
 	formatBranchContextEvidence,
-	describeBranchContextGraphiteCreationSteps,
 	formatBranchSelectionLines,
 	selectBranchContextCreateOperationTarget,
 	buildBranchContextCreateOperation,
@@ -52,11 +53,7 @@ import {
 	optionalEntries,
 	optionalEntry,
 } from "@nseng-ai/foundation/primitives";
-import {
-	resolveBranchContextDefaultCreation,
-	resolveBranchContextOperations,
-	resolvePlanStoreRootOption,
-} from "./options.ts";
+import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
 	BranchContextOperations,
@@ -66,53 +63,40 @@ import type {
 } from "./host-types.ts";
 import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
-export const CREATE_BRANCH_CONTEXT_COMMAND_NAME = BRANCH_CONTEXT_FROM_PLAN_COMMAND_NAME;
-export const GT_UPSTACK_IMPL_COMMAND_NAME = BRANCH_CONTEXT_UPSTACK_IMPL_FROM_PLAN_COMMAND_NAME;
+export { GIT_BRANCH_FROM_PLAN_COMMAND_NAME, GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME };
 export { IMPL_SAVED_PLAN_COMMAND_NAME };
-const BRANCH_CONTEXT_STATUS_KEY = CREATE_BRANCH_CONTEXT_COMMAND_NAME;
-const GT_UPSTACK_IMPL_STATUS_KEY = GT_UPSTACK_IMPL_COMMAND_NAME;
+const BRANCH_CONTEXT_STATUS_KEY = GIT_BRANCH_FROM_PLAN_COMMAND_NAME;
+const BRANCH_AND_IMPL_STATUS_KEY = GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME;
 const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 const IMPL_SAVED_PLAN_STATUS_KEY = IMPL_SAVED_PLAN_COMMAND_NAME;
-const GRAPHITE_BRANCH_CREATION_HELP =
-	describeBranchContextGraphiteCreationSteps("<current-branch>");
-
-export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GIT_BRANCH_FROM_PLAN_USAGE = `Usage: /${GIT_BRANCH_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, default target branches auto-suffix on collisions, then the plan is attached to the branch in Branch Memory as <content-derived-slug>.md.
 
 Options:
   --dry-run          Show the selected plan and target branch without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Create with the branch-context Graphite method.
-  --plain-git        Create with plain Git only; no Graphite tracking.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
   --help, -h         Show this help.
 
-${GRAPHITE_BRANCH_CREATION_HELP}
 
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
-export const GT_UPSTACK_IMPL_USAGE = `Usage: /${GT_UPSTACK_IMPL_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
+export const GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE = `Usage: /${GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
-Stack a branch context on the current branch with the branch-context Graphite method, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
+Create a plain Git branch context from the current HEAD, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
 Options:
   --dry-run          Show the selected plan and follow-up flow without mutating.
   --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
-  --graphite         Default: create with the branch-context Graphite method.
-  --plain-git        Escape hatch: create with plain Git only; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
   --help, -h         Show this help.
 
-${GRAPHITE_BRANCH_CREATION_HELP}
 
-The current branch must be trunk or a Graphite-tracked branch; otherwise this command fails before creating a branch or attaching a plan.
 With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
-An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
-
-This command intentionally models the manual flow: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} --graphite, git checkout <branch>, /new, then /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> in the new Pi session.`;
+An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.`;
 
 export const IMPL_SAVED_PLAN_USAGE = `Usage: /${IMPL_SAVED_PLAN_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
@@ -292,13 +276,10 @@ export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchConte
 			parsed.yes = true;
 			continue;
 		}
-		if (token === "--graphite") {
-			setBranchCreation(parsed, "graphite");
-			continue;
-		}
-		if (token === "--plain-git") {
-			setBranchCreation(parsed, "plain-git");
-			continue;
+		if (token === "--graphite" || token === "--plain-git") {
+			throw new CreateBranchContextUsageError(
+				`${token} is not supported; select the Git or GT command namespace instead.`,
+			);
 		}
 		if (token === "--branch") {
 			const value = tokens[index + 1];
@@ -383,16 +364,6 @@ function tokenizeCommandArgs(rawArgs: string): string[] {
 		.filter((token) => token.length > 0);
 }
 
-function setBranchCreation(
-	args: CreateBranchContextArgs,
-	branchCreation: BranchCreationMethod,
-): void {
-	if (args.branchCreation !== undefined && args.branchCreation !== branchCreation) {
-		throw new CreateBranchContextUsageError("Cannot pass both --graphite and --plain-git.");
-	}
-	args.branchCreation = branchCreation;
-}
-
 export async function resolveCreateBranchContextPlanFile(
 	pi: BranchContextPiCommandApi,
 	args: CreateBranchContextArgs,
@@ -414,7 +385,7 @@ export async function deriveCreateBranchContextPreview(
 		filePath: selectedFile.filePath,
 		cwd: ctx.cwd,
 	});
-	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
+	const branchCreation: BranchCreationMethod = "plain-git";
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const planKey = buildBranchContextPlanKey(slugEvidence.slug);
 	const requestedOperation = buildBranchContextCreateOperation({
@@ -703,7 +674,7 @@ export async function handleImplSavedPlanCommand(
 	);
 }
 
-export async function handleCreateBranchContextCommand(
+export async function handleGitBranchFromPlanCommand(
 	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -714,7 +685,7 @@ export async function handleCreateBranchContextCommand(
 		rawArgs,
 		ctx,
 		extensionOptions: options,
-		usage: CREATE_BRANCH_CONTEXT_USAGE,
+		usage: GIT_BRANCH_FROM_PLAN_USAGE,
 		statusKey: BRANCH_CONTEXT_STATUS_KEY,
 		progressMessage: "Finding saved plan for branch context…",
 		derivePreviewOptions: (extensionOptions) => extensionOptions,
@@ -732,7 +703,7 @@ export async function handleCreateBranchContextCommand(
 	});
 }
 
-export async function handleGtUpstackImplCommand(
+export async function handleGitBranchAndImplFromPlanCommand(
 	pi: BranchContextPiCommandApi,
 	rawArgs: string,
 	ctx: CommandContext,
@@ -743,15 +714,12 @@ export async function handleGtUpstackImplCommand(
 		rawArgs,
 		ctx,
 		extensionOptions: options,
-		usage: GT_UPSTACK_IMPL_USAGE,
-		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
-		progressMessage: "Finding saved plan for upstack branch-context implementation…",
-		derivePreviewOptions: (extensionOptions) => ({
-			...extensionOptions,
-			branchContextDefaultCreation: "graphite",
-		}),
+		usage: GIT_BRANCH_AND_IMPL_FROM_PLAN_USAGE,
+		statusKey: BRANCH_AND_IMPL_STATUS_KEY,
+		progressMessage: "Finding saved plan for implementation branch context implementation…",
+		derivePreviewOptions: (extensionOptions) => extensionOptions,
 		formatDryRunMessage: (preview) =>
-			formatGtUpstackImplDryRunMessage(
+			formatBranchAndImplDryRunMessage(
 				formatCreateBranchContextPreview(preview),
 				preview.targetBranch,
 				preview.planKey,
@@ -760,7 +728,7 @@ export async function handleGtUpstackImplCommand(
 			if (!(error instanceof NoSavedPlanAvailableError)) {
 				return false;
 			}
-			await handleGtUpstackImplExistingReuse({
+			await handleBranchAndImplExistingReuse({
 				pi,
 				args,
 				ctx,
@@ -770,7 +738,7 @@ export async function handleGtUpstackImplCommand(
 			return true;
 		},
 		onCreated: async (evidence) => {
-			await runGtUpstackImplLaunchTail({
+			await runBranchAndImplLaunchTail({
 				pi,
 				ctx,
 				mode: "created",
@@ -896,7 +864,7 @@ interface CreateBranchContextFromPreviewOptions {
 	extensionOptions: BranchContextExtensionOptions;
 }
 
-interface HandleGtUpstackImplExistingReuseOptions {
+interface HandleBranchAndImplExistingReuseOptions {
 	pi: BranchContextPiCommandApi;
 	args: CreateBranchContextArgs;
 	ctx: CommandContext;
@@ -904,12 +872,12 @@ interface HandleGtUpstackImplExistingReuseOptions {
 	extensionOptions: BranchContextExtensionOptions;
 }
 
-async function handleGtUpstackImplExistingReuse(
-	options: HandleGtUpstackImplExistingReuseOptions,
+async function handleBranchAndImplExistingReuse(
+	options: HandleBranchAndImplExistingReuseOptions,
 ): Promise<void> {
 	const { pi, args, ctx, originalError, extensionOptions } = options;
 	let reuse: ExistingBranchContextReuse;
-	setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, "finding existing branch context…");
+	setRuntimeStatus(ctx, BRANCH_AND_IMPL_STATUS_KEY, "finding existing branch context…");
 	try {
 		const sessionEntries = ctx.sessionManager?.getBranch?.() ?? [];
 		reuse = await resolveExistingBranchContextReuse(
@@ -929,14 +897,14 @@ async function handleGtUpstackImplExistingReuse(
 		);
 		return;
 	} finally {
-		setRuntimeStatus(ctx, GT_UPSTACK_IMPL_STATUS_KEY, undefined);
+		setRuntimeStatus(ctx, BRANCH_AND_IMPL_STATUS_KEY, undefined);
 	}
 
 	if (args.dryRun) {
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatGtUpstackImplDryRunMessage(
+			formatBranchAndImplDryRunMessage(
 				formatExistingBranchContextReuse(reuse),
 				reuse.branch,
 				reuse.key,
@@ -947,7 +915,7 @@ async function handleGtUpstackImplExistingReuse(
 		return;
 	}
 
-	await runGtUpstackImplLaunchTail({
+	await runBranchAndImplLaunchTail({
 		pi,
 		ctx,
 		mode: "reused",
@@ -982,9 +950,11 @@ async function createBranchContextFromPreview({
 		params.summary = preview.summary;
 	}
 
+	const context = resolveBranchContextContext(pi, ctx.cwd, extensionOptions);
 	return operations.createBranchContextFromFile(pi, params, {
 		cwd: ctx.cwd,
-		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
+		context,
+		provider: new PlainGitBranchCreationProvider(context.git),
 	});
 }
 
@@ -1000,7 +970,7 @@ function formatExistingReuseFailureMessage(originalError: unknown, reuseError: u
 	].join("\n");
 }
 
-type GtUpstackImplMode = "created" | "reused";
+type BranchAndImplMode = "created" | "reused";
 
 type ImplSavedPlanLaunchResult =
 	| { type: "launched"; parentSession?: string }
@@ -1012,23 +982,23 @@ interface ImplSavedPlanLaunchOptions {
 	prompt: string;
 }
 
-interface GtUpstackImplLaunchTailOptions {
+interface BranchAndImplLaunchTailOptions {
 	pi: BranchContextPiCommandApi;
 	ctx: CommandContext;
-	mode: GtUpstackImplMode;
+	mode: BranchAndImplMode;
 	target: Pick<BranchContextEvidence, "branch" | "key">;
 	successBody: string;
 	outputDetails: BranchContextOutputDetails;
 }
 
-async function runGtUpstackImplLaunchTail(options: GtUpstackImplLaunchTailOptions): Promise<void> {
+async function runBranchAndImplLaunchTail(options: BranchAndImplLaunchTailOptions): Promise<void> {
 	const { pi, ctx, mode, target } = options;
 	presentBranchContextMessage(pi, ctx, options.successBody, options.outputDetails, "info");
 
-	const launchResult = await runBranchContextGtUpstackImplLaunch({
-		git: createGtUpstackImplGitGateway(pi),
+	const launchResult = await runBranchContextBranchAndImplLaunch({
+		git: createBranchAndImplGitGateway(pi),
 		ctx,
-		statusKey: GT_UPSTACK_IMPL_STATUS_KEY,
+		statusKey: BRANCH_AND_IMPL_STATUS_KEY,
 		target,
 	});
 	if (launchResult.type === "launched") {
@@ -1038,7 +1008,7 @@ async function runGtUpstackImplLaunchTail(options: GtUpstackImplLaunchTailOption
 		presentBranchContextMessage(
 			pi,
 			ctx,
-			formatGtUpstackImplCancelledMessage(mode, launchResult.branch, launchResult.key),
+			formatBranchAndImplCancelledMessage(mode, launchResult.branch, launchResult.key),
 			{ status: "cancelled" },
 			"warning",
 		);
@@ -1048,7 +1018,7 @@ async function runGtUpstackImplLaunchTail(options: GtUpstackImplLaunchTailOption
 	presentBranchContextFailure(
 		pi,
 		ctx,
-		formatGtUpstackImplLaunchFailureTitle(mode, launchResult.phase),
+		formatBranchAndImplLaunchFailureTitle(mode, launchResult.phase),
 		launchResult.message,
 	);
 }
@@ -1092,16 +1062,16 @@ async function runImplSavedPlanLaunch(
 	}
 }
 
-function formatGtUpstackImplDryRunMessage(body: string, branch: string, key: string): string {
-	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextGtUpstackImplFollowUpFlow(branch, key)}`;
+function formatBranchAndImplDryRunMessage(body: string, branch: string, key: string): string {
+	return `Dry run: no branch would be created, no plan would be attached, no checkout would happen, no new session would be started, and no implementation prompt would be sent.\n\n${body}\n\nNew-session implementation flow:\n${formatBranchContextBranchAndImplFollowUpFlow(branch, key)}`;
 }
 
 function formatImplSavedPlanCancelledMessage(filePath: string): string {
 	return `Selected the saved plan, but starting the implementation session was cancelled. Run /${IMPL_SAVED_PLAN_COMMAND_NAME} ${filePath} again, or manually open /new on the current branch and paste/use the saved plan content.`;
 }
 
-function formatGtUpstackImplLaunchFailureTitle(
-	mode: GtUpstackImplMode,
+function formatBranchAndImplLaunchFailureTitle(
+	mode: BranchAndImplMode,
 	phase: "checkout" | "new-session",
 ): string {
 	if (mode === "created") {
@@ -1114,8 +1084,8 @@ function formatGtUpstackImplLaunchFailureTitle(
 		: "Reused existing branch context, verified the attached plan, and checked out the branch context, but failed to start the implementation session.";
 }
 
-function formatGtUpstackImplCancelledMessage(
-	mode: GtUpstackImplMode,
+function formatBranchAndImplCancelledMessage(
+	mode: BranchAndImplMode,
 	branch: string,
 	key: string,
 ): string {
@@ -1235,22 +1205,24 @@ export function registerBranchContextCommands(
 ): void {
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: CREATE_BRANCH_CONTEXT_COMMAND_NAME,
+		commandName: GIT_BRANCH_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
 				"Create a branch context using a content-derived slug, then attach the saved plan in Branch Memory.",
-			handler: async (args, ctx) => handleCreateBranchContextCommand(pi, args, ctx, options),
+			handler: async (args, ctx) => handleGitBranchFromPlanCommand(pi, args, ctx, options),
 		},
+		options: { delivery: "message" },
 	});
 
 	registerCommandWithImmediateAck({
 		host: pi,
-		commandName: GT_UPSTACK_IMPL_COMMAND_NAME,
+		commandName: GIT_BRANCH_AND_IMPL_FROM_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
-				"Stack a branch context on the current branch with Graphite, check it out, and implement the attached plan in a fresh Pi session.",
-			handler: async (args, ctx) => handleGtUpstackImplCommand(pi, args, ctx, options),
+				"Create a plain Git branch context, check it out, and implement the attached plan in a fresh Pi session.",
+			handler: async (args, ctx) => handleGitBranchAndImplFromPlanCommand(pi, args, ctx, options),
 		},
+		options: { delivery: "message" },
 	});
 
 	registerCommandWithImmediateAck({
@@ -1261,6 +1233,7 @@ export function registerBranchContextCommands(
 				"Implement a session-selected, latest fallback, or explicit Saved Plan in a fresh current-branch Pi session without attaching Branch Context.",
 			handler: async (args, ctx) => handleImplSavedPlanCommand(pi, args, ctx, options),
 		},
+		options: { delivery: "message" },
 	});
 
 	registerCommandWithImmediateAck({
@@ -1270,5 +1243,6 @@ export function registerBranchContextCommands(
 			description: "Implement from the attached or latest saved branch-context plan.",
 			handler: async (args, ctx) => handleImplBranchContextCommand(pi, args, ctx, options),
 		},
+		options: { delivery: "message" },
 	});
 }

@@ -55,6 +55,7 @@ class TrackingBranchMemoryGateway extends FakeBrmemGateway {
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { buildTrackedBranchSlugPrompt } from "@nseng-ai/extension-kit/tracked-branch-payload";
+import { GraphiteBranchCreationProvider } from "@nseng-ai/extension-kit/graphite/branch";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
@@ -869,7 +870,6 @@ describe("ns:herdr:impl:plan:tab", () => {
 			commands: createHerdrPiCommandApi(pi),
 			git,
 			brmem,
-			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 		const destinationReads: Array<"workspace" | "tab"> = ["tab", "workspace", "tab"];
 
@@ -1021,6 +1021,13 @@ function herdrPlanImplTestOptions(planStoreRoot: string): HerdrSlotImplPlanOptio
 				brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			};
 		},
+		createBranchCreationProvider({ context, parentBranch }) {
+			return new GraphiteBranchCreationProvider({
+				git: context.git,
+				graphite: new InMemoryGraphiteBranchGateway(),
+				parentBranch,
+			});
+		},
 	};
 }
 
@@ -1064,8 +1071,9 @@ describe("ns:herdr:impl:plan:space", () => {
 			commands: createHerdrPiCommandApi(pi),
 			git,
 			brmem,
-			graphite,
 		});
+		options.createBranchCreationProvider = ({ context, parentBranch }) =>
+			new GraphiteBranchCreationProvider({ git: context.git, graphite, parentBranch });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
 			rawArgs: "",
@@ -1149,7 +1157,6 @@ describe("ns:herdr:impl:plan:space", () => {
 			commands: createHerdrPiCommandApi(pi),
 			git,
 			brmem,
-			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
@@ -1190,7 +1197,6 @@ describe("ns:herdr:impl:plan:space", () => {
 			commands: createHerdrPiCommandApi(pi),
 			git,
 			brmem,
-			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 		const contextGit = new InMemoryGitGateway({ cachedOriginHeadBranch: { type: "missing" } });
 
@@ -1247,7 +1253,6 @@ describe("ns:herdr:impl:plan:space", () => {
 			commands: createHerdrPiCommandApi(pi),
 			git,
 			brmem,
-			graphite: new InMemoryGraphiteBranchGateway(),
 		});
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
@@ -1414,8 +1419,9 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			commands: createHerdrPiCommandApi(pi),
 			git,
 			brmem,
-			graphite,
 		});
+		options.createBranchCreationProvider = ({ context, parentBranch }) =>
+			new GraphiteBranchCreationProvider({ git: context.git, graphite, parentBranch });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
 			rawArgs: "",
@@ -1579,7 +1585,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 					existingBranches: [PLAN_SLUG],
 				}),
 				brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
-				graphite: new InMemoryGraphiteBranchGateway(),
 			};
 		};
 
@@ -1607,6 +1612,9 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 
 	test("space implementation branch-context failure names the unopened Herdr space", async () => {
 		const repoRoot = await makeTempDir();
+		const graphite = new InMemoryGraphiteBranchGateway({
+			trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
+		});
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
@@ -1636,10 +1644,9 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				headCommit: START_POINT,
 			}),
 			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
-			graphite: new InMemoryGraphiteBranchGateway({
-				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
-			}),
 		});
+		options.createBranchCreationProvider = ({ context, parentBranch }) =>
+			new GraphiteBranchCreationProvider({ git: context.git, graphite, parentBranch });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
 			rawArgs: "",
@@ -1663,6 +1670,9 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 
 	test("tab implementation branch-context failure names the unopened Herdr tab", async () => {
 		const repoRoot = await makeTempDir();
+		const graphite = new InMemoryGraphiteBranchGateway({
+			trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
+		});
 		const planStoreRoot = await makeTempDir();
 		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
@@ -1692,10 +1702,9 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				headCommit: START_POINT,
 			}),
 			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
-			graphite: new InMemoryGraphiteBranchGateway({
-				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
-			}),
 		});
+		options.createBranchCreationProvider = ({ context, parentBranch }) =>
+			new GraphiteBranchCreationProvider({ git: context.git, graphite, parentBranch });
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
 			rawArgs: "",

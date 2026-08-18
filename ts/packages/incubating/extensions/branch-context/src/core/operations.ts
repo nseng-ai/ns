@@ -4,6 +4,10 @@ import { dirname } from "node:path";
 import { failure, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { runOperationCommand, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import {
+	PlainGitBranchCreationProvider,
+	type BranchCreationProvider,
+} from "@nseng-ai/extension-kit/branch-creation";
+import {
 	formatErrorMessage,
 	optionalEntries,
 	optionalEntry,
@@ -47,6 +51,7 @@ import {
 	branchContextCreationPolicyFromMethod,
 	formatBranchContextEvidence,
 	type BranchContextEvidence,
+	type BranchCreationMethod,
 } from "./branch-context-creation.ts";
 import { createRealBranchContextContext, type BranchContextContext } from "./context.ts";
 
@@ -197,25 +202,36 @@ export function createRealBranchContextCliContext(options: {
 	stderr?: (text: string) => void;
 	planStoreRoot?: string;
 }): BranchContextCliContext {
-	return {
-		context: createRealBranchContextContext({
-			cwd: options.cwd,
-			...(options.env === undefined ? {} : { env: options.env }),
-			...(options.stderr === undefined ? {} : { stderr: options.stderr }),
-		}),
+	const context = createRealBranchContextContext({
 		cwd: options.cwd,
+		...(options.env === undefined ? {} : { env: options.env }),
+		...(options.stderr === undefined ? {} : { stderr: options.stderr }),
+	});
+	return {
+		context,
+		cwd: options.cwd,
+		createBranchProvider(method) {
+			if (method === "graphite") {
+				throw new Error(
+					"Graphite branch creation requires an explicitly composed Graphite provider.",
+				);
+			}
+			return new PlainGitBranchCreationProvider(context.git);
+		},
 		...(options.planStoreRoot === undefined ? {} : { planStoreRoot: options.planStoreRoot }),
 	};
 }
 
 export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	context?: BranchContextContext;
+	createBranchProvider?: BranchContextCliContext["createBranchProvider"];
 	planStoreRoot?: string;
 }
 
 export interface BranchContextCliContext {
 	context: BranchContextContext;
 	cwd: string;
+	createBranchProvider(method: BranchCreationMethod, parentBranch: string): BranchCreationProvider;
 	planStoreRoot?: string;
 }
 
@@ -234,16 +250,19 @@ export async function handleCreate(
 					reason: slugError,
 				});
 			}
+			const creation = branchContextCreationPolicyFromMethod(request.branchCreation);
+			const parentBranch = await requireCurrentBranch(ctx.context, ctx.cwd);
+			const provider = ctx.createBranchProvider(request.branchCreation, parentBranch);
 			const evidence = await createBranchContextFromFile(
 				ctx.context.commands,
 				{
 					slug: request.slug,
 					filePath: request.planFile,
 					...(request.branch === undefined ? {} : { branchName: request.branch }),
-					creation: branchContextCreationPolicyFromMethod(request.branchCreation),
+					creation,
 					...(request.summary === undefined ? {} : { summary: request.summary }),
 				},
-				operationOptions(ctx),
+				{ ...operationOptions(ctx), provider },
 			);
 			return ok(branchContextJson(evidence), { human: formatBranchContextEvidence(evidence) });
 		},
@@ -584,6 +603,15 @@ function deleteJson(evidence: BranchContextDeleteEvidence): {
 		key: evidence.key,
 		deleted: evidence.deleted,
 	};
+}
+
+async function requireCurrentBranch(context: BranchContextContext, cwd: string): Promise<string> {
+	const current = await context.git.currentBranch({ cwd });
+	if (current.type === "branch") return current.branch;
+	if (current.type === "detached") {
+		throw new Error("Graphite branch creation requires a named current branch.");
+	}
+	throw new Error(current.error.message);
 }
 
 function loadedPlanJson(

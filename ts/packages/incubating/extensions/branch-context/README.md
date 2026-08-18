@@ -2,7 +2,7 @@
 
 `@nseng-ai/branch-context` owns the harness-independent ns `branch-context` command group and prompt-loading behavior for attaching and implementing branch-scoped plans. It does not expose a standalone `branch-context` package binary; use `ns branch-context ...`.
 
-Pi registration and presentation live in the separate `@nseng-ai/pi-ns-branch-context` host adapter, which consumes portable behavior through `@nseng-ai/branch-context/api` and `@nseng-ai/plans/api`. This package contains no Pi subpackage or Pi Runtime dependency.
+Pi registration and presentation consume portable behavior through `@nseng-ai/branch-context/api` and `@nseng-ai/plans/api`: `@nseng-ai/pi-ns-branch-context` owns shared/plain-Git surfaces, while `@nseng-ai/pi-ns-gt` and `@nseng-ai/pi-ns-gs` own Graphite and GitHub Stacks commands. Provider namespaces are explicit and Attached Plan implementation is provider-independent. This package contains no Pi subpackage or Pi Runtime dependency.
 
 ## Plan contract trial rollback
 

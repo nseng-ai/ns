@@ -27,7 +27,7 @@ describe("rerankSlashCommandItems", () => {
 	test("promotes the suffix-segment match ahead of greedy fuzzy matches (bug scenario)", () => {
 		const fuzzyOrder = items(
 			"context:bundle-analysis",
-			"ns:branch-context:from-plan",
+			"ns:git:branch-from-plan",
 			"ns:objective:next",
 			"ns:objective:update",
 		);

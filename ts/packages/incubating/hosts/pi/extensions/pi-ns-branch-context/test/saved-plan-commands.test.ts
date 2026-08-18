@@ -21,9 +21,9 @@ describe("enriched-plan-commands", () => {
 		registerBranchContextExtension(pi);
 
 		expect([...pi.commands.keys()].sort()).toEqual([
-			"ns:branch-context:from-plan",
 			"ns:branch-context:impl-attached-plan",
-			"ns:branch-context:upstack-impl-from-plan",
+			"ns:git:branch-and-impl-from-plan",
+			"ns:git:branch-from-plan",
 			"ns:plan:grill-and-save",
 			"ns:plan:impl-saved-plan",
 			"ns:plan:save",

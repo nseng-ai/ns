@@ -11,6 +11,7 @@ export {
 	branchContextCreationPolicyFromMethod,
 	buildBranchContextCreateOperation,
 	createBranchContextFromFile,
+	createBranchContextFromResolvedSource,
 	deriveTargetBranch,
 	formatBranchContextCreateFailure,
 	formatBranchContextCreatePreview,
@@ -21,6 +22,7 @@ export {
 	type BranchContextCreationPolicy,
 	type BranchContextEvidence,
 	type BranchContextEvidenceCreation,
+	type CreateBranchContextFromResolvedSourceOptions,
 	type BranchCreationMethod,
 } from "./branch-context-creation.ts";
 export {
