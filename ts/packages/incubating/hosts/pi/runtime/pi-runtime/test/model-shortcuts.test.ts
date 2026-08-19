@@ -41,7 +41,7 @@ const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
 	},
 	{
 		command: "model:sol",
-		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol" },
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-sol-fast" },
 	},
 	{
 		command: "model:terra",
