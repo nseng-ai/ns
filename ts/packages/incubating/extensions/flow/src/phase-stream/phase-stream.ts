@@ -83,28 +83,26 @@ function createForwardingPhaseStream(
 	forward: NsProgress,
 	specs: readonly PhaseSpec[],
 ): PhaseStream {
-	function begin(title: string): void {
-		forward.phase({
-			type: "phases-declared",
-			title,
-			phases: progressPhaseInfos(specs),
-		});
-	}
-
-	function setTitle(title: string): void {
-		forward.phase({ type: "title-changed", title });
-	}
-
-	function emit(event: NsProgressPhaseEvent): void {
-		forward.phase(event);
-	}
-
-	function note(_text: string): void {}
-	function fail(): void {}
-	async function finish(_finalLines?: readonly string[]): Promise<void> {}
-	async function stop(): Promise<void> {}
-
-	return { begin, setTitle, emit, note, fail, finish, stop };
+	return {
+		begin(title) {
+			forward.phase({
+				type: "phases-declared",
+				title,
+				phases: progressPhaseInfos(specs),
+			});
+		},
+		setTitle(title) {
+			forward.phase({ type: "title-changed", title });
+		},
+		emit(event) {
+			forward.phase(event);
+		},
+		// The live host owns presentation and settlement; these methods intentionally do nothing.
+		note(_text) {},
+		fail() {},
+		async finish(_finalLines) {},
+		async stop() {},
+	};
 }
 
 function createRenderedPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
