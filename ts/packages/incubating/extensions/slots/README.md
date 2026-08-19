@@ -23,10 +23,22 @@ Install the ns tool shim with the repository tool installation flow, then invoke
 - `ns slot list` renders the pool from `git worktree list`.
 - `ns slot goto`, `ns slot claim`, `ns slot free`, `ns slot gc`, and `ns slot resize` provide the remaining slot lifecycle operations.
 - `ns slot foreach -- git clean -fd` runs a command sequentially in the main worktree first, then in every non-excluded managed Slot in slot-number order. Repeat `--exclude SLOT` (`-x SLOT`) to omit named Slots from both the operation-in-progress preflight and execution; the main worktree is always included. It aborts when the main worktree or any included Slot has a git operation in progress, and prompts for confirmation unless `--yes` is passed. Human mode prints per-worktree start and completion progress to stderr while keeping bounded child output in the final report; it does not stream child output live. Pass the command after `--`; flag-bearing commands (e.g. `-fd`) require the `--` separator.
+- `ns slot ff-detached` fast-forwards clean detached managed Slots to the configured local trunk. It never modifies the main worktree or attached feature branches. Attached, dirty, and divergent Slots are planned skips, so the command succeeds when every planned fast-forward succeeds. In human mode it reports inspection progress, prints the complete plan before mutation, and reports each planned fast-forward as it runs. A Git operation in progress blocks all mutation by default; use `--force` (`-f`) to skip operation-bearing Slots and process the remaining safe Slots. Unexpected planning or mutation errors fail the command. Use `--dry-run` (`-n`) to inspect all intended outcomes without mutation.
 - `ns slot provision apply` and `ns slot provision import` copy declared gitignored files between the per-repo provision store and slot worktrees (see "Provisioned files").
 - `ns slot gt ...` contains Graphite-aware slot navigation and hidden agent exec helpers.
 
 A full pool fails with `pool_full`; run `ns slot free` or `ns slot resize` first.
+
+### Refreshing tracked files and direnv approvals
+
+After a tracked `.envrc` change lands:
+
+1. Run `ns slot ff-detached` to update clean detached Slots from the configured local trunk.
+2. Update or restack attached feature branches through their normal workflow. `ff-detached` cannot and does not update them.
+3. Run `ns slot foreach --yes -- direnv allow` after every relevant worktree has the new `.envrc`.
+4. Optionally warm evaluation with `ns slot foreach --yes -- direnv exec . true`.
+
+Direnv approval is per worktree. If an attached branch receives the changed `.envrc` later, approve that worktree again after the branch update.
 
 ### Hidden restack preflight helper
 

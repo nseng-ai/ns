@@ -134,7 +134,9 @@ Four authoring tiers are review discipline, **not** a Clinkr framework type.
   **`--yes` / `-y`**. TTY humans may be prompted; non-interactive callers must
   not.
 - **Tier 3 — high blast radius / irreversible / computed target set.** Authorize
-  with **`--force` / `-f`** and offer a dry-run/preview where possible.
+  with **`--force` / `-f`** and offer a dry-run/preview where possible. ADR 0060
+  permits a narrow Tier 1 exception for safe computed-target local maintenance
+  that satisfies every condition in that decision.
 
 Cross-cutting rules:
 

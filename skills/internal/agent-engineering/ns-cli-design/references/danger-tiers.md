@@ -11,6 +11,12 @@ primitive, and `ClinkrInteraction.isInteractive()` gates prompting.
 | 2    | Destructive or external write    | TTY-gated confirm; `--yes`/`-y` to confirm non-interactively. |
 | 3    | High blast radius                | `--force`/`-f` precondition override; strongest confirmation. |
 
+## Safe computed-target local maintenance
+
+ADR 0060 refines the computed-target rule. A command can remain Tier 1 only when it satisfies every ADR 0060 condition: repository-local owned state, a bounded canonical inventory, independently guarded non-destructive transitions, unchanged ineligible targets, a human plan, a successful dry-run, and per-target final outcomes. Destructive behavior, branch rewrites, remote writes, user-environment writes, unowned targets, or hard-to-review transitions remain outside the exception.
+
+`ns slot ff-detached` is the reference example. Its normal operation needs no authorization flag. Its `--force` flag only relaxes the operation-in-progress precondition by skipping those Slots; it does not authorize the computed target set.
+
 ## Verb split — do not blur
 
 - **`--yes` / `-y`** = "I confirm this destructive action" (Tier 2). Used when the

@@ -171,6 +171,7 @@ function buildScenarioFixture(
 		clock: createManualClock(options.nowMs ?? SCENARIO_NOW_MS).clock,
 		cwd,
 		renderCapabilities,
+		outputFormat: isClinkrHumanOutputInvocation(args) ? "human" : "json",
 		interaction,
 		stderr: (text) => stderr.push(text),
 		env: options.env ?? { PATH: "/fake/bin" },

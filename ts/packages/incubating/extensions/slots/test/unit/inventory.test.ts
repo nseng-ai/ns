@@ -29,6 +29,19 @@ describe("slot inventory", () => {
 		expect(slotStatus({ ...inventory.records[1]!, operation: "rebase" })).toBe("assigned");
 	});
 
+	it("excludes Slot-shaped worktrees outside the managed worktree directory", async () => {
+		const git = new FakeSlotRepositoryGateway({
+			worktrees: [
+				{ path: "/slots/repos/repo/worktrees/slot-01", branch: null },
+				{ path: "/tmp/slot-02", branch: null },
+			],
+		});
+		const inventory = await buildSlotInventory(git, {
+			worktreesDir: "/slots/repos/repo/worktrees",
+		});
+		expect(inventory.records.map((record) => record.slotName)).toEqual(["slot-01"]);
+	});
+
 	it("uses non-checked-out occupancy as operation state", async () => {
 		const git = new FakeSlotRepositoryGateway({
 			worktrees: [{ path: "/slots/repos/repo/worktrees/slot-03", branch: "feature/rebase" }],

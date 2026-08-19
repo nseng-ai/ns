@@ -307,6 +307,65 @@ describe("RealSlotRepositoryGateway", () => {
 		]);
 	});
 
+	it("inspects and fast-forwards a detached HEAD with bounded Git commands", async () => {
+		const execApi = scriptedExecApi([
+			{ stdout: "0\t0\n", stderr: "", code: 0 },
+			{ stdout: "0 3\n", stderr: "", code: 0 },
+			{ stdout: "2 3\n", stderr: "", code: 0 },
+			{ stdout: "", stderr: "", code: 0 },
+		]);
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			env: { PATH: "/fake/bin" },
+			execApi,
+			coreGit: new InMemoryGitGateway({ currentBranch: { type: "detached" } }),
+		});
+
+		await expect(gateway.inspectDetachedHeadFastForward("/slot-01", "main")).resolves.toEqual({
+			type: "already-current",
+		});
+		await expect(gateway.inspectDetachedHeadFastForward("/slot-02", "main")).resolves.toEqual({
+			type: "can-fast-forward",
+		});
+		await expect(gateway.inspectDetachedHeadFastForward("/slot-03", "main")).resolves.toEqual({
+			type: "non-fast-forward",
+		});
+		await expect(gateway.fastForwardDetachedHead("/slot-02", "main")).resolves.toEqual({
+			type: "advanced",
+		});
+		expect(execApi.calls()).toEqual([
+			gitCall(["rev-list", "--left-right", "--count", "HEAD...refs/heads/main"], "/slot-01"),
+			gitCall(["rev-list", "--left-right", "--count", "HEAD...refs/heads/main"], "/slot-02"),
+			gitCall(["rev-list", "--left-right", "--count", "HEAD...refs/heads/main"], "/slot-03"),
+			gitCall(["merge", "--ff-only", "refs/heads/main"], "/slot-02"),
+		]);
+	});
+
+	it("returns malformed inspection output and merge failures as structured failures", async () => {
+		const gateway = new RealSlotRepositoryGateway({
+			cwd: "/repo",
+			coreGit: new InMemoryGitGateway({ currentBranch: { type: "detached" } }),
+			execApi: scriptedExecApi([
+				{ stdout: "not counts\n", stderr: "", code: 0 },
+				{ stdout: "", stderr: "not a repository\n", code: 128 },
+				{ stdout: "", stderr: "not possible to fast-forward\n", code: 128 },
+			]),
+		});
+
+		await expect(gateway.inspectDetachedHeadFastForward("/slot-01", "main")).resolves.toEqual({
+			type: "failure",
+			failure: { message: "git rev-list returned malformed fast-forward counts" },
+		});
+		await expect(gateway.inspectDetachedHeadFastForward("/slot-02", "main")).resolves.toEqual({
+			type: "failure",
+			failure: { message: "not a repository" },
+		});
+		await expect(gateway.fastForwardDetachedHead("/slot-03", "main")).resolves.toEqual({
+			type: "failure",
+			failure: { message: "not possible to fast-forward" },
+		});
+	});
+
 	it("returns movement command failures without throwing", async () => {
 		const execApi = scriptedExecApi({
 			stdout: "",

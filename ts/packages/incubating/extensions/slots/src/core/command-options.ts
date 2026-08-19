@@ -29,6 +29,11 @@ export const foreachOptionSpecs = {
 	yes: { short: "-y" },
 } satisfies CommandOptionSpecs;
 
+export const ffDetachedOptionSpecs = {
+	dryRun: { short: "-n" },
+	force: { short: "-f" },
+} satisfies CommandOptionSpecs;
+
 export const gcOptionSpecs = {
 	dryRun: { short: "-n" },
 	force: { short: "-f" },

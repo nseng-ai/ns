@@ -31,6 +31,33 @@ describe("RealSlotRepositoryGateway movement methods", () => {
 		});
 	});
 
+	it("fast-forwards a clean detached HEAD without attaching it", async () => {
+		const root = await makeRepo();
+		const firstCommit = (
+			await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })
+		).stdout.trim();
+		await writeFile(join(root, "second.txt"), "second\n", "utf8");
+		await git(root, ["add", "second.txt"]);
+		await git(root, ["commit", "-m", "second"]);
+		const trunkCommit = (
+			await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })
+		).stdout.trim();
+		await git(root, ["checkout", "--detach", firstCommit]);
+		const gateway = new RealSlotRepositoryGateway({ cwd: root, env: process.env });
+
+		expect(await gateway.inspectDetachedHeadFastForward(root, "master")).toEqual({
+			type: "can-fast-forward",
+		});
+		expect(await gateway.fastForwardDetachedHead(root, "master")).toEqual({ type: "advanced" });
+		expect(await gateway.getCurrentBranch(root)).toEqual({ type: "detached" });
+		expect((await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root })).stdout.trim()).toBe(
+			trunkCommit,
+		);
+		expect(await gateway.inspectDetachedHeadFastForward(root, "master")).toEqual({
+			type: "already-current",
+		});
+	});
+
 	it("checks branch presence, creates branches, checks out, and detaches in a throwaway repo", async () => {
 		const root = await makeRepo();
 		const gateway = new RealSlotRepositoryGateway({ cwd: root, env: process.env });
