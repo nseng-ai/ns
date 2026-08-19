@@ -49,11 +49,21 @@ export const FLOW_COMMAND_SPECS = [
 	flowCommand("squash-stack", SQUASH_STACK_COMMAND_SUMMARY),
 ] as const satisfies readonly FlowCommandSpec[];
 
+const GRAPHITE_FLOW_COMMAND_NAMES = new Set([
+	"autobranch",
+	"branch-latest-commit",
+	"autoslot",
+	"submit",
+	"land",
+	"squash-stack",
+]);
+
 export function nsFlowCommandSurface(name: string): string {
 	if (!FLOW_COMMAND_SPECS.some((command) => command.name === name)) {
 		throw new Error(`Unknown ns flow command: ${name}`);
 	}
-	return nsCommandSurface("flow", name);
+	const action = GRAPHITE_FLOW_COMMAND_NAMES.has(name) ? `gt:${name}` : name;
+	return nsCommandSurface("flow", action);
 }
 
 export const flowSkillBackedCommandRegistrations = specializedSkillBackedCommandsFromSpecs([

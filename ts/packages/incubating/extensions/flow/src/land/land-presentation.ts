@@ -739,7 +739,7 @@ export function freeManagedSlotsNonInteractiveRefusalMessage(
 	return [
 		"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
 		details,
-		`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /ns:flow:land --yes.`,
+		`No PRs were landed. Run \`${commandDisplay}\` manually if appropriate, then rerun /ns:flow:gt:land --yes.`,
 	].join("\n");
 }
 
@@ -804,7 +804,7 @@ export function submitRequiredUpdatesNonInteractiveRefusalMessage(
 	return [
 		`GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required ${actionName} confirmation.`,
 		details,
-		`No PRs were landed. Run ${manualCommandText} manually, then rerun /ns:flow:land --yes.`,
+		`No PRs were landed. Run ${manualCommandText} manually, then rerun /ns:flow:gt:land --yes.`,
 	].join("\n");
 }
 
@@ -812,7 +812,7 @@ export function submitRequiredUpdatesSuggestedAction(
 	request: Extract<LandConfirmationRequest, { readonly kind: "submit-required-updates" }>,
 ): string {
 	const commands = submitRequiredUpdatesCommands(request);
-	return `Run ${commands.map((command) => `\`${command}\``).join(" then ")} manually, then rerun /ns:flow:land --yes.`;
+	return `Run ${commands.map((command) => `\`${command}\``).join(" then ")} manually, then rerun /ns:flow:gt:land --yes.`;
 }
 
 export function formatPostLandingCleanupImpact(

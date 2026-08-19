@@ -332,15 +332,19 @@ describe("land-stack pure helpers", () => {
 			shouldContinueUpstack: false,
 		});
 		expect(expectFailure(parseArgs("--wat")).message).toContain(
-			"Unknown /ns:flow:land argument: --wat",
+			"Unknown /ns:flow:gt:land argument: --wat",
 		);
-		expect(expectFailure(parseArgs("-n")).message).toContain("Unknown /ns:flow:land argument: -n");
-		expect(expectFailure(parseArgs("-v")).message).toContain("Unknown /ns:flow:land argument: -v");
+		expect(expectFailure(parseArgs("-n")).message).toContain(
+			"Unknown /ns:flow:gt:land argument: -n",
+		);
+		expect(expectFailure(parseArgs("-v")).message).toContain(
+			"Unknown /ns:flow:gt:land argument: -v",
+		);
 	});
 
 	test("derives usage and Clinkr wrapper flag surfaces from the descriptors", () => {
 		expect(usage()).toContain(
-			"/ns:flow:land [--yes] [--dry-run] [--free] [--up] [--verbose] [--help]",
+			"/ns:flow:gt:land [--yes] [--dry-run] [--free] [--up] [--verbose] [--help]",
 		);
 		expect(usage()).toContain(
 			"  --free, -F      After a successful landing, free the current managed slot and delete the landed local branch.",

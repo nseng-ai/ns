@@ -13,8 +13,8 @@ The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, inc
 *Avoid*: land domain core, Herdr extension adapter, standalone land command surface
 
 **Flow Pi Presentation Boundary**:
-The separate `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, interaction, notifications, parity metadata, and direct discovery for the generic `/ns:flow:*` mirrors. It also exports `/gt:squash-stack` presentation for deliberate project-local composition. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the sole cross-owner composition seam for Internal smart restack plus the Flow stack-squash adapter.
-*Avoid*: `@nseng-ai/flow/pi`, Flow-owned Pi registration, Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
+The separate `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, interaction, notifications, parity metadata, and direct discovery for the `/ns:flow:*` mirrors. Graphite-dependent mirrors use the `/ns:flow:gt:*` subgroup. It also exports `/gt:squash-stack` presentation for deliberate project-local composition. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the sole cross-owner composition seam for Internal smart restack plus the Flow stack-squash adapter.
+*Avoid*: `@nseng-ai/flow/pi`, provider-obscuring Graphite workflow name, Flow-owned Pi registration, Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
 
 **Flow extension package API**:
 The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packages so they do not import Flow private source modules. It exposes cohesive host-independent command metadata, submit-check recovery, and stack-squash operations for `@nseng-ai/pi-ns-flow`, plus **Flow Branch Publication** for trusted Objectives publication after Objective Runner checkpoint judgment.

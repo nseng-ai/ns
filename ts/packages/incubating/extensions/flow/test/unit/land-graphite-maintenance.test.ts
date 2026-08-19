@@ -398,7 +398,7 @@ describe("Graphite maintenance over LandContext", () => {
 				failedBranch: "feature-b",
 				displayCommand: commandDisplay,
 				message: "PR #1 merged, but Graphite topology repair failed for feature-b.",
-				suggestedAction: `Run ${commandDisplay} manually, inspect the stack, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+				suggestedAction: `Run ${commandDisplay} manually, inspect the stack, then rerun /ns:flow:gt:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
 		});
 		expect(fakes.graphite.restackCalls).toEqual([]);

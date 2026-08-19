@@ -358,7 +358,7 @@ describe("land pre-merge execution", () => {
 				code: "submit_failed",
 				message: "submit update failed",
 				suggestedAction:
-					"Resolve the submit failure, run gt submit --branch feature/a --no-stack --update-only --no-edit --no-ai --no-interactive manually if appropriate, then rerun /ns:flow:land.",
+					"Resolve the submit failure, run gt submit --branch feature/a --no-stack --update-only --no-edit --no-ai --no-interactive manually if appropriate, then rerun /ns:flow:gt:land.",
 			},
 		});
 		expect(memory.git.resolveRepoRootCalls).toEqual([]);

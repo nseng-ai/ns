@@ -3,7 +3,9 @@
 Pi host adapter for the [`@nseng-ai/flow`](../../../../extensions/flow/README.md) ns extension.
 
 This incubating package owns Pi registration, interaction, notification and presentation behavior,
-parity metadata, and direct discovery for the eleven `/ns:flow:*` lifecycle mirrors. Flow domain
+parity metadata, and direct discovery for the eleven `/ns:flow:*` lifecycle mirrors. The six
+Graphite-dependent mirrors are grouped under `/ns:flow:gt:*`; the other five remain directly under
+`/ns:flow:*`. Flow domain
 behavior, stable command metadata, submit-check recovery policy, and stack-squash execution remain
 behind the curated `@nseng-ai/flow/api` extension package API; the adapter never imports Flow's
 private source.

@@ -74,10 +74,10 @@ describe("skill-backed command registry", () => {
 		expect(skillBackedCommandSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
 		expect(skillBackedCommandSurface("objective-refresh")).toBe("ns:objective:refresh");
 		expect(skillBackedCommandSurface("ns-flow-branch-latest-commit")).toBe(
-			"ns:flow:branch-latest-commit",
+			"ns:flow:gt:branch-latest-commit",
 		);
 		expect(skillBackedCommandSurface("ns-flow-cp")).toBe("ns:flow:cp");
-		expect(skillBackedCommandSurface("ns-flow-submit")).toBe("ns:flow:submit");
+		expect(skillBackedCommandSurface("ns-flow-submit")).toBe("ns:flow:gt:submit");
 		expect(skillBackedCommandSurface("ns-cli-design")).toBe("ns:cli:design");
 		expect(skillBackedCommandSurface("ns-typescript-style-tripwire")).toBe(
 			"ns:typescript:style-tripwire",

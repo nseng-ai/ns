@@ -39,4 +39,4 @@ If `ns flow autobranch` fails, surface its output and stop; recovery only on an 
 
 Shared family boundaries live in `docs/conventions/autobranch-family-boundaries.md` (repo root).
 
-Command-specific public boundary: this skill delegates only to `ns flow autobranch`, mirrored in Pi as `/ns:flow:autobranch`.
+Command-specific public boundary: this skill delegates only to `ns flow autobranch`, mirrored in Pi as `/ns:flow:gt:autobranch`.

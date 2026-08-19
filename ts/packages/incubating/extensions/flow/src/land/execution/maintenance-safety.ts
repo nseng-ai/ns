@@ -30,7 +30,7 @@ export async function repairGraphiteBranchParent(
 			displayCommand: reparented.commandDisplay,
 			execResult: reparented.result,
 			failedBranch: options.branch,
-			suggestedAction: `Run ${reparented.commandDisplay} manually, inspect the stack, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+			suggestedAction: `Run ${reparented.commandDisplay} manually, inspect the stack, then rerun /ns:flow:gt:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 		},
 	);
 }
@@ -53,7 +53,7 @@ export async function guardForcedRefresh(
 			`PR #${options.prNumber} merged, but could not verify local branch ${options.branch} before refreshing it.\n${guardSha.failure.message}`,
 			{
 				failedBranch: options.branch,
-				suggestedAction: `Inspect local branch ${options.branch}, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+				suggestedAction: `Inspect local branch ${options.branch}, then rerun /ns:flow:gt:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 			},
 		);
 	}
@@ -65,7 +65,7 @@ export async function guardForcedRefresh(
 		`PR #${options.prNumber} merged, but local branch ${options.branch} moved from ${expectedDisplay} to ${shortSha(guardSha.value)} since landing started; refusing gt get --force to avoid clobbering local commits.`,
 		{
 			failedBranch: options.branch,
-			suggestedAction: `Inspect local branch ${options.branch}, reconcile it with the remote, then rerun /ns:flow:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
+			suggestedAction: `Inspect local branch ${options.branch}, reconcile it with the remote, then rerun /ns:flow:gt:land if appropriate. ${LAND_BACKUP_RECOVERY_HINT}`,
 		},
 	);
 }
@@ -109,7 +109,7 @@ export async function checkBranchBeforeDelete(
 		prNumber: options.prNumber,
 		failureMessage: `PR #${options.prNumber} merged, but ${options.branch} now has unexpected Graphite children (${unexpectedChildren.join(", ")}); refusing gt delete to avoid destroying another stack.`,
 		warningMessage: `All target PRs were merged, but ${options.branch} now has unexpected Graphite children (${unexpectedChildren.join(", ")}); local branch ${options.branch} cleanup was skipped.`,
-		suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${options.branch} manually before rerunning /ns:flow:land. ${LAND_BACKUP_RECOVERY_HINT}`,
+		suggestedAction: `Inspect the unexpected children, land or move them, then clean up local branch ${options.branch} manually before rerunning /ns:flow:gt:land. ${LAND_BACKUP_RECOVERY_HINT}`,
 	};
 }
 
@@ -158,14 +158,14 @@ export function localBranchDeletionFailureDetails(
 	if (!options.isLikelyInProgressGitOperation) {
 		return {
 			failureMessage: `PR #${options.prNumber} merged, but deleting the local Graphite branch ${options.branch} failed.`,
-			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /ns:flow:land.`,
+			failureSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack before rerunning /ns:flow:gt:land.`,
 			warningMessage: `All target PRs were merged, but deleting the local Graphite branch ${options.branch} failed.`,
 			warningSuggestedAction: `Delete or repair local Graphite branch ${options.branch} manually, then inspect the stack.`,
 		};
 	}
 
-	const operationMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /ns:flow:land until it is resolved or aborted.`;
-	const suggestedAction = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /ns:flow:land.`;
+	const operationMessage = `Graphite cleanup for local branch ${options.branch} stopped during branch deletion with an in-progress Git operation or conflicts. The repository may now be mid-rebase; do not rerun /ns:flow:gt:land until it is resolved or aborted.`;
+	const suggestedAction = `Run git status. Resolve the conflicts and continue the Git operation, or run git rebase --abort if you want to back out of the cleanup restack; then inspect the stack and delete or repair local Graphite branch ${options.branch} manually before rerunning /ns:flow:gt:land.`;
 	return {
 		failureMessage: `PR #${options.prNumber} merged, but ${operationMessage}`,
 		failureSuggestedAction: suggestedAction,

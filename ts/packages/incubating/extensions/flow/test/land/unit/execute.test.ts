@@ -350,7 +350,7 @@ describe("land execute mode over in-memory gateways", () => {
 				displayCommand: "ns slot free --wt slot-03",
 				execResult,
 				suggestedAction:
-					"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:land.",
+					"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:gt:land.",
 			},
 		});
 		if (outcome.type !== "failed") return;

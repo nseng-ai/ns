@@ -34,12 +34,12 @@ describe("Flow Pi extension parity metadata", () => {
 			{
 				kind: "specialized-command",
 				skillName: "ns-flow-autobranch",
-				surface: "ns:flow:autobranch",
+				surface: "ns:flow:gt:autobranch",
 			},
 			{
 				kind: "specialized-command",
 				skillName: "ns-flow-branch-latest-commit",
-				surface: "ns:flow:branch-latest-commit",
+				surface: "ns:flow:gt:branch-latest-commit",
 			},
 			{
 				kind: "specialized-command",
@@ -49,7 +49,7 @@ describe("Flow Pi extension parity metadata", () => {
 			{
 				kind: "specialized-command",
 				skillName: "ns-flow-submit",
-				surface: "ns:flow:submit",
+				surface: "ns:flow:gt:submit",
 			},
 		]);
 	});

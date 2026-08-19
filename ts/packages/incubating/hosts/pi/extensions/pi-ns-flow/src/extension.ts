@@ -55,6 +55,9 @@ export default function registerFlowExtension(
 	registerCliCommandExtension(pi, {
 		cliName: "ns",
 		piNamespace: "ns:flow",
+		piCommandAliases: Object.fromEntries(
+			FLOW_COMMAND_SPECS.map((command) => [command.name, nsFlowCommandSurface(command.name)]),
+		),
 		commands: FLOW_COMMAND_SPECS,
 		runCli: options.runCli,
 		afterCommandComplete: async (details) => {

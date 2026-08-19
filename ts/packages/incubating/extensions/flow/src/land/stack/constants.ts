@@ -1,4 +1,4 @@
-export const COMMAND_NAME = "ns:flow:land";
+export const COMMAND_NAME = "ns:flow:gt:land";
 export const STATUS_KEY = "land";
 
 export const GIT_TIMEOUT_MS = 30_000;

@@ -85,7 +85,7 @@ export async function confirmAndFreeManagedSlots(options: {
 				].join("\n"),
 				{
 					suggestedAction:
-						"Resolve the remaining landing-branch worktree checkouts manually, then rerun /ns:flow:land.",
+						"Resolve the remaining landing-branch worktree checkouts manually, then rerun /ns:flow:gt:land.",
 				},
 			),
 		);
@@ -122,7 +122,7 @@ export async function confirmAndSubmitRequiredPrUpdates(options: {
 			return landFailure(
 				withSuggestedAction(
 					restacked.failure,
-					`Resolve the restack failure, run ${formatGraphiteOperation(restackForSubmitOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
+					`Resolve the restack failure, run ${formatGraphiteOperation(restackForSubmitOperation)} and ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:gt:land.`,
 				),
 			);
 		}
@@ -133,7 +133,7 @@ export async function confirmAndSubmitRequiredPrUpdates(options: {
 			return landFailure(
 				landingExecutionFailure(formatRemainingSubmitRestackRequirements(remaining.value), {
 					suggestedAction:
-						"Free or detach the holding worktrees, restack the stack, then rerun /ns:flow:land.",
+						"Free or detach the holding worktrees, restack the stack, then rerun /ns:flow:gt:land.",
 				}),
 			);
 		}
@@ -148,7 +148,7 @@ export async function confirmAndSubmitRequiredPrUpdates(options: {
 		return landFailure(
 			withSuggestedAction(
 				submitted.failure,
-				`Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:land.`,
+				`Resolve the submit failure, run ${formatGraphiteOperation(submitOperation)} manually if appropriate, then rerun /ns:flow:gt:land.`,
 			),
 		);
 	}
@@ -180,12 +180,12 @@ export async function submitRequiredUpdatesAndRecheckPlan(options: {
 export function residualPreMergeFailure(plan: LandingPlan): LandingFailure | undefined {
 	if (plan.managedSlotConflicts.length > 0) {
 		return landingExecutionFailure(formatRemainingManagedSlotConflicts(plan.managedSlotConflicts), {
-			suggestedAction: `Run ${formatCommand("ns", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ns:flow:land.`,
+			suggestedAction: `Run ${formatCommand("ns", ["slot", ...slotFreeArgs(plan.managedSlotConflicts)])} manually, inspect worktrees, and rerun /ns:flow:gt:land.`,
 		});
 	}
 	if (plan.prSubmitRequirements.length > 0) {
 		return landingExecutionFailure(formatRemainingSubmitRequirements(plan.prSubmitRequirements), {
-			suggestedAction: `Run ${formatGraphiteOperation({ kind: "submit-update", branch: plan.stack.landingTargetBranch })} manually, inspect PR heads, and rerun /ns:flow:land.`,
+			suggestedAction: `Run ${formatGraphiteOperation({ kind: "submit-update", branch: plan.stack.landingTargetBranch })} manually, inspect PR heads, and rerun /ns:flow:gt:land.`,
 		});
 	}
 	return undefined;
@@ -226,7 +226,7 @@ function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree 
 function preMergeSlotFailure(failure: LandingFailure): LandingFailure {
 	return withSuggestedAction(
 		failure,
-		"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:land.",
+		"Inspect the slot state, free or detach blocking landing-branch worktrees manually, then rerun /ns:flow:gt:land.",
 	);
 }
 

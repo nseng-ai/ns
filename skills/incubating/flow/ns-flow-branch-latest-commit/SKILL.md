@@ -45,4 +45,4 @@ If `ns flow branch-latest-commit` fails, surface its output and stop; recovery o
 
 Shared family boundaries live in `docs/conventions/autobranch-family-boundaries.md` (repo root).
 
-Command-specific public boundary: this skill delegates only to `ns flow branch-latest-commit`, mirrored in Pi as `/ns:flow:branch-latest-commit`.
+Command-specific public boundary: this skill delegates only to `ns flow branch-latest-commit`, mirrored in Pi as `/ns:flow:gt:branch-latest-commit`.

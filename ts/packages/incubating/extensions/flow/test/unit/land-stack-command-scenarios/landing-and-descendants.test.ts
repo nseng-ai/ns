@@ -693,11 +693,11 @@ describe("land-stack command scenarios", () => {
 	test.each([
 		{
 			state: "MERGED" as const,
-			expected: ["already MERGED", "repair/reparent/restack", "Submit", "rerun /ns:flow:land"],
+			expected: ["already MERGED", "repair/reparent/restack", "Submit", "rerun /ns:flow:gt:land"],
 		},
 		{
 			state: "CLOSED" as const,
-			expected: ["is CLOSED", "Reopen", "remove, replace, or retarget", "rerun /ns:flow:land"],
+			expected: ["is CLOSED", "Reopen", "remove, replace, or retarget", "rerun /ns:flow:gt:land"],
 		},
 	])("dispatch rejects a batched $state PR before confirmation or mutation", async (scenario) => {
 		const branches = [numberedBranch(1), numberedBranch(2), numberedBranch(3)];
