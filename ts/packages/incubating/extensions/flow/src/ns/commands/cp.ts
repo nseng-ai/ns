@@ -33,6 +33,10 @@ const cpRequestSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Preview the checkpoint message without staging or committing."),
+	force: z
+		.boolean()
+		.default(false)
+		.describe("Allow creating a checkpoint commit on the configured Git trunk branch."),
 });
 
 type CpRequest = z.output<typeof cpRequestSchema>;
@@ -40,7 +44,7 @@ type CpRequest = z.output<typeof cpRequestSchema>;
 export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 	schema: cpRequestSchema,
 	resultSchema: cpResultSchema,
-	options: { dryRun: { short: "-n" } },
+	options: { dryRun: { short: "-n" }, force: { short: "-f" } },
 	renderHuman: (result) =>
 		result.type === "dry-run"
 			? formatDryRunMessage(result.branch, result.message)
@@ -57,6 +61,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 				textGenerator: ctx.textGenerator,
 				modelSelection: model.modelSelection,
 				isDryRun: true,
+				allowTrunk: request.force,
 				checkpointGateway: runtime.checkpointGateway,
 				git: runtime.git,
 			});
@@ -79,6 +84,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 					textGenerator: ctx.textGenerator,
 					modelSelection: model.modelSelection,
 					isDryRun: false,
+					allowTrunk: request.force,
 					checkpointGateway: runtime.checkpointGateway,
 					git: runtime.git,
 					onPhase: stream.emit,
@@ -100,6 +106,7 @@ export interface RunCpCoreOptions {
 	textGenerator: TextGenerator;
 	modelSelection: ModelSelection;
 	isDryRun: boolean;
+	allowTrunk: boolean;
 	checkpointGateway: CheckpointGateway;
 	git: Pick<GitGateway, "cachedOriginHeadBranch">;
 	onPhase?: NsProgressPhaseListener;
@@ -115,6 +122,7 @@ export async function runCpCore(options: RunCpCoreOptions): Promise<RunCpCoreRes
 		textGenerator: options.textGenerator,
 		modelSelection: options.modelSelection,
 		dryRun: options.isDryRun,
+		allowTrunk: options.allowTrunk,
 		...(options.onPhase === undefined ? {} : { onPhase: options.onPhase }),
 		...(options.time === undefined ? {} : { time: options.time }),
 	});

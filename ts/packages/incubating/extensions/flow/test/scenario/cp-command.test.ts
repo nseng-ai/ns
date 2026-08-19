@@ -348,6 +348,36 @@ describe("project-local cp extension behavior", () => {
 		]);
 	});
 
+	test("--force creates a checkpoint on trunk without checking cached origin/HEAD", async () => {
+		const run = runCpWithFakes({
+			request: { force: true },
+			state: {
+				exec: [
+					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+					{ match: "git symbolic-ref --short HEAD", result: { stdout: "main\n" } },
+					{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+					{
+						match: "git diff HEAD --no-ext-diff",
+						result: { stdout: "diff --git a/src/app.ts b/src/app.ts\n" },
+					},
+					{ match: "git add -A", result: {} },
+					{ match: /^git commit -F /, result: {} },
+					{
+						match: "git log -1 --oneline",
+						result: { stdout: "abc123 [cp] Update checkpoint\n" },
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
+		expect(formattedExecCalls(run.context)).not.toContain(
+			"git symbolic-ref --short refs/remotes/origin/HEAD",
+		);
+		expect(formattedExecCalls(run.context)).toContain("git add -A");
+	});
+
 	test("Git trunk resolution failure stops before clean refusal or model generation", async () => {
 		const run = runCpWithFakes({
 			state: {

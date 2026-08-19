@@ -121,6 +121,31 @@ describe("flow cp core", () => {
 		expect(gateway.commits).toEqual([]);
 	});
 
+	test("force allows a checkpoint on trunk without resolving the configured trunk", async () => {
+		const textGenerator = new FakeTextGenerator();
+		const gateway = new FakeCheckpointGateway({
+			loaded: { ok: true, snapshot: dirtySnapshot({ branch: "main" }) },
+		});
+		const git = new InMemoryGitGateway({
+			cachedOriginHeadBranch: {
+				type: "failure",
+				error: { code: "trunk-branch-failed", message: "git symbolic-ref failed" },
+			},
+		});
+
+		const result = await runCpCore(
+			defaultOptions({ checkpointGateway: gateway, git, textGenerator, allowTrunk: true }),
+		);
+
+		expect(result).toEqual({
+			type: "committed",
+			summary: "abc123 [cp] Update cp core",
+			message: validCheckpointMessage,
+		});
+		expect(textGenerator.calls).toHaveLength(1);
+		expect(gateway.commits).toEqual([{ cwd: "/repo", message: validCheckpointMessage }]);
+	});
+
 	test.each(["main", "master"])(
 		"allows feature branch named %s when configured trunk differs",
 		async (branch) => {
@@ -268,6 +293,7 @@ describe("flow cp core", () => {
 			gateway,
 			git: new InMemoryGitGateway(),
 			textGenerator,
+			allowTrunk: false,
 			modelSelection: {
 				provider: "openai-codex",
 				modelId: "gpt-test",
@@ -306,6 +332,7 @@ describe("flow cp core", () => {
 			gateway,
 			git: new InMemoryGitGateway(),
 			textGenerator,
+			allowTrunk: false,
 			modelSelection: {
 				provider: "openai-codex",
 				modelId: "gpt-test",
@@ -363,6 +390,7 @@ function defaultOptions(overrides: {
 	textGenerator: TextGenerator;
 	git?: Pick<GitGateway, "cachedOriginHeadBranch">;
 	isDryRun?: boolean;
+	allowTrunk?: boolean;
 }) {
 	return {
 		cwd: "/repo",
@@ -372,6 +400,7 @@ function defaultOptions(overrides: {
 		textGenerator: overrides.textGenerator,
 		modelSelection: { provider: "openai-codex", modelId: "gpt-test", thinking: "minimal" as const },
 		isDryRun: overrides.isDryRun ?? false,
+		allowTrunk: overrides.allowTrunk ?? false,
 	};
 }
 

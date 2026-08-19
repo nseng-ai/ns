@@ -92,7 +92,8 @@ reshaped stack.
   trunk from cached `refs/remotes/origin/HEAD`. If Git cannot resolve that
   identity, they stop before checkpoint-message generation or Git mutation;
   branch names such as `main` and `master` receive no special treatment unless
-  one is the cached trunk.
+  one is the cached trunk. `cp --force` skips this trunk check and permits a
+  checkpoint on the configured trunk; submit's checkpoint step remains guarded.
 - `pull-trunk` inspects the cached Git trunk's configured upstream before worktree
   inspection and refresh mutation. A missing or unreadable upstream is a
   non-mutating refusal; Flow never creates or rewrites upstream configuration

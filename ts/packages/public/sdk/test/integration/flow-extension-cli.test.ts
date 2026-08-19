@@ -39,7 +39,8 @@ describe("checked-in flow ns extension loading", () => {
 		const help = runWithRealFlowExtension({ args: ["flow", "cp", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		expect(help.stdout.join("")).toContain("Usage: ns flow cp");
-		expect(help.stdout.join("")).toContain("--dry-run");
+		expect(help.stdout.join("")).toContain("-n, --dry-run");
+		expect(help.stdout.join("")).toContain("-f, --force");
 		expect(help.stdout.join("")).not.toContain("NS_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 

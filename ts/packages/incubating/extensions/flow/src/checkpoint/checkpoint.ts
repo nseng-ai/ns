@@ -86,6 +86,7 @@ export interface RunCheckpointCommandOptions extends CheckpointRunContext {
 
 export interface RunCheckpointWorkflowOptions extends RunCheckpointCommandOptions {
 	dryRun: boolean;
+	allowTrunk: boolean;
 }
 
 export type CheckpointWorkflowResult =
@@ -176,7 +177,7 @@ export class RealCheckpointGateway implements CheckpointGateway {
 export async function runCheckpointIfPending(
 	options: RunCheckpointCommandOptions,
 ): Promise<CheckpointIfPendingResult> {
-	const result = await runCheckpointWorkflow({ ...options, dryRun: false });
+	const result = await runCheckpointWorkflow({ ...options, dryRun: false, allowTrunk: false });
 	switch (result.type) {
 		case "snapshot-failed":
 			return {
@@ -241,11 +242,13 @@ export async function runCheckpointWorkflow(
 	if (!loaded.ok) return { type: "snapshot-failed", error: loaded.error };
 
 	const snapshot = loaded.snapshot;
-	const trunk = await options.git.cachedOriginHeadBranch({ cwd: options.cwd });
-	if (trunk.type === "missing") return { type: "trunk-missing" };
-	if (trunk.type === "error") return { type: "trunk-resolution-failed", error: trunk.error };
-	if (snapshot.branch === trunk.value) {
-		return { type: "trunk", branch: snapshot.branch };
+	if (!options.allowTrunk) {
+		const trunk = await options.git.cachedOriginHeadBranch({ cwd: options.cwd });
+		if (trunk.type === "missing") return { type: "trunk-missing" };
+		if (trunk.type === "error") return { type: "trunk-resolution-failed", error: trunk.error };
+		if (snapshot.branch === trunk.value) {
+			return { type: "trunk", branch: snapshot.branch };
+		}
 	}
 	if (snapshot.clean) return { type: "clean" };
 
