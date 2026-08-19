@@ -48,9 +48,9 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Outstanding changes on feature/demo");
-		expect(output).toContain("Summary\n• Update app behavior");
+		expect(output).toContain("Summary (update-app-reviewer-notes):\n• Update app behavior");
 		expect(output).toContain("• Add reviewer notes");
-		expect(output).toContain("Suggested slug\nupdate-app-reviewer-notes");
+		expect(output).not.toContain("Suggested slug");
 		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
 		expect(await run.result).toMatchObject({
 			status: "success",
@@ -231,7 +231,7 @@ describe("project-local changes extension behavior", () => {
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain(
-			"Outstanding changes on feature/demo\n\nSummary\n• Update many files\n\nSuggested slug\nupdate-many-files\n\nFiles",
+			"Outstanding changes on feature/demo\n\nSummary (update-many-files):\n• Update many files\n\nFiles",
 		);
 		expect(output).toContain("• modified   file-49.ts");
 		expect(output).not.toContain("file-50.ts");

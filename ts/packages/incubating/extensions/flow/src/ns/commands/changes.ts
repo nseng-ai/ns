@@ -52,13 +52,13 @@ export const flowChangesCommand: NsCommand = defineCommand({
 	resultSchema: changesResultSchema,
 	renderHuman: (result, caps) => {
 		if (result.type === "clean") return "Working tree is clean; no outstanding changes.";
-		return formatOutstandingChangesMessage(
-			resolveThemeCaps(caps),
-			result.branch,
-			result.files,
-			result.summaryText,
-			result.suggestedSlug,
-		);
+		return formatOutstandingChangesMessage({
+			terminalCaps: resolveThemeCaps(caps),
+			branch: result.branch,
+			files: result.files,
+			summaryText: result.summaryText,
+			suggestedSlug: result.suggestedSlug,
+		});
 	},
 	handler: async (ctx) => {
 		const io = commandIoFromNsExtensionApi(ctx);
@@ -97,20 +97,24 @@ export const flowChangesCommand: NsCommand = defineCommand({
 
 export default flowChangesCommand;
 
-function formatOutstandingChangesMessage(
-	terminalCaps: Caps,
-	branch: string,
-	files: readonly GitPorcelainStatusLine[],
-	summaryText: string,
-	suggestedSlug: string,
-): string {
+interface FormatOutstandingChangesMessageOptions {
+	terminalCaps: Caps;
+	branch: string;
+	files: readonly GitPorcelainStatusLine[];
+	summaryText: string;
+	suggestedSlug: string;
+}
+
+function formatOutstandingChangesMessage(options: FormatOutstandingChangesMessageOptions): string {
 	return renderBufferedReport({
-		caps: renderCapabilitiesForTerminal(terminalCaps),
-		title: `Outstanding changes on ${branch}`,
+		caps: renderCapabilitiesForTerminal(options.terminalCaps),
+		title: `Outstanding changes on ${options.branch}`,
 		sections: [
-			{ title: "Summary", lines: summaryLines(terminalCaps, summaryText) },
-			{ title: "Suggested slug", lines: [suggestedSlug] },
-			{ title: "Files", lines: displayFileLines(terminalCaps, files) },
+			{
+				title: `Summary (${options.suggestedSlug}):`,
+				lines: summaryLines(options.terminalCaps, options.summaryText),
+			},
+			{ title: "Files", lines: displayFileLines(options.terminalCaps, options.files) },
 		],
 	});
 }
