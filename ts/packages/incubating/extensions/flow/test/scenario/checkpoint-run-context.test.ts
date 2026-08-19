@@ -52,6 +52,7 @@ describe("checkpoint run context", () => {
 			},
 			repoRoot: ctx.cwd,
 			dryRun: true,
+			allowTrunk: false,
 		});
 
 		expect(checkpoint.type).toBe("dry-run");
