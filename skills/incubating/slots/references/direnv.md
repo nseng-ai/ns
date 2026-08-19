@@ -2,18 +2,28 @@
 
 Direnv approves `.envrc` per directory. After a tracked `.envrc` changes:
 
-1. Fast-forward detached Slots with the guarded process in `../SKILL.md`.
-   Attached Slots receive the change through their normal branch update.
-2. Re-approve every current copy:
+1. Fast-forward clean detached Slots to the configured local trunk:
+
+   ```bash
+   ns slot ff-detached
+   ```
+
+2. Update or restack attached feature branches through their normal workflow.
+   `ff-detached` cannot and does not update attached branches.
+3. After the relevant worktrees contain the new `.envrc`, re-approve every
+   current copy:
 
    ```bash
    ns slot foreach --yes -- direnv allow
    ```
 
-3. When first-entry evaluation would be expensive, warm every worktree:
+4. Optionally warm every worktree when first-entry evaluation would be
+   expensive:
 
    ```bash
    ns slot foreach --yes -- direnv exec . true
    ```
 
-The main worktree is included. Approval and warming are idempotent.
+The main worktree is included in `foreach`. Approval and warming are idempotent.
+If an attached branch receives the changed `.envrc` later, approve that worktree
+again after the branch update.

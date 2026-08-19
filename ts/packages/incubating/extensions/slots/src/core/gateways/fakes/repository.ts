@@ -6,6 +6,8 @@ import type {
 	BranchCreateOptions,
 	BranchDeleteOptions,
 	CurrentBranchResult,
+	DetachedHeadFastForwardInspection,
+	DetachedHeadFastForwardResult,
 	GitCommandFailure,
 	LocalBranchesResult,
 	LocalBranchTip,
@@ -22,7 +24,9 @@ export type FakeSlotGitOperation =
 	| { type: "create-branch"; branch: string; startPoint: string; shouldForce: boolean }
 	| { type: "delete-local-branch"; branch: string; shouldForce: boolean }
 	| { type: "checkout-branch"; path: string; branch: string }
-	| { type: "detach-head"; path: string; ref: string };
+	| { type: "detach-head"; path: string; ref: string }
+	| { type: "inspect-detached-head-fast-forward"; path: string; targetRef: string }
+	| { type: "fast-forward-detached-head"; path: string; targetRef: string };
 
 export interface FakeBranchComparisonFixture {
 	parent: string;
@@ -44,7 +48,10 @@ export interface FakeSlotRepositoryGatewayOptions {
 	branchOccupancies?: readonly WorktreeOccupancy[];
 	dirtyPaths?: readonly string[];
 	uncommittedChangesFailure?: GitCommandFailure;
+	uncommittedChangesFailures?: Readonly<Record<string, GitCommandFailure>>;
 	trunkBranch?: string;
+	detachedHeadFastForwardInspections?: Readonly<Record<string, DetachedHeadFastForwardInspection>>;
+	fastForwardDetachedHeadResults?: Readonly<Record<string, DetachedHeadFastForwardResult>>;
 	localBranches?: readonly string[];
 	localBranchesFailure?: GitCommandFailure;
 	localBranchTips?: readonly LocalBranchTip[];
@@ -66,7 +73,14 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	private readonly branchOccupancies: WorktreeOccupancy[];
 	private readonly dirtyPaths: ReadonlySet<string>;
 	private readonly uncommittedChangesFailure: GitCommandFailure | undefined;
+	private readonly uncommittedChangesFailures: Readonly<Record<string, GitCommandFailure>>;
 	private readonly trunkBranch: string;
+	private readonly detachedHeadFastForwardInspections: Readonly<
+		Record<string, DetachedHeadFastForwardInspection>
+	>;
+	private readonly fastForwardDetachedHeadResults: Readonly<
+		Record<string, DetachedHeadFastForwardResult>
+	>;
 	private readonly localBranches: Set<string>;
 	private readonly localBranchesFailure: GitCommandFailure | undefined;
 	private readonly localBranchTips: LocalBranchTip[];
@@ -96,7 +110,10 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 		).map(copyOccupancy);
 		this.dirtyPaths = new Set(options.dirtyPaths ?? []);
 		this.uncommittedChangesFailure = options.uncommittedChangesFailure;
+		this.uncommittedChangesFailures = options.uncommittedChangesFailures ?? {};
 		this.trunkBranch = options.trunkBranch ?? "master";
+		this.detachedHeadFastForwardInspections = options.detachedHeadFastForwardInspections ?? {};
+		this.fastForwardDetachedHeadResults = options.fastForwardDetachedHeadResults ?? {};
 		this.localBranches = new Set(
 			options.localBranches ?? deriveLocalBranches(this.worktrees, this.trunkBranch),
 		);
@@ -160,8 +177,8 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 	}
 
 	async hasUncommittedChanges(path: string): Promise<UncommittedChangesResult> {
-		if (this.uncommittedChangesFailure !== undefined)
-			return { type: "failure", failure: { ...this.uncommittedChangesFailure } };
+		const failure = this.uncommittedChangesFailures[path] ?? this.uncommittedChangesFailure;
+		if (failure !== undefined) return { type: "failure", failure: { ...failure } };
 		return { type: "ok", hasUncommittedChanges: this.dirtyPaths.has(path) };
 	}
 
@@ -251,6 +268,28 @@ export class FakeSlotRepositoryGateway implements SlotRepositoryGateway {
 		worktree.branch = null;
 		this.removeOccupancyAt(path);
 		return null;
+	}
+
+	async inspectDetachedHeadFastForward(
+		path: string,
+		targetRef: string,
+	): Promise<DetachedHeadFastForwardInspection> {
+		this.log.push({ type: "inspect-detached-head-fast-forward", path, targetRef });
+		const result = this.detachedHeadFastForwardInspections[path];
+		if (result === undefined) return { type: "already-current" };
+		return result.type === "failure"
+			? { type: "failure", failure: { ...result.failure } }
+			: { ...result };
+	}
+
+	async fastForwardDetachedHead(
+		path: string,
+		targetRef: string,
+	): Promise<DetachedHeadFastForwardResult> {
+		this.log.push({ type: "fast-forward-detached-head", path, targetRef });
+		const result = this.fastForwardDetachedHeadResults[path] ?? { type: "advanced" };
+		if (result.type === "failure") return { type: "failure", failure: { ...result.failure } };
+		return { ...result };
 	}
 
 	async addDetachedWorktree(path: string, ref: string): Promise<void> {

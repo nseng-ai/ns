@@ -6,6 +6,12 @@ export {
 } from "./checkout.ts";
 export { claimRequestSchema, claimResultSchema, renderClaim, runClaim } from "./claim.ts";
 export { foreachRequestSchema, foreachResultSchema, renderForeach, runForeach } from "./foreach.ts";
+export {
+	ffDetachedRequestSchema,
+	ffDetachedResultSchema,
+	renderFfDetached,
+	runFfDetached,
+} from "./ff-detached.ts";
 export { freeRequestSchema, freeResultSchema, renderFree, runFree } from "./free.ts";
 export { gcRequestSchema, gcResultSchema, renderGc, runGc } from "./gc.ts";
 export {

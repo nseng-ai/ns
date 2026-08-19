@@ -8,6 +8,7 @@ import descriptor from "../../src/ns/ns-extension.ts";
 const EXPECTED_ROUTES = [
 	"slot/checkout",
 	"slot/claim",
+	"slot/ff-detached",
 	"slot/foreach",
 	"slot/free",
 	"slot/gc",

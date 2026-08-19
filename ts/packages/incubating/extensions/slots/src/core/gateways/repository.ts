@@ -85,6 +85,17 @@ export type CurrentBranchResult =
 	| { type: "detached" }
 	| { type: "failure"; failure: GitCommandFailure };
 
+export type DetachedHeadFastForwardInspection =
+	| { type: "already-current" }
+	| { type: "can-fast-forward" }
+	| { type: "non-fast-forward" }
+	| { type: "failure"; failure: GitCommandFailure };
+
+export type DetachedHeadFastForwardResult =
+	| { type: "advanced" }
+	| { type: "attached"; branch: string }
+	| { type: "failure"; failure: GitCommandFailure };
+
 export interface BranchCreateOptions {
 	shouldForce: boolean;
 }
@@ -121,6 +132,11 @@ export interface SlotRepositoryGateway {
 	): Promise<GitCommandFailure | null>;
 	checkoutBranch(cwd: string, branch: string): Promise<GitCommandFailure | null>;
 	detachHead(cwd: string, ref: string): Promise<GitCommandFailure | null>;
+	inspectDetachedHeadFastForward(
+		cwd: string,
+		targetRef: string,
+	): Promise<DetachedHeadFastForwardInspection>;
+	fastForwardDetachedHead(cwd: string, targetRef: string): Promise<DetachedHeadFastForwardResult>;
 	addDetachedWorktree(path: string, ref: string): Promise<void>;
 	removeWorktree(path: string): Promise<void>;
 }
@@ -321,6 +337,45 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 			operation: "slot.git.detach_head",
 		});
 		return result.isOk ? null : failureFromResult(result);
+	}
+
+	async inspectDetachedHeadFastForward(
+		cwd: string,
+		targetRef: string,
+	): Promise<DetachedHeadFastForwardInspection> {
+		const result = await this.git(
+			["rev-list", "--left-right", "--count", `HEAD...refs/heads/${targetRef}`],
+			cwd,
+			{ allowFailure: true, operation: "slot.git.inspect_detached_head_fast_forward" },
+		);
+		if (!result.isOk) return { type: "failure", failure: failureFromResult(result) };
+		const match = /^(\d+)\s+(\d+)\s*$/.exec(result.result.stdout);
+		if (match === null)
+			return {
+				type: "failure",
+				failure: { message: "git rev-list returned malformed fast-forward counts" },
+			};
+		const ahead = Number(match[1]);
+		const behind = Number(match[2]);
+		if (ahead === 0 && behind === 0) return { type: "already-current" };
+		if (ahead === 0) return { type: "can-fast-forward" };
+		return { type: "non-fast-forward" };
+	}
+
+	async fastForwardDetachedHead(
+		cwd: string,
+		targetRef: string,
+	): Promise<DetachedHeadFastForwardResult> {
+		const currentBranch = await this.getCurrentBranch(cwd);
+		if (currentBranch.type === "branch") return { type: "attached", branch: currentBranch.branch };
+		if (currentBranch.type === "failure") return currentBranch;
+		const result = await this.git(["merge", "--ff-only", `refs/heads/${targetRef}`], cwd, {
+			allowFailure: true,
+			operation: "slot.git.fast_forward_detached_head",
+		});
+		return result.isOk
+			? { type: "advanced" }
+			: { type: "failure", failure: failureFromResult(result) };
 	}
 
 	async addDetachedWorktree(path: string, ref: string): Promise<void> {

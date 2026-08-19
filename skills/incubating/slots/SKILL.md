@@ -34,19 +34,23 @@ For lifecycle commands, run `ns slot --help`, then the subcommand's `--help` or
 
 ## Fast-forward detached slots to trunk
 
-Use a guard so attached branches—including the main worktree and stale branches
-that trunk could fast-forward—stay unchanged. Replace `master` if the repository
-uses another trunk branch.
-
 ```bash
-ns slot foreach --yes -- sh -c \
-  'git symbolic-ref -q HEAD >/dev/null || exec git merge --ff-only master'
+ns slot ff-detached
 ```
 
-A detached Slot fast-forwards only when its commit is an ancestor of trunk. A
-diverged or dirty Slot fails without starting a merge; later Slots still run.
-Keep attached worktrees intact: use neither `git checkout --detach` nor
-`git reset --hard` across the pool.
+The command resolves the repository's configured local trunk and processes
+managed Slots in number order. It fast-forwards clean detached Slots only;
+already-current Slots are successful no-ops. Attached, dirty, and divergent
+Slots remain unchanged as planned skips; the command succeeds when every planned
+fast-forward succeeds. A Git operation in progress blocks all mutation by
+default. Use `--force` to skip operation-bearing Slots and process the remaining
+safe Slots, or `--dry-run` to inspect all intended outcomes without mutation.
+Unexpected planning or mutation errors fail the command.
+
+`ff-detached` never modifies the main worktree or attached feature branches. It
+cannot update or restack attached branches; update those through their normal
+branch workflow. The command does not fetch, reset, rebase, force checkout, or
+automatically detach a Slot.
 
 ## direnv across slots
 

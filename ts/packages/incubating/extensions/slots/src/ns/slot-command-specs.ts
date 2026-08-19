@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import {
 	checkoutOptionSpecs,
+	ffDetachedOptionSpecs,
 	foreachOptionSpecs,
 	freeOptionSpecs,
 	gcOptionSpecs,
@@ -20,6 +21,8 @@ import {
 	checkoutResultSchema,
 	claimRequestSchema,
 	claimResultSchema,
+	ffDetachedRequestSchema,
+	ffDetachedResultSchema,
 	foreachRequestSchema,
 	foreachResultSchema,
 	freeRequestSchema,
@@ -57,6 +60,7 @@ import {
 	provisionImportResultSchema,
 	renderCheckout,
 	renderClaim,
+	renderFfDetached,
 	renderForeach,
 	renderFree,
 	renderGc,
@@ -79,6 +83,7 @@ import {
 	resizeResultSchema,
 	runCheckout,
 	runClaim,
+	runFfDetached,
 	runForeach,
 	runFree,
 	runGc,
@@ -250,6 +255,19 @@ export const slotCommandSpecs = [
 		resultSchema: freeResultSchema,
 		handler: runFree,
 		renderHuman: renderFree,
+	}),
+	slotCommandSpec({
+		group: "root",
+		name: "ff-detached",
+		summary:
+			"Fast-forward detached Slots to the configured trunk without modifying attached Slots.",
+		description:
+			"Fast-forward detached Slots to the configured trunk without modifying attached Slots.",
+		schema: ffDetachedRequestSchema,
+		options: ffDetachedOptionSpecs,
+		resultSchema: ffDetachedResultSchema,
+		handler: runFfDetached,
+		renderHuman: renderFfDetached,
 	}),
 	slotCommandSpec({
 		group: "root",
