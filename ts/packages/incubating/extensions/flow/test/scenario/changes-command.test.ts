@@ -36,16 +36,26 @@ describe("project-local changes extension behavior", () => {
 	test("dirty worktree prints model bullets and raw status without mutation", async () => {
 		const run = runChangesWithFakes({
 			state: {
-				textGeneration: [{ ok: true, text: "- Update app behavior\n- Add reviewer notes" }],
+				textGeneration: [
+					{
+						ok: true,
+						text: "- Update app behavior\n- Add reviewer notes\nSlug: update-app-reviewer-notes",
+					},
+				],
 			},
 		});
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain("Outstanding changes on feature/demo");
-		expect(output).toContain("Summary\n• Update app behavior");
+		expect(output).toContain("Summary (update-app-reviewer-notes):\n• Update app behavior");
 		expect(output).toContain("• Add reviewer notes");
+		expect(output).not.toContain("Suggested slug");
 		expect(output).toContain("Files\n• modified   src/app.ts\n• untracked  notes.md");
+		expect(await run.result).toMatchObject({
+			status: "success",
+			data: { suggestedSlug: "update-app-reviewer-notes" },
+		});
 		expect(run.stderr.join("")).toBe("");
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "Inspecting worktree…\n" });
 		expect(run.liveOutput).toContainEqual({
@@ -104,7 +114,9 @@ describe("project-local changes extension behavior", () => {
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff" } },
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 				],
-				textGeneration: [{ ok: true, text: "- Summarize status labels" }],
+				textGeneration: [
+					{ ok: true, text: "- Summarize status labels\nSlug: summarize-status-labels" },
+				],
 			},
 		});
 
@@ -133,7 +145,9 @@ describe("project-local changes extension behavior", () => {
 
 	test("model generation and validation failures exit 2 without mutation", async () => {
 		const invalid = runChangesWithFakes({
-			state: { textGeneration: [{ ok: true, text: "Summary\n- bullet" }] },
+			state: {
+				textGeneration: [{ ok: true, text: "Summary\n- bullet\nSlug: summarize-bullet" }],
+			},
 		});
 		expect(await invalid.exit).toBe(2);
 		expect(invalid.stdout.join("")).toBe("");
@@ -145,6 +159,14 @@ describe("project-local changes extension behavior", () => {
 			"git diff HEAD --no-ext-diff",
 			"git rev-parse --show-toplevel",
 		]);
+
+		const invalidSlug = runChangesWithFakes({
+			state: {
+				textGeneration: [{ ok: true, text: "- Update app behavior\nSlug: Update App" }],
+			},
+		});
+		expect(await invalidSlug.exit).toBe(2);
+		expect(invalidSlug.stderr.join("")).toContain("Model returned an invalid changes summary");
 
 		const failed = runChangesWithFakes({
 			state: { textGeneration: [{ ok: false, error: "auth failed" }] },
@@ -202,14 +224,14 @@ describe("project-local changes extension behavior", () => {
 					{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff" } },
 					{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
 				],
-				textGeneration: [{ ok: true, text: "- Update many files" }],
+				textGeneration: [{ ok: true, text: "- Update many files\nSlug: update-many-files" }],
 			},
 		});
 
 		expect(await run.exit).toBe(0);
 		const output = run.stdout.join("");
 		expect(output).toContain(
-			"Outstanding changes on feature/demo\n\nSummary\n• Update many files\n\nFiles",
+			"Outstanding changes on feature/demo\n\nSummary (update-many-files):\n• Update many files\n\nFiles",
 		);
 		expect(output).toContain("• modified   file-49.ts");
 		expect(output).not.toContain("file-50.ts");

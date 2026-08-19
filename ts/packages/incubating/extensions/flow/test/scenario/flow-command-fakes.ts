@@ -557,7 +557,10 @@ export function runFlowChangesCommandWithFakes(options: RunFlowCommandWithFakesO
 		defaults: options.defaults ?? {
 			execResponses: dirtyChangesExecResponses,
 			textGenerationResults: () => [
-				{ ok: true, text: "- Update app behavior\n- Add notes for reviewers" },
+				{
+					ok: true,
+					text: "- Update app behavior\n- Add notes for reviewers\nSlug: update-app-reviewer-notes",
+				},
 			],
 		},
 	});
