@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import type { ClinkrScope } from "@nseng-ai/clinkr/app";
-import type { ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import { optionalEntries, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
 
 import {
 	declaredExtensionSourceIdentity,
@@ -150,9 +150,7 @@ export async function loadNsCommandSourceInventory(
 	const user = await loadUserSources(options, project.declaredSourceIdentities);
 	const sourceDev = await loadSourceDevNsCommandSources({
 		cwd: options.cwd,
-		...(options.sourceDevPackagesRoot === undefined
-			? {}
-			: { packagesRoot: options.sourceDevPackagesRoot }),
+		...optionalEntries({ packagesRoot: options.sourceDevPackagesRoot }),
 		contributedPackageNames: packageNames([
 			...preinstalled.filter((source) => source.kind === "built-in"),
 			...project.sources,
