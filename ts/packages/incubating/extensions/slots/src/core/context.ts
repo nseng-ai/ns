@@ -32,6 +32,8 @@ import {
 	type RepoDiscoveryResult,
 } from "./repo-context.ts";
 
+export type SlotOutputFormat = "human" | "json" | "md";
+
 export interface SlotCliContext {
 	repo: RepoDiscoveryResult;
 	git: SlotRepositoryGateway;
@@ -44,6 +46,7 @@ export interface SlotCliContext {
 	clock: Clock;
 	cwd: string;
 	renderCapabilities: RenderCapabilities;
+	outputFormat: SlotOutputFormat;
 	extensions?: Readonly<Record<string, unknown>>;
 	interaction: ClinkrInteraction;
 	stderr: (text: string) => void;
@@ -57,6 +60,7 @@ export type RepoSlotContext = SlotCliContext & { repo: RepoContext };
 export async function createRealSlotContext(options: {
 	cwd: string;
 	renderCapabilities: RenderCapabilities;
+	outputFormat?: SlotOutputFormat;
 	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
 	extensions?: Readonly<Record<string, unknown>>;
 	formatPrompt?: ConfirmationPromptFormatter;
@@ -81,6 +85,7 @@ export async function createRealSlotContext(options: {
 		clock: systemClock,
 		cwd: options.cwd,
 		renderCapabilities: options.renderCapabilities,
+		outputFormat: options.outputFormat ?? "human",
 		...(options.extensions === undefined ? {} : { extensions: options.extensions }),
 		interaction: resolveClinkrInteraction({
 			stdin: readStdinLine,

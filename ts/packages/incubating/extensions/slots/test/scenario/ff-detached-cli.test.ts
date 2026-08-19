@@ -77,6 +77,42 @@ describe("slot ff-detached CLI", () => {
 		]);
 	});
 
+	it("previews the complete human plan before reporting per-Slot mutation progress", async () => {
+		const run = runScenario(["ff-detached"], {
+			git: {
+				trunkBranch: "main",
+				worktrees: [mainWorktree, slotWorktree("slot-01"), slotWorktree("slot-02")],
+				detachedHeadFastForwardInspections: {
+					[slot01]: { type: "can-fast-forward" },
+					[slot02]: { type: "can-fast-forward" },
+				},
+			},
+		});
+		expect(await run.exit).toBe(0);
+		const progress = run.stderr.join("");
+		expect(progress).toContain("Planning detached Slot fast-forwards…");
+		expect(progress).toContain("Plan: 2 Slots would advance to main");
+		expect(progress).toMatch(/slot-01\s+detached\s+would-advance/);
+		expect(progress).toContain("Advancing slot-01 [1/2]…");
+		expect(progress).toContain("Advanced slot-01 [1/2].");
+		expect(progress).toContain("Advancing slot-02 [2/2]…");
+		expect(progress).toContain("Advanced slot-02 [2/2].");
+		expect(progress.indexOf("Plan: 2 Slots would advance to main")).toBeLessThan(
+			progress.indexOf("Advancing slot-01 [1/2]…"),
+		);
+	});
+
+	it("keeps preview and progress off stderr in JSON mode", async () => {
+		const run = runScenario(["ff-detached", "--format", "json"], {
+			git: {
+				worktrees: [mainWorktree, slotWorktree("slot-01")],
+				detachedHeadFastForwardInspections: { [slot01]: { type: "can-fast-forward" } },
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual([]);
+	});
+
 	it("fast-forwards detached Slots in deterministic Slot order using configured trunk", async () => {
 		const run = runScenario(["ff-detached", "--format", "json"], {
 			git: {

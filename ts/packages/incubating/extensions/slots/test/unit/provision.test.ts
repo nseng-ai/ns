@@ -325,6 +325,7 @@ function context(options: {
 		stderr: () => {},
 		env: { PATH: "/fake/bin" },
 		slotsRoot: "/slots",
+		outputFormat: "json",
 		shouldWriteCdDirective: false,
 	};
 }

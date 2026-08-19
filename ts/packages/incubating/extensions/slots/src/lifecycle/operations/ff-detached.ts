@@ -5,7 +5,7 @@ import {
 	resolveRenderCapabilities,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr/legacy";
-import { cell, paint, renderTable } from "@nseng-ai/foundation/cli-theme";
+import { cell, paint, renderTable, stripAnsiWhenDisabled } from "@nseng-ai/foundation/cli-theme";
 import { z } from "zod";
 
 import type { RepoSlotContext, SlotCliContext } from "../../core/context.ts";
@@ -68,6 +68,7 @@ export async function runFfDetached(ctx: SlotCliContext, request: FfDetachedRequ
 	const repoCtx: RepoSlotContext = { ...ctx, repo: ctx.repo };
 	let trunk: string;
 	let inventory: Awaited<ReturnType<typeof buildSlotInventory>>;
+	writeHumanStatus(repoCtx, "Planning detached Slot fast-forwards…\n");
 	try {
 		[trunk, inventory] = await Promise.all([
 			repoCtx.git.getTrunkBranch(),
@@ -80,12 +81,18 @@ export async function runFfDetached(ctx: SlotCliContext, request: FfDetachedRequ
 		);
 	}
 	const plannedSlots: FfDetachedSlotResult[] = [];
-	for (const record of inventory.records) {
+	for (const [index, record] of inventory.records.entries()) {
+		writeHumanStatus(
+			repoCtx,
+			`Inspecting ${record.slotName} [${index + 1}/${inventory.records.length}]…\n`,
+		);
 		plannedSlots.push(await planSlot(repoCtx, trunk, record));
 	}
+	const plannedResult = buildResult(trunk, request, plannedSlots);
+	writeHumanStatus(repoCtx, `${renderFfDetachedPlan(plannedResult, ctx.renderCapabilities)}\n`);
 	const hasGitFailure = plannedSlots.some((slot) => slot.reason === "git-failure");
 	if (hasGitFailure) {
-		const result = buildResult(trunk, request, plannedSlots);
+		const result = plannedResult;
 		return failure(
 			"ff-detached-failed",
 			"Detached Slot fast-forward planning failed; no Slots were modified.",
@@ -96,7 +103,7 @@ export async function runFfDetached(ctx: SlotCliContext, request: FfDetachedRequ
 		(slot) => slot.reason === "operation-in-progress",
 	);
 	if (!request.dryRun && !request.force && hasOperationInProgress) {
-		const result = buildResult(trunk, request, plannedSlots);
+		const result = plannedResult;
 		return negative(
 			"A Git operation is in progress. Resolve it or pass --force to skip that Slot.",
 			{ data: result, human: renderFfDetached(result, ctx.renderCapabilities) },
@@ -212,17 +219,26 @@ async function executeFastForwards(
 	plannedSlots: readonly FfDetachedSlotResult[],
 ): Promise<readonly FfDetachedSlotResult[]> {
 	const slots: FfDetachedSlotResult[] = [];
+	const advanceCount = plannedSlots.filter((slot) => slot.action === "would-advance").length;
+	let advanceIndex = 0;
 	for (const slot of plannedSlots) {
 		if (slot.action !== "would-advance") {
 			slots.push(slot);
 			continue;
 		}
+		advanceIndex += 1;
+		writeHumanStatus(ctx, `Advancing ${slot.slotName} [${advanceIndex}/${advanceCount}]…\n`);
 		const mutation = await ctx.git.fastForwardDetachedHead(slot.worktreePath, trunk);
 		if (mutation.type === "advanced") {
 			slots.push({ ...slot, action: "advanced" });
+			writeHumanStatus(ctx, `Advanced ${slot.slotName} [${advanceIndex}/${advanceCount}].\n`);
 			continue;
 		}
 		if (mutation.type === "attached") {
+			writeHumanStatus(
+				ctx,
+				`Did not advance ${slot.slotName} [${advanceIndex}/${advanceCount}]: Slot became attached.\n`,
+			);
 			slots.push({
 				...slot,
 				branch: mutation.branch,
@@ -232,6 +248,10 @@ async function executeFastForwards(
 			});
 			continue;
 		}
+		writeHumanStatus(
+			ctx,
+			`Failed to advance ${slot.slotName} [${advanceIndex}/${advanceCount}]: ${mutation.failure.message}\n`,
+		);
 		slots.push({
 			...slot,
 			action: "not-advanced",
@@ -240,6 +260,18 @@ async function executeFastForwards(
 		});
 	}
 	return slots;
+}
+
+function renderFfDetachedPlan(result: FfDetachedResult, caps: RenderCapabilities): string {
+	const preview = renderFfDetached({ ...result, dryRun: true }, caps);
+	return stripAnsiWhenDisabled(
+		`Plan: ${result.wouldAdvanceCount} Slots would advance to ${result.trunk}\n${preview}`,
+		caps,
+	);
+}
+
+function writeHumanStatus(ctx: RepoSlotContext, text: string): void {
+	if (ctx.outputFormat === "human") ctx.stderr(text);
 }
 
 function buildResult(

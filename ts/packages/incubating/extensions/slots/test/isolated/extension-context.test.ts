@@ -41,6 +41,7 @@ describe("slot ns extension context", () => {
 			expect.objectContaining({
 				cwd: "/repo",
 				env: { PATH: "/fake/bin" },
+				outputFormat: "human",
 				renderCapabilities,
 			}),
 		);
