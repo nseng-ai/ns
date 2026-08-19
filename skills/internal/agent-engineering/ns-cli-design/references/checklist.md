@@ -40,7 +40,8 @@ a design bug, not a style nit.
 
 ## Danger tier (ADR 0014)
 
-- [ ] Tier classified (0/1/2/3) and reflected in options and help text.
+- [ ] Tier classified (0/1/2/3) and reflected in options and help text. A Tier 1
+      computed-target exception satisfies every condition in ADR 0060.
 - [ ] Tier 2 destructive writes authorize non-interactively with `--yes`/`-y`;
       Tier 3 high-blast-radius ops with `--force`/`-f`. `--yes` and `--force`
       are not synonyms.

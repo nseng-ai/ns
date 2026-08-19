@@ -72,7 +72,10 @@ export async function runFfDetached(ctx: SlotCliContext, request: FfDetachedRequ
 	try {
 		[trunk, inventory] = await Promise.all([
 			repoCtx.git.getTrunkBranch(),
-			buildSlotInventory(repoCtx.git, { mainRepoRoot: repoCtx.repo.mainRepoRoot }),
+			buildSlotInventory(repoCtx.git, {
+				mainRepoRoot: repoCtx.repo.mainRepoRoot,
+				worktreesDir: repoCtx.repo.worktreesDir,
+			}),
 		]);
 	} catch (error) {
 		return failure(

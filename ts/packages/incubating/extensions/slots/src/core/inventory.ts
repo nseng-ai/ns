@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 
 import {
 	unwrapIncumbentRepositoryResult,
@@ -75,7 +75,7 @@ export async function lowestAvailable(
 
 export async function buildSlotInventory(
 	git: SlotRepositoryGateway,
-	options: { mainRepoRoot?: string } = {},
+	options: { mainRepoRoot?: string; worktreesDir?: string } = {},
 ): Promise<SlotInventory> {
 	const branchOccupancies = await git.listBranchOccupancies();
 	const occupancyByPath = new Map(
@@ -90,6 +90,11 @@ export async function buildSlotInventory(
 		}
 		const slotNumberText = extractSlotNumber(basename(worktree.path));
 		if (slotNumberText === null) continue;
+		if (
+			options.worktreesDir !== undefined &&
+			dirname(resolve(worktree.path)) !== resolve(options.worktreesDir)
+		)
+			continue;
 		const occupancy = occupancyByPath.get(worktree.path);
 		const isOperation = occupancy !== undefined && occupancy.operation !== "checked-out";
 		records.push({

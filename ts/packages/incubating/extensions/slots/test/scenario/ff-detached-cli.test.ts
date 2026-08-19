@@ -45,6 +45,27 @@ describe("slot ff-detached CLI", () => {
 		expect(run.git.operations()).toEqual([]);
 	});
 
+	it("ignores Slot-shaped worktrees outside the managed pool", async () => {
+		const unmanagedSlot = "/tmp/slot-99";
+		const run = runScenario(["ff-detached", "--format", "json"], {
+			git: {
+				worktrees: [mainWorktree, slotWorktree("slot-01"), { path: unmanagedSlot, branch: null }],
+				detachedHeadFastForwardInspections: {
+					[slot01]: { type: "can-fast-forward" },
+					[unmanagedSlot]: { type: "can-fast-forward" },
+				},
+			},
+		});
+		expect(await run.exit).toBe(0);
+		expect(parseJsonOutput(run)).toMatchObject({
+			data: { totalCount: 1, slots: [{ slotName: "slot-01", action: "advanced" }] },
+		});
+		expect(run.git.operations()).toEqual([
+			{ type: "inspect-detached-head-fast-forward", path: slot01, targetRef: "master" },
+			{ type: "fast-forward-detached-head", path: slot01, targetRef: "master" },
+		]);
+	});
+
 	it("leaves attached Slots and the main worktree unchanged", async () => {
 		const run = runScenario(["ff-detached", "--format", "json"], {
 			git: {
