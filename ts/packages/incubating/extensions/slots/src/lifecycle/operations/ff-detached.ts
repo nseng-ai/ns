@@ -112,6 +112,8 @@ export async function runFfDetached(ctx: SlotCliContext, request: FfDetachedRequ
 			{ data: result, human: renderFfDetached(result, ctx.renderCapabilities) },
 		);
 	}
+	// The plan is a point-in-time preview, not a concurrency lock. This command assumes
+	// callers do not mutate Slot worktrees or trunk concurrently while it executes.
 	const slots = request.dryRun
 		? plannedSlots
 		: await executeFastForwards(repoCtx, trunk, plannedSlots);
@@ -231,6 +233,9 @@ async function executeFastForwards(
 		}
 		advanceIndex += 1;
 		writeHumanStatus(ctx, `Advancing ${slot.slotName} [${advanceIndex}/${advanceCount}]…\n`);
+		// The gateway rechecks attachment to avoid advancing a Slot that was attached after
+		// planning. It does not make the full plan concurrency-safe or revalidate every
+		// planning predicate.
 		const mutation = await ctx.git.fastForwardDetachedHead(slot.worktreePath, trunk);
 		if (mutation.type === "advanced") {
 			slots.push({ ...slot, action: "advanced" });

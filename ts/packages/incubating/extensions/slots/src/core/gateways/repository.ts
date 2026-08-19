@@ -366,6 +366,8 @@ export class RealSlotRepositoryGateway implements SlotRepositoryGateway {
 		cwd: string,
 		targetRef: string,
 	): Promise<DetachedHeadFastForwardResult> {
+		// This is a best-effort attachment guard, not an atomic compare-and-swap over all
+		// planning predicates. Callers must avoid concurrent worktree or target-ref mutation.
 		const currentBranch = await this.getCurrentBranch(cwd);
 		if (currentBranch.type === "branch") return { type: "attached", branch: currentBranch.branch };
 		if (currentBranch.type === "failure") return currentBranch;
