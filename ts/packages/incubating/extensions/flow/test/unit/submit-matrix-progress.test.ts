@@ -46,28 +46,33 @@ describe("submit progress resolution", () => {
 		expect(stripAnsi(capture.redraws.at(-1) ?? "")).toContain("raw transcript");
 	});
 
-	test("live-only sends raw output and structured events to their live channels", () => {
+	test("live-only uses event presentation without terminal or settled writes", async () => {
 		const recording = recordingProgress();
+		const capture = streamCapture();
 		const raw: string[] = [];
 		const resolved = resolveSubmitProgress({
 			caps: caps(),
-			deps: streamCapture().deps,
+			deps: capture.deps,
 			liveProgress: recording.progress,
 			liveOutput: (_stream, text) => raw.push(text),
 			hasChecks: false,
 		});
 		resolved.matrix.phase({ type: "phase-started", phaseKey: "inventory" });
 		resolved.onOutput?.("stdout", "raw transcript");
+		await resolved.matrix.finish();
 
-		expect(recording.events.map((event) => event.type)).toEqual([
+		expect(recording.events.slice(0, 3).map((event) => event.type)).toEqual([
 			"phases-declared",
 			"matrix-declared",
 			"phase-started",
 		]);
+		expect(recording.events.slice(3).every((event) => event.type === "phase-done")).toBe(true);
 		expect(raw).toEqual(["raw transcript"]);
+		expect(capture.redraws).toEqual([]);
+		expect(capture.writes).toEqual([]);
 	});
 
-	test("combined TTY and live fans out structure once without forwarding raw output", () => {
+	test("live progress is event-only even when a caller supplies TTY caps", async () => {
 		const capture = streamCapture({ sleep: "pending" });
 		const recording = recordingProgress();
 		const raw: string[] = [];
@@ -83,6 +88,7 @@ describe("submit progress resolution", () => {
 		resolved.matrix.setCell("feature/a", "inventory", { state: "active", text: "preparing" });
 		resolved.matrix.setActiveOperations([{ kind: "command", display: "gt submit" }]);
 		resolved.onOutput?.("stdout", "raw transcript");
+		await resolved.matrix.finish();
 
 		const eventTypes = recording.events.map((event) => event.type);
 		for (const type of [
@@ -93,13 +99,11 @@ describe("submit progress resolution", () => {
 			"matrix-cell",
 			"matrix-active-operations",
 		] as const) {
-			expect(eventTypes.filter((candidate) => candidate === type)).toHaveLength(1);
+			expect(eventTypes.filter((candidate) => candidate === type).length).toBeGreaterThanOrEqual(1);
 		}
-		expect(raw).toEqual([]);
-		const frame = stripAnsi(capture.redraws.at(-1) ?? "");
-		expect(frame).toContain("preparing");
-		expect(frame).toContain("Running: gt submit");
-		expect(frame).toContain("raw transcript");
+		expect(raw).toEqual(["raw transcript"]);
+		expect(capture.redraws).toEqual([]);
+		expect(capture.writes).toEqual([]);
 	});
 
 	test("neither TTY nor live resolves a settled transcript controller", async () => {

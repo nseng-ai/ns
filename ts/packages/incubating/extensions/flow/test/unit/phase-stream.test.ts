@@ -128,6 +128,37 @@ async function flush(times: number): Promise<void> {
 }
 
 describe("resolveFlowStreamCaps", () => {
+	test("live structured progress overrides inherited physical TTY caps", () => {
+		const progress = recordingProgress();
+		const renderCapabilities = { canEmitAnsi: false, caps: caps() };
+		const resolved = resolveFlowStreamCaps(
+			ctx({
+				progress: progress.sink,
+				renderCapabilities,
+			}),
+		);
+
+		expect(resolved).toEqual({
+			isTty: false,
+			colorDepth: "none",
+			columns: DEFAULT_COLUMNS,
+			canRenderUnicode: expect.any(Boolean),
+		});
+	});
+
+	test("standalone execution preserves genuine TTY caps", () => {
+		const terminalCaps = caps();
+		const renderCapabilities = { canEmitAnsi: true, caps: terminalCaps };
+		expect(
+			resolveFlowStreamCaps(
+				ctx({
+					progress: noopNsProgress,
+					renderCapabilities,
+				}),
+			),
+		).toEqual(terminalCaps);
+	});
+
 	test("callback sinks resolve to settled non-interactive caps", () => {
 		vi.stubEnv("FORCE_COLOR", "3");
 		const resolved = resolveFlowStreamCaps(
@@ -197,6 +228,9 @@ describe("forwarded progress", () => {
 			},
 			{ type: "title-changed", title: "updated title" },
 			phaseEvent,
+			{ type: "phase-done", phaseKey: "a" },
+			{ type: "phase-done", phaseKey: "b" },
+			{ type: "phase-done", phaseKey: "c" },
 		]);
 	});
 
@@ -249,7 +283,7 @@ describe("forwarded progress", () => {
 		});
 	});
 
-	test("live forward suppresses non-tty transient surfaces but leaves settled output unchanged", async () => {
+	test("live forward emits events only and suppresses non-tty stream output through completion", async () => {
 		const c = caps({ isTty: false, colorDepth: "none" });
 		const { deps, writes, redraws, outputs } = harness();
 		const progress = recordingProgress();
@@ -261,27 +295,48 @@ describe("forwarded progress", () => {
 		stream.emit({ type: "phase-started", phaseKey: "b" });
 		await stream.finish();
 
+		expect(progress.events.slice(-2)).toEqual([
+			{ type: "phase-done", phaseKey: "b" },
+			{ type: "phase-done", phaseKey: "c" },
+		]);
 		expect(outputs).toEqual([]);
 		expect(redraws).toHaveLength(0);
-		expect(writes).toHaveLength(1);
-		const settled = writes[0] ?? "";
-		expectNoCursorEscapes(settled);
-		expect(settled).toContain("alpha done");
-		expect(settled).toContain("beta done");
-		expect(settled).toContain("gamma done");
+		expect(writes).toEqual([]);
 	});
 
-	test("live forward preserves tty surface rendering", async () => {
-		const c = caps();
-		const { deps, redraws } = harness();
+	test("live forward emits a structured failure without stream output", async () => {
+		const { deps, writes, redraws, outputs } = harness();
 		const progress = recordingProgress();
-		const stream = createPhaseStream({ caps: c, specs: SPECS, deps: deps, forward: progress.sink });
+		const stream = createPhaseStream({ caps: caps(), specs: SPECS, deps, forward: progress.sink });
 
 		stream.begin("title");
 		stream.emit({ type: "phase-started", phaseKey: "a" });
-
-		expect(redraws[redraws.length - 1]).toContain("alpha working…");
+		stream.fail();
 		await stream.finish();
+
+		expect(progress.events.at(-1)).toEqual({
+			type: "phase-failed",
+			phaseKey: "a",
+			detail: "alpha working…",
+		});
+		expect(outputs).toEqual([]);
+		expect(redraws).toEqual([]);
+		expect(writes).toEqual([]);
+	});
+
+	test("live forward suppresses tty surface rendering defensively", async () => {
+		const c = caps();
+		const { deps, redraws, writes } = harness();
+		const progress = recordingProgress();
+		const stream = createPhaseStream({ caps: c, specs: SPECS, deps, forward: progress.sink });
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		await stream.finish();
+
+		expect(progress.events.some((event) => event.type === "phase-started")).toBe(true);
+		expect(redraws).toEqual([]);
+		expect(writes).toEqual([]);
 	});
 
 	test("inactive forward keeps non-tty transient output unchanged", async () => {

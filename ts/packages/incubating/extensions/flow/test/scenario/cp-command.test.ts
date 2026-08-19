@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
@@ -122,7 +123,38 @@ describe("project-local cp extension behavior", () => {
 		);
 	});
 
-	test("emits live progress for the long-running checkpoint phases", async () => {
+	test("live structured progress owns presentation despite inherited TTY caps", async () => {
+		const events: NsProgressPhaseEvent[] = [];
+		const progress: NsProgress = { isLive: true, phase: (event) => events.push(event) };
+		const run = runCpWithFakes({
+			progress,
+			renderCapabilities: {
+				canEmitAnsi: false,
+				caps: {
+					isTty: true,
+					colorDepth: "truecolor",
+					columns: 195,
+					canRenderUnicode: true,
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(events.map((event) => event.type)).toEqual([
+			"phases-declared",
+			"phase-started",
+			"phase-started",
+			"phase-progress",
+			"phase-started",
+			"phase-done",
+		]);
+		expect(events.at(-1)).toEqual({ type: "phase-done", phaseKey: "commit" });
+		expect(run.liveOutput).toEqual([]);
+		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("non-live non-TTY progress keeps transient and settled stream output", async () => {
 		const run = runCpWithFakes();
 
 		expect(await run.exit).toBe(0);
@@ -250,14 +282,32 @@ describe("project-local cp extension behavior", () => {
 		]);
 	});
 
-	test("clean worktree exits without model generation or committing", async () => {
+	test("clean worktree keeps semantic refusal visible without hosted progress output", async () => {
+		const events: NsProgressPhaseEvent[] = [];
 		const run = runCpWithFakes({
+			progress: { isLive: true, phase: (event) => events.push(event) },
+			renderCapabilities: {
+				canEmitAnsi: false,
+				caps: {
+					isTty: true,
+					colorDepth: "truecolor",
+					columns: 195,
+					canRenderUnicode: true,
+				},
+			},
 			state: { exec: cleanCpExecResponses() },
 		});
 
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
+		expect(run.liveOutput).toEqual([]);
+		expect(events.some((event) => event.type === "phases-declared")).toBe(true);
+		expect(events.at(-1)).toEqual({
+			type: "phase-failed",
+			phaseKey: "inspect",
+			detail: "inspecting worktree…",
+		});
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",

@@ -59,7 +59,7 @@ export interface PhaseStream {
 	note(text: string): void;
 	/** Mark the currently active phase as failed (call before `finish` on a non-zero exit). */
 	fail(): void;
-	/** Settle the remaining phases, persist the region, and restore the cursor. */
+	/** Settle remaining phases, persist stream-owned presentation, and restore the cursor. */
 	finish(finalLines?: readonly string[]): Promise<void>;
 	/** Stop the spinner pump and restore the cursor without emitting a settled frame. Idempotent. */
 	stop(): Promise<void>;
@@ -73,7 +73,48 @@ export interface CreatePhaseStreamOptions {
 }
 
 export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
-	const isForwarding = options.forward?.isLive === true;
+	if (options.forward?.isLive === true) {
+		return createForwardingPhaseStream(options.forward, options.specs);
+	}
+	return createRenderedPhaseStream(options);
+}
+
+function createForwardingPhaseStream(
+	forward: NsProgress,
+	specs: readonly PhaseSpec[],
+): PhaseStream {
+	const phases = createPhaseStateStore(specs);
+
+	function forwardEvent(event: NsProgressPhaseEvent): void {
+		phases.apply(event);
+		forward.phase(event);
+	}
+
+	return {
+		begin(title) {
+			forward.phase({
+				type: "phases-declared",
+				title,
+				phases: progressPhaseInfos(specs),
+			});
+		},
+		setTitle(title) {
+			forward.phase({ type: "title-changed", title });
+		},
+		emit: forwardEvent,
+		// The live host owns presentation, so transcript notes never use stream output seams.
+		note(_text) {},
+		fail() {
+			for (const event of phases.failActive()) forward.phase(event);
+		},
+		async finish(_finalLines) {
+			for (const event of phases.settleOpenPhases()) forward.phase(event);
+		},
+		async stop() {},
+	};
+}
+
+function createRenderedPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
 	const sink = createStreamSink(options.caps, options.deps);
 	const phases = createPhaseStateStore(options.specs);
 	const tail = createTranscriptTail();
@@ -86,13 +127,6 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	});
 
 	function begin(title: string): void {
-		if (isForwarding) {
-			options.forward?.phase({
-				type: "phases-declared",
-				title,
-				phases: progressPhaseInfos(options.specs),
-			});
-		}
 		renderer.setTitle(title);
 		lifecycle.startLiveRegion();
 		renderer.render();
@@ -100,19 +134,17 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	}
 
 	function setTitle(title: string): void {
-		if (isForwarding) options.forward?.phase({ type: "title-changed", title });
 		renderer.setTitle(title);
 		renderer.render();
 	}
 
 	function emit(event: NsProgressPhaseEvent): void {
-		if (isForwarding) options.forward?.phase(event);
 		const transition = phases.apply(event);
 		switch (transition.type) {
 			case "ignored":
 				return;
 			case "surface":
-				if (!isForwarding || options.caps.isTty) renderer.surface(transition.line);
+				renderer.surface(transition.line);
 				return;
 			case "render":
 				if (transition.clearTranscript) tail.clear();
@@ -140,7 +172,7 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 		await lifecycle.drainPump();
 		// On overall success, settle every still-open phase; a failure leaves its red row standing.
 		phases.settleOpenPhases();
-		// The persisted region must not carry a transient transcript line; the settled phases stand alone.
+		// The persisted region must not carry a transient transcript line; settled phases stand alone.
 		tail.clear();
 		renderer.render();
 		sink.finish(finalLines);
@@ -247,17 +279,19 @@ export function createPhaseStreamController(
 	};
 }
 
-/** Resolve flow streaming caps from the command host context's explicit render capabilities. */
+/** Resolve Flow streaming caps, transferring presentation ownership to a live progress host. */
 export function resolveFlowStreamCaps(ctx: NsExtensionApi): Caps {
+	if (ctx.progress.isLive) return resolveRenderCapabilities({ canEmitAnsi: false });
 	return resolveRenderCapabilities(ctx.renderCapabilities);
 }
 
 /**
  * Wire the sink's seams to the command context.
  *  - TTY: real in-place animation against stdout (tests inject a fake writer/clock instead).
- *  - non-TTY: route everything through `ctx` so `run.liveOutput` captures it and Pi gets honest
- *    output, with nothing leaking to `process.*`. The settled frame and the per-phase transients
- *    both flow through the same live channel (zero cursor escapes).
+ *  - non-TTY without a live structured consumer: route transient and settled progress through `ctx`,
+ *    with nothing leaking to `process.*` and no cursor escapes.
+ *  - live structured consumer: the host owns progress presentation, so the phase stream emits events
+ *    only and does not write transient or settled progress through these sink seams.
  */
 export function flowStreamDeps(ctx: NsExtensionApi, caps: Caps): StreamSinkDeps {
 	if (caps.isTty) {

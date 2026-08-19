@@ -126,18 +126,10 @@ export function resolveSubmitProgress(options: {
 	hasChecks: boolean;
 }): SubmitProgressResolution {
 	let presentation: MatrixProgressPresentation;
-	if (options.caps.isTty) {
-		presentation =
-			options.liveProgress === undefined
-				? { kind: "terminal", caps: options.caps, deps: options.deps }
-				: {
-						kind: "terminal-and-event",
-						caps: options.caps,
-						deps: options.deps,
-						progress: options.liveProgress,
-					};
-	} else if (options.liveProgress !== undefined) {
+	if (options.liveProgress !== undefined) {
 		presentation = { kind: "event", progress: options.liveProgress };
+	} else if (options.caps.isTty) {
+		presentation = { kind: "terminal", caps: options.caps, deps: options.deps };
 	} else {
 		presentation = { kind: "settled-transcript", caps: options.caps, deps: options.deps };
 	}
@@ -148,7 +140,7 @@ export function resolveSubmitProgress(options: {
 	});
 	return {
 		matrix,
-		...(options.caps.isTty
+		...(options.liveProgress === undefined && options.caps.isTty
 			? { onOutput: (_stream: "stdout" | "stderr", text: string) => matrix.note(text) }
 			: options.liveOutput === undefined
 				? {}

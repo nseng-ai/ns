@@ -7,6 +7,7 @@ import { afterEach } from "vitest";
 import { runCli } from "@nseng-ai/sdk/cli";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 import { noopNsProgress } from "@nseng-ai/sdk";
+import type { Caps } from "@nseng-ai/clinkr";
 import type {
 	NsExecOptions,
 	ExecResult,
@@ -14,6 +15,7 @@ import type {
 	NsExtensionApi,
 	NsProgress,
 	NsSelectPrompt,
+	RenderCapabilities,
 	TextGenerationRequest,
 	TextGenerationResult,
 } from "@nseng-ai/sdk";
@@ -74,6 +76,7 @@ interface ScriptedNsTestContextOptions extends RunWithFakesDefaults {
 	repoRoot?: string;
 	env?: Record<string, string | undefined>;
 	progress?: NsProgress;
+	renderCapabilities?: RenderCapabilities & { readonly caps?: Caps };
 }
 
 export class ScriptedNsTestContext implements NsExtensionApi {
@@ -87,7 +90,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		onOutput: (stream, text) => this.onOutput?.(stream, text),
 	});
 	readonly progress: NsProgress;
-	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly renderCapabilities: RenderCapabilities & { readonly caps?: Caps };
 	readonly hasExtension = () => false;
 	readonly isInteractive: () => boolean;
 	stdout?: (text: string) => void;
@@ -106,6 +109,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		this.repoRoot = options.repoRoot ?? this.cwd;
 		this.env = options.env ?? {};
 		this.progress = options.progress ?? noopNsProgress;
+		this.renderCapabilities = options.renderCapabilities ?? { canEmitAnsi: false };
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;

@@ -25,6 +25,15 @@ function lastStderrOutput(
 }
 
 const PR_URL = "https://github.com/acme/repo/pull/123";
+const INHERITED_TTY_RENDER_CAPABILITIES = {
+	canEmitAnsi: false,
+	caps: {
+		isTty: true,
+		colorDepth: "truecolor" as const,
+		columns: 195,
+		canRenderUnicode: true,
+	},
+};
 const GRAPHITE_PR_URL = "https://app.graphite.com/github/pr/acme/repo/123";
 const LAGGING_VERIFICATION_PR_URL = "https://app.graphite.com/github/pr/dagster-io/sdl-tools/1517";
 const tempDirs: string[] = [];
@@ -197,7 +206,7 @@ describe("project-local submit extension", () => {
 		}
 	});
 
-	test("live non-TTY progress drives the structured submit matrix through the actual command handler", async () => {
+	test("live host progress overrides inherited TTY caps in the actual command handler", async () => {
 		const events: NsProgressPhaseEvent[] = [];
 		const progress: NsProgress = {
 			isLive: true,
@@ -205,6 +214,7 @@ describe("project-local submit extension", () => {
 		};
 		const run = runWithFakes({
 			progress,
+			renderCapabilities: INHERITED_TTY_RENDER_CAPABILITIES,
 			request: { verbose: true },
 			state: { exec: successfulSubmitResponses() },
 		});
@@ -280,6 +290,9 @@ describe("project-local submit extension", () => {
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "ready\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
 		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow submit"))).toBe(false);
+		expect(run.liveOutput.some((entry) => entry.text.includes("Branch / PR"))).toBe(false);
+		expect(run.liveOutput.some((entry) => entry.text.includes("\u001b["))).toBe(false);
+		expect(run.stdout.join("")).toContain("Submitted 1 PR:");
 	});
 
 	test("non-live non-TTY progress stays on the settled stream without matrix events", async () => {
@@ -492,13 +505,16 @@ describe("project-local submit extension", () => {
 		).toBeGreaterThan(calls.indexOf("just"));
 	});
 
-	test("failing pre-submit check aborts submit with deterministic failure output", async () => {
+	test("failing pre-submit check keeps semantic failure without a hosted checklist", async () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-hook-failure-"));
 		tempDirs.push(logRoot);
+		const events: NsProgressPhaseEvent[] = [];
 		const run = runWithFakes({
 			cwd: repoRoot,
 			env: { NS_SUBMIT_FAILURE_LOG_DIR: logRoot },
+			progress: { isLive: true, phase: (event) => events.push(event) },
+			renderCapabilities: INHERITED_TTY_RENDER_CAPABILITIES,
 			state: {
 				exec: [
 					{ match: "git rev-parse --show-toplevel", result: { stdout: `${repoRoot}\n` } },
@@ -537,9 +553,14 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hook stdout\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "hook stderr\n" });
-		const settled = lastStderrOutput(run.liveOutput);
-		expect(settled).toContain("✗ Checks");
-		expect(settled).toContain("checks failed");
+		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow submit"))).toBe(false);
+		expect(run.liveOutput.some((entry) => entry.text.includes("Branch / PR"))).toBe(false);
+		expect(run.liveOutput.some((entry) => entry.text.includes("\u001b["))).toBe(false);
+		expect(events).toContainEqual({
+			type: "phase-failed",
+			phaseKey: "checks",
+			detail: "checks failed",
+		});
 		expect(formattedExecCalls(run.context)).not.toContain("git symbolic-ref --short HEAD");
 		expect(formattedExecCalls(run.context).some((call) => call.startsWith("gt submit"))).toBe(
 			false,

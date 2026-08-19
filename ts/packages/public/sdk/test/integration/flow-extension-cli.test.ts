@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import type { Caps } from "@nseng-ai/clinkr";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
+import type { NsProgressPhaseEvent } from "@nseng-ai/sdk";
 
 import { installCheckedInFlowExtension } from "../helpers/flow-extension.ts";
 import {
@@ -133,6 +134,33 @@ describe("checked-in flow ns extension loading", () => {
 		);
 		expect(formattedExecCalls(run.context)).toContain("git add -A");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
+	});
+
+	test("real loader transfers inherited TTY progress presentation to its host", async () => {
+		const cwd = await createFlowProject();
+		const events: NsProgressPhaseEvent[] = [];
+		const run = runWithRealFlowExtension({
+			args: ["flow", "cp"],
+			cwd,
+			renderCapabilities: { canEmitAnsi: false, caps: ansiCaps },
+			onProgress: (event) => events.push(event),
+			state: {
+				exec: dirtyCpExecResponses(cwd),
+				textGeneration: [
+					{
+						ok: true,
+						text: `[cp] Update integration checkpoint\n\n- Cover hosted progress ownership`,
+					},
+				],
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(events[0]?.type).toBe("phases-declared");
+		expect(events.some((event) => event.type === "phase-started")).toBe(true);
+		expect(run.liveOutput).toEqual([]);
+		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
+		expect(run.stderr.join("")).toBe("");
 	});
 
 	test("real loader renders pull-trunk terminal text and preserves its JSON envelope", async () => {
@@ -454,6 +482,7 @@ function runWithRealFlowExtension(options: {
 	cwd: string;
 	state?: Parameters<typeof runCliWithFakes>[0]["state"];
 	renderCapabilities?: Parameters<typeof runCliWithFakes>[0]["renderCapabilities"];
+	onProgress?: Parameters<typeof runCliWithFakes>[0]["onProgress"];
 }) {
 	return runCliWithFakes(
 		{
@@ -463,6 +492,7 @@ function runWithRealFlowExtension(options: {
 			...(options.renderCapabilities === undefined
 				? {}
 				: { renderCapabilities: options.renderCapabilities }),
+			...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
 		},
 		{
 			execResponses: () => [],

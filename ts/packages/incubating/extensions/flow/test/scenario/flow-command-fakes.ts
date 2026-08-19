@@ -19,7 +19,14 @@ import {
 	fakeStackInfo,
 	type FakeGraphiteStackGatewayOptions,
 } from "@nseng-ai/extension-kit/graphite/testing";
-import type { CommandExit, NsCommand, NsExtensionApi, NsProgress } from "@nseng-ai/sdk";
+import type {
+	CommandExit,
+	NsCommand,
+	NsExtensionApi,
+	NsProgress,
+	RenderCapabilities,
+} from "@nseng-ai/sdk";
+import type { Caps } from "@nseng-ai/clinkr";
 import type { SlotClient, SlotCheckoutResult } from "@nseng-ai/slots/api";
 import { createFlowSubmitCommand } from "../../src/ns/commands/submit.ts";
 import { flowExtensionDescriptorSource } from "../../src/ns/extension.ts";
@@ -45,6 +52,7 @@ export interface RunFlowCommandWithFakesOptions {
 	env?: Record<string, string | undefined>;
 	homeDir?: string;
 	progress?: NsProgress;
+	renderCapabilities?: RenderCapabilities & { readonly caps?: Caps };
 	defaults?: RunWithFakesDefaults;
 }
 
@@ -631,6 +639,9 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 		execResponses: fixture.defaults.execResponses,
 		textGenerationResults: fixture.defaults.textGenerationResults,
 		...(fixture.options.progress === undefined ? {} : { progress: fixture.options.progress }),
+		...(fixture.options.renderCapabilities === undefined
+			? {}
+			: { renderCapabilities: fixture.options.renderCapabilities }),
 		...(fixture.defaults.missingTextGenerationResult === undefined
 			? {}
 			: { missingTextGenerationResult: fixture.defaults.missingTextGenerationResult }),
