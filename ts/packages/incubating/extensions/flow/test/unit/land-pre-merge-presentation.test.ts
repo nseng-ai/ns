@@ -57,7 +57,7 @@ describe("pre-merge confirmation presentation", () => {
 			[
 				"Managed slot worktrees for landing branches block stack restack/ref updates, but this context cannot ask for the required slot cleanup confirmation.",
 				details,
-				"No PRs were landed. Run `ns slot free --wt slot-03` manually if appropriate, then rerun /ns:flow:land --yes.",
+				"No PRs were landed. Run `ns slot free --wt slot-03` manually if appropriate, then rerun /ns:flow:gt:land --yes.",
 			].join("\n"),
 		);
 	});
@@ -84,7 +84,7 @@ describe("pre-merge confirmation presentation", () => {
 			[
 				"GitHub PR metadata is behind local Graphite refs, but this context cannot ask for the required restack + submit/update confirmation.",
 				details,
-				"No PRs were landed. Run `gt restack --branch feature/b --upstack --no-interactive` then `gt submit --branch feature/b --no-stack --update-only --no-edit --no-ai --no-interactive` manually, then rerun /ns:flow:land --yes.",
+				"No PRs were landed. Run `gt restack --branch feature/b --upstack --no-interactive` then `gt submit --branch feature/b --no-stack --update-only --no-edit --no-ai --no-interactive` manually, then rerun /ns:flow:gt:land --yes.",
 			].join("\n"),
 		);
 	});

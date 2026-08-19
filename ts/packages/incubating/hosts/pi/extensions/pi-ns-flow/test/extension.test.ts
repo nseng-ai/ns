@@ -21,6 +21,7 @@ import registerFlowExtension, {
 import {
 	FLOW_COMMAND_SPECS,
 	FLOW_SUBMIT_CHECK_FAILURE_MARKER,
+	nsFlowCommandSurface,
 	type FlowSubmitRecoveryContext,
 } from "@nseng-ai/flow/api";
 
@@ -56,6 +57,10 @@ const FLOW_COMMANDS = [
 	"pull-trunk",
 	"squash-stack",
 ] as const satisfies readonly FlowCommandName[];
+
+function piCommandName(commandName: string): string {
+	return nsFlowCommandSurface(commandName);
+}
 const PACKAGED_RECOVERY_PROMPT = "Packaged recovery prompt\n";
 
 interface RawExecCall {
@@ -160,7 +165,7 @@ describe("ns Pi extension", () => {
 
 		registerNsExtension(pi, { runCli: async () => 0 });
 
-		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map((name) => `ns:flow:${name}`));
+		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map(piCommandName));
 		for (const legacyAlias of [
 			"sdl:changes",
 			"sdl:cp",
@@ -176,7 +181,7 @@ describe("ns Pi extension", () => {
 			expect(pi.commands.has(legacyAlias)).toBe(false);
 		}
 		for (const command of FLOW_COMMAND_SPECS) {
-			expect(pi.commands.get(`ns:flow:${command.name}`)?.description).toBe(
+			expect(pi.commands.get(piCommandName(command.name))?.description).toBe(
 				`ns flow ${command.name}: ${command.description}`,
 			);
 		}
@@ -195,7 +200,7 @@ describe("ns Pi extension", () => {
 				},
 			});
 
-			await commandFor(pi, `ns:flow:${commandName}`).handler("", createContext("/work"));
+			await commandFor(pi, piCommandName(commandName)).handler("", createContext("/work"));
 
 			expect(runCliCalls).toEqual([["flow", commandName]]);
 			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${commandName}`);
@@ -214,7 +219,7 @@ describe("ns Pi extension", () => {
 				},
 			});
 
-			await commandFor(pi, "ns:flow:submit").handler("", createContext("/repo/nested"));
+			await commandFor(pi, "ns:flow:gt:submit").handler("", createContext("/repo/nested"));
 
 			expectSingleCommandOutput(pi.sentMessages, marker);
 			expect(pi.userMessages).toHaveLength(1);
@@ -235,7 +240,7 @@ describe("ns Pi extension", () => {
 			},
 		});
 
-		await commandFor(pi, "ns:flow:submit").handler("", createContext("/repo"));
+		await commandFor(pi, "ns:flow:gt:submit").handler("", createContext("/repo"));
 
 		expect(pi.userMessages).toHaveLength(1);
 		expect(pi.userMessages[0]).toContain("Repository recovery policy");
@@ -251,7 +256,7 @@ describe("ns Pi extension", () => {
 				return 0;
 			},
 		});
-		await commandFor(successPi, "ns:flow:submit").handler("", createContext("/repo"));
+		await commandFor(successPi, "ns:flow:gt:submit").handler("", createContext("/repo"));
 		expect(successPi.userMessages).toEqual([]);
 
 		const prosePi = new FakePi();
@@ -262,7 +267,7 @@ describe("ns Pi extension", () => {
 				return 1;
 			},
 		});
-		await commandFor(prosePi, "ns:flow:submit").handler("", createContext("/repo"));
+		await commandFor(prosePi, "ns:flow:gt:submit").handler("", createContext("/repo"));
 		expect(prosePi.userMessages).toEqual([]);
 
 		const otherPi = new FakePi();
@@ -296,14 +301,14 @@ describe("ns Pi extension", () => {
 		});
 
 		await expect(
-			commandFor(pi, "ns:flow:submit").handler("", createContext("/outside/work", pi)),
+			commandFor(pi, "ns:flow:gt:submit").handler("", createContext("/outside/work", pi)),
 		).resolves.toBeUndefined();
 
 		expectSingleCommandOutput(pi.sentMessages, "private registry authentication failed");
 		expect(pi.notifications).toEqual([
 			{
 				message:
-					"Automatic follow-up for /ns:flow:submit could not complete: Could not start flow submit-check recovery: Could not resolve the Git repository root from cwd /outside/work: git executable unavailable",
+					"Automatic follow-up for /ns:flow:gt:submit could not complete: Could not start flow submit-check recovery: Could not resolve the Git repository root from cwd /outside/work: git executable unavailable",
 				level: "warning",
 			},
 		]);
@@ -323,7 +328,7 @@ describe("ns Pi extension", () => {
 		});
 
 		await expect(
-			commandFor(pi, "ns:flow:submit").handler("", createContext("/outside/work", pi)),
+			commandFor(pi, "ns:flow:gt:submit").handler("", createContext("/outside/work", pi)),
 		).resolves.toBeUndefined();
 
 		expectSingleCommandOutput(pi.sentMessages, "check failed");
@@ -350,7 +355,7 @@ describe("ns Pi extension", () => {
 			});
 
 			await expect(
-				commandFor(pi, "ns:flow:submit").handler("", createContext("/repo", pi)),
+				commandFor(pi, "ns:flow:gt:submit").handler("", createContext("/repo", pi)),
 			).resolves.toBeUndefined();
 
 			expectSingleCommandOutput(pi.sentMessages, "check failed");
@@ -382,7 +387,7 @@ describe("ns Pi extension", () => {
 			},
 		});
 
-		await commandFor(pi, "ns:flow:submit").handler(
+		await commandFor(pi, "ns:flow:gt:submit").handler(
 			'--message "hello world"',
 			createContext("/repo"),
 		);

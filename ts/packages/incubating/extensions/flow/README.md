@@ -45,7 +45,9 @@ Each command depends on a distinct slice of the underlying technology stack:
 | `ns flow pull-trunk`            | Refresh the Git trunk identified by cached `refs/remotes/origin/HEAD` from its configured Git upstream.      |  ✓  |                 |               |       |     |
 | `ns flow squash-stack`          | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.                |  ✓  |        ✓        |               |       |     |
 
-Every command is also available in the Pi harness as `/ns:flow:<command>`. The separate
+Every command is also available in the Pi harness. Graphite-dependent workflows use
+`/ns:flow:gt:<command>` (`autobranch`, `branch-latest-commit`, `autoslot`, `submit`, `land`, and
+`squash-stack`); the other commands use `/ns:flow:<command>`. The separate
 `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, presentation, parity metadata, and
 direct lifecycle discovery while delegating Flow behavior through `@nseng-ai/flow/api` and the
 CLI. Pi is optional; the CLI commands do not require the Pi host.

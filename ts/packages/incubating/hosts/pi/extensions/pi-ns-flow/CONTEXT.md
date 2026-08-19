@@ -15,12 +15,13 @@ registration, interaction, notification/presentation, and parity metadata.
 *Avoid*: Flow domain owner, Flow Pi subpackage, `@nseng-ai/flow/pi`, private Flow source consumer
 
 **Flow Pi lifecycle surface**:
-The eleven `/ns:flow:*` slash-command mirrors registered by the **Flow Pi host adapter**. The
-package is loaded directly through its `pi.extensions` manifest and `.pi/settings.json`, without a
-project-local `.pi/extensions/ns.ts` adapter, and loads a fresh `@nseng-ai/ns/cli` module for every
-command invocation. Flow command metadata and submit-check recovery policy come from
-`@nseng-ai/flow/api`.
-*Avoid*: dynamic mirror discovery, static captured CLI module, flat lifecycle alias, project-local ns discovery adapter
+The eleven `/ns:flow:*` slash-command mirrors registered by the **Flow Pi host adapter**. The six
+Graphite-dependent workflows use `/ns:flow:gt:*`; the other five remain directly under
+`/ns:flow:*`. The package is loaded directly through its `pi.extensions` manifest and
+`.pi/settings.json`, without a project-local `.pi/extensions/ns.ts` adapter, and loads a fresh
+`@nseng-ai/ns/cli` module for every command invocation. Flow command metadata and submit-check
+recovery policy come from `@nseng-ai/flow/api`.
+*Avoid*: dynamic mirror discovery, static captured CLI module, flat lifecycle alias, provider-obscuring Graphite workflow name, project-local ns discovery adapter
 
 **Flow stack-squash composition export**:
 The explicit `@nseng-ai/pi-ns-flow/stack-squash` Pi presentation export for

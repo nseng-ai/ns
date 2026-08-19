@@ -83,14 +83,14 @@ export async function loadCurrentBranch(
 	if (!commandSucceeded(result)) {
 		return landFailure(
 			landingExecutionFailure(
-				`Detached HEAD; check out a branch before running /ns:flow:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
+				`Detached HEAD; check out a branch before running /ns:flow:gt:land.\n${formatCommandDetails(result, formatCommand("git", ["symbolic-ref", "--short", "HEAD"]))}`,
 			),
 		);
 	}
 	const branch = result.stdout.trim();
 	if (!branch) {
 		return landFailure(
-			landingExecutionFailure("Could not resolve current branch before running /ns:flow:land."),
+			landingExecutionFailure("Could not resolve current branch before running /ns:flow:gt:land."),
 		);
 	}
 	return landSuccess(branch);

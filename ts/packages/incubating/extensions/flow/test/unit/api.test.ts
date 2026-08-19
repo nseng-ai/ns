@@ -21,9 +21,20 @@ describe("flow extension API", () => {
 		expect(api).not.toHaveProperty("runAutoslotCli");
 	});
 
+	test.each([
+		["autobranch", "ns:flow:gt:autobranch"],
+		["branch-latest-commit", "ns:flow:gt:branch-latest-commit"],
+		["autoslot", "ns:flow:gt:autoslot"],
+		["submit", "ns:flow:gt:submit"],
+		["land", "ns:flow:gt:land"],
+		["squash-stack", "ns:flow:gt:squash-stack"],
+		["changes", "ns:flow:changes"],
+	] as const)("maps %s to its Pi command surface", (command, expectedSurface) => {
+		expect(nsFlowCommandSurface(command)).toBe(expectedSurface);
+	});
+
 	test("exports cohesive host-independent Flow interfaces", () => {
 		expect(FLOW_COMMAND_SPECS).toHaveLength(11);
-		expect(nsFlowCommandSurface("submit")).toBe("ns:flow:submit");
 		expect(flowSkillBackedCommandRegistrations).toHaveLength(4);
 		expect(resolveFlowSubmitCheckRecovery).toBeTypeOf("function");
 		expect(runFlowStackSquash).toBeTypeOf("function");

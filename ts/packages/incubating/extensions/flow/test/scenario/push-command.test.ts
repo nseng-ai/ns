@@ -41,7 +41,7 @@ describe("flow push command outcomes", () => {
 		expect(stderr).toContain(" M src/app.ts");
 		expect(stderr).toContain("?? notes.md");
 		expect(stderr).toContain("ns flow submit");
-		expect(stderr).toContain("/ns:flow:submit");
+		expect(stderr).toContain("/ns:flow:gt:submit");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain"]);
 		expect(run.context.textGeneratorCalls).toEqual([]);
 	});
@@ -89,7 +89,7 @@ describe("flow push command outcomes", () => {
 		expect(stderr).toContain("rejected update");
 		expect(stderr).toContain("non-fast-forward");
 		expect(stderr).toContain("ns flow submit");
-		expect(stderr).toContain("/ns:flow:submit");
+		expect(stderr).toContain("/ns:flow:gt:submit");
 		expect(stderr).toContain("Graphite-tracked PR branches");
 		expect(formattedExecCalls(run.context)).toEqual(["git status --porcelain", "git push"]);
 		expect(run.context.execCalls[1]?.options).toEqual({ timeoutMs: PUSH_TIMEOUT_MS });

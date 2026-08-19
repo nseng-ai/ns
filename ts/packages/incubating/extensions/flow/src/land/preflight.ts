@@ -358,7 +358,7 @@ export function validateStrictMergeGate(
 				message: `PR #${input.pr.number} targets ${input.pr.baseRefName}, expected ${input.trunk}; restack/submit it first.`,
 				failedBranch: input.branch,
 				failedPrNumber: input.pr.number,
-				suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /ns:flow:land.`,
+				suggestedAction: `Run gt restack/submit for ${input.branch}, then rerun /ns:flow:gt:land.`,
 			}),
 		);
 	}
@@ -486,7 +486,7 @@ function nonOpenPullRequestFailure(branch: string, pr: PullRequestFacts): Landin
 			...base,
 			message: `PR #${pr.number} for ${branch} is already MERGED, but the selected Graphite landing path still contains it.`,
 			suggestedAction:
-				"Inspect the Graphite stack, then repair/reparent/restack the first remaining open branch onto the intended parent or trunk. Submit the affected branches to update PR bases, verify the repaired stack, and rerun /ns:flow:land.",
+				"Inspect the Graphite stack, then repair/reparent/restack the first remaining open branch onto the intended parent or trunk. Submit the affected branches to update PR bases, verify the repaired stack, and rerun /ns:flow:gt:land.",
 		});
 	}
 	if (pr.state === "CLOSED") {
@@ -494,13 +494,13 @@ function nonOpenPullRequestFailure(branch: string, pr: PullRequestFacts): Landin
 			...base,
 			message: `PR #${pr.number} for ${branch} is CLOSED and cannot be landed.`,
 			suggestedAction:
-				"Reopen the PR if it is still valid, or remove, replace, or retarget the branch in the Graphite path. Submit affected branches, inspect the updated stack, and rerun /ns:flow:land.",
+				"Reopen the PR if it is still valid, or remove, replace, or retarget the branch in the Graphite path. Submit affected branches, inspect the updated stack, and rerun /ns:flow:gt:land.",
 		});
 	}
 	return domainFailure({
 		...base,
 		message: `PR #${pr.number} for ${branch} is ${pr.state}, expected OPEN.`,
-		suggestedAction: "Make the PR open and verify the Graphite stack, then rerun /ns:flow:land.",
+		suggestedAction: "Make the PR open and verify the Graphite stack, then rerun /ns:flow:gt:land.",
 	});
 }
 

@@ -65,7 +65,7 @@ function graphiteRefreshFailure(
 				displayCommand: getCommandDisplay,
 				execResult: got,
 				failedBranch: maintenanceBranch,
-				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
+				suggestedAction: `Switch/detach ${checkoutConflict.path} from ${checkoutConflict.branch}, then run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:gt:land if appropriate.`,
 			},
 		);
 	}
@@ -74,7 +74,7 @@ function graphiteRefreshFailure(
 		displayCommand: getCommandDisplay,
 		execResult: got,
 		failedBranch: maintenanceBranch,
-		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
+		suggestedAction: `Run ${getCommandDisplay} manually, inspect the stack, and rerun /ns:flow:gt:land if appropriate.`,
 	});
 }
 
@@ -241,7 +241,7 @@ async function checkSubmitMaintenanceBranch(
 				`PR #${prNumber} merged, but could not re-read local branch ${maintenanceBranch} after restack.\n${localSha.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
-					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
+					suggestedAction: `Inspect local branch ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:gt:land if needed. ${LAND_BACKUP_RECOVERY_HINT}`,
 				},
 			),
 		};
@@ -258,7 +258,7 @@ async function checkSubmitMaintenanceBranch(
 				`PR #${prNumber} merged, but could not verify PR metadata for ${maintenanceBranch} after restack.\n${pr.failure.message}`,
 				{
 					failedBranch: maintenanceBranch,
-					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:land if needed.`,
+					suggestedAction: `Inspect PR metadata for ${maintenanceBranch}, run gt submit/update if appropriate, then rerun /ns:flow:gt:land if needed.`,
 				},
 			),
 		};
@@ -297,7 +297,7 @@ async function submitMaintenanceBranch(
 				displayCommand: submitted.commandDisplay,
 				execResult: submitted.result,
 				failedBranch: maintenanceBranch,
-				suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:land if appropriate.`,
+				suggestedAction: `Update PR for ${maintenanceBranch} manually, verify it targets ${plan.stack.trunk}, then rerun /ns:flow:gt:land if appropriate.`,
 			},
 		),
 	};
@@ -413,7 +413,7 @@ async function restackMaintenanceBranch(
 				displayCommand: restacked.commandDisplay,
 				execResult: restacked.result,
 				failedBranch: maintenanceBranch,
-				suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ns:flow:land if appropriate.`,
+				suggestedAction: `Resolve restack failures for ${maintenanceBranch}, run gt submit/update, then rerun /ns:flow:gt:land if appropriate.`,
 			},
 		),
 	};

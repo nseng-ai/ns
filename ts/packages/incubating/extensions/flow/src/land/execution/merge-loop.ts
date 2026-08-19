@@ -368,6 +368,6 @@ function stackMergeRejectedFailure(
 				}),
 		failedBranch: branch,
 		failedPrNumber: pr.number,
-		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /ns:flow:land from the desired branch.`,
+		suggestedAction: `Inspect PR #${pr.number}, resolve the merge rejection, then rerun /ns:flow:gt:land from the desired branch.`,
 	});
 }

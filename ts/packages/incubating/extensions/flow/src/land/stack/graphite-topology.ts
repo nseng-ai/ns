@@ -216,7 +216,7 @@ export function derivePathToTrunk(options: DerivePathToTrunkOptions): LandResult
 		landingExecutionFailure(
 			`Graphite metadata parent chain from ${current} ends at ${walked.terminusBranch} without reaching trunk ${trunk}; refusing to land.`,
 			{
-				suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /ns:flow:land.`,
+				suggestedAction: `Run gt sync or retarget the stack onto ${trunk}, then rerun /ns:flow:gt:land.`,
 			},
 		),
 	);
@@ -262,6 +262,6 @@ export function formatForkViolations(violations: ForkViolation[], trunk: string)
 		return `Refusing to land: the stack forks at ${violation.forkPoint}. Landing path expects ${violation.forkPoint} -> ${violation.expectedChild}, but ${violation.forkPoint} also has: ${siblingText}.`;
 	});
 	return landingExecutionFailure(lines.join("\n"), {
-		suggestedAction: `Land or move the sibling stack first (e.g. gt move --onto ${trunk}), then rerun /ns:flow:land.`,
+		suggestedAction: `Land or move the sibling stack first (e.g. gt move --onto ${trunk}), then rerun /ns:flow:gt:land.`,
 	});
 }

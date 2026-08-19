@@ -154,7 +154,7 @@ async function refreshDescendantBranch(
 		displayCommand: refresh.commandDisplay,
 		execResult: refresh.result,
 		failedBranch: maintenanceBranch,
-		suggestedAction: `Run ${refresh.commandDisplay} manually, inspect the stack, and rerun /ns:flow:land if appropriate.`,
+		suggestedAction: `Run ${refresh.commandDisplay} manually, inspect the stack, and rerun /ns:flow:gt:land if appropriate.`,
 	});
 }
 
