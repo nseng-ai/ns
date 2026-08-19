@@ -146,7 +146,9 @@ describe("project-local cp extension behavior", () => {
 			"phase-started",
 			"phase-progress",
 			"phase-started",
+			"phase-done",
 		]);
+		expect(events.at(-1)).toEqual({ type: "phase-done", phaseKey: "commit" });
 		expect(run.liveOutput).toEqual([]);
 		expect(run.stdout.join("")).toContain("abc123 [cp] Update checkpoint");
 		expect(run.stderr.join("")).toBe("");
@@ -301,6 +303,11 @@ describe("project-local cp extension behavior", () => {
 		expect(run.stderr.join("")).toBe("Working tree is clean; nothing to checkpoint.\n");
 		expect(run.liveOutput).toEqual([]);
 		expect(events.some((event) => event.type === "phases-declared")).toBe(true);
+		expect(events.at(-1)).toEqual({
+			type: "phase-failed",
+			phaseKey: "inspect",
+			detail: "inspecting worktree…",
+		});
 		expect(run.context.textGeneratorCalls).toEqual([]);
 		expect(formattedExecCalls(run.context)).toEqual([
 			"git rev-parse --show-toplevel",

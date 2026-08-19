@@ -83,6 +83,13 @@ function createForwardingPhaseStream(
 	forward: NsProgress,
 	specs: readonly PhaseSpec[],
 ): PhaseStream {
+	const phases = createPhaseStateStore(specs);
+
+	function forwardEvent(event: NsProgressPhaseEvent): void {
+		phases.apply(event);
+		forward.phase(event);
+	}
+
 	return {
 		begin(title) {
 			forward.phase({
@@ -94,13 +101,15 @@ function createForwardingPhaseStream(
 		setTitle(title) {
 			forward.phase({ type: "title-changed", title });
 		},
-		emit(event) {
-			forward.phase(event);
-		},
-		// The live host owns presentation and settlement; these methods intentionally do nothing.
+		emit: forwardEvent,
+		// The live host owns presentation, so transcript notes never use stream output seams.
 		note(_text) {},
-		fail() {},
-		async finish(_finalLines) {},
+		fail() {
+			for (const event of phases.failActive()) forward.phase(event);
+		},
+		async finish(_finalLines) {
+			for (const event of phases.settleOpenPhases()) forward.phase(event);
+		},
 		async stop() {},
 	};
 }

@@ -228,6 +228,9 @@ describe("forwarded progress", () => {
 			},
 			{ type: "title-changed", title: "updated title" },
 			phaseEvent,
+			{ type: "phase-done", phaseKey: "a" },
+			{ type: "phase-done", phaseKey: "b" },
+			{ type: "phase-done", phaseKey: "c" },
 		]);
 	});
 
@@ -292,8 +295,32 @@ describe("forwarded progress", () => {
 		stream.emit({ type: "phase-started", phaseKey: "b" });
 		await stream.finish();
 
+		expect(progress.events.slice(-2)).toEqual([
+			{ type: "phase-done", phaseKey: "b" },
+			{ type: "phase-done", phaseKey: "c" },
+		]);
 		expect(outputs).toEqual([]);
 		expect(redraws).toHaveLength(0);
+		expect(writes).toEqual([]);
+	});
+
+	test("live forward emits a structured failure without stream output", async () => {
+		const { deps, writes, redraws, outputs } = harness();
+		const progress = recordingProgress();
+		const stream = createPhaseStream({ caps: caps(), specs: SPECS, deps, forward: progress.sink });
+
+		stream.begin("title");
+		stream.emit({ type: "phase-started", phaseKey: "a" });
+		stream.fail();
+		await stream.finish();
+
+		expect(progress.events.at(-1)).toEqual({
+			type: "phase-failed",
+			phaseKey: "a",
+			detail: "alpha working…",
+		});
+		expect(outputs).toEqual([]);
+		expect(redraws).toEqual([]);
 		expect(writes).toEqual([]);
 	});
 
