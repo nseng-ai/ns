@@ -73,8 +73,41 @@ export interface CreatePhaseStreamOptions {
 }
 
 export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
-	const isForwarding = options.forward?.isLive === true;
-	const ownsStreamPresentation = !isForwarding;
+	if (options.forward?.isLive === true) {
+		return createForwardingPhaseStream(options.forward, options.specs);
+	}
+	return createRenderedPhaseStream(options);
+}
+
+function createForwardingPhaseStream(
+	forward: NsProgress,
+	specs: readonly PhaseSpec[],
+): PhaseStream {
+	function begin(title: string): void {
+		forward.phase({
+			type: "phases-declared",
+			title,
+			phases: progressPhaseInfos(specs),
+		});
+	}
+
+	function setTitle(title: string): void {
+		forward.phase({ type: "title-changed", title });
+	}
+
+	function emit(event: NsProgressPhaseEvent): void {
+		forward.phase(event);
+	}
+
+	function note(_text: string): void {}
+	function fail(): void {}
+	async function finish(_finalLines?: readonly string[]): Promise<void> {}
+	async function stop(): Promise<void> {}
+
+	return { begin, setTitle, emit, note, fail, finish, stop };
+}
+
+function createRenderedPhaseStream(options: CreatePhaseStreamOptions): PhaseStream {
 	const sink = createStreamSink(options.caps, options.deps);
 	const phases = createPhaseStateStore(options.specs);
 	const tail = createTranscriptTail();
@@ -87,51 +120,41 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	});
 
 	function begin(title: string): void {
-		if (isForwarding) {
-			options.forward?.phase({
-				type: "phases-declared",
-				title,
-				phases: progressPhaseInfos(options.specs),
-			});
-		}
 		renderer.setTitle(title);
-		if (!ownsStreamPresentation) return;
 		lifecycle.startLiveRegion();
 		renderer.render();
 		lifecycle.startPump();
 	}
 
 	function setTitle(title: string): void {
-		if (isForwarding) options.forward?.phase({ type: "title-changed", title });
 		renderer.setTitle(title);
-		if (ownsStreamPresentation) renderer.render();
+		renderer.render();
 	}
 
 	function emit(event: NsProgressPhaseEvent): void {
-		if (isForwarding) options.forward?.phase(event);
 		const transition = phases.apply(event);
 		switch (transition.type) {
 			case "ignored":
 				return;
 			case "surface":
-				if (ownsStreamPresentation) renderer.surface(transition.line);
+				renderer.surface(transition.line);
 				return;
 			case "render":
 				if (transition.clearTranscript) tail.clear();
-				if (ownsStreamPresentation) renderer.render();
+				renderer.render();
 				return;
 		}
 	}
 
 	function note(text: string): void {
-		if (!ownsStreamPresentation || !options.caps.isTty) return;
+		if (!options.caps.isTty) return;
 		tail.note(text);
 		renderer.render();
 	}
 
 	function fail(): void {
 		phases.failActive();
-		if (ownsStreamPresentation) renderer.render();
+		renderer.render();
 	}
 
 	async function stop(): Promise<void> {
@@ -139,17 +162,13 @@ export function createPhaseStream(options: CreatePhaseStreamOptions): PhaseStrea
 	}
 
 	async function finish(finalLines: readonly string[] = []): Promise<void> {
-		if (ownsStreamPresentation) await lifecycle.drainPump();
+		await lifecycle.drainPump();
 		// On overall success, settle every still-open phase; a failure leaves its red row standing.
 		phases.settleOpenPhases();
-		// A live structured consumer owns progress presentation. Flow settles its internal state and
-		// lifecycle, but emits no durable checklist through the stream sink.
-		if (!isForwarding) {
-			// The persisted region must not carry a transient transcript line; settled phases stand alone.
-			tail.clear();
-			renderer.render();
-			sink.finish(finalLines);
-		}
+		// The persisted region must not carry a transient transcript line; settled phases stand alone.
+		tail.clear();
+		renderer.render();
+		sink.finish(finalLines);
 		await lifecycle.stop();
 	}
 
