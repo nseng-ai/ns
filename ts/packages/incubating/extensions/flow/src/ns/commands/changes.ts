@@ -24,6 +24,7 @@ const changesResultSchema = z.discriminatedUnion("type", [
 		type: z.literal("outstanding"),
 		branch: z.string(),
 		summaryText: z.string(),
+		suggestedSlug: z.string(),
 		files: z.array(
 			z.object({
 				status: z.object({ raw: z.string(), index: z.string(), worktree: z.string() }),
@@ -56,6 +57,7 @@ export const flowChangesCommand: NsCommand = defineCommand({
 			result.branch,
 			result.files,
 			result.summaryText,
+			result.suggestedSlug,
 		);
 	},
 	handler: async (ctx) => {
@@ -86,6 +88,7 @@ export const flowChangesCommand: NsCommand = defineCommand({
 				type: "outstanding" as const,
 				branch: snapshot.branch,
 				summaryText: summary.summaryText,
+				suggestedSlug: summary.suggestedSlug,
 				files: parseGitPorcelainStatusOutput(snapshot.status),
 			});
 		});
@@ -99,12 +102,14 @@ function formatOutstandingChangesMessage(
 	branch: string,
 	files: readonly GitPorcelainStatusLine[],
 	summaryText: string,
+	suggestedSlug: string,
 ): string {
 	return renderBufferedReport({
 		caps: renderCapabilitiesForTerminal(terminalCaps),
 		title: `Outstanding changes on ${branch}`,
 		sections: [
 			{ title: "Summary", lines: summaryLines(terminalCaps, summaryText) },
+			{ title: "Suggested slug", lines: [suggestedSlug] },
 			{ title: "Files", lines: displayFileLines(terminalCaps, files) },
 		],
 	});

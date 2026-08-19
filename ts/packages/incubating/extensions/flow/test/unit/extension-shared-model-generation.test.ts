@@ -32,7 +32,9 @@ interface FlowModelGenerationContextFixture {
 	textGenerator: TextGenerator;
 }
 
-type ChangesSummaryResult = { ok: true; summaryText: string } | { ok: false; error: string };
+type ChangesSummaryResult =
+	| { ok: true; summaryText: string; suggestedSlug: string }
+	| { ok: false; error: string };
 
 type CheckpointMessageResult =
 	| { ok: true; message: string; source: "model" | "repaired_model"; feedback?: string }
@@ -74,7 +76,10 @@ describe("project extension shared model generation helper", () => {
 	test("delegates changes summaries with package-owned model selection", async () => {
 		const sharedModule = await loadSharedModelGenerationModule();
 		const textGenerator = new ScriptedTextGenerator([
-			{ ok: true, text: "- Share model generation wiring" },
+			{
+				ok: true,
+				text: "- Share model generation wiring\nSlug: share-model-generation-wiring",
+			},
 		]);
 
 		const result = await sharedModule.prepareFlowChangesSummary(
@@ -93,7 +98,11 @@ describe("project extension shared model generation helper", () => {
 			},
 		);
 
-		expect(result).toEqual({ ok: true, summaryText: "- Share model generation wiring" });
+		expect(result).toEqual({
+			ok: true,
+			summaryText: "- Share model generation wiring",
+			suggestedSlug: "share-model-generation-wiring",
+		});
 		expect(textGenerator.calls).toHaveLength(1);
 		expect(textGenerator.calls[0]).toMatchObject({
 			modelSelection: {
