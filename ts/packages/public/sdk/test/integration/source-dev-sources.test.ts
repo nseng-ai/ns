@@ -52,7 +52,7 @@ describe("source-dev ns command sources", () => {
 		expect(loaded.sources[1]).not.toHaveProperty("commandDirectory");
 	});
 
-	test("skips packages already contributed by declared sources", async () => {
+	test("skips packages whose names are owned by higher-authority sources", async () => {
 		const checkout = await createCheckout();
 		const packagesRoot = path.join(checkout, "ts", "packages");
 		writeWorkspaceExtension(packagesRoot, "incubating/extensions/alpha", "@example/alpha", {

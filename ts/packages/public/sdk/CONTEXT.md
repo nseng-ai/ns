@@ -4,7 +4,9 @@
 
 The SDK discovers **ns command sources**, not command routes. A source has one stable diagnostic label, a source kind and origin, package facts when applicable, a top-level help classification, and exactly one composition owner: an absolute Clinkr command directory or a host-internal programmatic callback. Discovery never enumerates routes, selects argv, assigns precedence, or reconstructs groups.
 
-**Source-dev discovery** contributes workspace extension packages (`source-dev:*` labels) when the CLI runs from an ns source checkout with the invocation cwd inside that checkout; a package whose name is already contributed by a preinstalled, user, or project source is skipped so declared sources keep sole route ownership.
+**Source-dev discovery** contributes workspace extension packages (`source-dev:*` labels) when the CLI runs from an ns source checkout with the invocation cwd inside that checkout. Command-source selection is `Built-in > explicit Project > current-checkout source-dev > User > ordinary Preinstalled` for matching validated manifest package names. Built-in and explicit Project owners block a same-name source-dev package. An admitted source-dev package with commands atomically replaces same-name User and ordinary Preinstalled source records. A commandless source-dev package remains present as metadata but does not suppress lower command sources. This package-name replacement is limited to the source-dev selection edges and does not replace direct Project-versus-User normalized source-identity behavior. The effective source inventory remains distinct from command-route selection and composition.
+
+This targeted command-source selection does not align Point-definition discovery in `point-catalog.ts`. Point definitions can still resolve from a User package in another checkout while commands resolve from the current source checkout; that alignment is follow-up work.
 
 ## Extension descriptor
 
