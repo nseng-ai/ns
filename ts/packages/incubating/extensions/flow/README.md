@@ -80,9 +80,10 @@ reshaped stack.
 - **GitHub (`gh`)** — the GitHub CLI for PR reads and edits, including PR lookup,
   title and description updates, and merge state.
 - **slots** — ns managed worktree slots: `autoslot` checks branches out into a slot;
-  `land --free` cleans up the current managed slot after a successful landing. In an
-  interactive selector-capable host, a managed-slot landing with no cleanup flag offers
-  keep (the default), free, or cancel before merge.
+  `land --free` cleans up the current managed slot after a successful landing. An eligible
+  interactive managed-slot landing with no cleanup flag asks whether to free the slot and
+  delete the landed local branch after landing. No is the default and keeps both; Ctrl-C
+  cancels before merge.
 - **LLM** — injected text generation for change summaries, checkpoint messages,
   branch-name slugs, and assembled PR inventories.
 
@@ -107,9 +108,11 @@ reshaped stack.
 - `land` uses GitHub squash merge and requires `gh` authentication with permission
   to merge the target PRs. The repository must allow squash merges. Other merge
   strategies are not part of the current land contract. By default, successful landing
-  keeps the current managed slot and landed local branch; selector-capable interactive hosts
-  offer keep, free, or cancel before merge when neither `--free` nor `--up` is supplied.
-  Pass `--free` to free the slot and delete the branch. Pass `--up` to keep the slot and continue in the same worktree
+  keeps the current managed slot and landed local branch. When neither `--free` nor `--up`
+  is supplied, an eligible interactive managed-slot landing asks whether to free the slot
+  and delete the landed local branch after landing. Yes approves that cleanup, No is the
+  default and lands while keeping both, and Ctrl-C cancels before merge. Pass `--free` to
+  approve cleanup upfront. Pass `--up` to keep the slot and continue in the same worktree
   on the sole immediate Graphite child. If no unambiguous child is available, the command
   fails before landing. If checkout, verification, or landed-branch cleanup fails after
   merge, the command reports failure while preserving recoverable state and identifying

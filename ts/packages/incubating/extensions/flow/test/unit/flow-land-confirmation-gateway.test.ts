@@ -32,9 +32,6 @@ interface GatewayContextFixture {
 function createGatewayContext(options: {
 	readonly hasUI: boolean;
 	readonly confirmation?: "confirmed" | "declined" | "cancelled";
-	readonly selection?:
-		| { readonly type: "selected"; readonly value: string }
-		| { readonly type: "cancelled" };
 	readonly hasSelect?: boolean;
 }): GatewayContextFixture {
 	const confirmations: GatewayContextFixture["confirmations"][number][] = [];
@@ -59,7 +56,7 @@ function createGatewayContext(options: {
 				? {
 						async select(title: string, selectOptions: readonly string[]) {
 							selections.push({ title, options: selectOptions });
-							return options.selection ?? { type: "cancelled" };
+							return { type: "cancelled" as const };
 						},
 					}
 				: {}),
@@ -211,19 +208,19 @@ describe("flow land confirmation gateway", () => {
 
 	test.each([
 		{
-			selected: "Land and keep slot-02 + local branch feature-a (default)",
-			expectedPolicy: "preserve",
+			confirmation: "confirmed",
+			expected: { type: "approved", approvalSource: "prompted", cleanupPolicy: "free" },
 		},
 		{
-			selected: "Land, free slot-02, and delete local branch feature-a",
-			expectedPolicy: "free",
+			confirmation: "declined",
+			expected: { type: "approved", approvalSource: "prompted", cleanupPolicy: "preserve" },
 		},
-	] as const)("selector approves with $expectedPolicy cleanup", async (selection) => {
-		const fixture = createGatewayContext({
-			hasUI: true,
-			hasSelect: true,
-			selection: { type: "selected", value: selection.selected },
-		});
+		{
+			confirmation: "cancelled",
+			expected: { type: "declined" },
+		},
+	] as const)("cleanup confirmation maps $confirmation", async ({ confirmation, expected }) => {
+		const fixture = createGatewayContext({ hasUI: true, confirmation });
 		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
 
 		await expect(
@@ -232,28 +229,29 @@ describe("flow land confirmation gateway", () => {
 				plan: landingPlan(),
 				cleanupChoice: cleanupPreview,
 			}),
-		).resolves.toEqual({
-			type: "approved",
-			approvalSource: "prompted",
-			cleanupPolicy: selection.expectedPolicy,
+		).resolves.toEqual(expected);
+		expect(fixture.confirmations).toHaveLength(1);
+		expect(fixture.confirmations[0]).toMatchObject({
+			title: "Land, free slot-02, and delete local branch feature-a?",
+			options: { defaultAnswer: "no" },
 		});
-		expect(fixture.confirmations).toEqual([]);
-		expect(fixture.notifications[0]?.message).toContain("feature-a");
-		expect(fixture.selections[0]).toMatchObject({
-			title: "Land and choose cleanup for slot-02?",
-			options: [
-				"Land and keep slot-02 + local branch feature-a (default)",
-				"Land, free slot-02, and delete local branch feature-a",
-				"Cancel landing",
-			],
-		});
+		expect(fixture.confirmations[0]?.message).toContain(
+			"Land Graphite stack path: main -> feature-a",
+		);
+		expect(fixture.confirmations[0]?.message).toContain("If Yes, after a successful landing:");
+		expect(fixture.confirmations[0]?.message).toContain(
+			"Post-landing cleanup will detach the current managed slot to trunk, then delete the landed local Graphite branch.",
+		);
+		expect(fixture.confirmations[0]?.message).toContain(
+			"If No (default), land and keep slot-02 and local branch feature-a.",
+		);
+		expect(fixture.confirmations[0]?.message).toContain("Press Ctrl-C to cancel before merge.");
+		expect(fixture.notifications).toEqual([]);
+		expect(fixture.selections).toEqual([]);
 	});
 
-	test.each([
-		["explicit cancel-label selection", { type: "selected", value: "Cancel landing" }],
-		["host cancellation", { type: "cancelled" }],
-	] as const)("selector declines for %s", async (_observation, selection) => {
-		const fixture = createGatewayContext({ hasUI: true, hasSelect: true, selection });
+	test("cleanup confirmation does not call an available selector", async () => {
+		const fixture = createGatewayContext({ hasUI: true, hasSelect: true });
 		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
 
 		await expect(
@@ -262,8 +260,34 @@ describe("flow land confirmation gateway", () => {
 				plan: landingPlan(),
 				cleanupChoice: cleanupPreview,
 			}),
-		).resolves.toEqual({ type: "declined" });
-		expect(fixture.confirmations).toEqual([]);
+		).resolves.toMatchObject({ type: "approved", cleanupPolicy: "free" });
+		expect(fixture.confirmations).toHaveLength(1);
+		expect(fixture.selections).toEqual([]);
+	});
+
+	test("cleanup confirmation keeps trunk wording accurate for the single-branch path", async () => {
+		const fixture = createGatewayContext({ hasUI: true });
+		const gateway = createFlowLandConfirmationGateway(fixture.ctx);
+
+		await expect(
+			gateway.confirm({
+				kind: "single-branch-main-landing",
+				pullRequest: pullRequestFacts({ number: 9, headRefName: "main" }),
+				trunk: "main",
+				cleanupChoice: {
+					...cleanupPreview,
+					branch: "main",
+					localBranchDisposition: "keep-trunk",
+				},
+			}),
+		).resolves.toMatchObject({ type: "approved", cleanupPolicy: "free" });
+		expect(fixture.confirmations[0]).toMatchObject({
+			title: "Land, free slot-02, and keep local trunk branch main?",
+			options: { defaultAnswer: "no" },
+		});
+		expect(fixture.confirmations[0]?.message).toContain("PR: #9 PR 9");
+		expect(fixture.confirmations[0]?.message).toContain("The local trunk branch is kept.");
+		expect(fixture.confirmations[0]?.message).not.toContain("delete local branch main");
 	});
 
 	test.each(requestTable)("$name maps interactive cancellation to declined", async (entry) => {

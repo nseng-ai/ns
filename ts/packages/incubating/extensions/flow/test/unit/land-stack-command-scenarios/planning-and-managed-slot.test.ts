@@ -128,15 +128,29 @@ describe("land-stack command scenarios", () => {
 		expect(finalDeleteIndex).toBeGreaterThan(freeIndex);
 		expect(notifications.at(-1)?.level).toBe("success");
 	});
-	test("managed current slot single-PR decline performs no mutation", async () => {
+	test("managed current slot single-PR No lands and preserves the slot and branch", async () => {
 		const pi = new FakeLandExecutionApi(
-			fromManagedCurrentSlot(repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH })).concat(
+			fromManagedCurrentSlot([
+				...repoIntro({ current: "feature-a", dbRows: DB_SINGLE_BRANCH }),
 				step("gh", ["pr", "view", "feature-a", "--json", PR_FIELDS], {
 					stdout: prStdout(
 						prSnapshot({ number: 101, branch: "feature-a", base: TRUNK, sha: SHA_A }),
 					),
 				}),
-			),
+				step("gh", expectedSquashMergeArgs({ number: 101, sha: SHA_A })),
+				step("gh", ["pr", "view", "101", "--json", PR_FIELDS], {
+					stdout: prStdout(
+						prSnapshot({
+							number: 101,
+							branch: "feature-a",
+							base: TRUNK,
+							sha: SHA_A,
+							state: "MERGED",
+							mergedAt: "2026-05-22T00:00:00Z",
+						}),
+					),
+				}),
+			]),
 		);
 		const confirmations: Confirmation[] = [];
 		const result = await runLandWorkflow({
@@ -158,14 +172,15 @@ describe("land-stack command scenarios", () => {
 		});
 
 		pi.assertDone();
-		expect(result.type).toBe("failed");
-		if (result.type !== "failed") throw new Error("Expected refusal");
-		expect(result.failure).toMatchObject({ outcome: "refusal", refusalReason: "declined" });
+		expect(result.type).toBe("single-branch-landed");
 		expect(confirmations).toHaveLength(1);
+		expect(confirmations[0]?.title).toBe("Land, free slot-03, and delete local branch feature-a?");
+		expect(confirmations[0]?.message).toContain(
+			"If No (default), land and keep slot-03 and local branch feature-a.",
+		);
 		expect(
 			pi.execCalls.some(
 				(call) =>
-					(call.command === "gh" && call.args.includes("merge")) ||
 					(call.command === "ns" && call.args[0] === "slot") ||
 					(call.command === "gt" && call.args[0] === "delete") ||
 					(call.command === "git" && call.args[0] === "update-ref"),
