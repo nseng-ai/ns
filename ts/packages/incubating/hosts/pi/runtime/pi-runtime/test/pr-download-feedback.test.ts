@@ -4,6 +4,7 @@ import { buildFeedbackDispositionGuidance } from "../src/core/pr/feedback-dispos
 import prExtension, {
 	PR_DESC_COMMAND_NAME,
 	PR_DESC_MESSAGE_TYPE,
+	PR_VIEW_COMMAND_NAME,
 	PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 	GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 	type ExtensionAPI,
@@ -184,6 +185,10 @@ async function runDescCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand({ pi, commandName: PR_DESC_COMMAND_NAME, rawArgs });
 }
 
+async function runViewCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
+	return await runRegisteredCommand({ pi, commandName: PR_VIEW_COMMAND_NAME, rawArgs });
+}
+
 async function runCommand(pi: FakePi, rawArgs = ""): Promise<FakeContext> {
 	return await runRegisteredCommand({
 		pi,
@@ -326,6 +331,41 @@ describe("/pr:desc", () => {
 	});
 });
 
+describe("/pr:view", () => {
+	test("opens the current PR in a web browser", async () => {
+		const pi = new FakePi(execResult());
+
+		const ctx = await runViewCommand(pi);
+
+		expect(pi.calls).toEqual([{ command: "gh", args: ["pr", "view", "--web"] }]);
+		expect(ctx.notifications).toEqual([]);
+		expect(ctx.statuses).toEqual([
+			{ key: PR_VIEW_COMMAND_NAME, value: "PR view: opening…" },
+			{ key: PR_VIEW_COMMAND_NAME, value: undefined },
+		]);
+	});
+
+	test("reports GitHub CLI failures", async () => {
+		const pi = new FakePi(execResult({ stderr: "no pull requests found", code: 1 }));
+
+		const ctx = await runViewCommand(pi);
+
+		expect(ctx.notifications.at(-1)).toEqual({
+			message: "Could not open the current PR: no pull requests found",
+			level: "error",
+		});
+	});
+
+	test("rejects arguments without running GitHub CLI", async () => {
+		const pi = new FakePi();
+
+		const ctx = await runViewCommand(pi, "123");
+
+		expect(pi.calls).toEqual([]);
+		expect(ctx.notifications).toEqual([{ message: "Usage: /pr:view", level: "error" }]);
+	});
+});
+
 describe("/pr:download-feedback", () => {
 	test("registers the commands", () => {
 		const pi = new FakePi();
@@ -334,6 +374,7 @@ describe("/pr:download-feedback", () => {
 
 		expect([...pi.commands.keys()]).toEqual([
 			PR_DESC_COMMAND_NAME,
+			PR_VIEW_COMMAND_NAME,
 			PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 			GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		]);
