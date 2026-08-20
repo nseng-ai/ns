@@ -1,7 +1,7 @@
 import { defineExtension } from "@nseng-ai/sdk";
 
 export const flowExtensionDescriptor = defineExtension({
-	description: "Checkpoint, branch, submit, and land Graphite-backed work.",
+	description: "Inspect, checkpoint, publish, and land repository work.",
 	commandDirectory: `${import.meta.dirname}/cli`,
 	points: [
 		{

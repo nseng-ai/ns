@@ -348,7 +348,7 @@ export function buildTrackedBranchImplPrompt(prompt: string, contextNote?: strin
 		"## Completion instructions",
 		"After you finish the implementation:",
 		"1. Create or update the branch commit using the repo's normal workflow.",
-		"2. Then run `!ns flow submit`.",
+		"2. Then run `!ns flow gt submit`.",
 		"",
 		...(contextNote === undefined ? [] : ["## Launch context", contextNote, ""]),
 		prompt,

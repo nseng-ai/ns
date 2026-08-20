@@ -1,18 +1,19 @@
 # @nseng-ai/flow
 
-Graphite-backed branch, submit, and land workflows for the `ns` CLI.
+Provider-explicit branch workflows plus Graphite submit and land workflows for the `ns` CLI.
 
 Flow owns the everyday loop of stacked-PR development: summarize and checkpoint
-outstanding work, turn it into Graphite branches, submit stacks with assembled PR
+outstanding work, turn it into provider-selected branches, submit Graphite stacks with assembled PR
 inventories and repository-defined pre-submit checks, and land finished work into
-trunk. It is an ns extension: its commands appear under `ns flow ...`, and consuming
-repositories customize its behavior through
+trunk. It is an ns extension: provider-neutral commands appear directly under
+`ns flow ...`, while all Graphite-dependent commands live under `ns flow gt ...`
+with no flat aliases. Consuming repositories customize its behavior through
 [extension points](../../../../../docs/guides/points.md), never by forking Flow.
 
 ## Requirements
 
-- A Git repository managed with [Graphite](https://graphite.dev) (`gt`). Flow is
-  Graphite-native by design; it does not abstract the stacking tool.
+- For `ns flow gt ...`, a Git repository managed with [Graphite](https://graphite.dev) (`gt`).
+- For `ns flow gs ...`, the official `github/gh-stack` v0.1.0 extension (`gh extension install github/gh-stack`). `gs` is Flow's CLI abbreviation for that extension.
 - GitHub as the PR backend.
 - The `ns` CLI with the Flow extension enabled.
 - The `gt` and `gh` CLIs available on `PATH`; commands that read or mutate pull
@@ -37,6 +38,8 @@ Each command depends on a distinct slice of the underlying technology stack:
 | `ns flow cp`                      | Create a checkpoint commit for the current diff.                                                             |  ✓  |                 |               |       |  ✓  |
 | `ns flow gt autobranch`           | Create a Graphite branch from dirty worktree changes.                                                        |  ✓  |        ✓        |               |       |  ✓  |
 | `ns flow gt branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                                    |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow gs autobranch`           | Create a branch from dirty changes with official github/gh-stack.                                            |  ✓  |                 |       ✓       |       |  ✓  |
+| `ns flow gs branch-latest-commit` | Move the latest eligible commit to a github/gh-stack child.                                                  |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow gt autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.                       |  ✓  |        ✓        |               |   ✓   |  ✓  |
 | `ns flow gt submit`               | Run configured checks, checkpoint, submit current/downstack Graphite branches, and generate new-PR metadata. |  ✓  |        ✓        |       ✓       |       |  ✓  |
 | `ns flow generate-pr-inventory`   | Assemble and completely replace the current PR title and body.                                               |  ✓  |                 |       ✓       |       |  ✓  |
@@ -47,14 +50,18 @@ Each command depends on a distinct slice of the underlying technology stack:
 
 Every command is also available in the Pi harness. Graphite-dependent workflows use
 `/ns:flow:gt:<command>` (`autobranch`, `branch-latest-commit`, `autoslot`, `submit`, `land`, and
-`squash-stack`); the other commands use `/ns:flow:<command>`. The separate
+`squash-stack`); the official github/gh-stack branch workflows use `/ns:flow:gs:<command>` (`autobranch` and `branch-latest-commit`); the other commands use `/ns:flow:<command>`. The separate
 `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, presentation, parity metadata, and
 direct lifecycle discovery while delegating Flow behavior through `@nseng-ai/flow/api` and the
 CLI. Pi is optional; the CLI commands do not require the Pi host.
 
+### github/gh-stack source preparation
+
+GS commands inspect `gh stack view --json`. A tracked source must be topmost. Plan preparation is inspection-only. After the complete plan exists, the transaction adopts an untracked non-trunk source with `gh stack init <current-branch>` using gh-stack's detected default trunk, then re-inspects it before destructive reset. An untracked Git trunk is refused before stash, branch creation, or provider mutation. Initialization enables Git rerere as part of gh-stack v0.1.0. Because a failed init can retain rerere or stack metadata, Flow reports observed or potential initialization and tells the user to inspect provider state before retrying. Flow never parses or edits `.git/gh-stack`. v0.1.0 JSON branch records can omit `head`, `base`, and PR fields; the adapter validates that wire shape and derives direct relationships only from ordered adjacency.
+
 ### Latest-commit extraction policy
 
-`ns flow gt branch-latest-commit` and clean-worktree `ns flow gt autoslot` share this
+`ns flow {gt,gs} branch-latest-commit` and clean-worktree `ns flow {gt,gs} autoslot` share this
 policy: the worktree must be clean, and `HEAD` must be a latest single-parent
 commit. Relationship checks use only local tracking refs; they never implicitly
 fetch.
@@ -67,7 +74,7 @@ fetch.
 | Remote-ahead or diverged                                                  | Refused  |
 | Exactly synchronized, on Git trunk from cached `refs/remotes/origin/HEAD` | Refused  |
 
-Existing Graphite children, root commits, and merge commits are also refused.
+Existing provider children, root commits, and merge commits are also refused.
 The split mutates local refs only: it never fetches, pushes, submits, or updates
 PRs. On synchronized success, the upstream remains at the original commit until
 the user explicitly runs `ns flow gt submit` from the new child to publish the
@@ -77,10 +84,10 @@ reshaped stack.
 
 - **git** — plain `git` subprocess calls for status, commit, push, fetch, and merge
   mechanics.
-- **Graphite (`gt`)** — the Graphite CLI for stack topology and mutation. Flow is
-  Graphite-native by design.
-- **GitHub (`gh`)** — the GitHub CLI for PR reads and edits, including PR lookup,
-  title and description updates, and merge state.
+- **Graphite (`gt`)** — the Graphite CLI for GT stack topology and mutation.
+- **GitHub (`gh`)** — the GitHub CLI for PR reads and edits, plus the official
+  github/gh-stack extension for GS topology and mutation. Flow shares transaction
+  policy across providers but keeps each provider adapter explicit.
 - **slots** — ns managed worktree slots: `autoslot` checks branches out into a slot;
   `land --free` cleans up the current managed slot after a successful landing. An eligible
   interactive managed-slot landing with no cleanup flag asks whether to free the slot and
@@ -101,7 +108,7 @@ reshaped stack.
   inspection and refresh mutation. A missing or unreadable upstream is a
   non-mutating refusal; Flow never creates or rewrites upstream configuration
   automatically.
-- `autoslot` composes the ns Slots extension to move the new branch into a managed
+- `{gt,gs} autoslot` composes the ns Slots extension to move the provider-created branch into a managed
   slot. Other branch and submit commands do not require using managed slots. When
   `land` runs from or encounters a managed-slot worktree, it can perform targeted
   slot cleanup; by default it keeps the current slot and landed local branch, and

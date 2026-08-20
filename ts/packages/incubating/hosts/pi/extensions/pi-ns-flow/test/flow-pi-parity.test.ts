@@ -43,6 +43,16 @@ describe("Flow Pi extension parity metadata", () => {
 			},
 			{
 				kind: "specialized-command",
+				skillName: "ns-flow-gs-autobranch",
+				surface: "ns:flow:gs:autobranch",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "ns-flow-gs-branch-latest-commit",
+				surface: "ns:flow:gs:branch-latest-commit",
+			},
+			{
+				kind: "specialized-command",
 				skillName: "ns-flow-cp",
 				surface: "ns:flow:cp",
 			},

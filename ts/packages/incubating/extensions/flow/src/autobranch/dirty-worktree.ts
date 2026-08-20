@@ -5,6 +5,7 @@ import { relative, resolve } from "node:path";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { truncateText, type AutobranchExec, type PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
+import { createGraphiteAutobranchProvider, type AutobranchProviderGateway } from "./provider.ts";
 import type { AutobranchFlowResult } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
@@ -270,6 +271,7 @@ export interface AutobranchFlowInput {
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
 	git: AutobranchGitGateway;
+	provider?: AutobranchProviderGateway;
 	prepareCheckpointMessage: (
 		snapshot: Pick<PendingWorktreeSnapshot, "status" | "diff">,
 	) => Promise<{ ok: true; message: string } | { ok: false; error: string }>;
@@ -305,20 +307,28 @@ export async function runDirtyAutobranchFlow(
 	}
 
 	const warnings = prepared.warnings.map(formatAutobranchPreparationWarning);
-	input.onPhase?.("Creating Graphite branch and checkpoint…");
+	const provider =
+		input.provider ?? createGraphiteAutobranchProvider({ exec: input.exec, git: input.git });
+	input.onPhase?.(
+		provider.id === "graphite"
+			? "Creating Graphite branch and checkpoint…"
+			: "Creating github/gh-stack branch and checkpoint…",
+	);
 	const transaction = await runAutobranchTransaction({
 		cwd: input.cwd,
 		branchName: prepared.plan.branchName,
 		checkpointMessage: prepared.plan.checkpointMessage,
 		exec: input.exec,
 		git: input.git,
+		provider,
+		sourceBranch: input.snapshot.branch,
 		commitPreparedCheckpointMessage: input.commitPreparedCheckpointMessage,
 		...(input.now ? { now: input.now } : {}),
 	});
 	if (!transaction.ok) {
 		return {
 			ok: false,
-			outcome: "failure",
+			outcome: transaction.kind === "provider_prepare_refused" ? "refusal" : "failure",
 			error: formatAutobranchTransactionFailure(transaction, prepared.plan.branchName),
 		};
 	}

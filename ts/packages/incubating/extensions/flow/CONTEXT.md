@@ -9,11 +9,11 @@ The ns extension that owns public lifecycle workflows such as changes, copy, aut
 *Avoid*: Herdr dispatch helper, Pi workflow package, Graphite wrapper
 
 **Flow Command Face**:
-The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, progress, and human output for Flow workflows.
+The user- and agent-facing `ns flow ...` command surface and its Pi mirrors, including CLI parsing, completions, renderer registration, prompts, progress, and human output for Flow workflows. Provider-neutral commands remain direct. Graphite commands live under `ns flow gt ...`; the official `github/gh-stack` autobranch and autoslot commands live under `ns flow gs ...`. They mirror to explicit `/ns:flow:{gt,gs}:*` Pi surfaces.
 *Avoid*: land domain core, Herdr extension adapter, standalone land command surface
 
 **Flow Pi Presentation Boundary**:
-The separate `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, interaction, notifications, parity metadata, and direct discovery for the `/ns:flow:*` mirrors. Graphite-dependent mirrors use the `/ns:flow:gt:*` subgroup. It also exports `/gt:squash-stack` presentation for deliberate project-local composition. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the sole cross-owner composition seam for Internal smart restack plus the Flow stack-squash adapter.
+The separate `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, interaction, notifications, parity metadata, and direct discovery for the `/ns:flow:*` mirrors. Provider mirrors use explicit `/ns:flow:gt:*` and `/ns:flow:gs:*` subgroups. It also exports `/gt:squash-stack` presentation for deliberate project-local composition. Repository-specific `/code-workflows`, `/gh-ci-debug`, and `/code:gt-restack-resolve` presentation belongs to `@internal/pi-tools/code-workflows`; `.pi/extensions/code.ts` is the sole cross-owner composition seam for Internal smart restack plus the Flow stack-squash adapter.
 *Avoid*: `@nseng-ai/flow/pi`, provider-obscuring Graphite workflow name, Flow-owned Pi registration, Flow-owned code-workflow skill policy, Internal Pi-tool import from Flow, cross-owner aggregate inside a package
 
 **Flow extension package API**:
@@ -105,5 +105,5 @@ The narrow **Flow extension package API** behavior used by trusted Objectives pu
 *Avoid*: implementation-child external write, generic submit client, Objective Runner policy owned by Flow, force push, whole-body PR replacement
 
 **Flow Autobranch Boundary**:
-The Flow ownership boundary for public `ns flow gt autobranch` behavior.
-*Avoid*: Herdr extension public command owner, plain branch helper, Graphite primitive
+The Flow ownership boundary for provider-explicit `ns flow {gt,gs} autobranch`, `branch-latest-commit`, and autoslot checkpoint behavior. Its private semantic provider seam supports `graphite` and official `gh-stack`; CLI abbreviations are `gt` and `gs`. GS auto-initializes untracked non-trunk sources, refuses untracked Git trunk before mutation or Slot checkout, and preserves ambiguous adoption state. Autoslot adds one provider-neutral Slot checkout workflow after successful provider-bound checkpoint completion.
+*Avoid*: Herdr extension public command owner, plain branch helper, raw provider output in workflow policy, `.git/gh-stack` parser

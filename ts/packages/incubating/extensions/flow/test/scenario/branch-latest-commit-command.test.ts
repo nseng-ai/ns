@@ -5,6 +5,8 @@ import {
 	branchLatestCommitSynchronizedBackupCleanupWarningExec,
 	branchLatestCommitBackupCreateFailExec,
 	branchLatestCommitChildBranchRefusalExec,
+	branchLatestCommitGhStackExec,
+	branchLatestCommitGhStackSynchronizedExec,
 	branchLatestCommitGtCreateFailExec,
 	branchLatestCommitSuffixedExec,
 	branchLatestCommitSynchronizedExec,
@@ -13,6 +15,45 @@ import {
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 describe("flow branch-latest-commit command outcomes", () => {
+	test("gs branch-latest-commit runs the real provider-bound transaction", async () => {
+		const run = runFlowBranchLatestCommitCommandWithFakes(
+			{ state: { exec: branchLatestCommitGhStackExec() } },
+			"gh-stack",
+		);
+
+		expect(
+			await run.exit,
+			`${stripAnsi(run.stderr.join(""))}\n${formattedExecCalls(run.context).join("\n")}`,
+		).toBe(0);
+		expect(stripAnsi(run.stdout.join(""))).toContain(
+			"Moved the latest commit to a new github/gh-stack branch.",
+		);
+		const calls = formattedExecCalls(run.context);
+		expect(calls).toContain("gh stack add demo-branch");
+		expect(calls.indexOf("git branch demo-branch abc123")).toBeLessThan(
+			calls.indexOf("git reset --hard parent456"),
+		);
+		expect(calls).not.toContain("gt create demo-branch --no-interactive --no-ai");
+	});
+
+	test("gs synchronized success gives provider-correct explicit publication guidance", async () => {
+		const run = runFlowBranchLatestCommitCommandWithFakes(
+			{ state: { exec: branchLatestCommitGhStackSynchronizedExec() } },
+			"gh-stack",
+		);
+
+		expect(await run.exit).toBe(0);
+		const stderr = stripAnsi(run.stderr.join(""));
+		expect(stderr).toContain(
+			"Warning: upstream origin/feature is still unchanged at abc123 after the local source reset.",
+		);
+		expect(stderr).toContain(
+			"Explicitly publish or reconcile the reshaped stack with github/gh-stack",
+		);
+		expect(stderr).toContain("`gh stack submit` from demo-branch");
+		expect(stderr).not.toContain("gt submit");
+	});
+
 	test("clean worktree success exits 0 on stdout with a house-style result block", async () => {
 		const run = runFlowBranchLatestCommitCommandWithFakes();
 
@@ -55,7 +96,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(stdout).toContain("New branch: demo-branch");
 		expect(stdout).not.toContain("upstream origin/feature");
 		expect(run.stderr.join("")).toContain(
-			"Warning: upstream origin/feature is still unchanged at abc123 after the local source reset. Run `ns flow submit` from demo-branch to publish the reshaped stack.",
+			"Warning: upstream origin/feature is still unchanged at abc123 after the local source reset. Run `ns flow gt submit` from demo-branch to publish the reshaped stack.",
 		);
 
 		const calls = formattedExecCalls(run.context);
@@ -78,7 +119,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 					call.startsWith("git fetch") ||
 					call.startsWith("git push") ||
 					call.startsWith("gt submit") ||
-					call.startsWith("ns flow submit"),
+					call.startsWith("ns flow gt submit"),
 			),
 		).toBe(false);
 	});
@@ -95,8 +136,8 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("`ns flow branch-latest-commit` requires a clean worktree");
-		expect(stderr).toContain("Use `ns flow autobranch`");
+		expect(stderr).toContain("`ns flow gt branch-latest-commit` requires a clean worktree");
+		expect(stderr).toContain("Use `ns flow gt autobranch`");
 		// The dirty porcelain status is the actionable detail, surfaced under the stdout label.
 		expect(stderr).toContain("M src/app.ts");
 		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
@@ -121,7 +162,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(headline).not.toContain(ERROR_TRUECOLOR);
 		expect(stderr).toContain("Did not move the latest commit to a new Graphite branch.");
 		expect(stderr).toContain(
-			"Refusing to move latest commit because the source branch has Graphite child branches.",
+			"Refusing to move latest commit because the source branch has provider child branches.",
 		);
 		expect(stderr).toContain("- child-a");
 		// The flow declined before mutating refs.
@@ -200,7 +241,7 @@ describe("flow branch-latest-commit command outcomes", () => {
 		expect(run.stdout.join("")).toContain("New branch: demo-branch");
 		expect(run.stdout.join("")).not.toContain("recovery branch");
 		expect(run.stderr.join("")).toContain("Warning: upstream origin/feature is still unchanged");
-		expect(run.stderr.join("")).toContain("Run `ns flow submit` from demo-branch");
+		expect(run.stderr.join("")).toContain("Run `ns flow gt submit` from demo-branch");
 		expect(run.stderr.join("")).toContain("Warning: recovery branch autobranch-backup/feature/");
 		expect(run.stderr.join("")).toContain("could not be deleted");
 	});

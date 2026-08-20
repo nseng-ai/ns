@@ -41,10 +41,10 @@ export async function inspectUpstreamHeadState(
 ): Promise<UpstreamHeadState> {
 	const branch = await input.git.currentBranch();
 	if (!branch.ok) return { type: "failed", error: branch.details };
-	const branchName = branch.value;
-	if (!branchName) {
-		return { type: "failed", error: "git branch --show-current returned no branch name." };
+	if (branch.value.type === "detached") {
+		return { type: "failed", error: "Git HEAD is detached; no current branch is available." };
 	}
+	const branchName = branch.value.name;
 
 	const upstream = await input.git.upstreamOf(branchName);
 	if (!upstream.ok) return { type: "failed", error: upstream.details };

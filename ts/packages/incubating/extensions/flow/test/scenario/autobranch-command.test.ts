@@ -3,11 +3,34 @@ import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
 import {
 	autobranchGtCreateFailExec,
+	autoslotGhStackDirtyExec,
 	runFlowAutobranchCommandWithFakes,
 } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
 describe("flow autobranch command outcomes", () => {
+	test("gs autobranch runs the real provider-bound dirty checkpoint flow", async () => {
+		const run = runFlowAutobranchCommandWithFakes(
+			{
+				state: {
+					exec: autoslotGhStackDirtyExec({ tracked: true }),
+					textGeneration: [
+						{ ok: true, text: "[cp] Move pending work\n\n- Preserve current changes" },
+					],
+				},
+			},
+			"gh-stack",
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(stripAnsi(run.stdout.join(""))).toContain(
+			"Created a github/gh-stack branch from dirty worktree changes.",
+		);
+		const calls = formattedExecCalls(run.context);
+		expect(calls).toContain("gh stack add move-work");
+		expect(calls).not.toContain("gt create move-work --no-interactive --no-ai");
+	});
+
 	test("dirty worktree success exits 0 on stdout with a house-style result block", async () => {
 		const run = runFlowAutobranchCommandWithFakes();
 
@@ -32,9 +55,16 @@ describe("flow autobranch command outcomes", () => {
 			"git check-ref-format --branch move-work",
 			"git rev-parse --verify refs/heads/move-work",
 			"git for-each-ref --format=%(refname) refs/heads/move-work/",
+			"git show-ref --verify --quiet refs/heads/feature/source",
+			"git rev-parse --verify refs/heads/feature/source",
 			expect.stringMatching(/^git stash push --include-untracked -m pi-autobranch:\d+:move-work$/),
 			"git stash list --format=%gd%x00%s",
+			"git rev-parse HEAD",
+			"git show-ref --verify --quiet refs/heads/move-work",
 			"gt create move-work --no-interactive --no-ai",
+			"git branch --show-current",
+			"git show-ref --verify --quiet refs/heads/move-work",
+			"git rev-parse --verify refs/heads/move-work",
 			"git stash pop stash@{0}",
 			"git add -A",
 			expect.stringMatching(/^git commit -F /),
@@ -65,9 +95,9 @@ describe("flow autobranch command outcomes", () => {
 		expect(await run.exit).toBe(1);
 		expect(run.stdout.join("")).toBe("");
 		const stderr = stripAnsi(run.stderr.join(""));
-		expect(stderr).toContain("`ns flow autobranch` requires pending worktree changes");
+		expect(stderr).toContain("`ns flow gt autobranch` requires pending worktree changes");
 		expect(stderr).toContain("Working tree is clean.");
-		expect(stderr).toContain("Use `ns flow branch-latest-commit`");
+		expect(stderr).toContain("Use `ns flow gt branch-latest-commit`");
 		expect(stderr).toContain(`Cwd: ${run.context.cwd}`);
 		// The dirty autobranch transaction never started.
 		const calls = formattedExecCalls(run.context);

@@ -465,12 +465,12 @@ describe("declared substeps", () => {
 		const { deps, redraws } = harness();
 		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
-		stream.begin("ns flow submit");
+		stream.begin("ns flow gt submit");
 		const frame = redraws[redraws.length - 1] ?? "";
 		await stream.finish();
 
 		expectContainsInOrder(frame, [
-			"ns flow submit",
+			"ns flow gt submit",
 			"• Checkpoint    pending",
 			"    • Inspect       pending",
 			"    • Generate      pending",
@@ -484,7 +484,7 @@ describe("declared substeps", () => {
 		const { deps, redraws } = harness();
 		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
-		stream.begin("ns flow submit");
+		stream.begin("ns flow gt submit");
 		stream.emit({ type: "phase-started", phaseKey: "inspect" });
 		stream.emit({ type: "phase-done", phaseKey: "inspect" });
 		stream.emit({ type: "phase-started", phaseKey: "generate" });
@@ -504,7 +504,7 @@ describe("declared substeps", () => {
 		const { deps, writes } = harness();
 		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
-		stream.begin("ns flow submit");
+		stream.begin("ns flow gt submit");
 		stream.emit({ type: "phase-started", phaseKey: "inspect" });
 		stream.emit({ type: "phase-started", phaseKey: "preflight" });
 		await stream.finish();
@@ -524,7 +524,7 @@ describe("declared substeps", () => {
 		const { deps, redraws } = harness();
 		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
-		stream.begin("ns flow submit");
+		stream.begin("ns flow gt submit");
 		stream.emit({ type: "phase-started", phaseKey: "generate" });
 		stream.emit({ type: "phase-failed", phaseKey: "generate", detail: "generation failed" });
 		stream.fail();
@@ -544,7 +544,7 @@ describe("declared substeps", () => {
 		const { deps, redraws } = harness();
 		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
-		stream.begin("ns flow submit");
+		stream.begin("ns flow gt submit");
 		stream.emit({ type: "phase-started", phaseKey: "generate" });
 		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "drafting" });
 		stream.emit({ type: "phase-progress", phaseKey: "generate", label: "repairing" });
@@ -565,7 +565,7 @@ describe("declared substeps", () => {
 		const { deps, writes, outputs } = harness();
 		const stream = createPhaseStream({ caps: c, specs: SUBSTEP_SPECS, deps: deps });
 
-		stream.begin("ns flow submit");
+		stream.begin("ns flow gt submit");
 		stream.emit({ type: "phase-started", phaseKey: "inspect" });
 		stream.emit({ type: "phase-done", phaseKey: "inspect" });
 		stream.emit({ type: "phase-started", phaseKey: "generate" });

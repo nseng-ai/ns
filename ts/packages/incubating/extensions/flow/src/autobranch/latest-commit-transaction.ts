@@ -1,13 +1,12 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
 import type { AutobranchExec } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
+import { createGraphiteAutobranchProvider, type AutobranchProviderGateway } from "./provider.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
 import {
 	defineFailureCatalog,
 	formatFailureCatalogEntry,
 } from "../phase-stream/failure-catalog.ts";
 import { branchNameCandidates, findAvailableBranchName } from "./branch-name.ts";
-import { formatAutobranchCommandDetails } from "./shared.ts";
 import {
 	inspectLatestCommitUpstreamEligibility,
 	type GitTrunkResolutionFailure,
@@ -15,7 +14,6 @@ import {
 import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
 import type { LatestCommitAutobranchPlan } from "./latest-commit-preparation.ts";
 
-const GT_TIMEOUT_MS = 120_000;
 const MAX_BACKUP_SEGMENT_CHARS = 32;
 
 export type CreatedBranchRecovery =
@@ -38,6 +36,32 @@ export interface SynchronizedUpstreamContext {
 	originalHeadSha: string;
 }
 
+export type LatestCommitRecoveryRefState =
+	| { type: "found"; sha: string }
+	| { type: "absent" }
+	| { type: "error"; details: string };
+
+export type LatestCommitRecoveryCheckoutState =
+	| { type: "branch"; name: string }
+	| { type: "detached" }
+	| { type: "error"; details: string };
+
+export interface LatestCommitRecoveryFacts {
+	current: LatestCommitRecoveryCheckoutState;
+	sourceBranch: string;
+	expectedSourceSha: string;
+	sourceRef: LatestCommitRecoveryRefState;
+	childBranch: string;
+	expectedChildSha: string;
+	childRef: LatestCommitRecoveryRefState;
+	backupBranch: string;
+	expectedBackupSha: string;
+	backupRef: LatestCommitRecoveryRefState;
+	provider: "gh-stack";
+	initialized: boolean;
+	adoptionMutation: "not-attempted" | "absent" | "ambiguous" | "verified";
+}
+
 type LatestCommitTransactionSuccess = {
 	ok: true;
 	commitSummary: string;
@@ -53,14 +77,47 @@ type LatestCommitTransactionSuccess = {
 
 export type LatestCommitTransactionResult =
 	| LatestCommitTransactionSuccess
-	| { ok: false; kind: "backup_branch_name_unavailable"; sourceBranch: string }
-	| { ok: false; kind: "backup_create_failed"; error: string }
+	| {
+			ok: false;
+			kind: "backup_branch_name_unavailable";
+			sourceBranch: string;
+			initialized?: true;
+	  }
+	| {
+			ok: false;
+			kind: "backup_create_failed";
+			error: string;
+			backupBranch?: string;
+			expectedBackupSha?: string;
+			initialized?: true;
+	  }
+	| {
+			ok: false;
+			kind: "child_precreate_failed";
+			branchName: string;
+			backupBranch: string;
+			error: string;
+			initialized?: true;
+			recovery: LatestCommitRecoveryFacts;
+	  }
 	| ({
 			ok: false;
 			kind: "source_reset_failed";
 			backupBranch: string;
 			error: string;
+			initialized?: true;
+			recovery?: LatestCommitRecoveryFacts;
 	  } & SourceResetFailureRecovery)
+	| {
+			ok: false;
+			kind: "provider_adoption_failed";
+			backupBranch: string;
+			branchName: string;
+			error: string;
+			initialized: boolean;
+			mutation: "absent" | "ambiguous";
+			recovery?: LatestCommitRecoveryFacts;
+	  }
 	| ({
 			ok: false;
 			kind: "graphite_create_failed";
@@ -103,6 +160,7 @@ export interface LatestCommitTransactionInput {
 	plan: LatestCommitAutobranchPlan;
 	exec: AutobranchExec;
 	git: AutobranchGitGateway;
+	provider?: AutobranchProviderGateway;
 	now?: () => number;
 }
 
@@ -110,6 +168,18 @@ type LatestCommitTransactionFailure = Extract<LatestCommitTransactionResult, { o
 
 export async function runLatestCommitAutobranchTransaction(
 	input: LatestCommitTransactionInput,
+): Promise<LatestCommitTransactionResult> {
+	const provider =
+		input.provider ?? createGraphiteAutobranchProvider({ exec: input.exec, git: input.git });
+	const providerInput = { ...input, provider };
+	if (provider.id === "gh-stack") {
+		return runGhStackLatestCommitTransaction(providerInput);
+	}
+	return runGraphiteLatestCommitTransaction(providerInput);
+}
+
+async function runGraphiteLatestCommitTransaction(
+	input: LatestCommitTransactionInput & { provider: AutobranchProviderGateway },
 ): Promise<LatestCommitTransactionResult> {
 	const upstream = await inspectLatestCommitUpstreamEligibility(input);
 	let synchronizedUpstream: SynchronizedUpstreamContext | undefined;
@@ -184,19 +254,21 @@ export async function runLatestCommitAutobranchTransaction(
 		};
 	}
 
-	const created = await input.exec(
-		"gt",
-		["create", input.plan.branchName, "--no-interactive", "--no-ai"],
-		GT_TIMEOUT_MS,
-	);
-	if (!commandSucceeded(created)) {
+	const created = await input.provider.addChild({
+		sourceBranch: input.plan.sourceBranch,
+		childBranch: input.plan.branchName,
+		expectedSourceSha: input.plan.parentSha,
+		expectedChildSha: input.plan.parentSha,
+		initialized: false,
+	});
+	if (created.type !== "verified") {
 		const recovery = await restoreSourceAndDeleteCreatedBranch(input);
 		return {
 			ok: false,
 			kind: "graphite_create_failed",
 			backupBranch: backupBranch.name,
 			branchName: input.plan.branchName,
-			createError: formatAutobranchCommandDetails(created),
+			createError: created.error,
 			...recovery,
 		};
 	}
@@ -242,6 +314,250 @@ export async function runLatestCommitAutobranchTransaction(
 	};
 }
 
+async function runGhStackLatestCommitTransaction(
+	input: LatestCommitTransactionInput & { provider: AutobranchProviderGateway },
+): Promise<LatestCommitTransactionResult> {
+	// Re-check volatile eligibility immediately before the provider's first mutation.
+	const upstreamInspection = await inspectTransactionUpstream(input);
+	if (upstreamInspection.type === "failed") return upstreamInspection.result;
+	const synchronizedUpstream = upstreamInspection.synchronizedUpstream;
+	const prepared = await input.provider.prepareSource(input.plan.sourceBranch);
+	if (prepared.type === "refused-trunk") {
+		return {
+			ok: false,
+			kind: "synchronized_trunk_refusal",
+			branch: prepared.branch,
+			upstream: prepared.trunk,
+			trunk: prepared.trunk,
+		};
+	}
+	if (prepared.type === "refused-non-top") {
+		return {
+			ok: false,
+			kind: "provider_adoption_failed",
+			backupBranch: "(not-created)",
+			branchName: input.plan.branchName,
+			error: `Source ${prepared.branch} is not top of stack; top is ${prepared.top}.`,
+			initialized: false,
+			mutation: "absent",
+		};
+	}
+	if (prepared.type === "failed") {
+		return {
+			ok: false,
+			kind: "provider_adoption_failed",
+			backupBranch: "(not-created)",
+			branchName: input.plan.branchName,
+			error: prepared.error,
+			initialized: prepared.initialized,
+			mutation: prepared.initialized ? "ambiguous" : "absent",
+		};
+	}
+
+	const backupBranch = await chooseAvailableBackupBranchName(
+		input,
+		input.plan.sourceBranch,
+		input.now?.() ?? Date.now(),
+	);
+	if (!backupBranch.ok) {
+		return {
+			ok: false,
+			kind: "backup_branch_name_unavailable",
+			sourceBranch: input.plan.sourceBranch,
+			...(prepared.initialized ? { initialized: true as const } : {}),
+		};
+	}
+	const backupCreated = await input.git.createBranchAt(
+		backupBranch.name,
+		input.plan.originalHeadSha,
+	);
+	if (!backupCreated.ok) {
+		return {
+			ok: false,
+			kind: "backup_create_failed",
+			error: backupCreated.details,
+			backupBranch: backupBranch.name,
+			expectedBackupSha: input.plan.originalHeadSha,
+			...(prepared.initialized ? { initialized: true as const } : {}),
+		};
+	}
+	const childCreated = await input.git.createBranchAt(
+		input.plan.branchName,
+		input.plan.originalHeadSha,
+	);
+	if (!childCreated.ok) {
+		return {
+			ok: false,
+			kind: "child_precreate_failed",
+			branchName: input.plan.branchName,
+			backupBranch: backupBranch.name,
+			error: childCreated.details,
+			...(prepared.initialized ? { initialized: true as const } : {}),
+			recovery: await inspectLatestCommitRecoveryFacts(input, backupBranch.name, {
+				initialized: prepared.initialized,
+				adoptionMutation: "not-attempted",
+			}),
+		};
+	}
+
+	const resetSource = await resetSourceBranchToParent(input);
+	if (!resetSource.ok) {
+		return {
+			ok: false,
+			kind: "source_reset_failed",
+			backupBranch: backupBranch.name,
+			error: resetSource.error,
+			backupCleanup: "recovery_required",
+			recoveryCommand: `git checkout ${input.plan.sourceBranch} && git reset --hard ${backupBranch.name}`,
+			...(prepared.initialized ? { initialized: true as const } : {}),
+			recovery: await inspectLatestCommitRecoveryFacts(input, backupBranch.name, {
+				initialized: prepared.initialized,
+				adoptionMutation: "not-attempted",
+			}),
+		};
+	}
+	const adopted = await input.provider.addChild({
+		sourceBranch: input.plan.sourceBranch,
+		childBranch: input.plan.branchName,
+		expectedSourceSha: input.plan.parentSha,
+		expectedChildSha: input.plan.originalHeadSha,
+		initialized: prepared.initialized,
+	});
+	if (adopted.type !== "verified") {
+		return {
+			ok: false,
+			kind: "provider_adoption_failed",
+			backupBranch: backupBranch.name,
+			branchName: input.plan.branchName,
+			error: adopted.error,
+			initialized: adopted.initialized,
+			mutation: adopted.type,
+			recovery: await inspectLatestCommitRecoveryFacts(input, backupBranch.name, {
+				initialized: adopted.initialized,
+				adoptionMutation: adopted.type,
+			}),
+		};
+	}
+	const sourceSha = await input.git.branchSha(input.plan.sourceBranch);
+	const current = await input.git.currentBranch();
+	const childSha = await input.git.branchSha(input.plan.branchName);
+	if (
+		sourceSha.type !== "found" ||
+		sourceSha.sha !== input.plan.parentSha ||
+		!current.ok ||
+		current.value.type !== "branch" ||
+		current.value.name !== input.plan.branchName ||
+		childSha.type !== "found" ||
+		childSha.sha !== input.plan.originalHeadSha
+	) {
+		return {
+			ok: false,
+			kind: "provider_adoption_failed",
+			backupBranch: backupBranch.name,
+			branchName: input.plan.branchName,
+			error: "Git postcondition verification failed after github/gh-stack adoption.",
+			initialized: adopted.initialized,
+			mutation: "ambiguous",
+			recovery: await inspectLatestCommitRecoveryFacts(input, backupBranch.name, {
+				initialized: adopted.initialized,
+				adoptionMutation: "verified",
+			}),
+		};
+	}
+	const successContext = synchronizedUpstream === undefined ? {} : { synchronizedUpstream };
+	const deleted = await input.git.deleteBranch(backupBranch.name);
+	return deleted.ok
+		? {
+				ok: true,
+				commitSummary: input.plan.commitSummary,
+				backupDeleted: true,
+				...successContext,
+			}
+		: {
+				ok: true,
+				commitSummary: input.plan.commitSummary,
+				backupDeleted: false,
+				backupBranch: backupBranch.name,
+				backupDeleteError: deleted.details,
+				...successContext,
+			};
+}
+
+async function inspectTransactionUpstream(
+	input: LatestCommitTransactionInput,
+): Promise<
+	| { type: "eligible"; synchronizedUpstream?: SynchronizedUpstreamContext }
+	| { type: "failed"; result: LatestCommitTransactionResult }
+> {
+	const upstream = await inspectLatestCommitUpstreamEligibility(input);
+	switch (upstream.type) {
+		case "eligible":
+			return { type: "eligible" };
+		case "synchronized":
+			return {
+				type: "eligible",
+				synchronizedUpstream: {
+					name: upstream.upstream,
+					originalHeadSha: input.plan.originalHeadSha,
+				},
+			};
+		case "upstream_check_failed":
+			return {
+				type: "failed",
+				result: { ok: false, kind: "transaction_upstream_check_failed", error: upstream.error },
+			};
+		case "git_trunk_unavailable":
+			return {
+				type: "failed",
+				result: { ok: false, kind: "transaction_git_trunk_unavailable", failure: upstream.failure },
+			};
+		case "remote_ahead_refusal":
+		case "diverged_upstream_refusal":
+			return {
+				type: "failed",
+				result: { ok: false, kind: upstream.type, upstream: upstream.upstream },
+			};
+		case "synchronized_trunk_refusal":
+			return {
+				type: "failed",
+				result: {
+					ok: false,
+					kind: upstream.type,
+					branch: upstream.branch,
+					upstream: upstream.upstream,
+					trunk: upstream.trunk,
+				},
+			};
+	}
+}
+
+async function inspectLatestCommitRecoveryFacts(
+	input: LatestCommitTransactionInput,
+	backupBranch: string,
+	providerState: Pick<LatestCommitRecoveryFacts, "initialized" | "adoptionMutation">,
+): Promise<LatestCommitRecoveryFacts> {
+	const [current, sourceRef, childRef, backupRef] = await Promise.all([
+		input.git.currentBranch(),
+		input.git.branchSha(input.plan.sourceBranch),
+		input.git.branchSha(input.plan.branchName),
+		input.git.branchSha(backupBranch),
+	]);
+	return {
+		current: current.ok ? current.value : { type: "error", details: current.details },
+		sourceBranch: input.plan.sourceBranch,
+		expectedSourceSha: input.plan.parentSha,
+		sourceRef,
+		childBranch: input.plan.branchName,
+		expectedChildSha: input.plan.originalHeadSha,
+		childRef,
+		backupBranch,
+		expectedBackupSha: input.plan.originalHeadSha,
+		backupRef,
+		provider: "gh-stack",
+		...providerState,
+	};
+}
+
 async function resetSourceBranchToParent(
 	input: LatestCommitTransactionInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -249,10 +565,13 @@ async function resetSourceBranchToParent(
 	if (!currentBranch.ok) {
 		return { ok: false, error: currentBranch.details };
 	}
-	if (currentBranch.value !== input.plan.sourceBranch) {
+	if (
+		currentBranch.value.type !== "branch" ||
+		currentBranch.value.name !== input.plan.sourceBranch
+	) {
 		return {
 			ok: false,
-			error: `Expected to be on ${input.plan.sourceBranch}, but current branch is ${currentBranch.value.length > 0 ? currentBranch.value : "(detached)"}.`,
+			error: `Expected to be on ${input.plan.sourceBranch}, but current checkout is ${currentBranch.value.type === "branch" ? currentBranch.value.name : "detached"}.`,
 		};
 	}
 
@@ -284,8 +603,9 @@ async function recoverFromSourceResetFailure(
 	]);
 	const isSourceUnchanged =
 		currentBranch.ok &&
+		currentBranch.value.type === "branch" &&
 		currentHead.ok &&
-		currentBranch.value === input.plan.sourceBranch &&
+		currentBranch.value.name === input.plan.sourceBranch &&
 		currentHead.value === input.plan.originalHeadSha;
 	if (isSourceUnchanged) {
 		const deleted = await input.git.deleteBranch(backupBranch);
@@ -402,22 +722,65 @@ const latestCommitTransactionFailureCatalog = defineFailureCatalog<
 	backup_branch_name_unavailable: {
 		verdict: "failure",
 		message: (failure) =>
-			`Could not find an available recovery branch name for ${failure.sourceBranch}; refusing to move latest commit.`,
+			[
+				`Could not find an available recovery branch name for ${failure.sourceBranch}; refusing to move latest commit.`,
+				formatRetainedInitialization(failure),
+			]
+				.filter(Boolean)
+				.join("\n"),
 	},
 	backup_create_failed: {
 		verdict: "failure",
 		message: (failure) =>
-			["Failed to create recovery branch before moving latest commit.", failure.error].join("\n"),
+			[
+				"Failed to create recovery branch before moving latest commit.",
+				failure.backupBranch === undefined || failure.expectedBackupSha === undefined
+					? ""
+					: `Recovery branch creation attempted: ${failure.backupBranch}@${failure.expectedBackupSha}.`,
+				failure.error,
+				formatRetainedInitialization(failure),
+			]
+				.filter(Boolean)
+				.join("\n"),
+	},
+	child_precreate_failed: {
+		verdict: "failure",
+		message: (failure) =>
+			[
+				`Created recovery branch ${failure.backupBranch}, but failed to pre-create github/gh-stack child ${failure.branchName} at the original commit.`,
+				failure.error,
+				"Provider adoption was not attempted; inspect the exact observed refs below before recovery.",
+				formatLatestCommitRecovery(failure.recovery),
+				formatRetainedInitialization(failure),
+			].join("\n"),
 	},
 	source_reset_failed: {
 		verdict: "failure",
 		message: (failure) =>
 			[
-				"Failed to reset source branch before Graphite branch creation.",
+				"Failed to reset source branch before provider child creation.",
 				`Recovery branch: ${failure.backupBranch}`,
 				failure.error,
 				formatSourceResetCleanup(failure),
+				failure.recovery === undefined ? "" : formatLatestCommitRecovery(failure.recovery),
+				formatRetainedInitialization(failure),
 			].join("\n"),
+	},
+	provider_adoption_failed: {
+		verdict: "failure",
+		message: (failure) =>
+			[
+				`Could not adopt github/gh-stack child ${failure.branchName}.`,
+				failure.error,
+				`Recovery branch: ${failure.backupBranch}`,
+				failure.initialized ? "github/gh-stack initialization was retained." : "",
+				failure.mutation === "ambiguous"
+					? "Provider adoption may exist; do not delete only the Git child."
+					: "No provider adoption was observed.",
+				failure.recovery === undefined ? "" : formatLatestCommitRecovery(failure.recovery),
+			]
+				.filter(Boolean)
+				.join("\n"),
 	},
 	graphite_create_failed: {
 		verdict: "failure",
@@ -501,6 +864,36 @@ export function formatLatestCommitTransactionFailure(
 	result: LatestCommitTransactionFailure,
 ): string {
 	return formatFailureCatalogEntry(latestCommitTransactionFailureCatalog, result, undefined);
+}
+
+function formatRecoveryCheckout(current: LatestCommitRecoveryCheckoutState): string {
+	switch (current.type) {
+		case "branch":
+			return current.name;
+		case "detached":
+			return "detached";
+		case "error":
+			return `error (${current.details})`;
+	}
+}
+
+function formatRecoveryRef(ref: LatestCommitRecoveryRefState): string {
+	switch (ref.type) {
+		case "found":
+			return ref.sha;
+		case "absent":
+			return "absent";
+		case "error":
+			return `error (${ref.details})`;
+	}
+}
+
+function formatLatestCommitRecovery(facts: LatestCommitRecoveryFacts): string {
+	return `Latest-commit recovery facts: current=${formatRecoveryCheckout(facts.current)}; source=${facts.sourceBranch}@${facts.expectedSourceSha} (observed ${formatRecoveryRef(facts.sourceRef)}); child=${facts.childBranch}@${facts.expectedChildSha} (observed ${formatRecoveryRef(facts.childRef)}); backup=${facts.backupBranch}@${facts.expectedBackupSha} (observed ${formatRecoveryRef(facts.backupRef)}); provider=${facts.provider}; initialized=${facts.initialized}; adoption=${facts.adoptionMutation}.`;
+}
+
+function formatRetainedInitialization(result: { initialized?: true }): string {
+	return result.initialized === true ? "github/gh-stack initialization was retained." : "";
 }
 
 function formatSourceResetCleanup(result: SourceResetFailureRecovery): string {

@@ -1,7 +1,7 @@
-import { commandSucceeded } from "@nseng-ai/foundation/command";
 import { shortSha } from "../commit-display/index.ts";
 import type { AutobranchExec, PendingWorktreeSnapshot } from "./shared.ts";
 import type { AutobranchGitGateway } from "./git-gateway.ts";
+import { createGraphiteAutobranchProvider, type AutobranchProviderGateway } from "./provider.ts";
 import type { AutobranchFlowOutcome } from "./flow-result.ts";
 import { chooseAvailableBranchName } from "./branch-name.ts";
 import {
@@ -10,15 +10,12 @@ import {
 	MAX_DIFF_CHARS,
 	prepareRequestedBranchSlug,
 } from "./slug.ts";
-import { formatAutobranchCommandDetails } from "./shared.ts";
 import {
 	inspectLatestCommitUpstreamEligibility,
 	type GitTrunkResolutionFailure,
 } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
-
-const GT_TIMEOUT_MS = 120_000;
 
 export interface LatestCommitPreparationInput {
 	cwd: string;
@@ -27,6 +24,7 @@ export interface LatestCommitPreparationInput {
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
 	git: AutobranchGitGateway;
+	provider?: AutobranchProviderGateway;
 }
 
 interface LatestCommitFacts {
@@ -58,7 +56,12 @@ export type LatestCommitPreparationResult =
 			upstream: string;
 			trunk: string;
 	  }
-	| { ok: false; kind: "child_branch_check_failed"; error: string }
+	| {
+			ok: false;
+			kind: "child_branch_check_failed";
+			error: string;
+			initialized: boolean;
+	  }
 	| { ok: false; kind: "child_branch_refusal"; children: string[] }
 	| { ok: false; kind: "commit_parent_lookup_failed"; error: string }
 	| { ok: false; kind: "root_commit_refusal"; headSha: string }
@@ -135,7 +138,7 @@ export async function prepareLatestCommitAutobranchPlan(
 }
 
 export async function loadLatestCommitFacts(
-	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "git" | "snapshot">,
+	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "git" | "snapshot" | "provider">,
 ): Promise<LatestCommitFactsResult> {
 	const upstream = await inspectLatestCommitUpstreamEligibility(input);
 	switch (upstream.type) {
@@ -160,12 +163,48 @@ export async function loadLatestCommitFacts(
 			break;
 	}
 
-	const children = await inspectGraphiteChildBranches(input);
-	if (!children.ok) {
-		return { ok: false, kind: "child_branch_check_failed", error: children.error };
+	const provider =
+		input.provider ?? createGraphiteAutobranchProvider({ exec: input.exec, git: input.git });
+	const preparedProvider = await provider.preflightSource(input.snapshot.branch);
+	if (preparedProvider.type === "refused-trunk") {
+		return {
+			ok: false,
+			kind: "child_branch_refusal",
+			children: [`Refusing to initialize github/gh-stack on Git trunk ${preparedProvider.trunk}.`],
+		};
 	}
-	if (children.children.length > 0) {
-		return { ok: false, kind: "child_branch_refusal", children: children.children };
+	if (preparedProvider.type === "refused-non-top") {
+		return {
+			ok: false,
+			kind: "child_branch_refusal",
+			children: [
+				`Top branch is ${preparedProvider.top}; current source is ${preparedProvider.branch}.`,
+			],
+		};
+	}
+	if (preparedProvider.type === "failed") {
+		return {
+			ok: false,
+			kind: "child_branch_check_failed",
+			error: preparedProvider.error,
+			initialized: preparedProvider.initialized,
+		};
+	}
+	const preflightTopology = await provider.inspectSource(input.snapshot.branch);
+	if (preflightTopology.type === "failed") {
+		return {
+			ok: false,
+			kind: "child_branch_check_failed",
+			error: preflightTopology.error,
+			initialized: false,
+		};
+	}
+	if (preflightTopology.type === "tracked" && preflightTopology.topology.children.length > 0) {
+		return {
+			ok: false,
+			kind: "child_branch_refusal",
+			children: [...preflightTopology.topology.children],
+		};
 	}
 
 	const parents = await input.git.headParents();
@@ -216,23 +255,6 @@ export async function loadLatestCommitFacts(
 			commitSummary,
 		},
 	};
-}
-
-async function inspectGraphiteChildBranches(
-	input: Pick<LatestCommitPreparationInput, "cwd" | "exec">,
-): Promise<{ ok: true; children: string[] } | { ok: false; error: string }> {
-	const children = await input.exec("gt", ["children", "--no-interactive"], GT_TIMEOUT_MS);
-	if (!commandSucceeded(children)) {
-		return { ok: false, error: formatAutobranchCommandDetails(children) };
-	}
-	return { ok: true, children: nonEmptyLines(children.stdout) };
-}
-
-function nonEmptyLines(value: string): string[] {
-	return value
-		.split("\n")
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0);
 }
 
 async function prepareLatestCommitSlug(
@@ -324,10 +346,19 @@ export function formatLatestCommitPreparationFailure(
 		case "synchronized_trunk_refusal":
 			return `Refusing to move latest commit because source branch ${result.branch} is synchronized with Git trunk from cached \`refs/remotes/origin/HEAD\` ${result.trunk} (upstream ${result.upstream}).`;
 		case "child_branch_check_failed":
-			return `Could not inspect Graphite child branches before moving the latest commit.\n${result.error}`;
+			return [
+				`Could not inspect provider topology before moving the latest commit.\n${result.error}`,
+				result.initialized ? "github/gh-stack initialization was retained." : "",
+			]
+				.filter(Boolean)
+				.join("\n");
 		case "child_branch_refusal":
 			return [
-				"Refusing to move latest commit because the source branch has Graphite child branches.",
+				result.children.every(
+					(child) => !child.includes("Top branch") && !child.includes("Refusing to initialize"),
+				)
+					? "Refusing to move latest commit because the source branch has provider child branches."
+					: "Refusing to move latest commit because the provider source is not eligible for a child.",
 				"Move or restack child branches first:",
 				...result.children.map((child) => `- ${child}`),
 			].join("\n");

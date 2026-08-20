@@ -58,6 +58,10 @@ function graphiteFlowCommand(name: string, description: string): FlowCommandSpec
 	return providerFlowCommand("graphite", "gt", name, description);
 }
 
+function ghStackFlowCommand(name: string, description: string): FlowCommandSpec {
+	return providerFlowCommand("gh-stack", "gs", name, description);
+}
+
 const autobranchCommand = graphiteFlowCommand(
 	"autobranch",
 	"Create a Graphite branch from dirty worktree changes.",
@@ -65,6 +69,14 @@ const autobranchCommand = graphiteFlowCommand(
 const branchLatestCommitCommand = graphiteFlowCommand(
 	"branch-latest-commit",
 	"Move the latest eligible commit to a new Graphite child branch.",
+);
+const ghStackAutobranchCommand = ghStackFlowCommand(
+	"autobranch",
+	"Create a branch from dirty worktree changes with the official github/gh-stack extension.",
+);
+const ghStackBranchLatestCommitCommand = ghStackFlowCommand(
+	"branch-latest-commit",
+	"Move the latest eligible commit to a new child with the official github/gh-stack extension.",
 );
 const autoslotCommand = graphiteFlowCommand(
 	"autoslot",
@@ -97,6 +109,8 @@ export const FLOW_COMMAND_SPECS = [
 	cpCommand,
 	autobranchCommand,
 	branchLatestCommitCommand,
+	ghStackAutobranchCommand,
+	ghStackBranchLatestCommitCommand,
 	autoslotCommand,
 	FLOW_SUBMIT_COMMAND_SPEC,
 	generatePrInventoryCommand,
@@ -111,6 +125,11 @@ export const flowSkillBackedCommandRegistrations = specializedSkillBackedCommand
 	{
 		skillName: "ns-flow-gt-branch-latest-commit",
 		surface: branchLatestCommitCommand.piSurface,
+	},
+	{ skillName: "ns-flow-gs-autobranch", surface: ghStackAutobranchCommand.piSurface },
+	{
+		skillName: "ns-flow-gs-branch-latest-commit",
+		surface: ghStackBranchLatestCommitCommand.piSurface,
 	},
 	{ skillName: "ns-flow-cp", surface: cpCommand.piSurface },
 	{ skillName: "ns-flow-submit", surface: FLOW_SUBMIT_COMMAND_SPEC.piSurface },

@@ -4,9 +4,16 @@ import { join } from "node:path";
 
 import { afterEach } from "vitest";
 
-import { flowAutobranchCommand } from "../../src/ns/commands/autobranch.ts";
+import {
+	createFlowAutobranchCommand,
+	flowAutobranchCommand,
+} from "../../src/ns/commands/autobranch.ts";
 import { createFlowAutoslotCommand } from "../../src/ns/commands/autoslot.ts";
-import { flowBranchLatestCommitCommand } from "../../src/ns/commands/branch-latest-commit.ts";
+import type { AutobranchProviderId } from "../../src/autobranch/provider.ts";
+import {
+	createFlowBranchLatestCommitCommand,
+	flowBranchLatestCommitCommand,
+} from "../../src/ns/commands/branch-latest-commit.ts";
 import { flowChangesCommand } from "../../src/ns/commands/changes.ts";
 import { flowExecReadGraphiteBranchMetadataCommand } from "../../src/ns/commands/exec-read-graphite-branch-metadata.ts";
 import { flowCpCommand } from "../../src/ns/commands/cp.ts";
@@ -171,9 +178,13 @@ export function runFlowSquashStackCommandWithFakes(
 
 export function runFlowBranchLatestCommitCommandWithFakes(
 	options: RunFlowCommandWithFakesOptions = {},
+	provider: AutobranchProviderId = "graphite",
 ) {
 	return runFlowCommandWithFakes({
-		command: flowBranchLatestCommitCommand,
+		command:
+			provider === "graphite"
+				? flowBranchLatestCommitCommand
+				: createFlowBranchLatestCommitCommand(provider),
 		request: options.request ?? { slug: "demo-branch" },
 		requiresModelPolicy: true,
 		options,
@@ -247,7 +258,7 @@ function branchLatestCommitUpstreamResponses(
 	];
 }
 
-// Subprocess script for `ns flow branch-latest-commit` with an explicit `slug: "demo-branch"` (which
+// Subprocess script for `ns flow gt branch-latest-commit` with an explicit `slug: "demo-branch"` (which
 // skips model slug generation) on source branch `feature`, up to and including the source-branch reset
 // — the prefix shared by the success and Graphite-create-failure paths. The scripted fake consumes
 // each response once, so duplicated commands (status/upstream/show-current/rev-parse) list one entry
@@ -312,6 +323,12 @@ function branchLatestCommitHappyExec(
 			match: `gt create ${targetBranchName} --no-interactive --no-ai`,
 			result: { stdout: "created\n" },
 		},
+		{ match: "git branch --show-current", result: { stdout: `${targetBranchName}\n` } },
+		{ match: `git show-ref --verify --quiet refs/heads/${targetBranchName}`, result: {} },
+		{
+			match: `git rev-parse --verify refs/heads/${targetBranchName}`,
+			result: { stdout: "parent456\n" },
+		},
 		{ match: "git reset --hard abc123", result: {} },
 		{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
 		// Transaction: delete the recovery branch.
@@ -322,6 +339,99 @@ function branchLatestCommitHappyExec(
 		// Final worktree cleanliness check.
 		{ match: "git status --porcelain=v1", result: { stdout: "" } },
 	];
+}
+
+export function branchLatestCommitGhStackExec(
+	options: Pick<BranchLatestCommitExecOptions, "upstreamMode"> = {},
+): ScriptedExecResponse[] {
+	const sourceTopology = JSON.stringify({
+		trunk: "main",
+		currentBranch: "feature",
+		branches: [
+			{
+				name: "feature",
+				isCurrent: true,
+				isMerged: false,
+				isQueued: false,
+				needsRebase: false,
+			},
+		],
+	});
+	const childTopology = JSON.stringify({
+		trunk: "main",
+		currentBranch: "demo-branch",
+		branches: [
+			{
+				name: "feature",
+				isCurrent: false,
+				isMerged: false,
+				isQueued: false,
+				needsRebase: false,
+			},
+			{
+				name: "demo-branch",
+				isCurrent: true,
+				isMerged: false,
+				isQueued: false,
+				needsRebase: false,
+			},
+		],
+	});
+	return [
+		{ match: "git rev-parse --show-toplevel", result: { stdout: "/work\n" } },
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "feature\n" } },
+		{ match: "git status --porcelain=v1", result: {} },
+		{ match: "git diff HEAD --no-ext-diff", result: {} },
+		{ match: "git branch --show-current", result: { stdout: "feature\n" } },
+		...branchLatestCommitUpstreamResponses(options.upstreamMode),
+		{ match: "gh stack view --json", result: { stdout: sourceTopology }, times: 3 },
+		{ match: "git rev-list --parents -n 1 HEAD", result: { stdout: "abc123 parent456\n" } },
+		{ match: "git log -1 --format=%B", result: { stdout: "Add demo feature\n" } },
+		{ match: "git diff HEAD^ HEAD --no-ext-diff", result: { stdout: "diff --git a/x b/x\n" } },
+		...availableBranchResponses("demo-branch"),
+		{ match: "git branch --show-current", result: { stdout: "feature\n" }, times: 2 },
+		...branchLatestCommitUpstreamResponses(options.upstreamMode),
+		{ match: /^git check-ref-format --branch autobranch-backup\/feature\/\d+$/, result: {} },
+		{
+			match: /^git rev-parse --verify refs\/heads\/autobranch-backup\/feature\/\d+$/,
+			result: { code: 1 },
+		},
+		{ match: "git rev-parse --verify refs/heads/autobranch-backup", result: { code: 1 } },
+		{
+			match: "git rev-parse --verify refs/heads/autobranch-backup/feature",
+			result: { code: 1 },
+		},
+		{
+			match:
+				/^git for-each-ref --format=%\(refname\) refs\/heads\/autobranch-backup\/feature\/\d+\/$/,
+			result: {},
+		},
+		{ match: /^git branch autobranch-backup\/feature\/\d+ abc123$/, result: {} },
+		{ match: "git branch demo-branch abc123", result: {} },
+		{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
+		{ match: "git reset --hard parent456", result: {} },
+		{ match: "gh stack add demo-branch", result: {} },
+		{ match: "git branch --show-current", result: { stdout: "demo-branch\n" }, times: 2 },
+		{ match: "git show-ref --verify --quiet refs/heads/feature", result: {}, times: 2 },
+		{
+			match: "git rev-parse --verify refs/heads/feature",
+			result: { stdout: "parent456\n" },
+			times: 2,
+		},
+		{ match: "git show-ref --verify --quiet refs/heads/demo-branch", result: {}, times: 2 },
+		{
+			match: "git rev-parse --verify refs/heads/demo-branch",
+			result: { stdout: "abc123\n" },
+			times: 2,
+		},
+		{ match: "gh stack view --json", result: { stdout: childTopology } },
+		{ match: /^git branch -D autobranch-backup\/feature\/\d+$/, result: {} },
+		{ match: "git status --porcelain=v1", result: {} },
+	];
+}
+
+export function branchLatestCommitGhStackSynchronizedExec(): ScriptedExecResponse[] {
+	return branchLatestCommitGhStackExec({ upstreamMode: "synchronized" });
 }
 
 export function branchLatestCommitSuffixedExec(): ScriptedExecResponse[] {
@@ -360,6 +470,11 @@ export function branchLatestCommitGtCreateFailExec(): ScriptedExecResponse[] {
 			match: "gt create demo-branch --no-interactive --no-ai",
 			result: { code: 1, stderr: "gt create failed\n" },
 		},
+		{ match: "git branch --show-current", result: { stdout: "feature\n" } },
+		{
+			match: "git show-ref --verify --quiet refs/heads/demo-branch",
+			result: { code: 1 },
+		},
 		{ match: "git checkout feature", result: {} },
 		{ match: "git reset --hard abc123", result: {} },
 		{ match: "git branch -D demo-branch", result: {} },
@@ -368,9 +483,13 @@ export function branchLatestCommitGtCreateFailExec(): ScriptedExecResponse[] {
 
 const AUTOBRANCH_CHECKPOINT_MESSAGE = "[cp] Move pending work\n\n- Preserve current changes";
 
-export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFakesOptions = {}) {
+export function runFlowAutobranchCommandWithFakes(
+	options: RunFlowCommandWithFakesOptions = {},
+	provider: AutobranchProviderId = "graphite",
+) {
 	return runFlowCommandWithFakes({
-		command: flowAutobranchCommand,
+		command:
+			provider === "graphite" ? flowAutobranchCommand : createFlowAutobranchCommand(provider),
 		request: options.request ?? { slug: "move-work" },
 		requiresModelPolicy: true,
 		options,
@@ -382,7 +501,7 @@ export function runFlowAutobranchCommandWithFakes(options: RunFlowCommandWithFak
 	});
 }
 
-// Subprocess script for `ns flow autobranch --slug move-work` on a DIRTY source branch `feature/source`,
+// Subprocess script for `ns flow gt autobranch --slug move-work` on a DIRTY source branch `feature/source`,
 // up to and including the stash list — the prefix shared by the success and Graphite-create-failure
 // paths. Capture the generated transaction marker so the fake stash list mirrors Git's response.
 function autobranchDirtyExecThroughStashList(): ScriptedExecResponse[] {
@@ -400,7 +519,14 @@ function autobranchDirtyExecThroughStashList(): ScriptedExecResponse[] {
 		{ match: "git check-ref-format --branch move-work", result: {} },
 		{ match: "git rev-parse --verify refs/heads/move-work", result: { code: 1 } },
 		{ match: "git for-each-ref --format=%(refname) refs/heads/move-work/", result: { stdout: "" } },
-		// Transaction: stash pending changes, then locate the new stash entry by its message.
+		// Transaction: prove the source tip, capture HEAD, stash pending changes, then locate the stash.
+		{ match: "git show-ref --verify --quiet refs/heads/feature/source", result: {} },
+		{
+			match: "git rev-parse --verify refs/heads/feature/source",
+			result: { stdout: "abc123\n" },
+		},
+		{ match: "git rev-parse HEAD", result: { stdout: "abc123\n" } },
+		{ match: "git show-ref --verify --quiet refs/heads/move-work", result: { code: 1 } },
 		{
 			match: (call) => {
 				if (
@@ -430,6 +556,12 @@ function autobranchDirtyHappyExec(): ScriptedExecResponse[] {
 		...autobranchDirtyExecThroughStashList(),
 		// Transaction: create the Graphite branch, restore the stash, commit the checkpoint.
 		{ match: "gt create move-work --no-interactive --no-ai", result: {} },
+		{ match: "git branch --show-current", result: { stdout: "move-work\n" } },
+		{ match: "git show-ref --verify --quiet refs/heads/move-work", result: {} },
+		{
+			match: "git rev-parse --verify refs/heads/move-work",
+			result: { stdout: "abc123\n" },
+		},
 		{ match: "git stash pop stash@{0}", result: {} },
 		{ match: "git add -A", result: {} },
 		{ match: /^git commit -F /, result: {} },
@@ -447,6 +579,11 @@ export function autobranchGtCreateFailExec(): ScriptedExecResponse[] {
 		{
 			match: "gt create move-work --no-interactive --no-ai",
 			result: { code: 1, stderr: "fatal: cannot lock ref\n" },
+		},
+		{ match: "git branch --show-current", result: { stdout: "feature/source\n" } },
+		{
+			match: "git show-ref --verify --quiet refs/heads/move-work",
+			result: { code: 1 },
 		},
 		{ match: "git stash pop stash@{0}", result: {} },
 	];
@@ -544,6 +681,106 @@ export function autoslotStatusProbeFailExec(): ScriptedExecResponse[] {
 		{
 			match: "git status --porcelain=v1",
 			result: { code: 1, stderr: "fatal: status failed\n" },
+		},
+	];
+}
+
+function ghStackTopology(currentBranch: "feature/source" | "move-work"): string {
+	const source = {
+		name: "feature/source",
+		head: "abc123",
+		base: "parent456",
+		isCurrent: currentBranch === "feature/source",
+		isMerged: false,
+		isQueued: false,
+		needsRebase: false,
+	};
+	return JSON.stringify({
+		trunk: "main",
+		currentBranch,
+		branches:
+			currentBranch === "feature/source"
+				? [source]
+				: [
+						source,
+						{
+							name: "move-work",
+							head: "abc123",
+							base: "abc123",
+							isCurrent: true,
+							isMerged: false,
+							isQueued: false,
+							needsRebase: false,
+						},
+					],
+	});
+}
+
+export function autoslotGhStackDirtyExec(options: { tracked: boolean }): ScriptedExecResponse[] {
+	const providerPreparation = options.tracked
+		? [
+				{
+					match: "gh stack view --json",
+					result: { stdout: ghStackTopology("feature/source") },
+					times: 2,
+				},
+			]
+		: [
+				{
+					match: "gh stack view --json",
+					result: { code: 1, stderr: 'current branch "feature/source" is not part of a stack' },
+					times: 2,
+				},
+				{
+					match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+					result: { stdout: "origin/main\n" },
+					times: 2,
+				},
+				{ match: "gh stack init feature/source", result: {} },
+				{
+					match: "gh stack view --json",
+					result: { stdout: ghStackTopology("feature/source") },
+				},
+			];
+	return [
+		...autobranchDirtyExecThroughStashList(),
+		...providerPreparation,
+		{ match: "gh stack add move-work", result: {} },
+		{ match: "git branch --show-current", result: { stdout: "move-work\n" } },
+		{ match: "git show-ref --verify --quiet refs/heads/feature/source", result: {} },
+		{
+			match: "git rev-parse --verify refs/heads/feature/source",
+			result: { stdout: "abc123\n" },
+		},
+		{ match: "git show-ref --verify --quiet refs/heads/move-work", result: {} },
+		{
+			match: "git rev-parse --verify refs/heads/move-work",
+			result: { stdout: "abc123\n" },
+		},
+		{ match: "gh stack view --json", result: { stdout: ghStackTopology("move-work") } },
+		{ match: "git stash pop stash@{0}", result: {} },
+		{ match: "git add -A", result: {} },
+		{ match: /^git commit -F /, result: {} },
+		{ match: "git log -1 --oneline", result: { stdout: "abc1234 [cp] Move pending work\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: "" } },
+	];
+}
+
+export function autoslotGhStackUntrackedTrunkExec(): ScriptedExecResponse[] {
+	return [
+		{ match: "git symbolic-ref --short HEAD", result: { stdout: "main\n" } },
+		{ match: "git status --porcelain=v1", result: { stdout: " M src/app.ts\n" } },
+		{ match: "git diff HEAD --no-ext-diff", result: { stdout: "diff --git a/x b/x\n" } },
+		{ match: "git check-ref-format --branch move-work", result: {} },
+		{ match: "git rev-parse --verify refs/heads/move-work", result: { code: 1 } },
+		{ match: "git for-each-ref --format=%(refname) refs/heads/move-work/", result: {} },
+		{
+			match: "gh stack view --json",
+			result: { code: 1, stderr: 'current branch "main" is not part of a stack' },
+		},
+		{
+			match: "git symbolic-ref --short refs/remotes/origin/HEAD",
+			result: { stdout: "origin/main\n" },
 		},
 	];
 }

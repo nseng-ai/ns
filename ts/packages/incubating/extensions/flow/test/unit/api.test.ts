@@ -39,6 +39,20 @@ const EXPECTED_COMMAND_SURFACES = [
 		piSurface: "ns:flow:gt:branch-latest-commit",
 	},
 	{
+		id: "flow:gs:autobranch",
+		provider: "gh-stack",
+		argvPrefix: ["flow", "gs", "autobranch"],
+		displayName: "flow gs autobranch",
+		piSurface: "ns:flow:gs:autobranch",
+	},
+	{
+		id: "flow:gs:branch-latest-commit",
+		provider: "gh-stack",
+		argvPrefix: ["flow", "gs", "branch-latest-commit"],
+		displayName: "flow gs branch-latest-commit",
+		piSurface: "ns:flow:gs:branch-latest-commit",
+	},
+	{
 		id: "flow:gt:autoslot",
 		provider: "graphite",
 		argvPrefix: ["flow", "gt", "autoslot"],
@@ -119,8 +133,8 @@ describe("flow extension API", () => {
 	});
 
 	test("exports cohesive host-independent Flow interfaces", () => {
-		expect(FLOW_COMMAND_SPECS).toHaveLength(11);
-		expect(flowSkillBackedCommandRegistrations).toHaveLength(4);
+		expect(FLOW_COMMAND_SPECS).toHaveLength(13);
+		expect(flowSkillBackedCommandRegistrations).toHaveLength(6);
 		expect(resolveFlowSubmitCheckRecovery).toBeTypeOf("function");
 		expect(runFlowStackSquash).toBeTypeOf("function");
 		expect(runTrunkPullDetailed).toBeTypeOf("function");

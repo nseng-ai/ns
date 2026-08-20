@@ -18,6 +18,7 @@ import {
 	type LatestCommitTransactionInput,
 } from "../../src/autobranch/latest-commit.ts";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
+import type { AutobranchProviderGateway } from "../../src/autobranch/provider.ts";
 
 interface PreparationHarnessOptions {
 	slug?: string;
@@ -155,11 +156,13 @@ function basePlan(overrides: Partial<LatestCommitAutobranchPlan> = {}): LatestCo
 
 interface TransactionHarnessOptions {
 	shouldGtCreateFail?: boolean;
+	shouldBackupCreateFail?: boolean;
 	shouldBranchResetFail?: boolean;
 	shouldDeleteBackupFail?: boolean;
 	shouldDeleteCreatedBranchFail?: boolean;
 	shouldRestoreFail?: boolean;
 	shouldSourceResetFail?: boolean;
+	shouldChildPrecreateFail?: boolean;
 	verifyHead?: string;
 	existingBranches?: Set<string>;
 	upstreamMode?: UpstreamMode;
@@ -167,6 +170,9 @@ interface TransactionHarnessOptions {
 	trunkBranch?: string;
 	shouldTrunkFail?: boolean;
 	shouldTrunkBeMissing?: boolean;
+	provider?: "graphite" | "gh-stack";
+	providerAddResult?: "verified" | "verified-bad-postcondition" | "absent" | "ambiguous";
+	providerInitialized?: boolean;
 }
 
 function createTransactionHarness(options: TransactionHarnessOptions = {}) {
@@ -174,6 +180,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 	const sourceBranch = options.sourceBranch ?? "feature/base";
 	let currentBranch = sourceBranch;
 	let head = "abc123def456";
+	const branchShas = new Map<string, string>([[sourceBranch, head]]);
 	const existingBranches = options.existingBranches ?? new Set<string>();
 	const upstreamMode = options.upstreamMode ?? "local-ahead";
 	const upstreamName = `origin/${sourceBranch}`;
@@ -205,10 +212,12 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		}
 		if (command === "git" && args[0] === "show-ref") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
-			return existingBranches.has(branch) ? ok() : fail("");
+			return branchShas.has(branch) || existingBranches.has(branch) ? ok() : fail("");
 		}
 		if (command === "git" && args[0] === "rev-parse" && args[1] === "--verify") {
 			const branch = (args.at(-1) ?? "").replace(/^refs\/heads\//, "");
+			const branchSha = branchShas.get(branch);
+			if (branchSha !== undefined) return ok(`${branchSha}\n`);
 			return existingBranches.has(branch) ? ok(`${branch}\n`) : fail("");
 		}
 		if (command === "git" && args[0] === "branch" && args[1] === "--show-current") {
@@ -216,6 +225,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 		}
 		if (command === "git" && args[0] === "branch" && args[1] === "-D") {
 			const branchName = args[2] ?? "";
+			branchShas.delete(branchName);
 			if (branchName.startsWith("autobranch-backup/")) {
 				return options.shouldDeleteBackupFail ? fail("delete failed") : ok("deleted\n");
 			}
@@ -224,6 +234,14 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				: ok("deleted\n");
 		}
 		if (command === "git" && args[0] === "branch") {
+			const branchName = args[1] ?? "";
+			if (branchName.startsWith("autobranch-backup/") && options.shouldBackupCreateFail) {
+				return fail("backup create failed");
+			}
+			if (branchName === "latest-commit-branch" && options.shouldChildPrecreateFail) {
+				return fail("child precreate failed");
+			}
+			branchShas.set(branchName, args[2] ?? head);
 			return ok();
 		}
 		if (command === "git" && args[0] === "rev-parse") {
@@ -245,6 +263,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return fail("branch reset failed");
 			}
 			head = args[2] ?? head;
+			branchShas.set(currentBranch, head);
 			return ok();
 		}
 		if (command === "gt" && args[0] === "create") {
@@ -252,6 +271,7 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return fail("gt create failed");
 			}
 			currentBranch = args[1] ?? currentBranch;
+			branchShas.set(currentBranch, head);
 			return ok("created\n");
 		}
 		if (command === "git" && args[0] === "checkout") {
@@ -259,16 +279,68 @@ function createTransactionHarness(options: TransactionHarnessOptions = {}) {
 				return fail("checkout failed");
 			}
 			currentBranch = args[1] ?? currentBranch;
+			head = branchShas.get(currentBranch) ?? head;
 			return ok();
 		}
 		return ok();
 	};
+	const git = createTestAutobranchGitGateway("/repo", exec);
+	const provider: AutobranchProviderGateway | undefined =
+		options.provider === "gh-stack"
+			? {
+					id: "gh-stack",
+					async inspectSource() {
+						return {
+							type: "tracked",
+							topology: {
+								provider: "gh-stack",
+								trunk: "master",
+								currentBranch,
+								branches: [sourceBranch],
+								children: [],
+								edges: [],
+							},
+						};
+					},
+					async preflightSource() {
+						return { type: "ready", initialized: false };
+					},
+					async prepareSource() {
+						events.push("provider:prepare");
+						return { type: "ready", initialized: options.providerInitialized ?? false };
+					},
+					async addChild() {
+						events.push("provider:add");
+						if (options.providerAddResult === "absent") {
+							return {
+								type: "absent",
+								error: "add failed",
+								initialized: options.providerInitialized ?? false,
+							};
+						}
+						if (options.providerAddResult === "ambiguous") {
+							return {
+								type: "ambiguous",
+								error: "add ambiguous",
+								initialized: options.providerInitialized ?? false,
+								observedChild: true,
+							};
+						}
+						if (options.providerAddResult !== "verified-bad-postcondition") {
+							currentBranch = "latest-commit-branch";
+							head = branchShas.get(currentBranch) ?? head;
+						}
+						return { type: "verified", initialized: options.providerInitialized ?? false };
+					},
+				}
+			: undefined;
 	const input: LatestCommitTransactionInput = {
 		cwd: "/repo",
 		plan: basePlan({ sourceBranch }),
 		now: () => 123,
 		exec,
-		git: createTestAutobranchGitGateway("/repo", exec),
+		git,
+		...(provider === undefined ? {} : { provider }),
 	};
 	return { input, events };
 }
@@ -726,6 +798,188 @@ describe("runLatestCommitAutobranchTransaction", () => {
 		expect(
 			eventIndex(harness.events, "exec:git branch -D autobranch-backup/feature/base/123"),
 		).toBeGreaterThan(-1);
+	});
+
+	test("gh-stack latest creates recovery before child, rechecks eligibility, resets, and adopts", async () => {
+		const harness = createTransactionHarness({ provider: "gh-stack" });
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: true,
+			commitSummary: "abc123d Add latest commit support",
+			backupDeleted: true,
+		});
+		expect(
+			eventIndex(harness.events, "exec:git branch autobranch-backup/feature/base/123"),
+		).toBeLessThan(eventIndex(harness.events, "exec:git branch latest-commit-branch"));
+		expect(eventIndex(harness.events, "exec:git branch latest-commit-branch")).toBeLessThan(
+			eventIndex(harness.events, "exec:git reset --hard parent987654"),
+		);
+		expect(eventIndex(harness.events, "exec:git reset --hard parent987654")).toBeLessThan(
+			eventIndex(harness.events, "provider:add"),
+		);
+		expect(
+			harness.events.filter((event) =>
+				event.startsWith("exec:git for-each-ref --format=%(upstream:short)"),
+			),
+		).toHaveLength(1);
+	});
+
+	test.each(["absent", "ambiguous"] as const)(
+		"gh-stack %s adoption failure reports exact recovery facts and preserves refs",
+		async (providerAddResult) => {
+			const harness = createTransactionHarness({
+				provider: "gh-stack",
+				providerAddResult,
+				providerInitialized: true,
+			});
+
+			const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+			expect(result).toMatchObject({
+				ok: false,
+				kind: "provider_adoption_failed",
+				backupBranch: "autobranch-backup/feature/base/123",
+				branchName: "latest-commit-branch",
+				initialized: true,
+				mutation: providerAddResult,
+				recovery: {
+					current: { type: "branch", name: "feature/base" },
+					sourceBranch: "feature/base",
+					expectedSourceSha: "parent987654",
+					sourceRef: { type: "found", sha: "parent987654" },
+					childBranch: "latest-commit-branch",
+					expectedChildSha: "abc123def456",
+					childRef: { type: "found", sha: "abc123def456" },
+					backupBranch: "autobranch-backup/feature/base/123",
+					expectedBackupSha: "abc123def456",
+					backupRef: { type: "found", sha: "abc123def456" },
+					provider: "gh-stack",
+					initialized: true,
+					adoptionMutation: providerAddResult,
+				},
+			});
+			if (!result.ok) {
+				const formatted = formatLatestCommitTransactionFailure(result);
+				expect(formatted).toContain("source=feature/base@parent987654 (observed parent987654)");
+				expect(formatted).toContain(
+					"child=latest-commit-branch@abc123def456 (observed abc123def456)",
+				);
+				expect(formatted).toContain(
+					"backup=autobranch-backup/feature/base/123@abc123def456 (observed abc123def456)",
+				);
+				expect(formatted).toContain(`initialized=true; adoption=${providerAddResult}`);
+			}
+			expect(eventIndex(harness.events, "exec:git branch -D latest-commit-branch")).toBe(-1);
+			expect(eventIndex(harness.events, "exec:git branch -D autobranch-backup/")).toBe(-1);
+		},
+	);
+
+	test("gh-stack source-reset failure reports pre-adoption recovery facts", async () => {
+		const harness = createTransactionHarness({
+			provider: "gh-stack",
+			shouldSourceResetFail: true,
+			providerInitialized: true,
+		});
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toMatchObject({
+			ok: false,
+			kind: "source_reset_failed",
+			recovery: {
+				current: { type: "branch", name: "feature/base" },
+				sourceBranch: "feature/base",
+				expectedSourceSha: "parent987654",
+				sourceRef: { type: "found", sha: "abc123def456" },
+				childBranch: "latest-commit-branch",
+				expectedChildSha: "abc123def456",
+				childRef: { type: "found", sha: "abc123def456" },
+				backupBranch: "autobranch-backup/feature/base/123",
+				expectedBackupSha: "abc123def456",
+				backupRef: { type: "found", sha: "abc123def456" },
+				initialized: true,
+				adoptionMutation: "not-attempted",
+			},
+		});
+		if (!result.ok) {
+			expect(formatLatestCommitTransactionFailure(result)).toContain(
+				"source=feature/base@parent987654 (observed abc123def456)",
+			);
+		}
+	});
+
+	test("gh-stack postcondition failure reports observed refs and provider-verified mutation", async () => {
+		const harness = createTransactionHarness({
+			provider: "gh-stack",
+			providerAddResult: "verified-bad-postcondition",
+		});
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toMatchObject({
+			ok: false,
+			kind: "provider_adoption_failed",
+			mutation: "ambiguous",
+			recovery: {
+				current: { type: "branch", name: "feature/base" },
+				sourceRef: { type: "found", sha: "parent987654" },
+				childRef: { type: "found", sha: "abc123def456" },
+				backupRef: { type: "found", sha: "abc123def456" },
+				adoptionMutation: "verified",
+			},
+		});
+	});
+
+	test("gh-stack backup creation failure names the attempted ref and exact original SHA", async () => {
+		const harness = createTransactionHarness({
+			provider: "gh-stack",
+			shouldBackupCreateFail: true,
+			providerInitialized: true,
+		});
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toEqual({
+			ok: false,
+			kind: "backup_create_failed",
+			error: "exit code 1: backup create failed",
+			backupBranch: "autobranch-backup/feature/base/123",
+			expectedBackupSha: "abc123def456",
+			initialized: true,
+		});
+		if (!result.ok) {
+			expect(formatLatestCommitTransactionFailure(result)).toContain(
+				"autobranch-backup/feature/base/123@abc123def456",
+			);
+		}
+	});
+
+	test("gh-stack child precreation failure reports absent child with exact shared facts", async () => {
+		const harness = createTransactionHarness({
+			provider: "gh-stack",
+			shouldChildPrecreateFail: true,
+		});
+
+		const result = await runLatestCommitAutobranchTransaction(harness.input);
+
+		expect(result).toMatchObject({
+			ok: false,
+			kind: "child_precreate_failed",
+			recovery: {
+				sourceBranch: "feature/base",
+				expectedSourceSha: "parent987654",
+				sourceRef: { type: "found", sha: "abc123def456" },
+				childBranch: "latest-commit-branch",
+				expectedChildSha: "abc123def456",
+				childRef: { type: "absent" },
+				backupBranch: "autobranch-backup/feature/base/123",
+				expectedBackupSha: "abc123def456",
+				backupRef: { type: "found", sha: "abc123def456" },
+				adoptionMutation: "not-attempted",
+			},
+		});
 	});
 
 	test("backup deletion failure is a success with recovery branch warning data", async () => {

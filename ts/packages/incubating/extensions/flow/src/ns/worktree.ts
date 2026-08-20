@@ -24,6 +24,11 @@ import type {
 } from "../autobranch/checkpoint-flow.ts";
 import type { ParsedAutobranchArgs } from "../autobranch/dirty-worktree.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import {
+	createGhStackAutobranchProvider,
+	createGraphiteAutobranchProvider,
+	type AutobranchProviderId,
+} from "../autobranch/provider.ts";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
@@ -67,17 +72,23 @@ export function createAutobranchDispatchEnv(
 	ctx: NsExtensionApi,
 	args: ParsedAutobranchArgs,
 	modelSelection: ModelSelection,
+	providerId: AutobranchProviderId = "graphite",
 ): Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext"> {
 	return {
 		loadSnapshot: () => loadFlowPendingWorktreeSnapshot(ctx),
 		createFlowContext: (snapshot): AutobranchFlowContext => {
 			const { exec, git } = createAutobranchExecContext(ctx, snapshot.root);
+			const provider =
+				providerId === "gh-stack"
+					? createGhStackAutobranchProvider({ exec, git })
+					: createGraphiteAutobranchProvider({ exec, git });
 			return {
 				cwd: snapshot.root,
 				args,
 				modelSelection,
 				exec,
 				git,
+				provider,
 			};
 		},
 	};

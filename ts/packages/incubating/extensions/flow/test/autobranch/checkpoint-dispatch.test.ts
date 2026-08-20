@@ -124,7 +124,25 @@ describe("dispatchAutobranchCheckpoint", () => {
 		}));
 		const exec = vi.fn(async (command: string, args: string[]) => {
 			const rendered = `${command} ${args.join(" ")}`;
-			if (rendered === "git rev-parse --verify refs/heads/demo") return commandResult("", 1);
+			if (rendered === "git rev-parse --verify refs/heads/feature/source") {
+				return commandResult("abc123\n");
+			}
+			if (rendered === "git show-ref --verify --quiet refs/heads/demo") {
+				const createCompleted = exec.mock.calls.some(
+					([calledCommand, calledArgs]) =>
+						calledCommand === "gt" && calledArgs.join(" ").startsWith("create demo "),
+				);
+				return commandResult("", createCompleted ? 0 : 1);
+			}
+			if (rendered === "git rev-parse --verify refs/heads/demo") {
+				const createCompleted = exec.mock.calls.some(
+					([calledCommand, calledArgs]) =>
+						calledCommand === "gt" && calledArgs.join(" ").startsWith("create demo "),
+				);
+				return createCompleted ? commandResult("abc123\n") : commandResult("", 1);
+			}
+			if (rendered === "git rev-parse HEAD") return commandResult("abc123\n");
+			if (rendered === "git branch --show-current") return commandResult("demo\n");
 			if (rendered === "git stash list --format=%gd%x00%s") {
 				return commandResult("stash@{0}\0pi-autobranch:42:demo\n");
 			}

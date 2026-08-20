@@ -2,7 +2,7 @@
 // called, this suite drives the REAL `log-update`-backed writer (`createStdoutStreamWriter`) and
 // feeds every emitted byte into a headless xterm terminal, then asserts on what the terminal
 // finally displays — including scrollback, where stale live-region rows end up when settlement
-// goes wrong. This is the seam that produced duplicated `ns flow squash-stack` matrix rows: unit
+// goes wrong. This is the seam that produced duplicated `ns flow gt squash-stack` matrix rows: unit
 // tests saw correct renderer state while the terminal kept extra rows on screen.
 
 import { Writable } from "node:stream";
@@ -98,7 +98,7 @@ function occurrences(lines: readonly string[], marker: string): number {
 // Frame fixtures shaped like the squash-stack matrix: a live frame carries transient
 // operations/tail rows beneath the matrix; the settled frame drops them and is SHORTER.
 const LIVE_FRAME = [
-	"ns flow squash-stack",
+	"ns flow gt squash-stack",
 	"  * Plan          counting commits per branch",
 	"  * Restore",
 	"",
@@ -110,7 +110,7 @@ const LIVE_FRAME = [
 ];
 
 const SETTLED_FRAME = [
-	"ns flow squash-stack",
+	"ns flow gt squash-stack",
 	"  + Plan          2 branches planned",
 	"  + Restore       tip restored",
 	"",
@@ -154,7 +154,7 @@ describe("stream sink through a headless terminal", () => {
 		emulated.sink.stop();
 
 		const lines = await emulated.lines();
-		expect(occurrences(lines, "ns flow squash-stack")).toBe(1);
+		expect(occurrences(lines, "ns flow gt squash-stack")).toBe(1);
 		expect(occurrences(lines, "Branch / PR")).toBe(1);
 		expect(occurrences(lines, "feature/top")).toBe(1);
 	});
@@ -210,7 +210,7 @@ describe("stream sink through a headless terminal", () => {
 		emulated.sink.stop();
 
 		const lines = await emulated.lines();
-		expect(occurrences(lines, "ns flow squash-stack")).toBe(1);
+		expect(occurrences(lines, "ns flow gt squash-stack")).toBe(1);
 		expect(occurrences(lines, "2 branches planned")).toBe(1);
 		expect(occurrences(lines, "tip restored")).toBe(1);
 		// Settlement is permanent output: content beyond the real terminal width must wrap rather
@@ -231,7 +231,7 @@ describe("stream sink through a headless terminal", () => {
 		emulated.write("NEXT-COMMAND-OUTPUT\n");
 
 		const lines = await emulated.lines();
-		const frameTitle = lines.findIndex((line) => line.includes("ns flow squash-stack"));
+		const frameTitle = lines.findIndex((line) => line.includes("ns flow gt squash-stack"));
 		const summary = lines.findIndex((line) => line.includes("Processed 2 Graphite stack"));
 		const next = lines.findIndex((line) => line.includes("NEXT-COMMAND-OUTPUT"));
 		expect(frameTitle).toBeGreaterThanOrEqual(0);

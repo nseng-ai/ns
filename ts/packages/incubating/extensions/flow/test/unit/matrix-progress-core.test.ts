@@ -75,7 +75,7 @@ function createController(options: { capsParts?: Partial<Caps>; clockNowMs?: num
 			deps: capture.deps,
 			clock: clock.clock,
 		},
-		title: "ns flow submit",
+		title: "ns flow gt submit",
 		rows: [{ label: "feature/a" }],
 	});
 	return { controller, capture, clock };

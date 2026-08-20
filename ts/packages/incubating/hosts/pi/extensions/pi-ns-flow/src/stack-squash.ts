@@ -24,7 +24,7 @@ export const stackSquashParity = definePiSurfaceParity([
 		surface: STACK_SQUASH_COMMAND_NAME,
 		workflow: "Squash each branch in the current Graphite stack to one commit from top to bottom",
 		parity: "FULL",
-		cli: "ns flow squash-stack",
+		cli: "ns flow gt squash-stack",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@nseng-ai/pi-ns-flow",
 		sourceModule: "stack-squash",
