@@ -63,7 +63,7 @@ that accountability process.
 - After an approved code change, use the repository's normal commit workflow,
   push or resubmit the PR (or stack) with its established tooling, then rebuild
   the inventory from the new PR head before continuing the interview. An ns
-  repository may optionally use `ns flow submit`; this skill does not require
+  repository may optionally use `ns flow gt submit`; this skill does not require
   ns or that integration.
 
 ## 1. Build the inventory

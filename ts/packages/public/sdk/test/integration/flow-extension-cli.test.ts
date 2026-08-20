@@ -273,7 +273,7 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).toContain("plain git push");
 		expect(output).toContain("clean worktree");
 		expect(output).toContain("Graphite-tracked PR branches");
-		expect(output).toContain("ns flow submit");
+		expect(output).toContain("ns flow gt submit");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({ args: ["flow", "push", "--json-schema"], cwd });
@@ -285,12 +285,12 @@ describe("checked-in flow ns extension loading", () => {
 		const cwd = await createFlowProject();
 
 		const help = runWithRealFlowExtension({
-			args: ["flow", "branch-latest-commit", "--help"],
+			args: ["flow", "gt", "branch-latest-commit", "--help"],
 			cwd,
 		});
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("").replace(/\s+/g, " ");
-		expect(output).toContain("Usage: ns flow branch-latest-commit");
+		expect(output).toContain("Usage: ns flow gt branch-latest-commit");
 		expect(output).toContain("--slug");
 		expect(output).toContain("clean worktree");
 		expect(output).toContain("latest eligible single-parent commit");
@@ -305,13 +305,13 @@ describe("checked-in flow ns extension loading", () => {
 		);
 		expect(output).toContain("local-only Graphite branch");
 		expect(output).toContain("does not fetch, push, publish, submit, or update PRs");
-		expect(output).toContain("explicitly run `ns flow submit` from the new child");
-		expect(output).toContain("ns flow autobranch");
+		expect(output).toContain("explicitly run `ns flow gt submit` from the new child");
+		expect(output).toContain("ns flow gt autobranch");
 		expect(output).not.toContain("stashes pending changes");
 		expect(help.stderr.join("")).toBe("");
 
 		const schema = runWithRealFlowExtension({
-			args: ["flow", "branch-latest-commit", "--json-schema"],
+			args: ["flow", "gt", "branch-latest-commit", "--json-schema"],
 			cwd,
 		});
 		expect(await schema.exit).toBe(0);
@@ -323,14 +323,14 @@ describe("checked-in flow ns extension loading", () => {
 	test("real loader exposes autobranch help and JSON schema metadata", async () => {
 		const cwd = await createFlowProject();
 
-		const help = runWithRealFlowExtension({ args: ["flow", "autobranch", "--help"], cwd });
+		const help = runWithRealFlowExtension({ args: ["flow", "gt", "autobranch", "--help"], cwd });
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("").replace(/\s+/g, " ");
-		expect(output).toContain("Usage: ns flow autobranch");
+		expect(output).toContain("Usage: ns flow gt autobranch");
 		expect(output).toContain("--slug");
 		expect(output).toContain("gt create");
 		expect(output).toContain("dirty worktree changes");
-		expect(output).toContain("ns flow branch-latest-commit");
+		expect(output).toContain("ns flow gt branch-latest-commit");
 		expect(output).toContain("latest eligible commit");
 		expect(output).not.toContain("eligible unpushed");
 		expect(output).not.toContain("NS_SLUG_MODEL");
@@ -338,11 +338,52 @@ describe("checked-in flow ns extension loading", () => {
 		expect(output).not.toContain("NS_DEV_CHECKPOINT_MODEL");
 		expect(help.stderr.join("")).toBe("");
 
-		const schema = runWithRealFlowExtension({ args: ["flow", "autobranch", "--json-schema"], cwd });
+		const schema = runWithRealFlowExtension({
+			args: ["flow", "gt", "autobranch", "--json-schema"],
+			cwd,
+		});
 		expect(await schema.exit).toBe(0);
 		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
 		expect(schema.stdout.join("")).toContain("slug");
 	});
+
+	test("real loader exposes Graphite autoslot help and JSON schema metadata", async () => {
+		const cwd = await createFlowProject();
+		const help = runWithRealFlowExtension({
+			args: ["flow", "gt", "autoslot", "--help"],
+			cwd,
+		});
+
+		expect(await help.exit).toBe(0);
+		const output = help.stdout.join("").replace(/\s+/g, " ");
+		expect(output).toContain("Usage: ns flow gt autoslot");
+		expect(output).toContain("--slug");
+		expect(output).toContain("managed slot worktree");
+		expect(help.stderr.join("")).toBe("");
+
+		const schema = runWithRealFlowExtension({
+			args: ["flow", "gt", "autoslot", "--json-schema"],
+			cwd,
+		});
+		expect(await schema.exit).toBe(0);
+		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
+		expect(parseJsonOutput(schema)).toHaveProperty("machineEnvelopeJsonSchema");
+	});
+
+	test.each(["autobranch", "branch-latest-commit", "autoslot", "submit", "land", "squash-stack"])(
+		"real loader does not retain the removed flat flow %s route",
+		async (command) => {
+			const cwd = await createFlowProject();
+			const run = runWithRealFlowExtension({ args: ["flow", command, "--help"], cwd });
+
+			expect(await run.exit).toBe(0);
+			expect(run.stdout.join("")).toContain("Usage: ns flow");
+			expect(run.stdout.join("")).not.toContain(`Usage: ns flow ${command}`);
+			expect(run.stderr.join("")).toBe("");
+			expect(run.context.execCalls).toEqual([]);
+			expect(run.context.textGeneratorCalls).toEqual([]);
+		},
+	);
 
 	test("real loader rejects unexpected push arguments before git or model calls", async () => {
 		const cwd = await createFlowProject();
@@ -385,11 +426,11 @@ describe("checked-in flow ns extension loading", () => {
 
 	test("real loader exposes submit help metadata", async () => {
 		const cwd = await createFlowProject();
-		const help = runWithRealFlowExtension({ args: ["flow", "submit", "--help"], cwd });
+		const help = runWithRealFlowExtension({ args: ["flow", "gt", "submit", "--help"], cwd });
 
 		expect(await help.exit).toBe(0);
 		const output = help.stdout.join("");
-		expect(output).toContain("Usage: ns flow submit");
+		expect(output).toContain("Usage: ns flow gt submit");
 		expect(output).toContain("--no-restack");
 		expect(output).toContain("--force");
 		expect(output).toContain("--verbose");
@@ -403,7 +444,7 @@ describe("checked-in flow ns extension loading", () => {
 		"real loader rejects removed submit option %s before command or model calls",
 		async (option) => {
 			const cwd = await createFlowProject();
-			const run = runWithRealFlowExtension({ args: ["flow", "submit", option], cwd });
+			const run = runWithRealFlowExtension({ args: ["flow", "gt", "submit", option], cwd });
 
 			expect(await run.exit).toBe(2);
 			expect(run.stdout.join("")).toBe("");
@@ -416,7 +457,7 @@ describe("checked-in flow ns extension loading", () => {
 	test("real loader reaches a simple submit invocation path", async () => {
 		const cwd = await createFlowProjectWithGraphiteStack();
 		const run = runWithRealFlowExtension({
-			args: ["flow", "submit"],
+			args: ["flow", "gt", "submit"],
 			cwd,
 			state: {
 				exec: successfulSubmitResponses(cwd),
@@ -437,7 +478,7 @@ describe("checked-in flow ns extension loading", () => {
 			run.liveOutput.some(
 				(entry) =>
 					entry.stream === "stderr" &&
-					entry.text.includes("ns flow submit") &&
+					entry.text.includes("ns flow gt submit") &&
 					entry.text.includes("Inventories"),
 			),
 		).toBe(true);

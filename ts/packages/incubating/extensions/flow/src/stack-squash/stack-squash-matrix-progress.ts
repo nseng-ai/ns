@@ -64,7 +64,7 @@ export function createStackSquashMatrixProgressController(options: {
 	forward?: NsProgress;
 }): StackSquashMatrixProgressController {
 	const controller = stackSquashMatrixWorkflow.createController({
-		title: "ns flow squash-stack",
+		title: "ns flow gt squash-stack",
 		rows: [],
 		presentation:
 			options.forward === undefined

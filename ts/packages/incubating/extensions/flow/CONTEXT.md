@@ -21,7 +21,7 @@ The curated `@nseng-ai/flow/api` in-process surface consumed by downstream packa
 *Avoid*: package-root import, private `@nseng-ai/flow/src/...` import, Pi registration or parity type, narrowed land-only API, consumer-owned Flow seam, exposing private submit machinery as a compatibility contract
 
 **Flow Land Command Boundary**:
-The Flow command edge maps the framework-parsed `ns flow land` request directly to typed landing policy, runs the semantic Land workflow, maps no-mutation refusals to negative outcomes and operational or partial-mutation failures to failures, validates stable structured success data, and renders settled human output. The former raw-argument CLI adapter is removed after the live-consumer audit; downstream consumers continue to use the curated **Flow extension package API** only for deliberately exported in-process behavior.
+The Flow command edge maps the framework-parsed `ns flow gt land` request directly to typed landing policy, runs the semantic Land workflow, maps no-mutation refusals to negative outcomes and operational or partial-mutation failures to failures, validates stable structured success data, and renders settled human output. The former raw-argument CLI adapter is removed after the live-consumer audit; downstream consumers continue to use the curated **Flow extension package API** only for deliberately exported in-process behavior.
 *Avoid*: raw-argument reparsing, integer-derived status, captured settled text as machine data, compatibility adapter, direct downstream import from Flow land-stack internals
 
 **Flow Land Execution**:
@@ -105,5 +105,5 @@ The narrow **Flow extension package API** behavior used by trusted Objectives pu
 *Avoid*: implementation-child external write, generic submit client, Objective Runner policy owned by Flow, force push, whole-body PR replacement
 
 **Flow Autobranch Boundary**:
-The Flow ownership boundary for public `ns flow autobranch` behavior.
+The Flow ownership boundary for public `ns flow gt autobranch` behavior.
 *Avoid*: Herdr extension public command owner, plain branch helper, Graphite primitive

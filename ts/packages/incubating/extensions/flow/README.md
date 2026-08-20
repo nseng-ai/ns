@@ -31,19 +31,19 @@ repositories customize its behavior through
 
 Each command depends on a distinct slice of the underlying technology stack:
 
-| Command                         | What it does                                                                                                 | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------ | :-: | :-------------: | :-----------: | :---: | :-: |
-| `ns flow changes`               | Summarize outstanding worktree changes without committing.                                                   |  ✓  |                 |               |       |  ✓  |
-| `ns flow cp`                    | Create a checkpoint commit for the current diff.                                                             |  ✓  |                 |               |       |  ✓  |
-| `ns flow autobranch`            | Create a Graphite branch from dirty worktree changes.                                                        |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow branch-latest-commit`  | Move the latest eligible commit to a new Graphite branch.                                                    |  ✓  |        ✓        |               |       |  ✓  |
-| `ns flow autoslot`              | Create a Graphite branch from current work, then move it into a managed slot worktree.                       |  ✓  |        ✓        |               |   ✓   |  ✓  |
-| `ns flow submit`                | Run configured checks, checkpoint, submit current/downstack Graphite branches, and generate new-PR metadata. |  ✓  |        ✓        |       ✓       |       |  ✓  |
-| `ns flow generate-pr-inventory` | Assemble and completely replace the current PR title and body.                                               |  ✓  |                 |       ✓       |       |  ✓  |
-| `ns flow push`                  | Push committed non-Graphite branch work with `git push`.                                                     |  ✓  |                 |               |       |     |
-| `ns flow land`                  | Land the current PR or Graphite stack into trunk.                                                            |  ✓  |        ✓        |       ✓       |   ✓   |     |
-| `ns flow pull-trunk`            | Refresh the Git trunk identified by cached `refs/remotes/origin/HEAD` from its configured Git upstream.      |  ✓  |                 |               |       |     |
-| `ns flow squash-stack`          | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.                |  ✓  |        ✓        |               |       |     |
+| Command                           | What it does                                                                                                 | git | Graphite (`gt`) | GitHub (`gh`) | slots | LLM |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ | :-: | :-------------: | :-----------: | :---: | :-: |
+| `ns flow changes`                 | Summarize outstanding worktree changes without committing.                                                   |  ✓  |                 |               |       |  ✓  |
+| `ns flow cp`                      | Create a checkpoint commit for the current diff.                                                             |  ✓  |                 |               |       |  ✓  |
+| `ns flow gt autobranch`           | Create a Graphite branch from dirty worktree changes.                                                        |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow gt branch-latest-commit` | Move the latest eligible commit to a new Graphite branch.                                                    |  ✓  |        ✓        |               |       |  ✓  |
+| `ns flow gt autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.                       |  ✓  |        ✓        |               |   ✓   |  ✓  |
+| `ns flow gt submit`               | Run configured checks, checkpoint, submit current/downstack Graphite branches, and generate new-PR metadata. |  ✓  |        ✓        |       ✓       |       |  ✓  |
+| `ns flow generate-pr-inventory`   | Assemble and completely replace the current PR title and body.                                               |  ✓  |                 |       ✓       |       |  ✓  |
+| `ns flow push`                    | Push committed non-Graphite branch work with `git push`.                                                     |  ✓  |                 |               |       |     |
+| `ns flow gt land`                 | Land the current PR or Graphite stack into trunk.                                                            |  ✓  |        ✓        |       ✓       |   ✓   |     |
+| `ns flow pull-trunk`              | Refresh the Git trunk identified by cached `refs/remotes/origin/HEAD` from its configured Git upstream.      |  ✓  |                 |               |       |     |
+| `ns flow gt squash-stack`         | Squash every branch in the current Graphite stack to one commit, then restore the tip branch.                |  ✓  |        ✓        |               |       |     |
 
 Every command is also available in the Pi harness. Graphite-dependent workflows use
 `/ns:flow:gt:<command>` (`autobranch`, `branch-latest-commit`, `autoslot`, `submit`, `land`, and
@@ -54,7 +54,7 @@ CLI. Pi is optional; the CLI commands do not require the Pi host.
 
 ### Latest-commit extraction policy
 
-`ns flow branch-latest-commit` and clean-worktree `ns flow autoslot` share this
+`ns flow gt branch-latest-commit` and clean-worktree `ns flow gt autoslot` share this
 policy: the worktree must be clean, and `HEAD` must be a latest single-parent
 commit. Relationship checks use only local tracking refs; they never implicitly
 fetch.
@@ -70,7 +70,7 @@ fetch.
 Existing Graphite children, root commits, and merge commits are also refused.
 The split mutates local refs only: it never fetches, pushes, submits, or updates
 PRs. On synchronized success, the upstream remains at the original commit until
-the user explicitly runs `ns flow submit` from the new child to publish the
+the user explicitly runs `ns flow gt submit` from the new child to publish the
 reshaped stack.
 
 ### What each column means
@@ -168,7 +168,7 @@ complete generation policy. Flow mechanically adds a standardized footer naming 
 invoking command, resolved prompt source, and exact qualified model identity; custom prompts cannot
 remove or rewrite that provenance boundary.
 
-Ordinary `ns flow submit` assembles a complete title and body only for PRs newly created by that
+Ordinary `ns flow gt submit` assembles a complete title and body only for PRs newly created by that
 invocation. After Graphite publishes, Flow re-queries GitHub for exactly the planned branches and
 reconciles those authoritative branch-keyed PR identities against the pre-submit inventory;
 Graphite's human-oriented output does not select targets. Every planned branch must resolve exactly
@@ -176,13 +176,13 @@ one open PR before preparation starts. Missing, ambiguous, malformed, query-fail
 duplicate identities fail after publication with branch-specific recovery guidance and no inventory
 generation or edits. By default, PRs that existed before the invocation are left untouched.
 
-`ns flow submit --title-prefix <text>` prepends one deterministic, trimmed prefix to every PR newly
+`ns flow gt submit --title-prefix <text>` prepends one deterministic, trimmed prefix to every PR newly
 created by that invocation. Flow rejects an empty or multiline prefix and one too long to leave room
 for a separating space plus at least one generated-title character. The final title is exactly the
 preserved prefix, one space, and the generated candidate; only the candidate is truncated to keep the
 complete title within 120 JavaScript string characters.
 
-`ns flow submit --generate-pr-inventory` widens the batch to every reconciled PR in the submitted
+`ns flow gt submit --generate-pr-inventory` widens the batch to every reconciled PR in the submitted
 scope, existing and new. If `--title-prefix` is also present, it still applies only to the newly
 created PRs; pre-existing PRs receive ordinary regenerated titles. Its destructive warning and confirmation happen before checks,
 checkpointing, model resolution, or Graphite/GitHub work; use `--yes`/`-y` only for explicit
@@ -198,7 +198,7 @@ disclosure, provenance, evidence limits, and destructive replacement semantics.
 
 ## Pre-submit checks
 
-Before ordinary `ns flow submit` checkpoints and submits the stack, it runs the repository's
+Before ordinary `ns flow gt submit` checkpoints and submits the stack, it runs the repository's
 **pre-submit checks**: commands installed at the `flow.submit.pre` extension point in
 the repository-root `ns.toml`:
 
@@ -247,16 +247,16 @@ as structured failure data in `data.exitCode`.
 
 ## Pre-submit check recovery
 
-When ordinary `ns flow submit`'s pre-submit checks fail under Pi, Flow sends the agent a
+When ordinary `ns flow gt submit`'s pre-submit checks fail under Pi, Flow sends the agent a
 **recovery prompt** so it can fix the root cause and rerun instead of stopping at a
-wall of test output. Recovery fires only for `ns flow submit` pre-check failures,
+wall of test output. Recovery fires only for `ns flow gt submit` pre-check failures,
 detected through the failure marker above.
 
 The prompt content comes from the `flow.submit.pre.recovery` prompt point:
 
 - **Default:** a generic built-in prompt tells the agent to diagnose the failure, fix
   its root cause, never bypass the checks, rerun the failing check command to confirm
-  it is green, and then rerun `ns flow submit`.
+  it is green, and then rerun `ns flow gt submit`.
 - **Override:** install repository-specific guidance conventionally at
   `.ns/prompts/flow.submit.pre.recovery.md` or explicitly in `ns.toml`:
 

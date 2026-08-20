@@ -45,7 +45,7 @@ export interface LandLiveProgressState {
 	landedPrs: number;
 }
 
-export const BASE_LAND_TITLE = "ns flow land";
+export const BASE_LAND_TITLE = "ns flow gt land";
 
 /** Row-label header for the land matrix; sent on the wire so hosts need no land vocabulary. */
 export const LAND_MATRIX_LABEL_HEADER = "Branch / PR";

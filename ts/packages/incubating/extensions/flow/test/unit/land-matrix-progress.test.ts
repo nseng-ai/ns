@@ -24,10 +24,10 @@ function caps(parts: Partial<Caps> = {}): Caps {
 
 describe("land matrix progress", () => {
 	test("formats the live land title from merged target PR counts", () => {
-		expect(formatLandProgressTitle({ landedPrs: 0 })).toBe("ns flow land");
-		expect(formatLandProgressTitle({ landedPrs: 1 })).toBe("ns flow land — 1 target PR merged");
+		expect(formatLandProgressTitle({ landedPrs: 0 })).toBe("ns flow gt land");
+		expect(formatLandProgressTitle({ landedPrs: 1 })).toBe("ns flow gt land — 1 target PR merged");
 		expect(formatLandProgressTitle({ landedPrs: 1, totalPrs: 2 })).toBe(
-			"ns flow land — 1/2 target PRs merged",
+			"ns flow gt land — 1/2 target PRs merged",
 		);
 	});
 
@@ -42,13 +42,13 @@ describe("land matrix progress", () => {
 		const rows = landMatrixRowsFromPlan(plan());
 		const lines = renderLandMatrixProgressFrame({
 			caps: caps(),
-			title: "ns flow land — 1/2 target PRs merged",
+			title: "ns flow gt land — 1/2 target PRs merged",
 			activeOperations: [{ kind: "command", display: "gh pr merge 123 --squash" }],
 			rows: rows.map((row) => landRowView(row)),
 		});
 
 		const output = stripAnsi(lines.join("\n"));
-		expect(output).toContain("ns flow land — 1/2 target PRs merged");
+		expect(output).toContain("ns flow gt land — 1/2 target PRs merged");
 		// Without global rows the in-flight operation keeps a dedicated slot at the bottom of
 		// the frame, adjacent to the tail, instead of a standalone header line.
 		expect(stripAnsi(lines.at(-1) ?? "")).toBe("Running: gh pr merge 123 --squash");
@@ -81,7 +81,7 @@ describe("land matrix progress", () => {
 		expect(capture.redraws.length).toBeGreaterThan(0);
 		const firstFrame = stripAnsi(capture.redraws[0] ?? "");
 		expect(firstFrame).toContain("Preflight");
-		expect(firstFrame).toContain("ns flow land — 0/2 target PRs merged");
+		expect(firstFrame).toContain("ns flow gt land — 0/2 target PRs merged");
 		// No placeholder dash while idle: the operations and tail slots stay reserved but blank.
 		expect(firstFrame).not.toContain("Running:");
 		expect(firstFrame.split("\n").slice(-2)).toEqual(["", ""]);
@@ -92,7 +92,7 @@ describe("land matrix progress", () => {
 		const rows = landMatrixRowsFromPlan(plan());
 		const fresh = renderLandMatrixProgressFrame({
 			caps: caps(),
-			title: "ns flow land",
+			title: "ns flow gt land",
 			activeOperations: [],
 			rows: rows.map((row) => landRowView(row)),
 			tailLine: "✓ packages/public/sdk (3 tests)",
@@ -102,7 +102,7 @@ describe("land matrix progress", () => {
 
 		const stale = renderLandMatrixProgressFrame({
 			caps: caps(),
-			title: "ns flow land",
+			title: "ns flow gt land",
 			activeOperations: [],
 			rows: rows.map((row) => landRowView(row)),
 			tailLine: "✓ packages/public/sdk (3 tests)",
@@ -115,7 +115,7 @@ describe("land matrix progress", () => {
 		const rows = landMatrixRowsFromPlan(plan());
 		const lines = renderLandMatrixProgressFrame({
 			caps: caps(),
-			title: "ns flow land — 0/2 target PRs merged",
+			title: "ns flow gt land — 0/2 target PRs merged",
 			activeOperations: [],
 			rows: rows.map((row) => pendingLandRowView(row)),
 		});
@@ -134,7 +134,7 @@ describe("land matrix progress", () => {
 		];
 		const lines = renderLandMatrixProgressFrame({
 			caps: caps(),
-			title: "ns flow land — 0/1 target PRs merged",
+			title: "ns flow gt land — 0/1 target PRs merged",
 			activeOperations: [],
 			rows: rows.map((row) => pendingLandRowView(row)),
 		});

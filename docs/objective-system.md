@@ -440,7 +440,7 @@ Both modes are local-only by default, and the parent judges scope, acceptance, c
 
 #### Autorun PR title annotation
 
-After an autorun slice is accepted, a separately authorized submit workflow may annotate every pull request newly created in that submit scope. The trusted parent constructs the fixed prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` from the explicitly selected Objective slug and explicitly recorded accepted ordinal, then passes it to generic Flow submission as `ns flow submit --title-prefix <prefix>` (ADR 0052). The parent never infers the ordinal from branch names, commit prose, stack position, dispatch count, or other ambient evidence.
+After an autorun slice is accepted, a separately authorized submit workflow may annotate every pull request newly created in that submit scope. The trusted parent constructs the fixed prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` from the explicitly selected Objective slug and explicitly recorded accepted ordinal, then passes it to generic Flow submission as `ns flow gt submit --title-prefix <prefix>` (ADR 0052). The parent never infers the ordinal from branch names, commit prose, stack position, dispatch count, or other ambient evidence.
 
 One prefix applies to all new pull requests in that submit invocation. Existing pull requests are never prefixed, including when `--generate-pr-inventory` regenerates their metadata, and later checkpoints or cumulative runner publication do not recompute or add the prefix. Titles are human-facing metadata, not machine state, policy evidence, or authorization. Implementation children and `runner-finish` never create or edit pull requests; ADR 0037 publication remains body-only, and portable autorun remains local-only.
 
