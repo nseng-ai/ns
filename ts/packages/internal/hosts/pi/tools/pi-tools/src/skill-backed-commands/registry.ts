@@ -114,6 +114,11 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 	{ skillName: "ns-cli-design", surface: "ns:cli:design", kind: "generic-backing-skill" },
 	...flowSkillBackedCommandRegistrations,
 	{
+		skillName: "ns-flow-gs-autobranch",
+		surface: "ns:flow:gs:autobranch",
+		kind: "generic-backing-skill",
+	},
+	{
 		skillName: "ns-typescript-style-tripwire",
 		surface: "ns:typescript:style-tripwire",
 		kind: "generic-backing-skill",

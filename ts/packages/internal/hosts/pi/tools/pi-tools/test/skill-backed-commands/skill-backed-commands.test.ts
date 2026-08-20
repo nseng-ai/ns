@@ -78,6 +78,7 @@ describe("skill-backed command registry", () => {
 		);
 		expect(skillBackedCommandSurface("ns-flow-cp")).toBe("ns:flow:cp");
 		expect(skillBackedCommandSurface("ns-flow-submit")).toBe("ns:flow:gt:submit");
+		expect(skillBackedCommandSurface("ns-flow-gs-autobranch")).toBe("ns:flow:gs:autobranch");
 		expect(skillBackedCommandSurface("ns-cli-design")).toBe("ns:cli:design");
 		expect(skillBackedCommandSurface("ns-typescript-style-tripwire")).toBe(
 			"ns:typescript:style-tripwire",
@@ -118,6 +119,7 @@ describe("skill-backed command registry", () => {
 
 		expect(skillNames).toContain("code-workflows");
 		expect(skillNames).toContain("objective-refresh");
+		expect(skillNames).toContain("ns-flow-gs-autobranch");
 		expect(skillNames).not.toContain("unregistered-skill-name");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("objective-create");
@@ -134,6 +136,7 @@ describe("skill-backed command registry", () => {
 		const specializedSkillNames = specialized.map((registration) => registration.skillName);
 		const specializedSurfaces = specialized.map((registration) => registration.surface);
 
+		expect(specializedSkillNames).not.toContain("ns-flow-gs-autobranch");
 		expect(specializedSkillNames).toEqual(
 			expect.arrayContaining([
 				"branch-context-from-plan",
@@ -165,6 +168,7 @@ describe("skill-backed command registry", () => {
 			expect(surfaces).toContain(surface);
 		}
 		expect(surfaces).toContain("ns:objective:refresh");
+		expect(surfaces).toContain("ns:flow:gs:autobranch");
 		expect(surfaces).toContain("ns:handoff:create");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
@@ -185,6 +189,7 @@ describe("derivePiReplacementCommand", () => {
 		["objective-refresh", "ns:objective:refresh"],
 		["code-workflows", "code:workflows"],
 		["ns-cli-design", "ns:cli:design"],
+		["ns-flow-gs-autobranch", "ns:flow:gs:autobranch"],
 		["ns-typescript-style-tripwire", "ns:typescript:style-tripwire"],
 	])("derives generic backing skill %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);
@@ -202,6 +207,12 @@ describe("derivePiReplacementCommand", () => {
 			skillName: "objective-refresh",
 			namespace: "ns",
 			command: "objective:refresh",
+		});
+		expect(derivePiReplacementCommand("ns-flow-gs-autobranch")).toEqual({
+			surface: "ns:flow:gs:autobranch",
+			skillName: "ns-flow-gs-autobranch",
+			namespace: "ns",
+			command: "flow:gs:autobranch",
 		});
 	});
 
@@ -222,6 +233,7 @@ describe("genericSkillBackedCommandSpecs", () => {
 
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).toContain("ns:objective:refresh");
+		expect(surfaces).toContain("ns:flow:gs:autobranch");
 		expect(surfaces).not.toContain("skill:x");
 		expect(surfaces).not.toContain("pr:address");
 		expect(surfaces).not.toContain("cli:push-down");
@@ -244,50 +256,67 @@ describe("genericSkillBackedCommandSpecs", () => {
 });
 
 describe("registerSkillBackedCommands", () => {
-	test("registers generic commands that read effective backing skills", async () => {
-		await withTempRepoSkill(
-			{
-				skillName: "code-workflows",
-				markdown: "---\nname: code-workflows\n---\n\n# Code Workflows\n",
-				prefix: "skill-backed-command-",
-			},
-			async ({ skillPath }) => {
-				const host = new FakeSkillBackedCommandHost();
-				registerSkillBackedCommands(host);
-				const command = host.commands.get("code:workflows");
-				expect(command).toBeDefined();
+	test.each([
+		{
+			skillName: "code-workflows",
+			surface: "code:workflows",
+			heading: "# Code Workflows",
+		},
+		{
+			skillName: "ns-flow-gs-autobranch",
+			surface: "ns:flow:gs:autobranch",
+			heading: "# GS Autobranch",
+		},
+	])(
+		"registers $surface with its exact effective skill and initial request",
+		async ({ skillName, surface, heading }) => {
+			await withTempRepoSkill(
+				{
+					skillName,
+					markdown: `---\nname: ${skillName}\n---\n\n${heading}\n`,
+					prefix: "skill-backed-command-",
+				},
+				async ({ skillPath }) => {
+					const host = new FakeSkillBackedCommandHost();
+					registerSkillBackedCommands(host);
+					const command = host.commands.get(surface);
+					expect(command).toBeDefined();
 
-				await command?.handler(
-					"fix ```this``` please",
-					commandContext({
-						name: "code-workflows",
-						filePath: skillPath,
-						baseDir: skillPath.replace(/\/SKILL\.md$/u, ""),
-					}),
-				);
+					await command?.handler(
+						"fix ```this``` please",
+						commandContext({
+							name: skillName,
+							filePath: skillPath,
+							baseDir: skillPath.replace(/\/SKILL\.md$/u, ""),
+						}),
+					);
 
-				expect(host.ackMessages).toEqual([
-					expect.objectContaining({
-						content: "→ /code:workflows received; starting…",
-						customType: "ns-command-ack",
-						display: true,
-					}),
-				]);
-				expect(host.sentMessages).toHaveLength(1);
-				expect(host.sentMessages[0]).toContain(
-					`<skill name="code-workflows" location="${skillPath}">`,
-				);
-				expect(host.sentMessages[0]).toContain("# Code Workflows");
-				expect(host.sentMessages[0]).toContain("````text\nfix ```this``` please\n````");
-			},
-		);
-	});
+					expect(host.ackMessages).toEqual([
+						expect.objectContaining({
+							content: `→ /${surface} received; starting…`,
+							customType: "ns-command-ack",
+							display: true,
+						}),
+					]);
+					expect(host.sentMessages).toHaveLength(1);
+					expect(host.sentMessages[0]).toContain(
+						`<skill name="${skillName}" location="${skillPath}">`,
+					);
+					expect(host.sentMessages[0]).toContain(heading);
+					expect(host.sentMessages[0]).toContain("````text\nfix ```this``` please\n````");
+				},
+			);
+		},
+	);
 
-	test("missing required skill reports an error and sends no prompt", async () => {
+	test.each([
+		["code:workflows", "code-workflows"],
+		["ns:flow:gs:autobranch", "ns-flow-gs-autobranch"],
+	])("/%s fails closed when effective skill %s is missing", async (surface, skillName) => {
 		await withTempGitRepo({ prefix: "missing-skill-backed-command-" }, async () => {
 			const host = new FakeSkillBackedCommandHost();
 			registerSkillBackedCommands(host);
-			const command = host.commands.get("code:workflows");
+			const command = host.commands.get(surface);
 			if (command === undefined) throw new Error("missing command");
 			const ctx = commandContext();
 
@@ -297,7 +326,7 @@ describe("registerSkillBackedCommands", () => {
 			expect(ctx.notifications).toHaveLength(1);
 			expect(ctx.notifications[0]).toMatchObject({ level: "error" });
 			expect(ctx.notifications[0]?.message).toContain(
-				'Could not load required skill "code-workflows"',
+				`Could not load required skill "${skillName}"`,
 			);
 		});
 	});

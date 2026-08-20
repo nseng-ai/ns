@@ -105,5 +105,5 @@ The narrow **Flow extension package API** behavior used by trusted Objectives pu
 *Avoid*: implementation-child external write, generic submit client, Objective Runner policy owned by Flow, force push, whole-body PR replacement
 
 **Flow Autobranch Boundary**:
-The Flow ownership boundary for public `ns flow gt autobranch` behavior.
-*Avoid*: Herdr extension public command owner, plain branch helper, Graphite primitive
+The Flow ownership boundary for public `ns flow gt autobranch` behavior. The provisional `/ns:flow:gs:autobranch` is not part of the **Flow Command Face**: it is a generic Skill-Backed Command whose exact effective `ns-flow-gs-autobranch` skill temporarily specifies provider-native dirty trunk bootstrap and dirty tracked-top extension while evidence is gathered for future provider-specific imperative Flow code.
+*Avoid*: Herdr extension public command owner, plain branch helper, Graphite primitive, shipped `ns flow gs` command, universal provider transaction
