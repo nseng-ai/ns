@@ -119,6 +119,11 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 		kind: "generic-backing-skill",
 	},
 	{
+		skillName: "ns-flow-gs-autoslot",
+		surface: "ns:flow:gs:autoslot",
+		kind: "generic-backing-skill",
+	},
+	{
 		skillName: "ns-typescript-style-tripwire",
 		surface: "ns:typescript:style-tripwire",
 		kind: "generic-backing-skill",

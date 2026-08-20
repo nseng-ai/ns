@@ -79,6 +79,7 @@ describe("skill-backed command registry", () => {
 		expect(skillBackedCommandSurface("ns-flow-cp")).toBe("ns:flow:cp");
 		expect(skillBackedCommandSurface("ns-flow-submit")).toBe("ns:flow:gt:submit");
 		expect(skillBackedCommandSurface("ns-flow-gs-autobranch")).toBe("ns:flow:gs:autobranch");
+		expect(skillBackedCommandSurface("ns-flow-gs-autoslot")).toBe("ns:flow:gs:autoslot");
 		expect(skillBackedCommandSurface("ns-cli-design")).toBe("ns:cli:design");
 		expect(skillBackedCommandSurface("ns-typescript-style-tripwire")).toBe(
 			"ns:typescript:style-tripwire",
@@ -120,6 +121,7 @@ describe("skill-backed command registry", () => {
 		expect(skillNames).toContain("code-workflows");
 		expect(skillNames).toContain("objective-refresh");
 		expect(skillNames).toContain("ns-flow-gs-autobranch");
+		expect(skillNames).toContain("ns-flow-gs-autoslot");
 		expect(skillNames).not.toContain("unregistered-skill-name");
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("objective-create");
@@ -137,6 +139,7 @@ describe("skill-backed command registry", () => {
 		const specializedSurfaces = specialized.map((registration) => registration.surface);
 
 		expect(specializedSkillNames).not.toContain("ns-flow-gs-autobranch");
+		expect(specializedSkillNames).not.toContain("ns-flow-gs-autoslot");
 		expect(specializedSkillNames).toEqual(
 			expect.arrayContaining([
 				"branch-context-from-plan",
@@ -169,6 +172,7 @@ describe("skill-backed command registry", () => {
 		}
 		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("ns:flow:gs:autobranch");
+		expect(surfaces).toContain("ns:flow:gs:autoslot");
 		expect(surfaces).toContain("ns:handoff:create");
 		expect(surfaces).toContain("pi:grill-me");
 		expect(surfaces).toContain("pi:grill-with-docs");
@@ -190,6 +194,7 @@ describe("derivePiReplacementCommand", () => {
 		["code-workflows", "code:workflows"],
 		["ns-cli-design", "ns:cli:design"],
 		["ns-flow-gs-autobranch", "ns:flow:gs:autobranch"],
+		["ns-flow-gs-autoslot", "ns:flow:gs:autoslot"],
 		["ns-typescript-style-tripwire", "ns:typescript:style-tripwire"],
 	])("derives generic backing skill %s as /%s", (skillName, surface) => {
 		expect(derivePiReplacementCommand(skillName)?.surface).toBe(surface);
@@ -214,6 +219,12 @@ describe("derivePiReplacementCommand", () => {
 			namespace: "ns",
 			command: "flow:gs:autobranch",
 		});
+		expect(derivePiReplacementCommand("ns-flow-gs-autoslot")).toEqual({
+			surface: "ns:flow:gs:autoslot",
+			skillName: "ns-flow-gs-autoslot",
+			namespace: "ns",
+			command: "flow:gs:autoslot",
+		});
 	});
 
 	test("does not derive specialized or unknown command metadata", () => {
@@ -234,6 +245,7 @@ describe("genericSkillBackedCommandSpecs", () => {
 		expect(surfaces).toContain("code:workflows");
 		expect(surfaces).toContain("ns:objective:refresh");
 		expect(surfaces).toContain("ns:flow:gs:autobranch");
+		expect(surfaces).toContain("ns:flow:gs:autoslot");
 		expect(surfaces).not.toContain("skill:x");
 		expect(surfaces).not.toContain("pr:address");
 		expect(surfaces).not.toContain("cli:push-down");
@@ -266,6 +278,11 @@ describe("registerSkillBackedCommands", () => {
 			skillName: "ns-flow-gs-autobranch",
 			surface: "ns:flow:gs:autobranch",
 			heading: "# GS Autobranch",
+		},
+		{
+			skillName: "ns-flow-gs-autoslot",
+			surface: "ns:flow:gs:autoslot",
+			heading: "# GS Autoslot",
 		},
 	])(
 		"registers $surface with its exact effective skill and initial request",
@@ -312,6 +329,7 @@ describe("registerSkillBackedCommands", () => {
 	test.each([
 		["code:workflows", "code-workflows"],
 		["ns:flow:gs:autobranch", "ns-flow-gs-autobranch"],
+		["ns:flow:gs:autoslot", "ns-flow-gs-autoslot"],
 	])("/%s fails closed when effective skill %s is missing", async (surface, skillName) => {
 		await withTempGitRepo({ prefix: "missing-skill-backed-command-" }, async () => {
 			const host = new FakeSkillBackedCommandHost();
