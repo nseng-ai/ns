@@ -71,7 +71,7 @@ describe("flow land external-call telemetry run diagnostics", () => {
 		expect(parsed).toEqual({
 			schemaVersion: 3,
 			runId: "run-1",
-			command: "ns flow land",
+			command: "ns flow gt land",
 			startedAtMs: 1_000,
 			finishedAtMs: 1_100,
 			durationMs: 100,

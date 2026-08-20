@@ -289,7 +289,7 @@ describe("project-local submit extension", () => {
 		});
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "ready\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: `Submitted ${PR_URL}\n` });
-		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow submit"))).toBe(false);
+		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow gt submit"))).toBe(false);
 		expect(run.liveOutput.some((entry) => entry.text.includes("Branch / PR"))).toBe(false);
 		expect(run.liveOutput.some((entry) => entry.text.includes("\u001b["))).toBe(false);
 		expect(run.stdout.join("")).toContain("Submitted 1 PR:");
@@ -306,7 +306,7 @@ describe("project-local submit extension", () => {
 
 		expect(await run.exit).toBe(0);
 		const settled = lastStderrOutput(run.liveOutput);
-		expect(settled).toContain("ns flow submit");
+		expect(settled).toContain("ns flow gt submit");
 		expect(settled).toContain("checkpoint complete");
 		expect(settled).not.toContain("Branch / PR");
 	});
@@ -553,7 +553,7 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toHaveLength(0);
 		expect(run.liveOutput).toContainEqual({ stream: "stdout", text: "hook stdout\n" });
 		expect(run.liveOutput).toContainEqual({ stream: "stderr", text: "hook stderr\n" });
-		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow submit"))).toBe(false);
+		expect(run.liveOutput.some((entry) => entry.text.includes("ns flow gt submit"))).toBe(false);
 		expect(run.liveOutput.some((entry) => entry.text.includes("Branch / PR"))).toBe(false);
 		expect(run.liveOutput.some((entry) => entry.text.includes("\u001b["))).toBe(false);
 		expect(events).toContainEqual({
@@ -1123,7 +1123,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("Checkpoint before submit failed. Submission was not attempted.");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain(
-			"ns flow submit failed, and the failure could not be interpreted automatically.",
+			"ns flow gt submit failed, and the failure could not be interpreted automatically.",
 		);
 		expect(error).not.toContain("submit failure interpretation unavailable");
 		const settled = lastStderrOutput(run.liveOutput);
@@ -1251,9 +1251,9 @@ describe("project-local submit extension", () => {
 		expect(error).toContain(
 			"Remote-only commits on origin/add-preflight-detect-and-skip-empty-branches (not in local HEAD):\n  - abc123 remote checkpoint",
 		);
-		expect(error).toContain("Fix:    run `gt sync` (or `gt get`), then rerun `ns flow submit`.");
+		expect(error).toContain("Fix:    run `gt sync` (or `gt get`), then rerun `ns flow gt submit`.");
 		expect(error).toContain(
-			"Bypass: `ns flow submit --force` skips Graphite's remote-update check.",
+			"Bypass: `ns flow gt submit --force` skips Graphite's remote-update check.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("Problem: Branch");
@@ -1294,7 +1294,7 @@ describe("project-local submit extension", () => {
 			"Branch handoff-capability/stack-feedback-remediation (PR #2257, merged); trunk master.",
 		);
 		expect(error).toContain(
-			"Fix: ensure master contains the merged PR's commits, or reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them, then rerun `ns flow submit`.",
+			"Fix: ensure master contains the merged PR's commits, or reparent handoff-capability/stack-feedback-remediation onto a trunk that already contains them, then rerun `ns flow gt submit`.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("failed with exit code 1. Submission was not attempted.");
@@ -1358,7 +1358,7 @@ describe("project-local submit extension", () => {
 			"Branch shared-import-scanner-test-helpers (PR #2289, merged); trunk master.",
 		);
 		expect(error).toContain(
-			"Fix: ensure master contains the merged PR's commits, or reparent shared-import-scanner-test-helpers onto a trunk that already contains them, then rerun `ns flow submit`.",
+			"Fix: ensure master contains the merged PR's commits, or reparent shared-import-scanner-test-helpers onto a trunk that already contains them, then rerun `ns flow gt submit`.",
 		);
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain("failed with exit code 1");
@@ -1481,7 +1481,7 @@ describe("project-local submit extension", () => {
 		expect(error).toContain("raw stderr");
 		expect(error).toContain("Raw log:");
 		expect(error).not.toContain(
-			"ns flow submit failed, and the failure could not be interpreted automatically.",
+			"ns flow gt submit failed, and the failure could not be interpreted automatically.",
 		);
 		expect(error).not.toContain("model unavailable");
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
@@ -1608,7 +1608,7 @@ describe("project-local submit extension", () => {
 		expect(await run.exit).toBe(2);
 		const error = run.stderr.join("");
 		expect(error).toContain(
-			"Graphite still needs a restack after `ns flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+			"Graphite still needs a restack after `ns flow gt submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
 		);
 		expect(error).toContain("Fix: run `gt restack --downstack` manually");
 		expect(error).toContain("Raw log:");

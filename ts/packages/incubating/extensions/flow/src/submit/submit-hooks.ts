@@ -1,4 +1,4 @@
-// Pre-submit hooks for `ns flow submit`.
+// Pre-submit hooks for `ns flow gt submit`.
 //
 // The hook MECHANISM is platform code (this module); each configured hook is consumer config installed
 // at the `flow.submit.pre` point in the repo-root `ns.toml`:

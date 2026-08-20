@@ -187,13 +187,13 @@ ADR 0037 publication is **unavailable/not applicable** in portable mode. Do not 
 
 Every implementation child in either mode has this prohibition:
 
-> Do not push, submit, publish, merge, land, create or update pull requests, deploy, or perform any other write-capable external action. Do not run `git push`, `gt submit`, `gh pr create`, `ns flow submit`, PR mutation, or an equivalent. In `ns-bookended`, none of these actions may run from inside the Objective Runner step. Leave Objective tracking to the parent.
+> Do not push, submit, publish, merge, land, create or update pull requests, deploy, or perform any other write-capable external action. Do not run `git push`, `gt submit`, `gh pr create`, `ns flow gt submit`, PR mutation, or an equivalent. In `ns-bookended`, none of these actions may run from inside the Objective Runner step. Leave Objective tracking to the parent.
 
 In `ns-bookended`, the child has no publication authority, `runner-finish` alone owns the verified local implementation commit, and any authorized publication is a distinct parent-only action after the Runner Checkpoint, parent judgment, and material tracking. In `portable`, the child leaves changes uncommitted and the parent owns the ordinary local implementation commit; runner publication is unavailable.
 
 ## Autorun PR titles
 
-Only after accepting a slice and obtaining separate authorization to submit may the trusted parent construct the fixed prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` and pass it to `ns flow submit --title-prefix <prefix>`. Carry the selected Objective slug and accepted ordinal as explicit trusted facts. Never infer the ordinal from a branch name, commit prose, stack position, dispatch count, PR count, or other ambient evidence.
+Only after accepting a slice and obtaining separate authorization to submit may the trusted parent construct the fixed prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` and pass it to `ns flow gt submit --title-prefix <prefix>`. Carry the selected Objective slug and accepted ordinal as explicit trusted facts. Never infer the ordinal from a branch name, commit prose, stack position, dispatch count, PR count, or other ambient evidence.
 
 One prefix applies to every pull request newly created in that submit invocation's scope. If slices require different accepted ordinals, submit them in separate scopes. Existing pull requests are never prefixed, including when `--generate-pr-inventory` regenerates their metadata; later accepted steps and cumulative runner publication do not add or refresh the prefix.
 

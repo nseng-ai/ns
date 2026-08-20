@@ -1,4 +1,4 @@
-// Flow land presentation: the result, confirmation, and message surface for the `ns flow land` command face.
+// Flow land presentation: the result, confirmation, and message surface for the `ns flow gt land` command face.
 //
 // Consolidates result-block/confirmation rendering, plan/warning/failure/success formatting,
 // and command-context presentation/notification helpers. Live matrix progress mechanics live in

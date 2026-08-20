@@ -21,7 +21,6 @@ import registerFlowExtension, {
 import {
 	FLOW_COMMAND_SPECS,
 	FLOW_SUBMIT_CHECK_FAILURE_MARKER,
-	nsFlowCommandSurface,
 	type FlowSubmitRecoveryContext,
 } from "@nseng-ai/flow/api";
 
@@ -31,36 +30,7 @@ interface Notification {
 	message: string;
 	level: "info" | "warning" | "error" | undefined;
 }
-type FlowCommandName =
-	| "changes"
-	| "cp"
-	| "autobranch"
-	| "branch-latest-commit"
-	| "autoslot"
-	| "submit"
-	| "generate-pr-inventory"
-	| "push"
-	| "land"
-	| "pull-trunk"
-	| "squash-stack";
-
-const FLOW_COMMANDS = [
-	"changes",
-	"cp",
-	"autobranch",
-	"branch-latest-commit",
-	"autoslot",
-	"submit",
-	"generate-pr-inventory",
-	"push",
-	"land",
-	"pull-trunk",
-	"squash-stack",
-] as const satisfies readonly FlowCommandName[];
-
-function piCommandName(commandName: string): string {
-	return nsFlowCommandSurface(commandName);
-}
+const FLOW_COMMAND_SURFACES = FLOW_COMMAND_SPECS.map((command) => command.piSurface);
 const PACKAGED_RECOVERY_PROMPT = "Packaged recovery prompt\n";
 
 interface RawExecCall {
@@ -165,7 +135,7 @@ describe("ns Pi extension", () => {
 
 		registerNsExtension(pi, { runCli: async () => 0 });
 
-		expect([...pi.commands.keys()]).toEqual(FLOW_COMMANDS.map(piCommandName));
+		expect([...pi.commands.keys()]).toEqual(FLOW_COMMAND_SURFACES);
 		for (const legacyAlias of [
 			"sdl:changes",
 			"sdl:cp",
@@ -181,29 +151,29 @@ describe("ns Pi extension", () => {
 			expect(pi.commands.has(legacyAlias)).toBe(false);
 		}
 		for (const command of FLOW_COMMAND_SPECS) {
-			expect(pi.commands.get(piCommandName(command.name))?.description).toBe(
-				`ns flow ${command.name}: ${command.description}`,
+			expect(pi.commands.get(command.piSurface)?.description).toBe(
+				`ns ${command.displayName}: ${command.description}`,
 			);
 		}
 		expect(pi.messageRenderers.has(CLI_COMMAND_OUTPUT_MESSAGE_TYPE)).toBe(true);
 	});
 
-	for (const commandName of FLOW_COMMANDS) {
-		test(`routes ns flow ${commandName} to the ns CLI with flow argv`, async () => {
+	for (const command of FLOW_COMMAND_SPECS) {
+		test(`routes /${command.piSurface} to ns ${command.displayName}`, async () => {
 			const pi = new FakePi();
 			const runCliCalls: string[][] = [];
 			registerNsExtension(pi, {
 				runCli: async (args, deps) => {
 					runCliCalls.push([...args]);
-					deps.stdout(`pi-custom-${commandName}`);
+					deps.stdout(`pi-custom-${command.id}`);
 					return 0;
 				},
 			});
 
-			await commandFor(pi, piCommandName(commandName)).handler("", createContext("/work"));
+			await commandFor(pi, command.piSurface).handler("", createContext("/work"));
 
-			expect(runCliCalls).toEqual([["flow", commandName]]);
-			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${commandName}`);
+			expect(runCliCalls).toEqual([command.argvPrefix]);
+			expectSingleCommandOutput(pi.sentMessages, `pi-custom-${command.id}`);
 		});
 	}
 
@@ -392,7 +362,7 @@ describe("ns Pi extension", () => {
 			createContext("/repo"),
 		);
 
-		expect(pi.userMessages[0]).toContain("Invocation: ns flow submit --message 'hello world'");
+		expect(pi.userMessages[0]).toContain("Invocation: ns flow gt submit --message 'hello world'");
 		expect(pi.userMessages[0]).toContain("    Command: just");
 		expect(pi.userMessages[0]).toMatch(/… \d+ earlier line\(s\) omitted/u);
 		expect(pi.userMessages[0]).toContain("    line-59");

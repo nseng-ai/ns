@@ -57,6 +57,10 @@ export type CliCommandArgumentMapper = (args: readonly string[]) => ParsedCliCom
 
 export interface CliCommandInfo {
 	name: string;
+	/** Stable identity when multiple routes share a leaf name. */
+	id?: string;
+	/** Explicit Pi surface; preferred over legacy name-keyed aliases. */
+	piSurface?: string;
 	description: string;
 	canAcceptPositionalArgs?: boolean;
 	startMessage?: string;
@@ -166,15 +170,23 @@ export function selectCliCommands<TCommand extends CliCommandInfo>(options: {
 	names: readonly string[];
 	missingCommandLabel: string;
 }): TCommand[] {
-	const commandsByName = new Map(
-		options.availableCommands.map((command) => [command.name, command]),
-	);
-	return options.names.map((name) => {
-		const command = commandsByName.get(name);
-		if (command === undefined) {
-			throw new Error(`Missing ${options.missingCommandLabel} command: ${name}`);
+	return options.names.map((selector) => {
+		const identityMatches = options.availableCommands.filter(
+			(command) => command.id === selector || command.piSurface === selector,
+		);
+		if (identityMatches.length === 1) return identityMatches[0] as TCommand;
+
+		const nameMatches = options.availableCommands.filter((command) => command.name === selector);
+		if (nameMatches.length === 1) return nameMatches[0] as TCommand;
+		if (nameMatches.length > 1) {
+			const identities = nameMatches
+				.map((command) => command.id ?? command.piSurface ?? command.name)
+				.join(", ");
+			throw new Error(
+				`Ambiguous ${options.missingCommandLabel} command: ${selector}; select a stable identity (${identities})`,
+			);
 		}
-		return command;
+		throw new Error(`Missing ${options.missingCommandLabel} command: ${selector}`);
 	});
 }
 
@@ -617,7 +629,11 @@ function formatPiCommandInvocation(piCommandName: string, rawArgs: string): stri
 }
 
 function resolvePiCommandName(spec: CliCommandExtensionSpec, command: CliCommandInfo): string {
-	return spec.piCommandAliases?.[command.name] ?? `${spec.piNamespace}:${command.name}`;
+	return (
+		command.piSurface ??
+		spec.piCommandAliases?.[command.name] ??
+		`${spec.piNamespace}:${command.name}`
+	);
 }
 
 function commandArgvPrefix(command: CliCommandInfo): readonly string[] {
@@ -773,16 +789,21 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 	if (spec.piNamespace.trim() === "") {
 		throw new Error(`CLI command extension for ${spec.cliName} requires a non-empty piNamespace.`);
 	}
-	const seenNames = new Set<string>();
+	const seenIdentities = new Set<string>();
 	const seenPiCommandNames = new Set<string>();
 	for (const command of spec.commands) {
 		if (command.name.trim() === "") {
 			throw new Error(`CLI command extension for ${spec.cliName} includes an empty command name.`);
 		}
-		if (seenNames.has(command.name)) {
-			throw new Error(`Duplicate ${spec.cliName} command name: ${command.name}`);
+		const identity = command.id ?? command.name;
+		if (seenIdentities.has(identity)) {
+			throw new Error(
+				command.id === undefined
+					? `Duplicate ${spec.cliName} command name: ${command.name}`
+					: `Duplicate ${spec.cliName} command identity: ${identity}`,
+			);
 		}
-		seenNames.add(command.name);
+		seenIdentities.add(identity);
 
 		const piCommandName = resolvePiCommandName(spec, command);
 		if (piCommandName.trim() === "") {
@@ -795,8 +816,9 @@ function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
 		}
 		seenPiCommandNames.add(piCommandName);
 	}
+	const commandNames = new Set(spec.commands.map((command) => command.name));
 	for (const aliasCommandName of Object.keys(spec.piCommandAliases ?? {})) {
-		if (!seenNames.has(aliasCommandName)) {
+		if (!commandNames.has(aliasCommandName)) {
 			throw new Error(
 				`CLI command extension for ${spec.cliName} includes a Pi command alias key ${aliasCommandName} that does not match any declared command name.`,
 			);

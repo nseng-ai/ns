@@ -119,7 +119,7 @@ describe("submit progress resolution", () => {
 		await resolved.matrix.finish();
 
 		const transcript = stripAnsi(capture.writes.join(""));
-		expect(transcript).toContain("ns flow submit");
+		expect(transcript).toContain("ns flow gt submit");
 		expect(transcript).toContain("stack inventoried");
 		expect(transcript).not.toContain("Branch / PR");
 	});
@@ -211,7 +211,7 @@ describe("submit matrix progress", () => {
 	test("renders row cells without matrix-owned global phase state", () => {
 		const lines = renderSubmitMatrixProgressFrame({
 			caps: caps(),
-			title: "ns flow submit",
+			title: "ns flow gt submit",
 			rows: [
 				{
 					branch: "feature/a",

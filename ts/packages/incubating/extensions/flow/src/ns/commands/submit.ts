@@ -536,7 +536,7 @@ async function generateSubmitFailureInterpretation(input: {
 function buildSubmitFailureInterpretationPrompt(input: { rawTranscript: string }): string {
 	const bounded = boundSubmitFailureTranscript(input.rawTranscript);
 	return [
-		"Interpret this `ns flow submit` failure for the user.",
+		"Interpret this `ns flow gt submit` failure for the user.",
 		"Your output is the primary user-facing error message.",
 		"Output only plain terminal text: no Markdown headings, no bold markers, and no fenced code blocks.",
 		"Be terse. The first line is a plain-language diagnosis of what went wrong.",
@@ -639,7 +639,7 @@ function renderRawFailureTranscript(
 	const transcript = result.rawFailureTranscript;
 	if (transcript === undefined) {
 		return [
-			"ns flow submit failure raw log",
+			"ns flow gt submit failure raw log",
 			`phase: ${result.phase}`,
 			"",
 			"summary:",
@@ -647,7 +647,7 @@ function renderRawFailureTranscript(
 			"",
 		].join("\n");
 	}
-	const lines = ["ns flow submit failure raw log", `phase: ${transcript.phase}`];
+	const lines = ["ns flow gt submit failure raw log", `phase: ${transcript.phase}`];
 	if (transcript.summary !== undefined && transcript.summary.trim() !== "") {
 		lines.push("", "summary:", transcript.summary.trimEnd());
 	}
