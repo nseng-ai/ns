@@ -31,11 +31,19 @@ export interface StashEntry {
 	subject: string;
 }
 
+export type CurrentBranchState = { type: "branch"; name: string } | { type: "detached" };
+
+export type BranchShaResult =
+	| { type: "found"; sha: string }
+	| { type: "absent" }
+	| { type: "error"; details: string };
+
 export interface AutobranchGitGateway {
 	optionalRepoRoot(params: { cwd: string }): Promise<GitOptionalResult<string>>;
 	cachedOriginHeadBranch(): Promise<GitOptionalResult<string>>;
-	currentBranch(): Promise<AutobranchGitResult<string>>;
+	currentBranch(): Promise<AutobranchGitResult<CurrentBranchState>>;
 	headSha(): Promise<AutobranchGitResult<string>>;
+	branchSha(branch: string): Promise<BranchShaResult>;
 	headParents(): Promise<AutobranchGitResult<HeadParents>>;
 	headCommitMessage(): Promise<AutobranchGitResult<string>>;
 	headCommitDiff(): Promise<AutobranchGitResult<string>>;
@@ -92,12 +100,32 @@ export function createAutobranchGitGateway(input: AutobranchGitGatewayInput): Au
 		},
 		async currentBranch() {
 			const branch = await providerGit.currentBranch({ cwd: input.cwd });
-			if (branch.type === "branch") return { ok: true, value: branch.branch };
-			if (branch.type === "detached") return { ok: true, value: "" };
+			if (branch.type === "branch") {
+				return { ok: true, value: { type: "branch", name: branch.branch } };
+			}
+			if (branch.type === "detached") return { ok: true, value: { type: "detached" } };
 			return { ok: false, details: branch.error.message };
 		},
 		async headSha() {
 			return adaptGitResult(await providerGit.headCommit({ cwd: input.cwd }));
+		},
+		async branchSha(branch) {
+			const ref = `refs/heads/${branch}`;
+			const presence = await input.exec(
+				"git",
+				["show-ref", "--verify", "--quiet", ref],
+				GIT_FACT_TIMEOUT_MS,
+			);
+			if (presence.type === "exited" && presence.signal === null && presence.code === 1) {
+				return { type: "absent" };
+			}
+			if (!commandSucceeded(presence)) {
+				return { type: "error", details: formatAutobranchCommandDetails(presence) };
+			}
+			const resolved = await raw(["rev-parse", "--verify", ref], GIT_FACT_TIMEOUT_MS);
+			return resolved.ok
+				? { type: "found", sha: resolved.value.stdout.trim() }
+				: { type: "error", details: resolved.details };
 		},
 
 		// Raw autobranch-only git helpers. These commands preserve the pre-existing autobranch

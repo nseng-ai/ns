@@ -33,13 +33,23 @@ describe("Flow Pi extension parity metadata", () => {
 		expect(flowSkillBackedCommandRegistrations).toEqual([
 			{
 				kind: "specialized-command",
-				skillName: "ns-flow-autobranch",
+				skillName: "ns-flow-gt-autobranch",
 				surface: "ns:flow:gt:autobranch",
 			},
 			{
 				kind: "specialized-command",
-				skillName: "ns-flow-branch-latest-commit",
+				skillName: "ns-flow-gt-branch-latest-commit",
 				surface: "ns:flow:gt:branch-latest-commit",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "ns-flow-gs-autobranch",
+				surface: "ns:flow:gs:autobranch",
+			},
+			{
+				kind: "specialized-command",
+				skillName: "ns-flow-gs-branch-latest-commit",
+				surface: "ns:flow:gs:branch-latest-commit",
 			},
 			{
 				kind: "specialized-command",

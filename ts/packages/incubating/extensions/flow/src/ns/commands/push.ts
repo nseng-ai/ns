@@ -25,7 +25,7 @@ export const flowPushCommand: NsCommand = defineCommand({
 			body: "Command: git push",
 			cwd: result.cwd,
 			guidance:
-				"For Graphite-tracked PR branches, prefer `ns flow submit`; if this push moved a PR branch outside Graphite, run `gt get` or `gt sync` before submitting again.",
+				"For Graphite-tracked PR branches, prefer `ns flow gt submit`; if this push moved a PR branch outside Graphite, run `gt get` or `gt sync` before submitting again.",
 		}),
 	handler: async (ctx) => await runPush(ctx),
 });
@@ -69,7 +69,7 @@ async function runPush(ctx: NsExtensionApi) {
 				cwd: ctx.cwd,
 				result: status.result,
 				guidance:
-					"Inspect the Git output, fix the repository state, or use `ns flow submit` / `/ns:flow:gt:submit` for the Graphite submit flow when appropriate.",
+					"Inspect the Git output, fix the repository state, or use `ns flow gt submit` / `/ns:flow:gt:submit` for the Graphite submit flow when appropriate.",
 			}),
 		);
 	}
@@ -83,7 +83,7 @@ async function runPush(ctx: NsExtensionApi) {
 				cwd: ctx.cwd,
 				detail: status.stdout,
 				guidance:
-					"Commit or stash outstanding changes first, or use `ns flow submit` / `/ns:flow:gt:submit` for the Graphite submit flow when appropriate.",
+					"Commit or stash outstanding changes first, or use `ns flow gt submit` / `/ns:flow:gt:submit` for the Graphite submit flow when appropriate.",
 			}),
 		);
 	}
@@ -95,7 +95,7 @@ async function runPush(ctx: NsExtensionApi) {
 		renderGitResultBlock(caps, {
 			kind: "failure",
 			headline:
-				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `ns flow submit` / `/ns:flow:gt:submit` for Graphite-tracked PR branches.",
+				"`git push` failed. The branch is likely out of sync or needs the Graphite submit flow; use `ns flow gt submit` / `/ns:flow:gt:submit` for Graphite-tracked PR branches.",
 			command: "git push",
 			cwd: ctx.cwd,
 			result: pushResult,

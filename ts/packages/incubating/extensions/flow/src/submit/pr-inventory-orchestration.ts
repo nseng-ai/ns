@@ -199,7 +199,7 @@ export function assemblePrInventoryBody(input: {
 	promptSource: PromptSource;
 	modelSelection: ModelSelection;
 }): string {
-	const command = input.source === "submit" ? "ns flow submit" : "ns flow generate-pr-inventory";
+	const command = input.source === "submit" ? "ns flow gt submit" : "ns flow generate-pr-inventory";
 	const footer = `_Evidence inputs: diff and commit headlines. Command: \`${command}\`. Prompt: ${formatPromptSourceLabel(input.promptSource)}. Model: \`${formatModelRef(input.modelSelection)}\`._`;
 	return `${input.inventory.trim()}\n\n---\n\n${footer}`;
 }

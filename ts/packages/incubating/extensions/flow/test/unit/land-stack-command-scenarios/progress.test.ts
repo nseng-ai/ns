@@ -15,10 +15,10 @@ import { runLandStack } from "./support.ts";
 describe("flow land live progress", () => {
 	test("formats merged target PR counter without implying cleanup has finished", () => {
 		expect(formatLandProgressTitle({ landedPrs: 8, totalPrs: 11 })).toBe(
-			"ns flow land — 8/11 target PRs merged",
+			"ns flow gt land — 8/11 target PRs merged",
 		);
-		expect(formatLandProgressTitle({ landedPrs: 1 })).toBe("ns flow land — 1 target PR merged");
-		expect(formatLandProgressTitle({ landedPrs: 2 })).toBe("ns flow land — 2 target PRs merged");
+		expect(formatLandProgressTitle({ landedPrs: 1 })).toBe("ns flow gt land — 1 target PR merged");
+		expect(formatLandProgressTitle({ landedPrs: 2 })).toBe("ns flow gt land — 2 target PRs merged");
 	});
 
 	test("uses settled merge wording scoped to target PRs", () => {

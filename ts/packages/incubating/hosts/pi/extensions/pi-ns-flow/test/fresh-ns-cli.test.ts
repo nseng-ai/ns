@@ -28,7 +28,7 @@ describe("fresh ns CLI runner", () => {
 			select: () => ({ type: "cancelled" as const }),
 		};
 
-		expect(await runCli(["flow", "changes"], deps)).toBe(1);
+		expect(await runCli(["flow", "gt", "submit"], deps)).toBe(1);
 		expect(await runCli(["flow", "changes"], deps)).toBe(2);
 		expect(loader.calls).toEqual([1, 2]);
 	});

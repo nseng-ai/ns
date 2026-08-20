@@ -156,7 +156,7 @@ function formatTrunkOutOfDate(output: SubmitFailureOutput): string {
 			: ["", "Graphite reported:", ...reportedLines.map((line) => `  ${line}`)]),
 		"",
 		"Likely cause: your local trunk checkout has diverged from its remote (for example, local-only commits or an in-progress operation on trunk), so Graphite could not fast-forward it.",
-		"Fix: run `gt sync` to update trunk (move any local-only trunk commits onto a feature branch first), then rerun `ns flow submit`.",
+		"Fix: run `gt sync` to update trunk (move any local-only trunk commits onto a feature branch first), then rerun `ns flow gt submit`.",
 	].join("\n");
 }
 
@@ -179,8 +179,8 @@ function formatEmptyBranchFailure(branchName: string | undefined): string {
 	const isUnknownBranch = branchName === undefined;
 	const branchLine = isUnknownBranch ? "▸ <unknown empty branch>" : `▸ ${branchName}`;
 	const deleteGuidance = isUnknownBranch
-		? "If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `ns flow submit`."
-		: `If ${branchName} has no remaining work, delete it, then rerun \`ns flow submit\`:`;
+		? "If the empty branch has no remaining work, delete it (switch to its parent/downstack branch first if it is checked out), then rerun `ns flow gt submit`."
+		: `If ${branchName} has no remaining work, delete it, then rerun \`ns flow gt submit\`:`;
 	return [
 		"WARNING: This branch does not introduce any changes:",
 		branchLine,
@@ -195,8 +195,8 @@ function formatEmptyBranchFailure(branchName: string | undefined): string {
 					"(switch to its parent/downstack branch first if Graphite cannot delete the checked-out branch)",
 				]),
 		isUnknownBranch
-			? "Otherwise, commit real changes to it, then rerun `ns flow submit`."
-			: `Otherwise, commit real changes to ${branchName}, then rerun \`ns flow submit\`.`,
+			? "Otherwise, commit real changes to it, then rerun `ns flow gt submit`."
+			: `Otherwise, commit real changes to ${branchName}, then rerun \`ns flow gt submit\`.`,
 	].join("\n");
 }
 
@@ -208,8 +208,8 @@ function formatRemoteUpdatedOutsideGraphitePreflight(input: {
 	return [
 		`${subject} is out of sync with its upstream PR branch, so Graphite blocked the submit. Nothing was submitted.`,
 		formatRemoteSyncDetails(input.remoteSync),
-		"Fix:    run `gt sync` (or `gt get`), then rerun `ns flow submit`.",
-		"Bypass: `ns flow submit --force` skips Graphite's remote-update check.",
+		"Fix:    run `gt sync` (or `gt get`), then rerun `ns flow gt submit`.",
+		"Bypass: `ns flow gt submit --force` skips Graphite's remote-update check.",
 	].join("\n");
 }
 
@@ -273,7 +273,7 @@ function formatMergedPrNotInTrunk(output: SubmitFailureOutput): string {
 		`A merged PR in this stack is not in ${details.trunk === undefined ? "the current trunk" : `trunk ${details.trunk}`}, so Graphite will not submit the stack. Nothing was submitted.`,
 		identityLine,
 		"",
-		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`ns flow submit\`.`,
+		`Fix: ensure ${trunkName} contains the merged PR's commits, or reparent ${affectedBranch} onto a trunk that already contains them, then rerun \`ns flow gt submit\`.`,
 	]
 		.filter((line): line is string => line !== undefined)
 		.join("\n");

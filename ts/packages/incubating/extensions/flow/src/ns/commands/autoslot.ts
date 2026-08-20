@@ -3,6 +3,7 @@ import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-
 import { commandIoFromNsExtensionApi, runWithNsCommandIo } from "@nseng-ai/sdk/command-io";
 
 import { createAutoslotFlow, type AutoslotWorkflowResult } from "../../autoslot/autoslot.ts";
+import type { AutobranchProviderId } from "../../autobranch/provider.ts";
 import { renderAutoslotResult } from "../../autoslot/presentation.ts";
 import { createFlowSlotClient } from "../../autoslot/slot-checkout.ts";
 import {
@@ -46,13 +47,16 @@ export interface FlowAutoslotCommandDependencies {
 }
 
 export function createFlowAutoslotCommand(
+	provider: AutobranchProviderId,
 	dependencies: FlowAutoslotCommandDependencies,
 ): NsCommand<typeof autoslotSchema> {
+	const providerLabel = provider === "graphite" ? "Graphite" : "github/gh-stack";
 	return defineCommand({
 		schema: autoslotSchema,
 		resultSchema: autoslotSuccessSchema,
 		options: { slug: { short: "-s" } },
-		renderHuman: (result, caps) => renderAutoslotResult(resolveThemeCaps(caps), result),
+		renderHuman: (result, caps) =>
+			renderAutoslotResult(resolveThemeCaps(caps), result, providerLabel),
 		handler: async (ctx, request) => {
 			const caps = resolveFlowStreamCaps(ctx);
 			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
@@ -61,6 +65,7 @@ export function createFlowAutoslotCommand(
 			return await runWithNsCommandIo(io, async (io) => {
 				const result = await createAutoslotFlow({
 					cwd: ctx.cwd,
+					provider,
 					modelSelection: model.modelSelection,
 					args: request.slug === undefined ? {} : { slug: request.slug },
 					exec: (command, args, timeout) =>
@@ -76,7 +81,7 @@ export function createFlowAutoslotCommand(
 					io,
 					slotClient: dependencies.createSlotClient({ cwd: ctx.cwd, env: ctx.env }),
 				});
-				return autoslotCommandExit(caps, result);
+				return autoslotCommandExit(caps, result, providerLabel);
 			});
 		},
 	});
@@ -85,21 +90,30 @@ export function createFlowAutoslotCommand(
 function autoslotCommandExit(
 	caps: Parameters<typeof renderAutoslotResult>[0],
 	result: AutoslotWorkflowResult,
+	providerLabel: string,
 ) {
 	switch (result.type) {
 		case "branch-created-slot-skipped":
 		case "moved":
 			return ok(result);
 		case "refused":
-			return negative(renderAutoslotResult(caps, result), { data: result });
+			return negative(renderAutoslotResult(caps, result, providerLabel), { data: result });
 		case "failed":
 		case "branch-created-slot-failed":
-			return failure(FLOW_COMMAND_FAILED, renderAutoslotResult(caps, result), result);
+			return failure(
+				FLOW_COMMAND_FAILED,
+				renderAutoslotResult(caps, result, providerLabel),
+				result,
+			);
 	}
 }
 
-export const flowAutoslotCommand = createFlowAutoslotCommand({
+export const flowGtAutoslotCommand = createFlowAutoslotCommand("graphite", {
 	createSlotClient: createFlowSlotClient,
 });
 
-export default flowAutoslotCommand;
+export const flowGsAutoslotCommand = createFlowAutoslotCommand("gh-stack", {
+	createSlotClient: createFlowSlotClient,
+});
+
+export default flowGtAutoslotCommand;

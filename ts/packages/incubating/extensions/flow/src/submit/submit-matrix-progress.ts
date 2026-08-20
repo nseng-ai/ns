@@ -155,7 +155,7 @@ function createSubmitProgressController(options: {
 	const workflow = options.hasChecks ? SUBMIT_MATRIX_WORKFLOW_WITH_CHECKS : SUBMIT_MATRIX_WORKFLOW;
 	return adaptSubmitMatrixProgressController(
 		workflow.createController({
-			title: "ns flow submit",
+			title: "ns flow gt submit",
 			rows: [],
 			presentation: options.presentation,
 			begin: "lazy",

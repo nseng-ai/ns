@@ -1,10 +1,11 @@
 # Autobranch Family Boundaries
 
-Shared boundary contract for the Flow autobranch skill family (`ns-flow-autobranch`, `ns-flow-branch-latest-commit`). Each family skill points here; command-specific boundaries stay in the individual skills.
+Shared boundary contract for the provider-explicit Flow autobranch skills: `ns-flow-{gt,gs}-autobranch` and `ns-flow-{gt,gs}-branch-latest-commit`.
 
-The Flow autobranch family is the cross-harness path for moving existing work onto Graphite branches through public Flow CLI commands and their Pi mirrors.
-
-- Graphite/`gt` is part of the command contract.
-- These workflows do not submit, land, restack, or create plain git branches.
-- Pi may add notification/status UX, but the public command boundaries are the documented `ns flow ...` commands and their `/ns:flow:*` mirrors.
-- Hidden `ns flow autobranch` remains available for internal compatibility; do not use it as the public or cross-harness path.
+- Provider machine identities are `graphite` and `gh-stack`; command abbreviations are `gt` and `gs`. `gs` means the official `github/gh-stack` extension.
+- Use only the selected provider command. GT skills call `ns flow gt ...`; GS skills call `ns flow gs ...`. Pi mirrors use the matching `/ns:flow:{gt,gs}:*` surface.
+- Flow owns stashing, checkpoint commits, latest-commit eligibility, Git verification, and recovery reporting. These workflows do not submit, land, restack, or call whole-stack unstack.
+- GS automatically runs `gh stack init <current-branch>` for an untracked non-trunk source, using gh-stack's default trunk. It refuses an untracked Git trunk before stash, branch creation, or provider mutation.
+- Initialization is durable and is reported as retained when later work fails. Never parse or edit `.git/gh-stack`.
+- After GS child adoption may exist, preserve source, child, and recovery branches on ambiguity. Deleting only the Git child is not a provider rollback.
+- The former flat commands and skill identities are removed without compatibility aliases.

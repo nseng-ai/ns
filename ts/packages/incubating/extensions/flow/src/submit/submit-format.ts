@@ -64,7 +64,7 @@ export function formatSubmitInventoryFailureOutput(failure: SubmitPrReconciliati
 			? []
 			: ["", "Submitted PRs identified:", ...knownPrs.map((pr) => `• ${formatPrLinkText(pr)}`)]),
 		"",
-		"Repair the GitHub PR/head-branch association, then rerun `ns flow submit`.",
+		"Repair the GitHub PR/head-branch association, then rerun `ns flow gt submit`.",
 		"The retry will leave PRs that now exist untouched; checkout any branch whose initial metadata was skipped and run `ns flow generate-pr-inventory`.",
 	].join("\n");
 }
@@ -138,7 +138,7 @@ export function formatRestackRequiredOutput(): string {
 	return [
 		"Graphite needs a restack before submitting, but automatic restack was disabled or unavailable. Nothing was submitted.",
 		"",
-		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ns flow submit`.",
+		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ns flow gt submit`.",
 	].join("\n");
 }
 
@@ -152,7 +152,7 @@ export function formatRestackConfirmationPrompt(
 			"Graphite dry-run says restack is required before submission.",
 			"Run `gt restack --downstack --no-interactive` now, then continue with submit?",
 			"",
-			"If confirmed, ns flow submit will run:",
+			"If confirmed, ns flow gt submit will run:",
 			"$ gt restack --downstack --no-interactive",
 			`$ ${commands.submitCommandDisplay}`,
 			"",
@@ -172,7 +172,7 @@ export function formatRestackDeclinedOutput(): string {
 	return [
 		"Restack was declined, so nothing was submitted.",
 		"",
-		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ns flow submit`.",
+		"Fix: run `gt restack --downstack`, resolve any conflicts, then rerun `ns flow gt submit`.",
 	].join("\n");
 }
 
@@ -186,15 +186,15 @@ export function formatRestackConflictOutput(conflictedFiles: string[]): string {
 		"`gt restack --downstack` hit merge conflicts, so nothing was submitted.",
 		...fileLines,
 		"",
-		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `ns flow submit`.",
+		"Fix: resolve the conflicts, continue or abort the rebase, then rerun `ns flow gt submit`.",
 	].join("\n");
 }
 
 export function formatReadinessRecheckFailureOutput(submitDryRunCommandDisplay: string): string {
 	return [
-		"Graphite still needs a restack after `ns flow submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
+		"Graphite still needs a restack after `ns flow gt submit` already ran `gt restack --downstack --no-interactive`. Nothing was submitted.",
 		"",
-		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`ns flow submit\`.`,
+		`Fix: run \`gt restack --downstack\` manually, resolve any conflicts or skipped/stale branches Graphite reports, verify with \`${submitDryRunCommandDisplay}\`, then rerun \`ns flow gt submit\`.`,
 	].join("\n");
 }
 
@@ -287,8 +287,8 @@ function currentPrVerificationFailure(
 
 function formatNoCurrentPrRecoveryGuidance(): string[] {
 	return [
-		"`ns flow submit` checkpoints outstanding worktree changes before submitting.",
-		"If the branch still has no PR, inspect the submit and GitHub verification output above, then rerun `ns flow submit` after resolving the reported issue.",
+		"`ns flow gt submit` checkpoints outstanding worktree changes before submitting.",
+		"If the branch still has no PR, inspect the submit and GitHub verification output above, then rerun `ns flow gt submit` after resolving the reported issue.",
 	];
 }
 

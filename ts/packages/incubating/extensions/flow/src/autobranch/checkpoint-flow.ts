@@ -10,6 +10,12 @@ import {
 import type { AutobranchFlowResult } from "./flow-result.ts";
 import { createAutobranchGitGateway, type AutobranchGitGateway } from "./git-gateway.ts";
 import { createLatestCommitAutobranchFlow } from "./latest-commit.ts";
+import {
+	createGhStackAutobranchProvider,
+	createGraphiteAutobranchProvider,
+	type AutobranchProviderGateway,
+	type AutobranchProviderId,
+} from "./provider.ts";
 import type { CommandResult } from "@nseng-ai/extension-kit/checkpoint-flow";
 import {
 	loadPendingWorktreeSnapshot,
@@ -25,6 +31,7 @@ export type FlowAutobranchFileStat = FileStat;
 
 export interface FlowAutobranchCheckpointInput {
 	cwd: string;
+	provider?: AutobranchProviderId;
 	modelSelection: ModelSelection;
 	args: FlowAutobranchRequest;
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
@@ -70,6 +77,7 @@ export interface AutobranchFlowContext {
 	args: ParsedAutobranchArgs;
 	exec: AutobranchFlowInput["exec"];
 	git: AutobranchGitGateway;
+	provider?: AutobranchProviderGateway;
 }
 
 export interface AutobranchDispatchEnv {
@@ -152,6 +160,10 @@ export async function createFlowAutobranchCheckpointFlow(
 	input: FlowAutobranchCheckpointInput,
 ): Promise<FlowAutobranchCheckpointResult> {
 	const git = createAutobranchGitGateway({ cwd: input.cwd, exec: input.exec });
+	const provider =
+		input.provider === "gh-stack"
+			? createGhStackAutobranchProvider({ exec: input.exec, git })
+			: createGraphiteAutobranchProvider({ exec: input.exec, git });
 	const result = await dispatchAutobranchCheckpoint(
 		{
 			mode: "any-state",
@@ -175,6 +187,7 @@ export async function createFlowAutobranchCheckpointFlow(
 				args: input.args,
 				exec: input.exec,
 				git,
+				provider,
 			}),
 			...optionalEntry("onPhase", input.onPhase),
 			...optionalEntry("now", input.now),

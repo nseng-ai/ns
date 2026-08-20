@@ -6,16 +6,28 @@ import { describe, expect, test } from "vitest";
 import descriptor from "../../src/ns/extension.ts";
 
 const EXPECTED_ROUTES = [
-	"flow/autobranch",
-	"flow/autoslot",
-	"flow/branch-latest-commit",
 	"flow/changes",
 	"flow/cp",
 	"flow/exec/read-graphite-branch-metadata",
 	"flow/generate-pr-inventory",
-	"flow/land",
+	"flow/gs/autobranch",
+	"flow/gs/autoslot",
+	"flow/gs/branch-latest-commit",
+	"flow/gt/autobranch",
+	"flow/gt/autoslot",
+	"flow/gt/branch-latest-commit",
+	"flow/gt/land",
+	"flow/gt/squash-stack",
+	"flow/gt/submit",
 	"flow/pull-trunk",
 	"flow/push",
+];
+
+const REMOVED_FLAT_GT_ROUTES = [
+	"flow/autobranch",
+	"flow/autoslot",
+	"flow/branch-latest-commit",
+	"flow/land",
 	"flow/squash-stack",
 	"flow/submit",
 ];
@@ -41,7 +53,9 @@ describe("flow extension descriptor", () => {
 				path.join(descriptor.commandDirectory, (await readdir(descriptor.commandDirectory))[0]!),
 			),
 		).toContain("group.ts");
-		expect(await commandRoutes(descriptor.commandDirectory)).toEqual(EXPECTED_ROUTES);
+		const routes = await commandRoutes(descriptor.commandDirectory);
+		expect(routes).toEqual(EXPECTED_ROUTES);
+		for (const removedRoute of REMOVED_FLAT_GT_ROUTES) expect(routes).not.toContain(removedRoute);
 		expect(path.isAbsolute(descriptor.commandDirectory)).toBe(true);
 	});
 });

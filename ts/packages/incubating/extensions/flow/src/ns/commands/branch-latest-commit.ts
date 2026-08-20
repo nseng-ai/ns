@@ -1,4 +1,5 @@
 import type { LatestCommitAutobranchInput } from "../../autobranch/latest-commit.ts";
+import type { AutobranchProviderId } from "../../autobranch/provider.ts";
 import { dispatchAutobranchCheckpoint } from "../../autobranch/checkpoint-flow.ts";
 import { renderResultBlock, resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
 import { defineCommand, negative, ok, z, type NsCommand } from "@nseng-ai/sdk";
@@ -22,15 +23,19 @@ const branchLatestCommitRequestSchema = z.object({
 
 type BranchLatestCommitRequest = z.output<typeof branchLatestCommitRequestSchema>;
 
-export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitRequestSchema> =
-	defineCommand({
+export function createFlowBranchLatestCommitCommand(
+	provider: AutobranchProviderId,
+): NsCommand<typeof branchLatestCommitRequestSchema> {
+	const namespace = provider === "graphite" ? "gt" : "gs";
+	const providerLabel = provider === "graphite" ? "Graphite" : "github/gh-stack";
+	return defineCommand({
 		schema: branchLatestCommitRequestSchema,
 		resultSchema: branchLatestCommitResultSchema,
 		options: { slug: { short: "-s" } },
 		renderHuman: (result, caps) =>
 			renderResultBlock(resolveThemeCaps(caps), {
 				kind: "success",
-				headline: "Moved the latest commit to a new Graphite branch.",
+				headline: `Moved the latest commit to a new ${providerLabel} branch.`,
 				cwd: result.cwd,
 				body: result.summary,
 			}),
@@ -51,7 +56,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 				);
 			const dispatched = await dispatchAutobranchCheckpoint(
 				{ mode: "require-clean" },
-				createAutobranchDispatchEnv(ctx, args, model.modelSelection),
+				createAutobranchDispatchEnv(ctx, args, model.modelSelection, provider),
 			);
 
 			switch (dispatched.outcome) {
@@ -60,19 +65,18 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 						renderPendingWorktreeFailure(caps, {
 							error: dispatched.error,
 							cwd: ctx.cwd,
-							commandLabel: "`ns flow branch-latest-commit`",
+							commandLabel: `\`ns flow ${namespace} branch-latest-commit\``,
 						}),
 					);
 				case "refused-dirty":
 					return negative(
 						renderGitResultBlock(caps, {
 							kind: "refusal",
-							headline: "`ns flow branch-latest-commit` requires a clean worktree and did not run.",
+							headline: `\`ns flow ${namespace} branch-latest-commit\` requires a clean worktree and did not run.`,
 							command: "git status --porcelain=v1",
 							cwd: dispatched.snapshot.root,
 							detail: dispatched.snapshot.status,
-							guidance:
-								"Use `ns flow autobranch` to move dirty worktree changes to a new branch, or commit/stash them first.",
+							guidance: `Use \`ns flow ${namespace} autobranch\` to move dirty worktree changes to a new branch, or commit/stash them first.`,
 						}),
 					);
 				case "flow": {
@@ -86,8 +90,8 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 								outcome: result.outcome,
 								cwd: dispatched.snapshot.root,
 								error: result.error,
-								refusalHeadline: "Did not move the latest commit to a new Graphite branch.",
-								failureHeadline: "Could not move the latest commit to a new Graphite branch.",
+								refusalHeadline: `Did not move the latest commit to a new ${providerLabel} branch.`,
+								failureHeadline: `Could not move the latest commit to a new ${providerLabel} branch.`,
 							}),
 						);
 					}
@@ -100,5 +104,8 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 			}
 		},
 	});
+}
+
+export const flowBranchLatestCommitCommand = createFlowBranchLatestCommitCommand("graphite");
 
 export default flowBranchLatestCommitCommand;

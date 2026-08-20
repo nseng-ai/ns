@@ -1,6 +1,8 @@
 import type { NsCommandIo } from "@nseng-ai/sdk";
 import type { SlotClient, SlotCheckoutFailure } from "@nseng-ai/slots/api";
 
+import type { AutobranchProviderId } from "../autobranch/provider.ts";
+
 import {
 	createFlowAutobranchCheckpointFlow,
 	type FlowAutobranchCheckpointInput,
@@ -8,6 +10,7 @@ import {
 import { checkoutSlot } from "./slot-checkout.ts";
 
 export interface AutoslotFlowInput extends FlowAutobranchCheckpointInput {
+	provider: AutobranchProviderId;
 	slotClient: SlotClient;
 	io: NsCommandIo;
 }

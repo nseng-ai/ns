@@ -65,7 +65,7 @@ The parent-facing Markdown result of a strict **Objective Runner** step, compose
 *Avoid*: portable commit, parent-verified checkpoint, public JSON workflow state, child self-report treated as fact, hidden runner state
 
 **Objective Autorun PR Title Prefix**:
-The fixed human-facing prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` that a trusted parent may pass to generic `ns flow submit --title-prefix` only after accepting the slice and obtaining separate submit authorization (ADR 0052). The parent carries both values explicitly and never infers the ordinal. One prefix applies to every pull request newly created in that submit scope; existing pull requests are never prefixed, including during metadata regeneration. The title is not machine state, policy evidence, or authorization. ADR 0037 publication remains body-only, and Portable Autorun Mode remains local-only.
+The fixed human-facing prefix `[obj:<slug>] [autorun:<accepted-ordinal>]` that a trusted parent may pass to generic `ns flow gt submit --title-prefix` only after accepting the slice and obtaining separate submit authorization (ADR 0052). The parent carries both values explicitly and never infers the ordinal. One prefix applies to every pull request newly created in that submit scope; existing pull requests are never prefixed, including during metadata regeneration. The title is not machine state, policy evidence, or authorization. ADR 0037 publication remains body-only, and Portable Autorun Mode remains local-only.
 *Avoid*: customizable Objective title policy, Flow-owned Objective semantics, cumulative retitling, existing-PR prefixing, branch-name inference, commit-prose inference, stack-position ordinal, dispatch-count ordinal, title-as-state
 
 **Objective Host Independence**:

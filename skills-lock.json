@@ -44,7 +44,7 @@
     "code-gh": {
       "source": "skills/internal/code/code-gh",
       "sourceType": "local",
-      "computedHash": "6dfeae4419c1461b7ecf8b212698e89f89857e3e4151067280327e19b306d6c2"
+      "computedHash": "d1b79f5f2ed8df514c2c1c6032c664b9f685cacdf0ad7649b99f15d253c8e347"
     },
     "code-graphite": {
       "source": "skills/internal/code/code-graphite",
@@ -169,25 +169,35 @@
       "sourceType": "local",
       "computedHash": "13b3ffd32ea15883c5c8dc50bde8790232ae3f3b1a0c6acc535f35154b74816d"
     },
-    "ns-flow-autobranch": {
-      "source": "skills/incubating/flow/ns-flow-autobranch",
-      "sourceType": "local",
-      "computedHash": "95adefa369bfec6cb30e5c1cf886022aafc50a5315494ad55b3ea599c7e29630"
-    },
-    "ns-flow-branch-latest-commit": {
-      "source": "skills/incubating/flow/ns-flow-branch-latest-commit",
-      "sourceType": "local",
-      "computedHash": "c969e1054813322299f73c0b3a2af3c6dac473b70bd7e19e0fefc66f21df021b"
-    },
     "ns-flow-cp": {
       "source": "skills/incubating/flow/ns-flow-cp",
       "sourceType": "local",
       "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
     },
+    "ns-flow-gs-autobranch": {
+      "source": "skills/incubating/flow/ns-flow-gs-autobranch",
+      "sourceType": "local",
+      "computedHash": "97b538a7251ee42eddfedd595b17a8bdc82a3f340c6e38580260065f21c3c5bc"
+    },
+    "ns-flow-gs-branch-latest-commit": {
+      "source": "skills/incubating/flow/ns-flow-gs-branch-latest-commit",
+      "sourceType": "local",
+      "computedHash": "99a9df94802fee3215ed771a028a82d9f344d68d3371549bb590b530633ecdb9"
+    },
+    "ns-flow-gt-autobranch": {
+      "source": "skills/incubating/flow/ns-flow-gt-autobranch",
+      "sourceType": "local",
+      "computedHash": "b5c2254539b9713ad4fb46a8458e5fb4c94ad82d38add62b6ab39698ea5982b7"
+    },
+    "ns-flow-gt-branch-latest-commit": {
+      "source": "skills/incubating/flow/ns-flow-gt-branch-latest-commit",
+      "sourceType": "local",
+      "computedHash": "f0c02d3e3908295f38bc76fe381957fd16c35a8d2c8bb5ab2f666a0bb9d91cbd"
+    },
     "ns-flow-submit": {
       "source": "skills/incubating/flow/ns-flow-submit",
       "sourceType": "local",
-      "computedHash": "a9dbe016512d76a0e161586be6d3fd35b00d7955dfc296b29b411d375e80a1d9"
+      "computedHash": "a750fc0f62151f2f59ac6bd7cd27d4ab4f08c9271604382284ac0eeeb1074d3f"
     },
     "ns-release": {
       "source": "skills/internal/repository-operations/ns-release",
@@ -212,7 +222,7 @@
     "objective-autorun": {
       "source": "skills/incubating/objectives/objective-autorun",
       "sourceType": "local",
-      "computedHash": "4dbf0909c6db6afc239217c3fd157a84535000fc3f3fcdbaf66ec2a1e7fcd7fb"
+      "computedHash": "d34e3f9c3c02ec804e5e3ff101e340cf5617bd47b7e0bfee726e8f5e69d32d1b"
     },
     "objective-close": {
       "source": "skills/incubating/objectives/objective-close",
@@ -274,7 +284,7 @@
     "pr-make-accountable": {
       "source": "skills/public/prs/pr-make-accountable",
       "sourceType": "local",
-      "computedHash": "4b1ec8b7b3421caa8a7b80c82d39313172596f48cb065838b6fac90d733492ca"
+      "computedHash": "4db407cb5767246c9d9df91f67aed03fa68f9a01e1e598363d910da159074508"
     },
     "project-setup": {
       "source": "skills/internal/repository-operations/project-setup",
