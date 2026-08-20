@@ -14,6 +14,7 @@ import {
 	parseCliCommandArgs,
 	registerCliCommandExtension,
 	renderCliCommandOutputMessage,
+	selectCliCommands,
 	type CliCommandInfo,
 	type CliCommandOutputDetails,
 	type CliCommandRunDeps,
@@ -27,6 +28,41 @@ import {
 import { ComponentWidgetFake } from "./support/widget-fakes.ts";
 
 type RegisteredCommand = Parameters<CliCommandExtensionAPI["registerCommand"]>[1];
+
+describe("selectCliCommands", () => {
+	const commands = [
+		{ id: "flow:gt:autobranch", name: "autobranch", description: "gt" },
+		{ id: "flow:gs:autobranch", name: "autobranch", description: "gs" },
+		{ id: "flow:changes", name: "changes", description: "changes" },
+	] satisfies CliCommandInfo[];
+
+	test("selects duplicate leaf commands by stable identity", () => {
+		expect(
+			selectCliCommands({
+				availableCommands: commands,
+				names: ["flow:gs:autobranch"],
+				missingCommandLabel: "Flow",
+			}),
+		).toEqual([commands[1]]);
+	});
+
+	test("rejects ambiguous leaf selection while preserving unique names", () => {
+		expect(() =>
+			selectCliCommands({
+				availableCommands: commands,
+				names: ["autobranch"],
+				missingCommandLabel: "Flow",
+			}),
+		).toThrow(/Ambiguous Flow command: autobranch/);
+		expect(
+			selectCliCommands({
+				availableCommands: commands,
+				names: ["changes"],
+				missingCommandLabel: "Flow",
+			}),
+		).toEqual([commands[2]]);
+	});
+});
 type MessageRenderer = Parameters<
 	NonNullable<CliCommandExtensionAPI["registerMessageRenderer"]>
 >[1];
@@ -1490,14 +1526,14 @@ describe("cli command extension helper", () => {
 				{
 					name: "submit",
 					description: "Submit a stack.",
-					argvPrefix: ["flow", "submit"],
-					displayName: "flow submit",
+					argvPrefix: ["flow", "gt", "submit"],
+					displayName: "flow gt submit",
 				},
 			],
 			runCli: async (_args, deps) => {
 				deps.onProgress?.({
 					type: "phases-declared",
-					title: "ns flow submit",
+					title: "ns flow gt submit",
 					phases: [
 						{ key: "checkpoint", name: "Checkpoint" },
 						{ key: "submit", name: "Submit" },

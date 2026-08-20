@@ -50,7 +50,7 @@ export interface FlowLandExternalCallDiagnostic {
 export interface FlowLandTelemetryDiagnostics {
 	schemaVersion: typeof FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION;
 	runId: string;
-	command: "ns flow land";
+	command: "ns flow gt land";
 	startedAtMs: number;
 	finishedAtMs: number;
 	durationMs: number;
@@ -145,7 +145,7 @@ function buildFlowLandTelemetryDiagnostics(options: {
 	return {
 		schemaVersion: FLOW_LAND_TELEMETRY_DIAGNOSTICS_SCHEMA_VERSION,
 		runId: options.runId,
-		command: "ns flow land",
+		command: "ns flow gt land",
 		startedAtMs: options.startedAtMs,
 		finishedAtMs: options.finishedAtMs,
 		durationMs: Math.max(0, options.finishedAtMs - options.startedAtMs),

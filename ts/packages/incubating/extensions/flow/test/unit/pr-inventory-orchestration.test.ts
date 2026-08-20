@@ -121,7 +121,7 @@ describe("PR metadata replacement", () => {
 					"",
 					"---",
 					"",
-					`_Evidence inputs: diff and commit headlines. Command: \`ns flow ${source}\`. Prompt: ${label}. Model: \`test/test-model\`._`,
+					`_Evidence inputs: diff and commit headlines. Command: \`ns flow ${source === "submit" ? "gt submit" : source}\`. Prompt: ${label}. Model: \`test/test-model\`._`,
 				].join("\n"),
 			);
 			expect(result.body).not.toContain("/private/repo");
@@ -183,7 +183,7 @@ describe("PR metadata replacement", () => {
 				"",
 				"---",
 				"",
-				"_Evidence inputs: diff and commit headlines. Command: `ns flow submit`. Prompt: built-in flow.submit.pr-inventory. Model: `test/test-model`._",
+				"_Evidence inputs: diff and commit headlines. Command: `ns flow gt submit`. Prompt: built-in flow.submit.pr-inventory. Model: `test/test-model`._",
 			].join("\n"),
 		);
 	});
@@ -212,7 +212,7 @@ describe("PR metadata replacement", () => {
 		expect(result.title).toBe("[obj:demo] [autorun:2] Generated title");
 		expect(result.previewBody).toBe("Generated body");
 		expect(result.body).toContain("Generated body");
-		expect(result.body).toContain("Command: `ns flow submit`");
+		expect(result.body).toContain("Command: `ns flow gt submit`");
 	});
 
 	test("preserves the complete prefix and truncates only the candidate at the title limit", () => {

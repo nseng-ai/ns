@@ -185,7 +185,7 @@ Consume hook points:
 - `hookCommandsForPoint(catalog, "flow.submit.pre")` returns the installed
   command strings. The workflow owns execution: whitespace-split each entry into
   an argv, run sequentially with no shell, abort the surrounding step on first
-  failure. `ns flow submit` pre-checks are the production example
+  failure. `ns flow gt submit` pre-checks are the production example
   (`ts/packages/incubating/extensions/flow/src/submit/submit-hooks.ts`).
 
 Consume prompt points:
@@ -227,7 +227,7 @@ the catalog is the single resolution path.
 "flow.submit.pre" = ["just"]
 ```
 
-So `ns flow submit` runs `just` (full repo validation) before checkpointing and
+So `ns flow gt submit` runs `just` (full repo validation) before checkpointing and
 submitting the stack — an installation at the cardinality-many
 `flow.submit.pre` point. Two conventional prompt files install prompt content
 with no TOML line:

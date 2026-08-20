@@ -30,11 +30,11 @@ export { PR_FIELDS as FLOW_LAND_PR_FIELDS } from "../land/stack/constants.ts";
 
 export { FLOW_SUBMIT_CHECK_FAILURE_MARKER } from "../submit/submit-hooks.ts";
 
-export type { FlowCommandSpec } from "./command-surfaces.ts";
+export type { FlowCommandProvider, FlowCommandSpec } from "./command-surfaces.ts";
 export {
 	FLOW_COMMAND_SPECS,
+	FLOW_SUBMIT_COMMAND_SPEC,
 	flowSkillBackedCommandRegistrations,
-	nsFlowCommandSurface,
 } from "./command-surfaces.ts";
 
 export type {

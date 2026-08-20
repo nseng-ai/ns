@@ -73,7 +73,7 @@ describe("skill-backed command registry", () => {
 		);
 		expect(skillBackedCommandSurface("branch-context-impl")).toBe(IMPL_BRANCH_CONTEXT_COMMAND_NAME);
 		expect(skillBackedCommandSurface("objective-refresh")).toBe("ns:objective:refresh");
-		expect(skillBackedCommandSurface("ns-flow-branch-latest-commit")).toBe(
+		expect(skillBackedCommandSurface("ns-flow-gt-branch-latest-commit")).toBe(
 			"ns:flow:gt:branch-latest-commit",
 		);
 		expect(skillBackedCommandSurface("ns-flow-cp")).toBe("ns:flow:cp");
@@ -145,7 +145,7 @@ describe("skill-backed command registry", () => {
 				"objective-close",
 				"objective-autorun",
 				"pi-grill-ui",
-				"ns-flow-autobranch",
+				"ns-flow-gt-autobranch",
 			]),
 		);
 		for (const surface of OBJECTIVE_COMMAND_SURFACES) {
