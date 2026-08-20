@@ -174,6 +174,11 @@
       "sourceType": "local",
       "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
     },
+    "ns-flow-gs-autobranch": {
+      "source": "skills/incubating/flow/ns-flow-gs-autobranch",
+      "sourceType": "local",
+      "computedHash": "17283e396388975fad9d89e7b33bb95eeb504a4df527660ecc1c847607c290ee"
+    },
     "ns-flow-submit": {
       "source": "skills/incubating/flow/ns-flow-submit",
       "sourceType": "local",
