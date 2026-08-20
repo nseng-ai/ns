@@ -27,9 +27,11 @@ import { buildFeedbackDispositionGuidance } from "./feedback-disposition-guidanc
 
 export const PR_DESC_COMMAND_NAME = "pr:desc";
 export const PR_DESC_MESSAGE_TYPE = "pr-description";
+export const PR_VIEW_COMMAND_NAME = "pr:view";
 export const PR_DOWNLOAD_FEEDBACK_COMMAND_NAME = "pr:download-feedback";
 export const GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME = "gt:stack:download-feedback";
 const PR_DESC_STATUS_KEY = PR_DESC_COMMAND_NAME;
+const PR_VIEW_STATUS_KEY = PR_VIEW_COMMAND_NAME;
 const DOWNLOAD_FEEDBACK_STATUS_KEY = PR_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const DOWNLOAD_STACK_FEEDBACK_STATUS_KEY = GT_STACK_DOWNLOAD_FEEDBACK_COMMAND_NAME;
 const COMMAND_TIMEOUT_MS = 60_000;
@@ -81,6 +83,17 @@ export const prExtensionParity = definePiSurfaceParity([
 		sourcePackage: "@nseng-ai/pi-runtime",
 		sourceModule: "pr",
 		notes: "Pi owns notification presentation; GitHub CLI owns current-branch PR resolution.",
+	},
+	{
+		kind: "command",
+		surface: PR_VIEW_COMMAND_NAME,
+		workflow: "Open the current PR in a web browser",
+		parity: "FULL",
+		cli: "gh pr view --web",
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@nseng-ai/pi-runtime",
+		sourceModule: "pr",
+		notes: "GitHub CLI owns current-branch PR resolution and browser launch.",
 	},
 	{
 		kind: "command",
@@ -184,6 +197,17 @@ export default function prExtension(pi: ExtensionAPI): void {
 	});
 	registerCommandWithImmediateAck({
 		host: pi,
+		commandName: PR_VIEW_COMMAND_NAME,
+		commandDefinition: {
+			description: "Open the current PR in a web browser.",
+			handler: async (rawArgs, ctx) => {
+				await runPrViewCommand(commands, rawArgs, ctx);
+			},
+		},
+		options: { delivery: "message" },
+	});
+	registerCommandWithImmediateAck({
+		host: pi,
 		commandName: PR_DOWNLOAD_FEEDBACK_COMMAND_NAME,
 		commandDefinition: {
 			description: "Download current PR feedback into the editor as a report.",
@@ -243,6 +267,33 @@ async function runPrDescCommand(
 		displayPrDescription(host, ctx, parsed.data);
 	} finally {
 		ctx.ui?.setStatus?.(PR_DESC_STATUS_KEY, undefined);
+	}
+}
+
+async function runPrViewCommand(
+	commands: CommandExecApi,
+	rawArgs: string,
+	ctx: ExtensionContext,
+): Promise<void> {
+	const parsedArgs = parseNoArgs(rawArgs, "Usage: /pr:view");
+	if (parsedArgs.type === "invalid") {
+		notify(ctx, parsedArgs.message, "error");
+		return;
+	}
+
+	ctx.ui?.setStatus?.(PR_VIEW_STATUS_KEY, "PR view: opening…");
+	try {
+		const loaded = await loadGhCommand({
+			pi: commands,
+			args: ["pr", "view", "--web"],
+			cwd: ctx.cwd,
+			timeoutMs: COMMAND_TIMEOUT_MS,
+		});
+		if (loaded.type === "failed") {
+			notify(ctx, `Could not open the current PR: ${loaded.detail}`, "error");
+		}
+	} finally {
+		ctx.ui?.setStatus?.(PR_VIEW_STATUS_KEY, undefined);
 	}
 }
 
