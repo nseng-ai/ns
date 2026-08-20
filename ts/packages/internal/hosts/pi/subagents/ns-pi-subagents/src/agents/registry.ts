@@ -13,6 +13,7 @@ export interface SubagentAgentDescriptor {
 	readonly tools: readonly string[];
 	readonly promptContext: "definition-only" | "curated-worktree";
 	readonly modelPolicy: "inherit" | "cheap-or-inherit";
+	readonly filesystemScope?: "cwd";
 	readonly maxTaskFinalTextChars: number;
 	readonly maxFleetFinalTextChars?: number;
 	readonly supportedRuntimes: readonly SubagentRuntimeKind[];
@@ -100,6 +101,24 @@ function validateDescriptor(descriptor: SubagentAgentDescriptor): void {
 	}
 	if (!descriptor.runtimePreference.every((kind) => descriptor.supportedRuntimes.includes(kind))) {
 		throw new Error(`Subagent agent ${descriptor.name} prefers an unsupported runtime.`);
+	}
+	if (descriptor.filesystemScope === "cwd") {
+		if (
+			descriptor.supportedRuntimes.length !== 1 ||
+			descriptor.supportedRuntimes[0] !== "subprocess"
+		) {
+			throw new Error(
+				`Subagent agent ${descriptor.name} uses cwd filesystem scope but is not subprocess-only.`,
+			);
+		}
+		const unsupportedTools = descriptor.tools.filter(
+			(tool) => tool !== "read" && tool !== "grep" && tool !== "find" && tool !== "ls",
+		);
+		if (unsupportedTools.length > 0) {
+			throw new Error(
+				`Subagent agent ${descriptor.name} uses cwd filesystem scope with unsupported tool(s): ${unsupportedTools.join(", ")}.`,
+			);
+		}
 	}
 }
 

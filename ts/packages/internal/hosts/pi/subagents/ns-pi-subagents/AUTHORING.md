@@ -5,7 +5,7 @@ The package has one model-visible `subagent` tool. Extend its immutable startup 
 ## Add an agent type
 
 1. Add `.ns/pi/agents/<name>.md` with `schema: ns.pi-agent.v1`, matching `name`, and `toolName: subagent`. Put child prompt wrapping, parent guidelines, and doctrine in Markdown.
-2. Create a typed `SubagentAgentDescriptor`. It owns task limits, concurrency, optional whole-call timeout, tool permissions, prompt-context policy, model policy, output bounds, supported runtime kinds, and deterministic runtime preference.
+2. Create a typed `SubagentAgentDescriptor`. It owns task limits, concurrency, optional whole-call timeout, tool permissions, prompt-context policy, model policy, optional filesystem scope, output bounds, supported runtime kinds, and deterministic runtime preference. `filesystemScope: "cwd"` is an internal policy: the model-visible tool cannot relax it, and every advertised runtime must enforce it. Today only the subprocess adapter enforces this policy, so validation requires cwd-scoped descriptors to be subprocess-only; omission preserves unrestricted behavior for existing descriptors and direct runner-subagent consumers.
 3. Construct the complete descriptor array before registration. Built-ins and consumer descriptors use the same path:
 
 ```ts
@@ -34,13 +34,14 @@ A `SubagentRuntimeAdapter` declares one execution kind and, given the tool conte
 const runtimes = createSubagentRuntimeRegistry([
 	{
 		kind: "subprocess",
+		filesystemScopes: ["cwd"],
 		create: () => ({ ok: true, runtime: createSubprocessSubagentRuntime() }),
 	},
 	{ kind: "in-process", create: (ctx) => inProcessRuntimeOrDiagnostic(ctx) },
 ]);
 ```
 
-Descriptors declare compatible kinds and preference only; they do not contain adapter implementations. `auto` walks descriptor preference deterministically. Explicit overrides are validated before dispatch.
+Descriptors declare compatible kinds and preference only; they do not contain adapter implementations. `auto` walks descriptor preference deterministically. Explicit overrides are validated before dispatch. Runtime compatibility includes descriptor-owned safety policy: an adapter must not claim compatibility with a filesystem scope it does not enforce. A custom adapter declares enforced policies with `filesystemScopes`; omission means that it is compatible only with unrestricted descriptors. The package-owned subprocess adapter declares `filesystemScopes: ["cwd"]`. The current cwd policy is intentionally limited to descriptors whose tools are drawn only from the guarded built-ins: `read`, `grep`, `find`, and `ls`; descriptor validation rejects other tools rather than overclaiming containment.
 
 The built-in in-process adapter is final-text-only and requires the host `modelRegistry`. Project-owned runtime-independent contracts carry complete foundation `ModelSelection` values (`provider`, `modelId`, and required `thinking`). Requested selections own launch thinking; observed model and thinking remain separate runtime evidence. Host adapters translate Pi's `ModelInfo.id` at ingress; subprocess and in-process runtimes unpack the selection only at their terminal Pi seams. The in-process adapter resolves that selection to a concrete SDK model, creates a persistent session, disables extension recursion, retains skills/context discovery, and prompts with template expansion disabled.
 

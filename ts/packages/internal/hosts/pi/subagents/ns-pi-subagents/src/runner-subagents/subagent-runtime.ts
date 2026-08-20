@@ -1,7 +1,7 @@
 import { closeSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
@@ -19,6 +19,7 @@ const RUNTIME_ROOT_PREFIX = "pi-runner-subagent-runtime-";
 export interface RuntimeConfigV1 {
 	version: 1;
 	title?: string;
+	filesystemRoot?: string;
 	terminalTools: Array<{
 		name: string;
 		status: RunnerSubagentTerminalStatus;
@@ -69,6 +70,7 @@ export type RuntimeResultReadResult =
 
 export interface CreateRunnerSubagentRuntimeFilesInput {
 	title?: string;
+	filesystemRoot?: string;
 	terminalTools: readonly RunnerSubagentTerminalToolDefinition[];
 }
 
@@ -88,10 +90,14 @@ export class RuntimeConfigValidationError extends Error {
 }
 
 export function createRuntimeConfig(input: CreateRunnerSubagentRuntimeFilesInput): RuntimeConfigV1 {
-	const terminalTools = validateTerminalToolDefinitions(input.terminalTools);
+	const filesystemRoot = validateFilesystemRoot(input.filesystemRoot);
+	const terminalTools = validateTerminalToolDefinitions(input.terminalTools, {
+		allowEmpty: filesystemRoot !== undefined,
+	});
 	return {
 		version: RUNTIME_VERSION,
 		...(input.title === undefined ? {} : { title: input.title }),
+		...(filesystemRoot === undefined ? {} : { filesystemRoot }),
 		terminalTools,
 	};
 }
@@ -206,6 +212,12 @@ export function parseRuntimeConfigValueResult(value: unknown): RuntimeConfigPars
 	if (value.title !== undefined && typeof value.title !== "string") {
 		return invalidConfig("Runner subagent runtime config title must be a string when present.");
 	}
+	let filesystemRoot: string | undefined;
+	try {
+		filesystemRoot = validateFilesystemRoot(value.filesystemRoot);
+	} catch (error) {
+		return invalidConfig(formatErrorMessage(error), error);
+	}
 	if (!Array.isArray(value.terminalTools)) {
 		return invalidConfig("Runner subagent runtime config terminalTools must be an array.");
 	}
@@ -215,7 +227,10 @@ export function parseRuntimeConfigValueResult(value: unknown): RuntimeConfigPars
 			config: {
 				version: RUNTIME_VERSION,
 				...(value.title === undefined ? {} : { title: value.title }),
-				terminalTools: validateTerminalToolDefinitions(value.terminalTools),
+				...(filesystemRoot === undefined ? {} : { filesystemRoot }),
+				terminalTools: validateTerminalToolDefinitions(value.terminalTools, {
+					allowEmpty: filesystemRoot !== undefined,
+				}),
 			},
 		};
 	} catch (error) {
@@ -290,8 +305,9 @@ export function parseRuntimeResultValueResult(value: unknown): RuntimeResultPars
 
 export function validateTerminalToolDefinitions(
 	terminalTools: readonly unknown[],
+	options: { allowEmpty?: boolean } = {},
 ): RuntimeConfigV1["terminalTools"] {
-	if (terminalTools.length === 0) {
+	if (terminalTools.length === 0 && options.allowEmpty !== true) {
 		throw new RuntimeConfigValidationError(
 			"At least one runner subagent terminal tool must be provided.",
 		);
@@ -340,6 +356,16 @@ export function validateTerminalToolDefinitions(
 			parameters,
 		};
 	});
+}
+
+function validateFilesystemRoot(value: unknown): string | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value !== "string" || value.trim().length === 0 || !isAbsolute(value)) {
+		throw new RuntimeConfigValidationError(
+			"Runner subagent runtime config filesystemRoot must be an absolute path when present.",
+		);
+	}
+	return value;
 }
 
 function invalidConfig(message: string, cause?: unknown): RuntimeConfigParseResult {

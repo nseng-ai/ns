@@ -1,5 +1,4 @@
 import { READ_ONLY_SUBAGENT_TOOLS } from "../runner-subagents/read-only-tools.ts";
-import { SUBAGENT_RUNTIME_KINDS } from "../runtime/seam.ts";
 import type { SubagentAgentDescriptor } from "./registry.ts";
 
 export const EXPLORER_SCOUT_SECTION_HEADERS = [
@@ -19,8 +18,9 @@ export const EXPLORER_AGENT_DESCRIPTOR = {
 	tools: READ_ONLY_SUBAGENT_TOOLS,
 	promptContext: "definition-only",
 	modelPolicy: "cheap-or-inherit",
+	filesystemScope: "cwd",
 	maxTaskFinalTextChars: 8_000,
 	maxFleetFinalTextChars: 32_000,
-	supportedRuntimes: SUBAGENT_RUNTIME_KINDS,
-	runtimePreference: SUBAGENT_RUNTIME_KINDS,
+	supportedRuntimes: ["subprocess"],
+	runtimePreference: ["subprocess"],
 } as const satisfies SubagentAgentDescriptor;

@@ -136,6 +136,7 @@ export type RunnerSubagentOptions = {
 	cwd?: string;
 	signal?: AbortSignal;
 	tools?: readonly string[];
+	filesystemScope?: "cwd";
 	onProgress?: RunnerSubagentProgressCallback;
 } & RunnerSubagentLaunchInput &
 	(

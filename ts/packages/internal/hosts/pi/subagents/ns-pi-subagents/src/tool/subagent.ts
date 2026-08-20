@@ -200,6 +200,7 @@ async function executeSubagent(
 		execution,
 		supported: descriptor.supportedRuntimes,
 		preference: descriptor.runtimePreference,
+		...optionalEntry("filesystemScope", descriptor.filesystemScope),
 	});
 	if (!runtime.ok) return configurationError(runtime.diagnostic);
 	const scope = createAbortScope(
@@ -324,6 +325,7 @@ async function runTask(args: {
 		tools: descriptor.tools,
 		cwd: args.ctx.cwd,
 		signal: args.signal,
+		...optionalEntry("filesystemScope", descriptor.filesystemScope),
 		onProgress: args.onProgress,
 		...optionalEntry("modelSelection", selectedModel),
 	};

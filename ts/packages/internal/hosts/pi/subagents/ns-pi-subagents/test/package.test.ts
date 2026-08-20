@@ -20,7 +20,16 @@ import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/sha
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/extension-types";
 import type { NotifyLevel, ToolDefinition } from "@nseng-ai/pi-runtime/runtime/tool-types";
 import { makeErrorResult, makeFinalTextResult, toolContext } from "./helpers/fleet-testing.ts";
+import {
+	RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES,
+	type RunnerSubagentDispatcherDependencies,
+} from "../src/runner-subagents/extension-api.ts";
 import { READ_ONLY_SUBAGENT_TOOLS } from "../src/runner-subagents/read-only-tools.ts";
+import {
+	createFakeRunnerSubagentDispatcher,
+	jsonLine,
+	waitForSpawn,
+} from "../src/runner-subagents/testing.ts";
 import {
 	createFunctionSubagentRuntime,
 	createSubagentRuntimeRegistry,
@@ -45,6 +54,7 @@ type SessionStartHandler = ExtensionHandler<SessionStartEvent>;
 type SessionShutdownHandler = ExtensionHandler<SessionShutdownEvent>;
 
 class FakePi implements NsPiSubagentsExtensionAPI {
+	[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES]?: RunnerSubagentDispatcherDependencies;
 	readonly commands = new Map<
 		string,
 		{ handler(args: string, ctx: CommandContext): Promise<void> | void }
@@ -183,6 +193,61 @@ describe("ns-pi-subagents package", () => {
 			properties: { agent: { enum: ["explorer", "task"] } },
 		});
 		expect(pi.commands.has(SUBAGENT_FLEET_COMMAND_NAME)).toBe(true);
+	});
+
+	test("the default subprocess adapter dispatches explorers with the cwd guard", async () => {
+		const pi = new FakePi();
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/explorer-session.jsonl",
+		});
+		pi[RUNNER_SUBAGENT_DISPATCHER_DEPENDENCIES] = runner.dependencies;
+		packageExtension(pi, { cwd: "/repo", loadAgentDefinition: loader });
+		const tool = pi.tools.get(SUBAGENT_TOOL_NAME);
+		if (tool === undefined) throw new Error("Missing subagent tool.");
+
+		const running = tool.execute(
+			"call",
+			{ agent: "explorer", tasks: [{ title: "Scout", prompt: "Inspect." }] },
+			undefined,
+			undefined,
+			toolContext(),
+		);
+		const call = await waitForSpawn(runner.calls);
+		expect(call.args).toContain("--extension");
+		expect(call.args).toContain("--no-extensions");
+		call.process.emitStdout(
+			jsonLine({
+				type: "message_end",
+				message: {
+					role: "assistant",
+					content: [{ type: "text", text: "Done." }],
+					stopReason: "stop",
+				},
+			}),
+		);
+		call.process.close(0);
+
+		expect((await running).details).toMatchObject({ status: "completed" });
+	});
+
+	test("a custom subprocess runtime is not assumed to enforce cwd scope", async () => {
+		const pi = new FakePi();
+		packageExtension(pi, {
+			cwd: "/repo",
+			loadAgentDefinition: loader,
+			subprocessRuntime: createFunctionSubagentRuntime(async () => makeFinalTextResult("done")),
+		});
+		const result = await pi.tools
+			.get(SUBAGENT_TOOL_NAME)
+			?.execute(
+				"call",
+				{ agent: "explorer", tasks: [{ title: "Scout", prompt: "Inspect." }] },
+				undefined,
+				undefined,
+				toolContext(),
+			);
+
+		expect(result?.details).toMatchObject({ status: "configuration-error" });
 	});
 
 	test("integrates Fleet history with Pi session lifecycle", async () => {
@@ -408,7 +473,13 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+			runtimeAdapters: [
+				{
+					kind: "subprocess",
+					filesystemScopes: ["cwd"],
+					create: () => ({ ok: true, runtime }),
+				},
+			],
 		});
 		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
 			"call",
@@ -458,7 +529,13 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+			runtimeAdapters: [
+				{
+					kind: "subprocess",
+					filesystemScopes: ["cwd"],
+					create: () => ({ ok: true, runtime }),
+				},
+			],
 		});
 
 		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
@@ -513,7 +590,13 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+			runtimeAdapters: [
+				{
+					kind: "subprocess",
+					filesystemScopes: ["cwd"],
+					create: () => ({ ok: true, runtime }),
+				},
+			],
 		});
 		const tasks = Array.from({ length: 5 }, (_, index) => ({
 			title: `task ${index}`,
@@ -552,7 +635,13 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+			runtimeAdapters: [
+				{
+					kind: "subprocess",
+					filesystemScopes: ["cwd"],
+					create: () => ({ ok: true, runtime }),
+				},
+			],
 		});
 
 		const result = await pi.tools.get(SUBAGENT_TOOL_NAME)?.execute(
@@ -624,7 +713,13 @@ describe("ns-pi-subagents package", () => {
 		packageExtension(pi, {
 			cwd: "/repo",
 			loadAgentDefinition: loader,
-			runtimeAdapters: [{ kind: "subprocess", create: () => ({ ok: true, runtime }) }],
+			runtimeAdapters: [
+				{
+					kind: "subprocess",
+					filesystemScopes: ["cwd"],
+					create: () => ({ ok: true, runtime }),
+				},
+			],
 		});
 		const notifications: Array<[string, NotifyLevel | undefined]> = [];
 
