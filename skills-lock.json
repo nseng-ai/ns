@@ -179,6 +179,11 @@
       "sourceType": "local",
       "computedHash": "17283e396388975fad9d89e7b33bb95eeb504a4df527660ecc1c847607c290ee"
     },
+    "ns-flow-gs-autoslot": {
+      "source": "skills/incubating/flow/ns-flow-gs-autoslot",
+      "sourceType": "local",
+      "computedHash": "7df03bc0adbda3635db2450b45fe9155941fcf68b24be4098dc9ade53e089f49"
+    },
     "ns-flow-submit": {
       "source": "skills/incubating/flow/ns-flow-submit",
       "sourceType": "local",
