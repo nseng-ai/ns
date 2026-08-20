@@ -112,6 +112,7 @@ function defaultRuntimeAdapters(
 	return [
 		{
 			kind: "subprocess",
+			...(options.subprocessRuntime === undefined ? { filesystemScopes: ["cwd"] as const } : {}),
 			create: () => ({
 				ok: true,
 				runtime: options.subprocessRuntime ?? createSubprocessSubagentRuntime(),

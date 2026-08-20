@@ -49,6 +49,12 @@ describe("explorer contract", () => {
 		).toBe(true);
 	});
 
+	test("the executable explorer policy is cwd-scoped and subprocess-only", () => {
+		expect(EXPLORER_AGENT_DESCRIPTOR.filesystemScope).toBe("cwd");
+		expect(EXPLORER_AGENT_DESCRIPTOR.supportedRuntimes).toEqual(["subprocess"]);
+		expect(EXPLORER_AGENT_DESCRIPTOR.runtimePreference).toEqual(["subprocess"]);
+	});
+
 	test("the real explorer agent definition loads from the workspace root", () => {
 		const definition = loadPiAgentDefinition(EXPLORER_AGENT_DESCRIPTOR.name, workspaceRoot());
 

@@ -114,10 +114,18 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {
 }
 
 describe("runner subagent runtime config and result helpers", () => {
-	test("validates terminal tool definitions before spawn", () => {
+	test("validates extension capabilities before spawn", () => {
 		expect(() => createRuntimeConfig({ terminalTools: [] })).toThrow(
 			"At least one runner subagent terminal tool",
 		);
+		expect(() =>
+			createRuntimeConfig({ terminalTools: [], filesystemRoot: "relative/worktree" }),
+		).toThrow("absolute path");
+		expect(createRuntimeConfig({ terminalTools: [], filesystemRoot: "/repo/worktree" })).toEqual({
+			version: 1,
+			filesystemRoot: "/repo/worktree",
+			terminalTools: [],
+		});
 		expect(() =>
 			createRuntimeConfig({
 				terminalTools: [completionTool, { ...blockedTool, name: completionTool.name }],
@@ -185,6 +193,7 @@ describe("runner subagent runtime config and result helpers", () => {
 	test("creates a private runtime config and generated extension shim", async () => {
 		const files = await createDefaultRunnerSubagentRuntimeFiles({
 			title: "Runner Subagent",
+			filesystemRoot: "/repo/worktree",
 			terminalTools: [completionTool],
 		});
 		try {
@@ -192,6 +201,7 @@ describe("runner subagent runtime config and result helpers", () => {
 				type: "valid",
 				config: expect.objectContaining({
 					title: "Runner Subagent",
+					filesystemRoot: "/repo/worktree",
 					terminalTools: [expect.objectContaining({ name: "complete_runner_subagent" })],
 				}),
 			});
@@ -239,13 +249,18 @@ describe("runner subagent runtime extension", () => {
 			const resultPath = join(dir, "result.json");
 			await writeFile(
 				configPath,
-				JSON.stringify(createRuntimeConfig({ terminalTools: [completionTool] })),
+				JSON.stringify(
+					createRuntimeConfig({ terminalTools: [completionTool], filesystemRoot: dir }),
+				),
 				"utf8",
 			);
 			const fakePi = new FakePi();
 			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
 
 			await fakePi.emit("session_start");
+			expect(await fakePi.emit("tool_call", { toolName: "read", input: { path: "." } })).toEqual([
+				undefined,
+			]);
 			expect(fakePi.tools.map((tool) => [tool.name, tool.executionMode])).toEqual([
 				["complete_runner_subagent", "sequential"],
 			]);
@@ -325,6 +340,62 @@ describe("runner subagent runtime extension", () => {
 				},
 			});
 			expect(fakePi.tools).toEqual([]);
+		});
+	});
+
+	test("lexically confines filesystem tool calls to the configured cwd", async () => {
+		await withTempDir(async (dir) => {
+			const root = join(dir, "repo");
+			const configPath = join(dir, "config.json");
+			const resultPath = join(dir, "result.json");
+			await writeFile(
+				configPath,
+				JSON.stringify(createRuntimeConfig({ terminalTools: [], filesystemRoot: root })),
+				"utf8",
+			);
+			const fakePi = new FakePi();
+			createRunnerSubagentRuntimeExtension({ configPath, resultPath })(fakePi as never);
+
+			const allowed = [
+				{ toolName: "grep", input: {} },
+				{ toolName: "find", input: {} },
+				{ toolName: "ls", input: {} },
+				{ toolName: "read", input: { path: "." } },
+				{ toolName: "read", input: { path: "src/file.ts" } },
+				{ toolName: "read", input: { path: join(root, "src", "file.ts") } },
+				{ toolName: "read", input: { path: "src/../README.md" } },
+				{ toolName: "read", input: { path: "@src/file.ts" } },
+			];
+			for (const event of allowed) {
+				expect(await fakePi.emit("tool_call", event)).toEqual([undefined]);
+			}
+
+			const outside = join(dir, "outside");
+			const sibling = `${root}-other`;
+			const blocked = [
+				{ toolName: "read", input: { path: outside } },
+				{ toolName: "grep", input: { path: "~" } },
+				{ toolName: "find", input: { path: "~/.pi" } },
+				{ toolName: "ls", input: { path: ".." } },
+				{ toolName: "read", input: { path: "../../outside" } },
+				{ toolName: "read", input: { path: sibling } },
+				{ toolName: "read", input: { path: `@${outside}` } },
+				{ toolName: "read", input: { path: "file:///etc/passwd" } },
+				{ toolName: "grep", input: { path: "@file:///etc" } },
+				{ toolName: "read", input: {} },
+				{ toolName: "grep", input: { path: 42 } },
+				{ toolName: "find", input: null },
+			];
+			for (const event of blocked) {
+				expect(await fakePi.emit("tool_call", event)).toEqual([
+					expect.objectContaining({
+						block: true,
+						reason: expect.stringContaining("explorer paths"),
+					}),
+				]);
+			}
+
+			expect(await fakePi.emit("tool_call", { toolName: "bash", input: {} })).toEqual([undefined]);
 		});
 	});
 

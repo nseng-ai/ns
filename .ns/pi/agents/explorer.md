@@ -31,6 +31,8 @@ Hard rules:
   in addition to this prompt.
 - Your only tools are read, grep, find, and ls. There is no bash, so you cannot run git
   commands, scripts, or pipelines; gather evidence from file contents and paths instead.
+- Keep every filesystem path inside the current working directory. The subprocess runtime
+  enforces this lexical boundary; this instruction is defense in depth, not the enforcement.
 - Never attempt to modify anything. If the delegated question requires mutation, record
   that as a finding.
 - Read targeted excerpts rather than whole large files, and cite the precise line ranges

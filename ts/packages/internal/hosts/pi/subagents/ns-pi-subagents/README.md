@@ -19,7 +19,7 @@ There are no `explore` or `forked_pi_agent` compatibility tools. The task count 
 
 ### Built-in agents
 
-- **`explorer`** — 1–8 read-only reconnaissance tasks, at most four concurrent, with one 300-second whole-call budget. It always receives `read`, `grep`, `find`, and `ls`; runtime choice cannot add permissions. Its descriptor-owned automatic model selection keeps the parent's provider and chooses its approved cheap model (Haiku for Anthropic, Flash for Google, or Luna for OpenAI), inheriting when no same-provider cheap model is known. Each task dispatches exactly once.
+- **`explorer`** — 1–8 read-only reconnaissance tasks, at most four concurrent, with one 300-second whole-call budget. It always receives `read`, `grep`, `find`, and `ls`; runtime choice cannot add permissions. It is temporarily subprocess-only, and a package-owned child extension lexically confines all four tools to the dispatch cwd. The boundary rejects absolute, tilde-expanded, and traversal paths outside cwd, but it is not a symlink-safe sandbox. Its descriptor-owned automatic model selection keeps the parent's provider and chooses its approved cheap model (Haiku for Anthropic, Flash for Google, or Luna for OpenAI), inheriting when no same-provider cheap model is known. Each task dispatches exactly once.
 - **`task`** — exactly one focused task, sequential in the shared worktree. It receives the normal read/bash/edit/write set, a curated worktree context packet, and inherits the parent provider, model, and thinking policy by default. The optional `routing: "cheap"` intent resolves up front to an approved model within the parent's concrete provider, or inherits if no mapping exists. Task agents remain single-attempt; failure does not authorize rerouting.
 
 Every result reports agent, resolved execution architecture, status, title, session file when available, diagnostics, and bounded final text. The child session transcript is the source of truth.
@@ -28,11 +28,11 @@ Every result reports agent, resolved execution architecture, status, title, sess
 
 Agent type answers **what policy runs**. Execution architecture answers **how the child runs**. They are independent registries.
 
-- **`auto`** (also omission) follows the descriptor's deterministic preference. Both built-ins prefer subprocess initially.
-- **`subprocess`** launches hermetic `pi --mode json -p` with extensions disabled and preserves process isolation.
-- **`in-process`** creates a real Pi SDK session in the parent process. It keeps the same descriptor tools, writes a persistent child session, disables extension loading to prevent recursion, retains normal skill/context discovery, and disables delegated prompt-template expansion. It supports final-text mode only.
+- **`auto`** (also omission) follows the descriptor's deterministic preference. Explorer resolves only to subprocess; task prefers subprocess and retains in-process compatibility.
+- **`subprocess`** launches `pi --mode json -p` with ambient extensions disabled. A generated package-owned extension is loaded only when terminal capture or an internal filesystem boundary requires it.
+- **`in-process`** creates a real Pi SDK session in the parent process. It keeps the same descriptor tools, writes a persistent child session, disables extension loading to prevent recursion, retains normal skill/context discovery, and disables delegated prompt-template expansion. It supports final-text mode only and is currently unsupported for explorer.
 
-Explicit execution is an advanced architecture override, not a permission override. Unsupported or host-unavailable combinations fail before fleet launch with configuration diagnostics.
+Explicit execution is an advanced architecture override, not a permission override. An explicit in-process explorer request, or an explorer dispatch when subprocess is unavailable, fails before fleet launch with a configuration diagnostic.
 
 ## Fleet UI
 

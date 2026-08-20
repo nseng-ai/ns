@@ -28,6 +28,7 @@ export type SubagentOutcome<T extends object> =
 
 export interface SubagentRuntimeAdapter {
 	readonly kind: SubagentRuntimeKind;
+	readonly filesystemScopes?: readonly "cwd"[];
 	create(ctx: ToolContext): SubagentOutcome<{ runtime: SubagentRuntime }>;
 }
 
@@ -38,6 +39,7 @@ export interface SubagentRuntimeRegistry {
 		execution: SubagentExecution;
 		supported: readonly SubagentRuntimeKind[];
 		preference: readonly SubagentRuntimeKind[];
+		filesystemScope?: "cwd";
 	}): SubagentOutcome<{ kind: SubagentRuntimeKind; runtime: SubagentRuntime }>;
 }
 
@@ -54,9 +56,15 @@ export function createSubagentRuntimeRegistry(
 		kinds,
 		resolve(input) {
 			const requested = input.execution === "auto" ? input.preference : [input.execution];
-			const compatible = requested.filter(
-				(candidate) => input.supported.includes(candidate) && byKind.has(candidate),
-			);
+			const compatible = requested.filter((candidate) => {
+				const adapter = byKind.get(candidate);
+				return (
+					input.supported.includes(candidate) &&
+					adapter !== undefined &&
+					(input.filesystemScope === undefined ||
+						adapter.filesystemScopes?.includes(input.filesystemScope) === true)
+				);
+			});
 			const unavailable: string[] = [];
 			for (const kind of compatible) {
 				const adapter = byKind.get(kind);

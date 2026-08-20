@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { systemClock } from "@nseng-ai/foundation/time";
@@ -159,6 +159,7 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 
 	const returnMode = runnerSubagentReturnMode(options);
 	const terminalTools = runnerSubagentTerminalTools(options);
+	const filesystemRoot = options.filesystemScope === "cwd" ? resolve(cwd) : undefined;
 	let childToolAllowlist: readonly string[] | undefined;
 	try {
 		childToolAllowlist = normalizeChildToolAllowlist(options.tools);
@@ -178,12 +179,13 @@ export async function dispatchRunnerSubagentProcess<TTerminalInput = unknown>(
 		);
 	}
 	let runtimeFiles: RunnerSubagentRuntimeFiles | undefined;
-	if (returnMode === "terminal" || terminalTools.length > 0) {
+	if (returnMode === "terminal" || terminalTools.length > 0 || filesystemRoot !== undefined) {
 		try {
 			const createRuntimeFiles =
 				dependencies.createRuntimeFiles ?? createDefaultRunnerSubagentRuntimeFiles;
 			runtimeFiles = await createRuntimeFiles({
 				...(title === undefined ? {} : { title }),
+				...(filesystemRoot === undefined ? {} : { filesystemRoot }),
 				terminalTools,
 			});
 		} catch (error) {

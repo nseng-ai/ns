@@ -66,6 +66,7 @@ function finalTextOptions(
 		signal?: AbortSignal;
 		terminalTools?: readonly RunnerSubagentTerminalToolDefinition[];
 		tools?: readonly string[];
+		filesystemScope?: "cwd";
 	} = {},
 ): RunnerSubagentOptions {
 	return {
@@ -77,6 +78,9 @@ function finalTextOptions(
 		...(overrides.signal === undefined ? {} : { signal: overrides.signal }),
 		...(overrides.terminalTools === undefined ? {} : { terminalTools: overrides.terminalTools }),
 		...(overrides.tools === undefined ? {} : { tools: overrides.tools }),
+		...(overrides.filesystemScope === undefined
+			? {}
+			: { filesystemScope: overrides.filesystemScope }),
 	};
 }
 
@@ -516,6 +520,74 @@ describe("runner subagent process dispatcher", () => {
 		const result = await running;
 
 		expect(result.status).toBe("final-text");
+	});
+
+	test("loads the package-owned guard extension for scoped final-text dispatch", async () => {
+		const runtimeConfigs: unknown[] = [];
+		const runner = createFakeRunnerSubagentDispatcher({
+			sessionFile: "/tmp/runner-subagent.jsonl",
+		});
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({
+				cwd: "/repo/worktree",
+				tools: ["read", "grep", "find", "ls"],
+				filesystemScope: "cwd",
+			}),
+			{
+				...runner.dependencies,
+				createRuntimeFiles: (input) => {
+					runtimeConfigs.push(input);
+					return runner.runtimeFiles;
+				},
+			},
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(runtimeConfigs).toEqual([{ terminalTools: [], filesystemRoot: "/repo/worktree" }]);
+		expect(call.args).toEqual([
+			"--mode",
+			"json",
+			"-p",
+			"--no-extensions",
+			"--extension",
+			"/tmp/pi-runner-subagent-runtime/runtime-extension.ts",
+			"--tools",
+			"read,grep,find,ls",
+			"--session",
+			"/tmp/runner-subagent.jsonl",
+			"Do the delegated task.",
+		]);
+
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		expect((await running).status).toBe("final-text");
+	});
+
+	test("resolves a relative scoped cwd before writing the guard config", async () => {
+		const runtimeConfigs: unknown[] = [];
+		const runner = createFakeRunnerSubagentDispatcher();
+		const running = dispatchRunnerSubagentProcess(
+			pi,
+			ctx,
+			finalTextOptions({ cwd: "relative-worktree", filesystemScope: "cwd" }),
+			{
+				...runner.dependencies,
+				createRuntimeFiles: (input) => {
+					runtimeConfigs.push(input);
+					return runner.runtimeFiles;
+				},
+			},
+		);
+		const call = await waitForSpawn(runner.calls);
+
+		expect(runtimeConfigs).toEqual([
+			{ terminalTools: [], filesystemRoot: expect.stringMatching(/\/relative-worktree$/u) },
+		]);
+		call.process.emitStdout(finalTextMessage("Done."));
+		call.process.close(0);
+		expect((await running).status).toBe("final-text");
 	});
 
 	test("passes child built-in tool allowlist when supplied", async () => {

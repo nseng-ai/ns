@@ -55,7 +55,10 @@ function definition(name: string): PiAgentDefinition {
 	};
 }
 
-function registerRoutingTool(dispatched: SubagentRuntimeDispatchInput[]): ToolDefinition {
+function registerRoutingTool(
+	dispatched: SubagentRuntimeDispatchInput[],
+	runtimeKinds: readonly ("subprocess" | "in-process")[] = ["subprocess", "in-process"],
+): ToolDefinition {
 	const pi = new FakeToolHost();
 	registerSubagentTool(pi, {
 		agents: createSubagentAgentRegistry(
@@ -66,8 +69,9 @@ function registerRoutingTool(dispatched: SubagentRuntimeDispatchInput[]): ToolDe
 		loadAgentDefinition: definition,
 		isProviderAuthConfigured: () => false,
 		runtimes: createSubagentRuntimeRegistry(
-			(["subprocess", "in-process"] as const).map((kind) => ({
+			runtimeKinds.map((kind) => ({
 				kind,
+				...(kind === "subprocess" ? { filesystemScopes: ["cwd"] as const } : {}),
 				create: () => ({
 					ok: true as const,
 					runtime: createFunctionSubagentRuntime(async (input) => {
@@ -144,7 +148,7 @@ describe("subagent model routing", () => {
 		expect(dispatched[0]?.options.modelSelection).toBeUndefined();
 	});
 
-	test("explorer omission preserves descriptor-owned cheap routing", async () => {
+	test("explorer omission selects guarded subprocess dispatch", async () => {
 		const dispatched: SubagentRuntimeDispatchInput[] = [];
 		const tool = registerRoutingTool(dispatched);
 
@@ -156,11 +160,47 @@ describe("subagent model routing", () => {
 			context("anthropic"),
 		);
 
-		expect(dispatched[0]?.options.modelSelection).toEqual({
-			provider: "anthropic",
-			modelId: "claude-haiku-4-5",
-			thinking: "high",
+		expect(dispatched).toHaveLength(1);
+		expect(dispatched[0]?.options).toMatchObject({
+			filesystemScope: "cwd",
+			modelSelection: {
+				provider: "anthropic",
+				modelId: "claude-haiku-4-5",
+				thinking: "high",
+			},
 		});
+	});
+
+	test("explorer fails closed when subprocess execution is unavailable", async () => {
+		const dispatched: SubagentRuntimeDispatchInput[] = [];
+		const tool = registerRoutingTool(dispatched, ["in-process"]);
+
+		const result = await tool.execute(
+			"call",
+			{ agent: "explorer", tasks: TASKS },
+			undefined,
+			undefined,
+			context(),
+		);
+
+		expect(result.details).toMatchObject({ status: "configuration-error" });
+		expect(dispatched).toEqual([]);
+	});
+
+	test("explicit in-process explorer execution fails before dispatch", async () => {
+		const dispatched: SubagentRuntimeDispatchInput[] = [];
+		const tool = registerRoutingTool(dispatched);
+
+		const result = await tool.execute(
+			"call",
+			{ agent: "explorer", tasks: TASKS, execution: "in-process" },
+			undefined,
+			undefined,
+			context(),
+		);
+
+		expect(result.details).toMatchObject({ status: "configuration-error" });
+		expect(dispatched).toEqual([]);
 	});
 
 	test.each([

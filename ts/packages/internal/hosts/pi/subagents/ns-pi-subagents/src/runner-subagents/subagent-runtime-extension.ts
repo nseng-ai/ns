@@ -1,3 +1,5 @@
+import { isAbsolute, relative, resolve, sep } from "node:path";
+
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	readRuntimeConfigFileSync,
@@ -32,6 +34,7 @@ interface BeforeAgentStartEventLike {
 
 interface ToolCallEventLike {
 	toolName: string;
+	input: unknown;
 }
 
 interface ToolCallResultLike {
@@ -174,6 +177,10 @@ export function createRunnerSubagentRuntimeExtension(
 		});
 
 		pi.on("tool_call", (event) => {
+			if (config?.filesystemRoot !== undefined) {
+				const filesystemBlock = cwdFilesystemBlockReason(event, config.filesystemRoot);
+				if (filesystemBlock !== undefined) return { block: true, reason: filesystemBlock };
+			}
 			if (!terminalCaptured || terminalToolNames.has(event.toolName)) return;
 			return {
 				block: true,
@@ -185,19 +192,74 @@ export function createRunnerSubagentRuntimeExtension(
 }
 
 function runnerSubagentBoundaryInstructions(config: RuntimeConfigV1): string {
-	const tools = config.terminalTools
-		.map((tool) => `- ${tool.name}: report ${tool.status} when ${tool.description}`)
-		.join("\n");
-	return [
-		"Subagent terminal-capture protocol:",
-		"- When you have a final outcome for the delegated subagent task, call exactly one terminal capture tool.",
-		"- Do not call any other tool in the same assistant message as a terminal capture tool.",
-		"- Terminal capture tools are capture-only and final; they do not perform domain side effects.",
-		"- Use a completed terminal tool only when the requested subagent task reached its structured terminal condition.",
-		"- Use a blocked terminal tool when parent or user follow-up is needed; include blockers in the structured payload.",
-		"Available terminal capture tools:",
-		tools,
-	].join("\n");
+	const sections: string[] = [];
+	if (config.filesystemRoot !== undefined) {
+		sections.push(
+			"Explorer filesystem boundary:",
+			`- Keep read, grep, find, and ls paths lexically inside the dispatch cwd: ${config.filesystemRoot}`,
+		);
+	}
+	if (config.terminalTools.length > 0) {
+		const tools = config.terminalTools
+			.map((tool) => `- ${tool.name}: report ${tool.status} when ${tool.description}`)
+			.join("\n");
+		sections.push(
+			"Subagent terminal-capture protocol:",
+			"- When you have a final outcome for the delegated subagent task, call exactly one terminal capture tool.",
+			"- Do not call any other tool in the same assistant message as a terminal capture tool.",
+			"- Terminal capture tools are capture-only and final; they do not perform domain side effects.",
+			"- Use a completed terminal tool only when the requested subagent task reached its structured terminal condition.",
+			"- Use a blocked terminal tool when parent or user follow-up is needed; include blockers in the structured payload.",
+			"Available terminal capture tools:",
+			tools,
+		);
+	}
+	return sections.join("\n\n");
+}
+
+const FILESYSTEM_TOOLS = new Set(["read", "grep", "find", "ls"]);
+const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/gu;
+
+function cwdFilesystemBlockReason(
+	event: ToolCallEventLike,
+	filesystemRoot: string,
+): string | undefined {
+	if (!FILESYSTEM_TOOLS.has(event.toolName)) return undefined;
+	const path = filesystemToolPath(event);
+	if (path === undefined) return filesystemBlockReason(event.toolName, "a valid path");
+	const normalizedPath = path.replace(UNICODE_SPACES, " ");
+	const toolPath = normalizedPath.startsWith("@") ? normalizedPath.slice(1) : normalizedPath;
+	if (toolPath.startsWith("file://")) {
+		return filesystemBlockReason(event.toolName, "a path inside the dispatch cwd");
+	}
+	if (toolPath === "~" || toolPath.startsWith("~/") || toolPath.startsWith("~\\")) {
+		return filesystemBlockReason(event.toolName, "a path inside the dispatch cwd");
+	}
+	const root = resolve(filesystemRoot);
+	const target = resolve(root, toolPath);
+	const fromRoot = relative(root, target);
+	if (
+		fromRoot === "" ||
+		(fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`) && !isAbsolute(fromRoot))
+	) {
+		return undefined;
+	}
+	return filesystemBlockReason(event.toolName, "a path inside the dispatch cwd");
+}
+
+function filesystemToolPath(event: ToolCallEventLike): string | undefined {
+	if (!isRecord(event.input)) return undefined;
+	const path = event.input.path;
+	if (path === undefined && event.toolName !== "read") return ".";
+	return typeof path === "string" ? path : undefined;
+}
+
+function filesystemBlockReason(toolName: string, expected: string): string {
+	return `Blocked ${toolName}: explorer paths must use ${expected}.`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function terminalToolLabel(name: string, status: string): string {

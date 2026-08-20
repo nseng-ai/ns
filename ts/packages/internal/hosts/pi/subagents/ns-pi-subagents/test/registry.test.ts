@@ -60,11 +60,67 @@ describe("subagent registries", () => {
 		).toThrow(/Duplicate/);
 	});
 
+	test("rejects cwd-scoped descriptors that are not subprocess-only", () => {
+		expect(() =>
+			createSubagentAgentRegistry(
+				[
+					{
+						...EXPLORER_AGENT_DESCRIPTOR,
+						supportedRuntimes: ["subprocess", "in-process"],
+						runtimePreference: ["subprocess", "in-process"],
+					},
+				],
+				() => definition(),
+			),
+		).toThrow(/cwd filesystem scope.*subprocess-only/);
+	});
+
+	test("rejects unsupported tools on cwd-scoped descriptors", () => {
+		expect(() =>
+			createSubagentAgentRegistry(
+				[{ ...EXPLORER_AGENT_DESCRIPTOR, tools: ["read", "consumer_lookup"] }],
+				() => definition(),
+			),
+		).toThrow(/cwd filesystem scope with unsupported tool.*consumer_lookup/);
+	});
+
 	test("keeps a mismatched definition as an unhealthy catalog entry", () => {
 		const registry = createSubagentAgentRegistry([EXPLORER_AGENT_DESCRIPTOR], () =>
 			definition("explorer", "explore"),
 		);
 		expect(registry.get("explorer")?.diagnostic).toContain('expected "subagent"');
+	});
+
+	test("requires an adapter to declare cwd-scope enforcement", () => {
+		const unguarded = createSubagentRuntimeRegistry([
+			{ kind: "subprocess", create: () => ({ ok: true, runtime }) },
+		]);
+		expect(
+			unguarded.resolve({
+				ctx: toolContext(),
+				execution: "auto",
+				supported: ["subprocess"],
+				preference: ["subprocess"],
+				filesystemScope: "cwd",
+			}),
+		).toMatchObject({ ok: false });
+
+		const guarded = createSubagentRuntimeRegistry([
+			{
+				kind: "subprocess",
+				filesystemScopes: ["cwd"],
+				create: () => ({ ok: true, runtime }),
+			},
+		]);
+		expect(
+			guarded.resolve({
+				ctx: toolContext(),
+				execution: "auto",
+				supported: ["subprocess"],
+				preference: ["subprocess"],
+				filesystemScope: "cwd",
+			}),
+		).toMatchObject({ ok: true, kind: "subprocess" });
 	});
 
 	test("resolves auto deterministically, falls through unavailable preferences, and rejects unavailable overrides", () => {
