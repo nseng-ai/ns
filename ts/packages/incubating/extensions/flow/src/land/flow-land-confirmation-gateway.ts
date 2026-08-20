@@ -12,10 +12,10 @@ import type {
 import {
 	appendPostLandingCleanupImpact,
 	formatFreeManagedSlotsConfirmationDetails,
+	formatLandingCleanupConfirmationDetails,
 	formatSingleBranchMainLandingConfirmationDetails,
 	formatPlan,
-	landingCleanupChoiceLabels,
-	landingCleanupChoiceTitle,
+	landingCleanupConfirmationTitle,
 	formatSubmitRequiredUpdatesConfirmationDetails,
 	freeManagedSlotsConfirmationTitle,
 	freeManagedSlotsNonInteractiveRefusalMessage,
@@ -66,8 +66,8 @@ async function confirmFlowLandAction(
 	ctx: PrintAwareLandStackCommandContext,
 	request: LandConfirmationRequest,
 ): Promise<LandConfirmationDecision> {
-	const cleanupSelection = await selectLandingCleanup(ctx, request);
-	if (cleanupSelection !== undefined) return cleanupSelection;
+	const cleanupConfirmation = await confirmLandingCleanup(ctx, request);
+	if (cleanupConfirmation !== undefined) return cleanupConfirmation;
 
 	const outcome = await confirmLandStackAction(confirmationOptions(ctx, request));
 	if (outcome.type === "completed") return { type: "approved", approvalSource: "prompted" };
@@ -77,52 +77,37 @@ async function confirmFlowLandAction(
 	return { type: "refused-with-fully-worded-failure", failure: outcome.failure };
 }
 
-async function selectLandingCleanup(
+async function confirmLandingCleanup(
 	ctx: PrintAwareLandStackCommandContext,
 	request: LandConfirmationRequest,
 ): Promise<LandConfirmationDecision | undefined> {
 	if (
 		(request.kind !== "main-landing" && request.kind !== "single-branch-main-landing") ||
 		request.cleanupChoice === undefined ||
-		!ctx.hasUI ||
-		ctx.ui.select === undefined
+		!ctx.hasUI
 	) {
 		return undefined;
 	}
 
-	const details =
+	const landingDetails =
 		request.kind === "main-landing"
 			? formatPlan(request.plan)
 			: formatSingleBranchMainLandingConfirmationDetails(request);
-	ctx.ui.notify(details, "info");
-	const labels = landingCleanupChoiceLabels(request.cleanupChoice);
-	const selection = await ctx.ui.select(landingCleanupChoiceTitle(request.cleanupChoice), [
-		labels.keep,
-		labels.free,
-		labels.cancel,
-	]);
-	switch (selection.type) {
-		case "selected":
-			return mapSelectedCleanupPolicy(selection.value, labels);
+	const confirmation = await ctx.ui.confirm(
+		landingCleanupConfirmationTitle(request.cleanupChoice),
+		formatLandingCleanupConfirmationDetails(landingDetails, request.cleanupChoice),
+		{ defaultAnswer: "no" },
+	);
+	switch (confirmation.type) {
+		case "confirmed":
+			return { type: "approved", approvalSource: "prompted", cleanupPolicy: "free" };
+		case "declined":
+			return { type: "approved", approvalSource: "prompted", cleanupPolicy: "preserve" };
 		case "cancelled":
 			return { type: "declined" };
 		default:
-			return assertNever(selection);
+			return assertNever(confirmation);
 	}
-}
-
-function mapSelectedCleanupPolicy(
-	selected: string,
-	labels: ReturnType<typeof landingCleanupChoiceLabels>,
-): LandConfirmationDecision {
-	if (selected === labels.keep) {
-		return { type: "approved", approvalSource: "prompted", cleanupPolicy: "preserve" };
-	}
-	if (selected === labels.free) {
-		return { type: "approved", approvalSource: "prompted", cleanupPolicy: "free" };
-	}
-	if (selected === labels.cancel) return { type: "declined" };
-	throw new Error(`Unknown landing cleanup selection: ${JSON.stringify(selected)}`);
 }
 
 function confirmationOptions(
