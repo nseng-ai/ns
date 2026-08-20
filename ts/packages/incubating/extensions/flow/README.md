@@ -41,6 +41,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 | `ns flow gs autobranch`           | Create a branch from dirty changes with official github/gh-stack.                                            |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow gs branch-latest-commit` | Move the latest eligible commit to a github/gh-stack child.                                                  |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow gt autoslot`             | Create a Graphite branch from current work, then move it into a managed slot worktree.                       |  ✓  |        ✓        |               |   ✓   |  ✓  |
+| `ns flow gs autoslot`             | Create a github/gh-stack branch from current work, then move it into a managed slot worktree.                |  ✓  |                 |       ✓       |   ✓   |  ✓  |
 | `ns flow gt submit`               | Run configured checks, checkpoint, submit current/downstack Graphite branches, and generate new-PR metadata. |  ✓  |        ✓        |       ✓       |       |  ✓  |
 | `ns flow generate-pr-inventory`   | Assemble and completely replace the current PR title and body.                                               |  ✓  |                 |       ✓       |       |  ✓  |
 | `ns flow push`                    | Push committed non-Graphite branch work with `git push`.                                                     |  ✓  |                 |               |       |     |
@@ -50,7 +51,7 @@ Each command depends on a distinct slice of the underlying technology stack:
 
 Every command is also available in the Pi harness. Graphite-dependent workflows use
 `/ns:flow:gt:<command>` (`autobranch`, `branch-latest-commit`, `autoslot`, `submit`, `land`, and
-`squash-stack`); the official github/gh-stack branch workflows use `/ns:flow:gs:<command>` (`autobranch` and `branch-latest-commit`); the other commands use `/ns:flow:<command>`. The separate
+`squash-stack`); the official github/gh-stack branch workflows use `/ns:flow:gs:<command>` (`autobranch`, `branch-latest-commit`, and `autoslot`); the other commands use `/ns:flow:<command>`. The separate
 `@nseng-ai/pi-ns-flow` host adapter owns Pi registration, presentation, parity metadata, and
 direct lifecycle discovery while delegating Flow behavior through `@nseng-ai/flow/api` and the
 CLI. Pi is optional; the CLI commands do not require the Pi host.

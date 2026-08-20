@@ -607,6 +607,7 @@ export function branchLatestCommitChildBranchRefusalExec(): ScriptedExecResponse
 }
 
 export interface RunFlowAutoslotCommandWithFakesOptions extends RunFlowCommandWithFakesOptions {
+	provider?: AutobranchProviderId;
 	slotResult?: SlotCheckoutResult;
 }
 
@@ -628,7 +629,9 @@ export function runFlowAutoslotCommandWithFakes(
 	);
 	const run = runFlowCommandWithFakes({
 		requiresModelPolicy: true,
-		command: createFlowAutoslotCommand({ createSlotClient: () => slotClient }),
+		command: createFlowAutoslotCommand(options.provider ?? "graphite", {
+			createSlotClient: () => slotClient,
+		}),
 		request: options.request ?? { slug: "move-work" },
 		options,
 		defaults: options.defaults ?? {

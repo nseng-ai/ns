@@ -60,6 +60,13 @@ const EXPECTED_COMMAND_SURFACES = [
 		piSurface: "ns:flow:gt:autoslot",
 	},
 	{
+		id: "flow:gs:autoslot",
+		provider: "gh-stack",
+		argvPrefix: ["flow", "gs", "autoslot"],
+		displayName: "flow gs autoslot",
+		piSurface: "ns:flow:gs:autoslot",
+	},
+	{
 		id: "flow:gt:submit",
 		provider: "graphite",
 		argvPrefix: ["flow", "gt", "submit"],
@@ -133,7 +140,7 @@ describe("flow extension API", () => {
 	});
 
 	test("exports cohesive host-independent Flow interfaces", () => {
-		expect(FLOW_COMMAND_SPECS).toHaveLength(13);
+		expect(FLOW_COMMAND_SPECS).toHaveLength(14);
 		expect(flowSkillBackedCommandRegistrations).toHaveLength(6);
 		expect(resolveFlowSubmitCheckRecovery).toBeTypeOf("function");
 		expect(runFlowStackSquash).toBeTypeOf("function");

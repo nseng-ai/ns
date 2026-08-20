@@ -82,6 +82,10 @@ const autoslotCommand = graphiteFlowCommand(
 	"autoslot",
 	"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 );
+const ghStackAutoslotCommand = ghStackFlowCommand(
+	"autoslot",
+	"Create a branch from current work with the official github/gh-stack extension, then move it into a managed slot worktree.",
+);
 export const FLOW_SUBMIT_COMMAND_SPEC = graphiteFlowCommand(
 	"submit",
 	"Checkpoint outstanding changes, then submit the current Graphite stack.",
@@ -112,6 +116,7 @@ export const FLOW_COMMAND_SPECS = [
 	ghStackAutobranchCommand,
 	ghStackBranchLatestCommitCommand,
 	autoslotCommand,
+	ghStackAutoslotCommand,
 	FLOW_SUBMIT_COMMAND_SPEC,
 	generatePrInventoryCommand,
 	pushCommand,

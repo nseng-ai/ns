@@ -11,6 +11,7 @@ const EXPECTED_ROUTES = [
 	"flow/exec/read-graphite-branch-metadata",
 	"flow/generate-pr-inventory",
 	"flow/gs/autobranch",
+	"flow/gs/autoslot",
 	"flow/gs/branch-latest-commit",
 	"flow/gt/autobranch",
 	"flow/gt/autoslot",

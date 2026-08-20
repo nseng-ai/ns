@@ -4,19 +4,23 @@ import { renderResultBlock } from "@nseng-ai/foundation/cli-theme";
 import type { AutoslotWorkflowResult } from "./autoslot.ts";
 import { formatSlotCheckoutFailureCause } from "./slot-checkout.ts";
 
-export function renderAutoslotResult(caps: Caps, result: AutoslotWorkflowResult): string {
+export function renderAutoslotResult(
+	caps: Caps,
+	result: AutoslotWorkflowResult,
+	providerLabel: string,
+): string {
 	switch (result.type) {
 		case "refused":
 			return renderResultBlock(caps, {
 				kind: "refusal",
-				headline: "Autoslot did not create a Graphite branch.",
+				headline: `Autoslot did not create a ${providerLabel} branch.`,
 				cwd: result.cwd,
 				body: result.message,
 			});
 		case "failed":
 			return renderResultBlock(caps, {
 				kind: "failure",
-				headline: "Autoslot could not create a Graphite branch.",
+				headline: `Autoslot could not create a ${providerLabel} branch.`,
 				cwd: result.cwd,
 				body: result.message,
 			});

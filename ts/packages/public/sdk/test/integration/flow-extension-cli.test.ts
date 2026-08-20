@@ -347,27 +347,34 @@ describe("checked-in flow ns extension loading", () => {
 		expect(schema.stdout.join("")).toContain("slug");
 	});
 
-	test("real loader exposes Graphite autoslot help and JSON schema metadata", async () => {
+	test("real loader exposes both provider autoslot help and JSON schema metadata", async () => {
 		const cwd = await createFlowProject();
-		const help = runWithRealFlowExtension({
-			args: ["flow", "gt", "autoslot", "--help"],
-			cwd,
-		});
 
-		expect(await help.exit).toBe(0);
-		const output = help.stdout.join("").replace(/\s+/g, " ");
-		expect(output).toContain("Usage: ns flow gt autoslot");
-		expect(output).toContain("--slug");
-		expect(output).toContain("managed slot worktree");
-		expect(help.stderr.join("")).toBe("");
+		for (const namespace of ["gt", "gs"] as const) {
+			const help = runWithRealFlowExtension({
+				args: ["flow", namespace, "autoslot", "--help"],
+				cwd,
+			});
+			expect(await help.exit).toBe(0);
+			const output = help.stdout.join("").replace(/\s+/g, " ");
+			expect(output).toContain(`Usage: ns flow ${namespace} autoslot`);
+			expect(output).toContain("--slug");
+			expect(output).toContain("managed slot worktree");
+			if (namespace === "gs") {
+				expect(output).toContain("github/gh-stack");
+				expect(output).toContain("gh stack init");
+				expect(output).toContain("Git trunk is refused before mutation or Slot checkout");
+			}
+			expect(help.stderr.join("")).toBe("");
 
-		const schema = runWithRealFlowExtension({
-			args: ["flow", "gt", "autoslot", "--json-schema"],
-			cwd,
-		});
-		expect(await schema.exit).toBe(0);
-		expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
-		expect(parseJsonOutput(schema)).toHaveProperty("machineEnvelopeJsonSchema");
+			const schema = runWithRealFlowExtension({
+				args: ["flow", namespace, "autoslot", "--json-schema"],
+				cwd,
+			});
+			expect(await schema.exit).toBe(0);
+			expect(parseJsonOutput(schema)).toHaveProperty("inputJsonSchema");
+			expect(parseJsonOutput(schema)).toHaveProperty("machineEnvelopeJsonSchema");
+		}
 	});
 
 	test.each(["autobranch", "branch-latest-commit", "autoslot", "submit", "land", "squash-stack"])(

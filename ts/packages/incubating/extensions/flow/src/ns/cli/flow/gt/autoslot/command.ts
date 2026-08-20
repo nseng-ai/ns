@@ -1,5 +1,5 @@
-import { flowAutoslotCommand } from "../../../../commands/autoslot.ts";
+import { flowGtAutoslotCommand } from "../../../../commands/autoslot.ts";
 
 export async function command() {
-	return flowAutoslotCommand;
+	return flowGtAutoslotCommand;
 }
