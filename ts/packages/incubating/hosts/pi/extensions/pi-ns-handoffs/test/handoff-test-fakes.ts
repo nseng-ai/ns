@@ -47,7 +47,7 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args: string[];
-	result: RawPiExecResultFixture | undefined;
+	result: Promise<RawPiExecResultFixture> | RawPiExecResultFixture | undefined;
 }
 
 export interface Notification {
@@ -90,6 +90,10 @@ export class FakePi implements ExtensionAPI {
 	readonly registerMessageRenderer?: (customType: string, renderer: MessageRenderer) => void;
 	readonly sendMessage?: (message: CustomMessage) => void;
 	readonly registerTool?: (tool: RegisteredTool) => void;
+	private readonly handlers = new Map<
+		string,
+		Array<(event: unknown, ctx: CommandContext) => Promise<void> | void>
+	>();
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly sharedToolNames: Set<string> | undefined;
 	private thinkingLevel: ThinkingLevel = "medium";
@@ -136,6 +140,16 @@ export class FakePi implements ExtensionAPI {
 		}
 	}
 
+	on(event: string, handler: (event: unknown, ctx: CommandContext) => Promise<void> | void): void {
+		const handlers = this.handlers.get(event) ?? [];
+		handlers.push(handler);
+		this.handlers.set(event, handlers);
+	}
+
+	async emit(event: string, value: unknown, ctx: CommandContext): Promise<void> {
+		for (const handler of this.handlers.get(event) ?? []) await handler(value, ctx);
+	}
+
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
 	}
@@ -174,7 +188,7 @@ export class FakePi implements ExtensionAPI {
 			this.script.recordError(message);
 			return execResult({ code: 99, stderr: message });
 		}
-		return execResult(expected.result);
+		return execResult(await expected.result);
 	}
 
 	getAllTools(): Array<{ name: string }> {
@@ -211,7 +225,7 @@ export function execResult(overrides: RawPiExecResultFixture = {}): RawPiExecRes
 export function step(
 	command: string,
 	args: string[],
-	result?: RawPiExecResultFixture,
+	result?: Promise<RawPiExecResultFixture> | RawPiExecResultFixture,
 ): ScriptedExec {
 	return { command, args, result };
 }
@@ -288,8 +302,10 @@ export function createContext(
 		sessionFile?: string;
 		sessionId?: string;
 		cwd?: string;
+		hasNewSession?: boolean;
 		isNewSessionCancelled?: boolean;
 		newSessionError?: Error;
+		replacementSendError?: Error;
 		skills?: readonly EffectiveSkillInfo[];
 	} = {},
 ): {
@@ -393,41 +409,48 @@ export function createContext(
 		async waitForIdle(): Promise<void> {
 			waits += 1;
 		},
-		async newSession(sessionOptions?: NewSessionOptions): Promise<{ cancelled: boolean }> {
-			newSessionCalls.push({ parentSession: sessionOptions?.parentSession });
-			if (options.newSessionError !== undefined) {
-				throw options.newSessionError;
-			}
-			if (options.isNewSessionCancelled) {
-				return { cancelled: true };
-			}
-			await sessionOptions?.withSession?.({
-				cwd: options.cwd ?? ROOT,
-				hasUI: options.hasUI ?? true,
-				mode: options.mode ?? "tui",
-				sessionManager: {
-					getBranch: () => [],
-					getEntries: () => [],
-					getSessionFile: () => undefined,
-					getSessionId: () => "replacement-test-session-id",
-				},
-				ui: {
-					notify(message: string, level?: "info" | "warning" | "error"): void {
-						replacementNotifications.push({ message, level });
+		...(options.hasNewSession === false
+			? {}
+			: {
+					async newSession(sessionOptions?: NewSessionOptions): Promise<{ cancelled: boolean }> {
+						newSessionCalls.push({ parentSession: sessionOptions?.parentSession });
+						if (options.newSessionError !== undefined) {
+							throw options.newSessionError;
+						}
+						if (options.isNewSessionCancelled) {
+							return { cancelled: true };
+						}
+						await sessionOptions?.withSession?.({
+							cwd: options.cwd ?? ROOT,
+							hasUI: options.hasUI ?? true,
+							mode: options.mode ?? "tui",
+							sessionManager: {
+								getBranch: () => [],
+								getEntries: () => [],
+								getSessionFile: () => undefined,
+								getSessionId: () => "replacement-test-session-id",
+							},
+							ui: {
+								notify(message: string, level?: "info" | "warning" | "error"): void {
+									replacementNotifications.push({ message, level });
+								},
+								setStatus(_key: string, value: string | undefined): void {
+									statuses.push(value);
+								},
+							},
+							async sendUserMessage(
+								content: string,
+								messageOptions?: SendUserMessageOptions,
+							): Promise<void> {
+								if (options.replacementSendError !== undefined) {
+									throw options.replacementSendError;
+								}
+								replacementUserMessages.push({ content, options: messageOptions });
+							},
+						});
+						return { cancelled: false };
 					},
-					setStatus(_key: string, value: string | undefined): void {
-						statuses.push(value);
-					},
-				},
-				async sendUserMessage(
-					content: string,
-					messageOptions?: SendUserMessageOptions,
-				): Promise<void> {
-					replacementUserMessages.push({ content, options: messageOptions });
-				},
-			});
-			return { cancelled: false };
-		},
+				}),
 	};
 
 	return {

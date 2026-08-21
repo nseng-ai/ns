@@ -50,6 +50,7 @@ export interface HandoffLaunchPromptOptions {
 	skillBlock: string;
 	request: HandoffLaunchRequest;
 	investigationSources: HandoffInvestigationSourceOptions;
+	createCommandInstruction?: string;
 	extraTargetSections?: string[];
 	toolCallInstruction?: string;
 	extraRequirements?: string[];
@@ -61,7 +62,7 @@ export type HandoffLaunchRequestBuildResult =
 
 export interface HandoffLaunchPromptCopy {
 	commandName: string;
-	toolName: string;
+	toolName?: string;
 	intentSentence: string;
 	abortClause: string;
 	previewHeading: string;
@@ -161,12 +162,16 @@ export function buildHandoffLaunchPrompt(
 	const requirements = [
 		"Compose the final Markdown handoff artifact content first, using the existing handoff-create workflow.",
 		"Do not derive the entry name from the raw continuation focus.",
-		`Pipe the exact final Markdown content once to \`ns handoff create --branch ${request.branch} --file /dev/stdin --format json\`. Do not create a temporary artifact file or pass --slug unless the user explicitly supplied an override.`,
+		options.createCommandInstruction ??
+			`Pipe the exact final Markdown content once to \`ns handoff create --branch ${request.branch} --file /dev/stdin --format json\`. Do not create a temporary artifact file or pass --slug unless the user explicitly supplied an override.`,
 		"Read branch, slug, key, and durable reference evidence from the successful create JSON result.",
 		`If \`ns handoff create\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`,
-		options.toolCallInstruction ??
-			`After \`ns handoff create\` succeeds, call ${copy.toolName} with \`branch\` and \`slug\` set to the exact values returned by the create JSON result.`,
-		`Do not call ${copy.toolName} before the handoff is saved successfully.`,
+		...(options.toolCallInstruction === undefined
+			? [
+					`After \`ns handoff create\` succeeds, call ${requiredLaunchToolName(copy)} with \`branch\` and \`slug\` set to the exact values returned by the create JSON result.`,
+					`Do not call ${requiredLaunchToolName(copy)} before the handoff is saved successfully.`,
+				]
+			: [options.toolCallInstruction]),
 		...(options.extraRequirements ?? []),
 	];
 	return `${options.skillBlock}
@@ -188,6 +193,13 @@ ${requirements.map((requirement, index) => `${index + 1}. ${requirement}`).join(
 ${copy.previewHeading}
 
 ${buildFencedTextBlock(copy.previewBody(request.branch))}`;
+}
+
+function requiredLaunchToolName(copy: HandoffLaunchPromptCopy): string {
+	if (copy.toolName === undefined) {
+		throw new Error(`${copy.commandName} prompt copy requires a launch tool name.`);
+	}
+	return copy.toolName;
 }
 
 export async function prepareHandoffCreateLaunch(

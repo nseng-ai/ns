@@ -34,6 +34,9 @@ export {
 	handoffSkillBackedCommandRegistrations,
 } from "../core/skill-backed-commands.ts";
 
+export { createResultSchema } from "../core/operations/create.ts";
+export type { CreateResult } from "../core/operations/create.ts";
+
 export {
 	normalizeHandoffSelectorToKey,
 	resolveHandoffSelection,

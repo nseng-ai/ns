@@ -416,10 +416,9 @@ Unrecorded terms:
 - **Handoff Tab** — the `/ns:ccc:handoff-tab` workflow: create a directed handoff,
   then launch a pickup Pi in a new cmux tab (tool `handoff_tab_launch`).
   (src/pi/command-constants.ts:15-23, src/pi/tab.ts:32-79)
-- **Handoff Self (self-handoff)** — `/ns:handoff:self`: create a handoff and queue its
-  own pickup as a session replacement (`handoff_self_queue_pickup`,
-  `self-handoff-ready`, 10-minute timeout). (src/pi/command-constants.ts:20-30,
-  src/pi/self.ts:32-69)
+- **Handoff Self (self-handoff)** — `/ns:handoff:self`: create a handoff, observe one
+  exact structured create result, verify its branch/key after agent settlement, and
+  pick it up through Pi session replacement (10-minute timeout).
 - **Handoff Launch Flow** — the shared launch machinery (launch request, prompt copy,
   launch tool, prepared create-launch). (src/pi/launch-flow.ts via src/pi/self.ts:5-14)
 - **Create Focus Question** — the mandatory "What should the future session continue

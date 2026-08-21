@@ -12,7 +12,6 @@ function handoffCommandSurface(action: PiHandoffCommandAction): string {
 export const LIST_HANDOFF_COMMAND_NAME = handoffCommandSurface("list");
 export const HANDOFF_SELF_COMMAND_NAME = handoffCommandSurface("self");
 
-export const HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME = "handoff_self_queue_pickup";
 export const CREATE_HANDOFF_SKILL_NAME = "handoff-create";
 
 export const HANDOFF_TIMEOUT_MS = 30_000;

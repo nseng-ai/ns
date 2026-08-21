@@ -1,6 +1,6 @@
 # @nseng-ai/pi-ns-handoffs
 
-`@nseng-ai/pi-ns-handoffs` is the Pi host adapter for the Handoffs ns extension. It owns Pi command and remaining launch-tool registration, prompt/status presentation, create-then-launch session orchestration, and Handoff Pi parity identity. Content-derived slugging and atomic persistence belong to `@nseng-ai/handoffs`.
+`@nseng-ai/pi-ns-handoffs` is the Pi host adapter for the Handoffs ns extension. It owns Pi command and destination launch-tool registration, prompt/status presentation, create-then-launch session orchestration, and Handoff Pi parity identity. Content-derived slugging and atomic persistence belong to `@nseng-ai/handoffs`. Self-handoff completion is a Pi-host observer: it accepts one exact structured create result during the active command, verifies the exact branch/key after agent settlement, and then uses Pi-native session replacement.
 
 ## Language
 

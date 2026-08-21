@@ -144,7 +144,10 @@ Project-local Pi commands:
 /ns:handoff:create <continuation focus>
 /ns:handoff:pickup [--branch <branch>] [semantic-slug|search words]
 /ns:handoff:list [--branch <branch> | --all]
+/ns:handoff:self <continuation focus>
 ```
+
+`/ns:handoff:self` asks the agent to create through one standalone `ns handoff create --format json` Bash command. The Pi host accepts exactly one complete successful structured result during that workflow, verifies the exact returned branch and key after the agent settles, and only then replaces the current session and sends the pickup prompt from the fresh session context. Missing, malformed, ambiguous, failed, truncated, or unverifiable evidence leaves the current context intact.
 
 Portable ns command face:
 

@@ -2,7 +2,7 @@
 
 Pi host adapter for the [`@nseng-ai/handoffs`](../../../../extensions/handoffs/README.md) ns extension.
 
-The package owns Handoff Pi command registration, presentation, session launch orchestration, and Pi parity metadata. Portable content-derived slugging and atomic creation belong to `@nseng-ai/handoffs`; this adapter consumes Handoff domain behavior through the curated `@nseng-ai/handoffs/api` and `ns handoff` command surfaces.
+The package owns Handoff Pi command registration, presentation, session launch orchestration, and Pi parity metadata. Portable content-derived slugging and atomic creation belong to `@nseng-ai/handoffs`; this adapter consumes Handoff domain behavior through the curated `@nseng-ai/handoffs/api` and `ns handoff` command surfaces. Self-handoff observes one complete structured create result, verifies that exact artifact after the agent settles, and only then replaces the Pi session.
 
 Skill-backed create commands use the exact `handoff-create` source selected in Pi's effective skill
 inventory. They capture that source from the invocation command context before focus, Git,

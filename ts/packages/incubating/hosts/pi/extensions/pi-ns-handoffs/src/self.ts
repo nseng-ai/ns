@@ -1,15 +1,17 @@
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer, TimerScheduler } from "@nseng-ai/foundation/timers";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
+import {
+	checkHandoffArtifact,
+	createResultSchema,
+	type CreateResult,
+} from "@nseng-ai/handoffs/api";
+import { z } from "zod";
+
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
 	buildHandoffLaunchPrompt,
-	buildHandoffLaunchTool,
-	handoffLaunchToolFailure,
-	parseHandoffLaunchParams,
 	prepareHandoffCreateLaunch,
-	type HandoffLaunchParams,
 	type HandoffLaunchPromptCopy,
 	type HandoffLaunchRequest,
 } from "./launch-flow.ts";
@@ -19,33 +21,20 @@ import {
 } from "./investigation-sources.ts";
 import {
 	HANDOFF_SELF_COMMAND_NAME,
-	HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
 	HANDOFF_SELF_STATUS_KEY,
 	HANDOFF_SELF_WORKFLOW_TIMEOUT_MS,
 } from "./command-constants.ts";
+import { createPiHandoffStorageDeps } from "./api-context.ts";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { HandoffCreateSkillLoader } from "./create-skill.ts";
 import { createHandoffStartMessage, setStatus, type HandoffStartMessages } from "./ui-status.ts";
-import type {
-	CommandContext,
-	ExtensionAPI,
-	ReplacedSessionContext,
-	ToolDefinition,
-} from "./runtime-types.ts";
-
-export interface HandoffSelfReadyResult {
-	type: "self-handoff-ready";
-	branch: string;
-	slug: string;
-	workflowId: string;
-}
+import type { CommandContext, ExtensionAPI, ReplacedSessionContext } from "./runtime-types.ts";
 
 interface HandoffSelfPromptOptions {
 	skillBlock: string;
 	request: HandoffLaunchRequest;
 	investigationSources: HandoffInvestigationSourceOptions;
-	workflowId?: string;
 }
 
 interface HandoffSelfWorkflowOptions {
@@ -56,37 +45,64 @@ interface HandoffSelfWorkflowOptions {
 	timers?: TimerScheduler;
 }
 
-interface HandoffSelfLaunchParams extends HandoffLaunchParams {
-	workflowId: string;
+interface ToolStartEvent {
+	toolCallId: string;
+	toolName: string;
+	args: unknown;
+}
+
+interface ToolEndEvent {
+	toolCallId: string;
+	toolName: string;
+	result: unknown;
+	isError: boolean;
+}
+
+interface HandoffCreateEvidence {
+	branch: string;
+	slug: string;
+	key: string;
+	entryLocator: string;
+	commit: string;
+}
+
+interface ObservingState {
+	type: "observing";
+	generation: number;
+	branch: string;
+	cwd: string;
+	commands: Map<string, string>;
+	results: HandoffCreateEvidence[];
+	invalidReason?: string;
+	settling: boolean;
+	resolve(completion: HandoffSelfCompletion): void;
+	timeout: ScheduledTimer;
 }
 
 type HandoffSelfWorkflowState =
 	| { type: "idle" }
-	| { type: "starting"; workflowId: string }
-	| {
-			type: "waiting";
-			branch: string;
-			resolve(completion: HandoffSelfCompletion): void;
-			timeout: ScheduledTimer;
-			workflowId: string;
-	  };
+	| { type: "starting"; generation: number }
+	| ObservingState
+	| { type: "finishing"; generation: number };
 
 type HandoffSelfCompletion =
-	| { type: "completed"; branch: string; slug: string }
-	| { type: "timed-out" };
+	| { type: "completed"; evidence: HandoffCreateEvidence }
+	| { type: "failed"; message: string }
+	| { type: "cancelled" };
 
 type HandoffSelfReplacementResult =
 	| { type: "completed" }
 	| { type: "cancelled"; message: string }
 	| { type: "failed"; message: string };
 
-type HandoffSelfLaunchParamsParseResult =
-	| { type: "valid"; params: HandoffSelfLaunchParams }
-	| { type: "invalid"; message: string };
+const createEnvelopeSchema = z.object({
+	status: z.literal("ok"),
+	exitCode: z.literal(0),
+	data: createResultSchema,
+});
 
 export const HANDOFF_SELF_PROMPT_COPY = {
 	commandName: HANDOFF_SELF_COMMAND_NAME,
-	toolName: HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
 	intentSentence:
 		"Create a directed handoff artifact for the current session, then let the command replace this session and send a pickup prompt in the fresh session after the saved handoff is verified.",
 	abortClause: "do not clear context or pick up the handoff",
@@ -104,10 +120,7 @@ const HANDOFF_SELF_START_MESSAGES = {
 export function createHandoffSelfWorkflow(
 	pi: ExtensionAPI,
 	options: HandoffSelfWorkflowOptions,
-): {
-	buildTool(): ToolDefinition;
-	handleCommand(args: string, ctx: CommandContext): Promise<void>;
-} {
+): { handleCommand(args: string, ctx: CommandContext): Promise<void> } {
 	const commands = options.commands ?? createPiCommandExecApi(pi);
 	const timeoutMs = options.timeoutMs ?? HANDOFF_SELF_WORKFLOW_TIMEOUT_MS;
 	const timers = options.timers ?? systemTimerScheduler;
@@ -115,87 +128,205 @@ export function createHandoffSelfWorkflow(
 		git: options.git,
 		...(options.skillLoader === undefined ? {} : { skillLoader: options.skillLoader }),
 	};
+	let generation = 0;
 	let state: HandoffSelfWorkflowState = { type: "idle" };
 
-	function resetStarting(workflowId: string): void {
-		if (state.type === "starting" && state.workflowId === workflowId) {
-			state = { type: "idle" };
-		}
-	}
+	pi.on?.("tool_execution_start", (rawEvent) => {
+		const active = state.type === "observing" && !state.settling ? state : undefined;
+		const event = parseToolStartEvent(rawEvent);
+		if (active === undefined || event === undefined || event.toolName !== "bash") return;
+		const command = readBashCommand(event.args);
+		if (command !== undefined) active.commands.set(event.toolCallId, command);
+	});
 
-	function createWaitingWorkflow(options: {
-		branch: string;
-		workflowId: string;
-	}): Promise<HandoffSelfCompletion> {
-		return new Promise((resolve) => {
-			const timeout = timers.setTimeout(() => {
-				if (state.type === "waiting" && state.workflowId === options.workflowId) {
-					state = { type: "idle" };
-					resolve({ type: "timed-out" });
-				}
-			}, timeoutMs);
-			state = {
-				type: "waiting",
-				branch: options.branch,
+	pi.on?.("tool_execution_end", (rawEvent, ctx) => {
+		const active = state.type === "observing" && !state.settling ? state : undefined;
+		const event = parseToolEndEvent(rawEvent);
+		if (
+			active === undefined ||
+			event === undefined ||
+			ctx === undefined ||
+			event.toolName !== "bash"
+		)
+			return;
+		const command = active.commands.get(event.toolCallId);
+		active.commands.delete(event.toolCallId);
+		const invocation =
+			command === undefined ? undefined : parseStandaloneHandoffCreateCommand(command);
+		if (invocation === undefined) return;
+		if (ctx.cwd !== active.cwd) {
+			active.invalidReason = "Handoff create did not complete in the active workflow cwd.";
+			return;
+		}
+		if (invocation.branch !== active.branch) {
+			active.invalidReason = `Handoff create targeted branch ${invocation.branch}, not the active workflow branch ${active.branch}.`;
+			return;
+		}
+		if (event.isError) {
+			active.invalidReason = "Handoff create did not complete successfully.";
+			return;
+		}
+		const output = readCompleteTextResult(event.result);
+		if (output === undefined) {
+			active.invalidReason = "Handoff create output was unavailable or truncated.";
+			return;
+		}
+		const parsed = parseCreateEnvelope(output);
+		if (parsed === undefined) {
+			active.invalidReason = "Handoff create returned malformed structured output.";
+			return;
+		}
+		if (parsed.branch !== active.branch) {
+			active.invalidReason = `Handoff create returned branch ${parsed.branch}, not the active workflow branch ${active.branch}.`;
+			return;
+		}
+		active.results.push({
+			branch: parsed.branch,
+			slug: parsed.slug,
+			key: parsed.key,
+			entryLocator: parsed.entryLocator,
+			commit: parsed.commit,
+		});
+	});
+
+	pi.on?.("agent_settled", async () => {
+		const active = state.type === "observing" ? state : undefined;
+		if (active === undefined || active.settling) return;
+		if (active.invalidReason !== undefined) {
+			complete(active, { type: "failed", message: active.invalidReason });
+			return;
+		}
+		if (active.results.length !== 1) {
+			complete(active, {
+				type: "failed",
+				message:
+					active.results.length > 1
+						? "Multiple successful Handoff create results were observed; context was not cleared."
+						: "No valid Handoff create result was observed; context was not cleared.",
+			});
+			return;
+		}
+
+		const evidence = active.results[0];
+		if (evidence === undefined) return;
+		active.settling = true;
+		try {
+			const checked = await checkHandoffArtifact(createPiHandoffStorageDeps(commands, active.cwd), {
+				branch: evidence.branch,
+				slug: evidence.slug,
+			});
+			if (state !== active) return;
+			if (checked.type === "error") {
+				complete(active, {
+					type: "failed",
+					message: `Handoff verification failed: ${checked.error.message}`,
+				});
+				return;
+			}
+			if (
+				!checked.value.exists ||
+				checked.value.branch !== evidence.branch ||
+				checked.value.key !== evidence.key
+			) {
+				complete(active, {
+					type: "failed",
+					message: `Created handoff ${evidence.slug} was not found at the exact observed branch and key; context was not cleared.`,
+				});
+				return;
+			}
+			complete(active, { type: "completed", evidence });
+		} catch (error) {
+			if (state !== active) return;
+			complete(active, {
+				type: "failed",
+				message: `Handoff verification failed: ${formatErrorMessage(error)}`,
+			});
+		}
+	});
+
+	pi.on?.("session_shutdown", () => {
+		const active = state.type === "observing" ? state : undefined;
+		if (active === undefined) {
+			state = { type: "idle" };
+			return;
+		}
+		complete(active, { type: "cancelled" });
+	});
+
+	function beginObservation(branch: string, cwd: string, workflowGeneration: number) {
+		return new Promise<HandoffSelfCompletion>((resolve) => {
+			const active: ObservingState = {
+				type: "observing",
+				generation: workflowGeneration,
+				branch,
+				cwd,
+				commands: new Map(),
+				results: [],
+				settling: false,
 				resolve,
-				timeout,
-				workflowId: options.workflowId,
+				timeout: timers.setTimeout(() => {
+					complete(active, {
+						type: "failed",
+						message: `${HANDOFF_SELF_COMMAND_NAME} timed out waiting for a successful Handoff create result; context was not cleared.`,
+					});
+				}, timeoutMs),
 			};
+			state = active;
 		});
 	}
 
-	function resolveWaitingWorkflow(
-		waiting: Extract<HandoffSelfWorkflowState, { type: "waiting" }>,
-		completion: Extract<HandoffSelfCompletion, { type: "completed" }>,
-	): boolean {
-		if (state.type !== "waiting" || state.workflowId !== waiting.workflowId) {
-			return false;
-		}
-		waiting.timeout.cancel();
-		state = { type: "idle" };
-		waiting.resolve(completion);
+	function complete(active: ObservingState, completion: HandoffSelfCompletion): boolean {
+		if (state !== active) return false;
+		active.timeout.cancel();
+		state = { type: "finishing", generation: active.generation };
+		active.resolve(completion);
 		return true;
 	}
 
-	function clearWaitingWorkflow(workflowId: string): void {
-		if (state.type !== "waiting" || state.workflowId !== workflowId) {
-			return;
+	function cancelObservation(workflowGeneration: number): void {
+		const active = state.type === "observing" ? state : undefined;
+		if (active?.generation === workflowGeneration) {
+			complete(active, { type: "cancelled" });
 		}
-		state.timeout.cancel();
-		const resolve = state.resolve;
+	}
+
+	function isFinishingWorkflow(workflowGeneration: number): boolean {
+		return state.type === "finishing" && state.generation === workflowGeneration;
+	}
+
+	function finishWorkflow(workflowGeneration: number): void {
+		if (state.type === "idle" || state.generation !== workflowGeneration) return;
+		if (state.type === "observing") state.timeout.cancel();
 		state = { type: "idle" };
-		resolve({ type: "timed-out" });
 	}
 
 	async function handleCommand(args: string, ctx: CommandContext): Promise<void> {
 		if (state.type !== "idle") {
 			ctx.ui.notify(
-				`${HANDOFF_SELF_COMMAND_NAME} is already waiting for a saved handoff in this extension instance; finish or let that workflow time out before starting another.`,
+				`${HANDOFF_SELF_COMMAND_NAME} is already active in this extension instance; finish or let that workflow time out before starting another.`,
 				"warning",
 			);
 			return;
 		}
+		if (ctx.newSession === undefined) {
+			ctx.ui.notify(
+				`/${HANDOFF_SELF_COMMAND_NAME} requires Pi session replacement support.`,
+				"error",
+			);
+			return;
+		}
 
-		const workflowId = createWorkflowId();
-		state = { type: "starting", workflowId };
+		generation += 1;
+		const workflowGeneration = generation;
+		state = { type: "starting", generation: workflowGeneration };
 		try {
 			await ctx.waitForIdle();
-
+			if (state.type !== "starting" || state.generation !== workflowGeneration) return;
 			const prepared = await prepareHandoffCreateLaunch(pi, args, ctx, prepareOptions);
-			if (prepared === undefined) {
-				return;
-			}
+			if (prepared === undefined) return;
+			if (state.type !== "starting" || state.generation !== workflowGeneration) return;
 
-			const newSession = ctx.newSession;
-			if (newSession === undefined) {
-				ctx.ui.notify(
-					`/${HANDOFF_SELF_COMMAND_NAME} requires Pi session replacement support.`,
-					"error",
-				);
-				return;
-			}
-
-			const completion = createWaitingWorkflow({ branch: prepared.request.branch, workflowId });
+			const completion = beginObservation(prepared.request.branch, ctx.cwd, workflowGeneration);
 			try {
 				ctx.ui.notify(createHandoffStartMessage(HANDOFF_SELF_START_MESSAGES), "info");
 				pi.sendUserMessage(
@@ -203,140 +334,59 @@ export function createHandoffSelfWorkflow(
 						skillBlock: prepared.skill.block,
 						request: prepared.request,
 						investigationSources: deriveHandoffInvestigationSources(ctx),
-						workflowId,
 					}),
 				);
 			} catch (error) {
-				clearWaitingWorkflow(workflowId);
+				cancelObservation(workflowGeneration);
 				throw error;
 			}
 
 			const result = await completion;
-			if (result.type === "timed-out") {
-				ctx.ui.notify(
-					`${HANDOFF_SELF_COMMAND_NAME} timed out waiting for handoff_self_queue_pickup; context was not cleared because the saved handoff was not verified.`,
-					"error",
-				);
+			if (result.type === "cancelled") return;
+			if (result.type === "failed") {
+				ctx.ui.notify(result.message, "error");
 				return;
 			}
+			if (!isFinishingWorkflow(workflowGeneration)) return;
 
 			await ctx.waitForIdle();
-			const replacement = await replaceSessionForSelfHandoff(ctx, newSession, result);
-			if (replacement.type === "completed") {
-				return;
-			}
-			const recovery = formatHandoffSelfManualRecovery(result.branch, result.slug);
+			if (!isFinishingWorkflow(workflowGeneration)) return;
+			const replacement = await replaceSessionForSelfHandoff(ctx, ctx.newSession, result.evidence);
+			if (replacement.type === "completed") return;
+			const recovery = formatHandoffSelfManualRecovery(
+				result.evidence.branch,
+				result.evidence.slug,
+			);
 			if (replacement.type === "cancelled") {
 				ctx.ui.notify(
-					`${HANDOFF_SELF_COMMAND_NAME} saved and verified handoff ${result.slug} on branch ${result.branch}, but ${replacement.message} Context was not cleared. ${recovery}`,
+					`${HANDOFF_SELF_COMMAND_NAME} created and verified handoff ${result.evidence.slug} on branch ${result.evidence.branch}, but ${replacement.message} Context was not cleared. ${recovery}`,
 					"warning",
 				);
 				return;
 			}
 			ctx.ui.notify(
-				`${HANDOFF_SELF_COMMAND_NAME} saved and verified handoff ${result.slug} on branch ${result.branch}, but Pi session replacement failed. Context was not cleared. ${replacement.message} ${recovery}`,
+				`${HANDOFF_SELF_COMMAND_NAME} created and verified handoff ${result.evidence.slug} on branch ${result.evidence.branch}, but Pi session replacement failed. Context was not cleared. ${replacement.message} ${recovery}`,
 				"error",
 			);
 		} finally {
-			resetStarting(workflowId);
+			finishWorkflow(workflowGeneration);
 		}
 	}
 
-	function buildTool(): ToolDefinition {
-		return buildHandoffLaunchTool<HandoffSelfLaunchParams>(commands, {
-			name: HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
-			label: "Verify Handoff Self Completion",
-			description: `Verify a saved handoff exists, then rendezvous with /${HANDOFF_SELF_COMMAND_NAME} so the command can replace the session and send the pickup prompt.`,
-			promptSnippet: `Verify a saved /${HANDOFF_SELF_COMMAND_NAME} artifact, then resolve the active ${HANDOFF_SELF_COMMAND_NAME} rendezvous after the handoff has been saved successfully.`,
-			promptGuidelines: [
-				`Use ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} only after a /${HANDOFF_SELF_COMMAND_NAME} prompt has saved the requested handoff successfully.`,
-				`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verifies the handoff exists before resolving session replacement; do not call it before ns handoff create succeeds.`,
-			],
-			statusKey: HANDOFF_SELF_STATUS_KEY,
-			extraParameters: {
-				properties: {
-					workflow_id: {
-						type: "string",
-						description: `Opaque /${HANDOFF_SELF_COMMAND_NAME} rendezvous id from the active command prompt.`,
-					},
-				},
-				required: ["workflow_id"],
-			},
-			parseParams: parseHandoffSelfLaunchParams,
-			verifyStatus: () => "verifying saved handoff…",
-			verifyUpdate: "Verifying saved handoff…",
-			missingMessage: (params) =>
-				`No handoff ${params.slug} found on branch ${params.branch}; context was not cleared.`,
-			gate(_ctx, params, signal) {
-				if (signal?.aborted) {
-					return `${HANDOFF_SELF_COMMAND_NAME} verification was cancelled; context was not cleared.`;
-				}
-				const waiting = state.type === "waiting" ? state : undefined;
-				if (waiting === undefined) {
-					return `${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} was called with no active /${HANDOFF_SELF_COMMAND_NAME} workflow; context was not cleared.`;
-				}
-				if (params.workflowId !== waiting.workflowId) {
-					return `${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} received the wrong workflow_id; context was not cleared.`;
-				}
-				if (params.branch !== waiting.branch) {
-					return `Saved handoff branch ${params.branch} does not match active /${HANDOFF_SELF_COMMAND_NAME} branch ${waiting.branch}; context was not cleared.`;
-				}
-				return undefined;
-			},
-			launch({ params, signal }) {
-				if (signal?.aborted) {
-					return handoffLaunchToolFailure(
-						`${HANDOFF_SELF_COMMAND_NAME} verification was cancelled; context was not cleared.`,
-					);
-				}
-				const waiting = state.type === "waiting" ? state : undefined;
-				if (
-					waiting === undefined ||
-					!resolveWaitingWorkflow(waiting, {
-						type: "completed",
-						branch: params.branch,
-						slug: params.slug,
-					})
-				) {
-					return handoffLaunchToolFailure(
-						`${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} verified the handoff after the active workflow changed or timed out; context was not cleared.`,
-					);
-				}
-				return {
-					content: [
-						{
-							type: "text",
-							text: `Verified ${HANDOFF_SELF_COMMAND_NAME} artifact ${params.slug} on branch ${params.branch}. The current command will replace this session and send the pickup prompt in the fresh session.`,
-						},
-					],
-					details: {
-						type: "self-handoff-ready",
-						branch: params.branch,
-						slug: params.slug,
-						workflowId: params.workflowId,
-					} satisfies HandoffSelfReadyResult,
-					terminate: true,
-				};
-			},
-		});
-	}
-
-	return { buildTool, handleCommand };
+	return { handleCommand };
 }
 
 export function buildHandoffSelfPrompt(options: HandoffSelfPromptOptions): string {
-	const request = options.request;
-	const workflowId = options.workflowId ?? "<workflow-id>";
 	return buildHandoffLaunchPrompt(HANDOFF_SELF_PROMPT_COPY, {
 		skillBlock: options.skillBlock,
-		request,
+		request: options.request,
 		investigationSources: options.investigationSources,
-		extraTargetSections: [
-			`Session replacement rendezvous:\n\n- Tool: ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME}\n- workflow_id: ${workflowId}`,
-		],
-		toolCallInstruction: `After \`ns handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` and \`slug\` set to the exact values returned by the create JSON result, and \`workflow_id\` set to \`${workflowId}\`.`,
+		createCommandInstruction: `Write the exact final Markdown content to a temporary file using Pi's built-in write tool, then run \`ns handoff create --branch ${options.request.branch} --file <temporary-path> --format json\` as a standalone Bash command. Do not pass --slug unless the user explicitly supplied an override.`,
+		toolCallInstruction:
+			"After the standalone `ns handoff create` command succeeds, stop. The command observes and verifies its exact structured result after the agent settles.",
 		extraRequirements: [
-			`Do not queue slash commands such as /${HANDOFF_SELF_COMMAND_NAME}-resume, /${HANDOFF_SELF_COMMAND_NAME}-pickup, or /new as user messages. The command owns session replacement after this tool resolves.`,
+			"Run `ns handoff create` as a standalone Bash command with `--format json`; do not chain another command or redirect its structured output.",
+			`Do not queue slash commands such as /${HANDOFF_SELF_COMMAND_NAME}-resume, /${HANDOFF_SELF_COMMAND_NAME}-pickup, or /new as user messages. The command owns session replacement after observing the create result.`,
 		],
 	});
 }
@@ -355,14 +405,20 @@ async function replaceSessionForSelfHandoff(
 	completion: { branch: string; slug: string },
 ): Promise<HandoffSelfReplacementResult> {
 	const kickoffPrompt = formatHandoffSelfKickoffPrompt(completion.branch, completion.slug);
-	const parentSession = ctx.sessionManager?.getSessionFile?.();
-
+	const parentSession = ctx.sessionManager.getSessionFile?.();
 	const withSession = async (replacementCtx: ReplacedSessionContext): Promise<void> => {
 		replacementCtx.ui.notify(
 			`Picking up handoff ${completion.slug} from branch ${completion.branch}…`,
 			"info",
 		);
-		await replacementCtx.sendUserMessage(kickoffPrompt);
+		try {
+			await replacementCtx.sendUserMessage(kickoffPrompt);
+		} catch (error) {
+			replacementCtx.ui.notify(
+				`The fresh session could not send its Handoff pickup prompt: ${formatErrorMessage(error)} ${formatHandoffSelfManualRecovery(completion.branch, completion.slug)}`,
+				"error",
+			);
+		}
 	};
 
 	let shouldClearStatus = true;
@@ -379,33 +435,116 @@ async function replaceSessionForSelfHandoff(
 	} catch (error: unknown) {
 		return { type: "failed", message: formatErrorMessage(error) };
 	} finally {
-		if (shouldClearStatus) {
-			setStatus(ctx, HANDOFF_SELF_STATUS_KEY, undefined);
+		if (shouldClearStatus) setStatus(ctx, HANDOFF_SELF_STATUS_KEY, undefined);
+	}
+}
+
+function parseToolStartEvent(value: unknown): ToolStartEvent | undefined {
+	const result = z
+		.object({ toolCallId: z.string(), toolName: z.string(), args: z.unknown() })
+		.safeParse(value);
+	return result.success ? result.data : undefined;
+}
+
+function parseToolEndEvent(value: unknown): ToolEndEvent | undefined {
+	const result = z
+		.object({
+			toolCallId: z.string(),
+			toolName: z.string(),
+			result: z.unknown(),
+			isError: z.boolean(),
+		})
+		.safeParse(value);
+	return result.success ? result.data : undefined;
+}
+
+function readBashCommand(args: unknown): string | undefined {
+	const result = z.object({ command: z.string() }).safeParse(args);
+	return result.success ? result.data.command.trim() : undefined;
+}
+
+function parseStandaloneHandoffCreateCommand(command: string): { branch: string } | undefined {
+	const argv = tokenizeStandaloneCommand(command);
+	if (argv === undefined || argv.length < 7) return undefined;
+	if (argv[0] !== "ns" || argv[1] !== "handoff" || argv[2] !== "create") return undefined;
+	const options = new Map<string, string>();
+	for (let index = 3; index < argv.length; index += 2) {
+		const name = argv[index];
+		const value = argv[index + 1];
+		if (
+			name === undefined ||
+			value === undefined ||
+			!(name === "--branch" || name === "--file" || name === "--slug" || name === "--format") ||
+			options.has(name)
+		) {
+			return undefined;
 		}
+		options.set(name, value);
 	}
+	const branch = options.get("--branch");
+	if (
+		branch === undefined ||
+		options.get("--format") !== "json" ||
+		options.get("--file") === undefined
+	) {
+		return undefined;
+	}
+	return { branch };
 }
 
-function parseHandoffSelfLaunchParams(params: unknown): HandoffSelfLaunchParamsParseResult {
-	if (!isRecord(params)) {
-		return {
-			type: "invalid",
-			message: `${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} parameters must be an object.`,
-		};
+function tokenizeStandaloneCommand(command: string): string[] | undefined {
+	const tokens: string[] = [];
+	let token = "";
+	let quote: "'" | '"' | undefined;
+	let tokenStarted = false;
+	for (const character of command.trim()) {
+		if (quote !== undefined) {
+			if (character === quote) quote = undefined;
+			else token += character;
+			tokenStarted = true;
+			continue;
+		}
+		if (character === "'" || character === '"') {
+			quote = character;
+			tokenStarted = true;
+			continue;
+		}
+		if (/\s/u.test(character)) {
+			if (tokenStarted) {
+				tokens.push(token);
+				token = "";
+				tokenStarted = false;
+			}
+			continue;
+		}
+		if (";&|<>\\`$()".includes(character)) return undefined;
+		token += character;
+		tokenStarted = true;
 	}
-	const parsedLaunch = parseHandoffLaunchParams(params, HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME);
-	if (parsedLaunch.type === "invalid") {
-		return parsedLaunch;
-	}
-	const workflowId = stringField(params, "workflow_id");
-	if (workflowId === undefined) {
-		return {
-			type: "invalid",
-			message: `${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} requires a non-empty workflow_id.`,
-		};
-	}
-	return { type: "valid", params: { ...parsedLaunch.params, workflowId } };
+	if (quote !== undefined) return undefined;
+	if (tokenStarted) tokens.push(token);
+	return tokens;
 }
 
-function createWorkflowId(): string {
-	return `handoff-self-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+function readCompleteTextResult(result: unknown): string | undefined {
+	const parsed = z
+		.object({
+			content: z.array(z.object({ type: z.literal("text"), text: z.string() })),
+			details: z
+				.object({ truncation: z.object({ truncated: z.boolean() }).optional() })
+				.optional()
+				.nullable(),
+		})
+		.safeParse(result);
+	if (!parsed.success || parsed.data.details?.truncation?.truncated === true) return undefined;
+	return parsed.data.content.map((item) => item.text).join("\n");
+}
+
+function parseCreateEnvelope(output: string): CreateResult | undefined {
+	try {
+		const result = createEnvelopeSchema.safeParse(JSON.parse(output));
+		return result.success ? result.data.data : undefined;
+	} catch {
+		return undefined;
+	}
 }

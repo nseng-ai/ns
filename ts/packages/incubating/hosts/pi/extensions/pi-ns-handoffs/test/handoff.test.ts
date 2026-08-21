@@ -81,6 +81,7 @@ describe("handoff extension", () => {
 			"ns:handoff:create",
 			"ns:handoff:list",
 			"ns:handoff:pickup",
+			"ns:handoff:self",
 		]);
 		expect(pi.commands.has("handoff:load")).toBe(false);
 		expect(pi.commands.has("brmem-handoff")).toBe(false);

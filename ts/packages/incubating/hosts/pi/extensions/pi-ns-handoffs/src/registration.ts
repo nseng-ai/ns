@@ -65,7 +65,7 @@ export const handoffParity = definePiSurfaceParity([
 		sourcePackage: "@nseng-ai/pi-ns-handoffs",
 		sourceModule: "handoff",
 		notes:
-			"Self handoff stores through the portable handoff workflow, waits for the verified handoff_self_queue_pickup tool result, then uses Pi command-context session replacement to send a natural-language pickup prompt.",
+			"Self handoff observes the portable atomic create result, verifies that exact artifact after the agent settles, then uses Pi command-context session replacement to send a natural-language pickup prompt.",
 	},
 ] as const);
 
@@ -74,21 +74,18 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 	const commands = createPiCommandExecApi(pi);
 	const handoffContext = createPiHandoffContext(commands);
 
-	if (pi.registerTool !== undefined) {
-		const selfWorkflow = createHandoffSelfWorkflow(pi, {
-			git: handoffContext.git,
-			commands,
-		});
-		pi.registerTool(selfWorkflow.buildTool());
-		registerCommandWithImmediateAck({
-			host: pi,
-			commandName: HANDOFF_SELF_COMMAND_NAME,
-			commandDefinition: {
-				description: "Create a handoff, clear context, and pick it up in this Pi session.",
-				handler: async (args, ctx) => selfWorkflow.handleCommand(args, ctx),
-			},
-		});
-	}
+	const selfWorkflow = createHandoffSelfWorkflow(pi, {
+		git: handoffContext.git,
+		commands,
+	});
+	registerCommandWithImmediateAck({
+		host: pi,
+		commandName: HANDOFF_SELF_COMMAND_NAME,
+		commandDefinition: {
+			description: "Create a handoff, clear context, and pick it up in this Pi session.",
+			handler: async (args, ctx) => selfWorkflow.handleCommand(args, ctx),
+		},
+	});
 
 	registerCommandWithImmediateAck({
 		host: pi,

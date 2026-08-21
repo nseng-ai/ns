@@ -126,8 +126,11 @@ export interface BaseRuntimeContext extends ToolContext {
 	};
 }
 
-export interface CommandContext extends BaseRuntimeContext {
+export interface ExtensionEventContext extends BaseRuntimeContext {
 	sessionManager: PiSessionReader;
+}
+
+export interface CommandContext extends ExtensionEventContext {
 	getSystemPromptOptions(): SystemPromptOptions;
 	ui: BaseRuntimeContext["ui"] & {
 		select?(title: string, items: string[]): Promise<string | undefined>;
@@ -138,7 +141,10 @@ export interface CommandContext extends BaseRuntimeContext {
 }
 
 export interface ExtensionAPI {
-	on?(event: string, handler: (...args: never[]) => unknown): void;
+	on?(
+		event: string,
+		handler: (event?: unknown, ctx?: ExtensionEventContext) => Promise<void> | void,
+	): void;
 	registerCommand(
 		name: string,
 		options: {
