@@ -17,7 +17,7 @@ import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
 
-export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";
+export const SAVED_PLAN_SESSION_ENTRY_TYPE = "ns:saved-plan";
 
 export type ValidatedSessionSavedPlan = LatestSavedPlanFileEvidence & {
 	summary?: string;
@@ -93,15 +93,9 @@ const savedPlanFileEvidenceSchema = z.object({
 });
 
 const savedPlanFileSessionEntrySchema = z.object({
-	type: z.literal("message"),
-	message: z
-		.object({
-			role: z.literal("toolResult"),
-			toolName: z.literal(WRITE_SAVED_PLAN_FILE_TOOL_NAME),
-			isError: z.unknown().optional(),
-			details: savedPlanFileEvidenceSchema,
-		})
-		.refine((message) => message.isError !== true),
+	type: z.literal("custom"),
+	customType: z.literal(SAVED_PLAN_SESSION_ENTRY_TYPE),
+	data: savedPlanFileEvidenceSchema,
 });
 
 export function extractSavedPlanFileEvidenceFromSessionEntry(
@@ -112,7 +106,7 @@ export function extractSavedPlanFileEvidenceFromSessionEntry(
 		return undefined;
 	}
 
-	return toSavedPlanFileEvidence(result.data.message.details);
+	return toSavedPlanFileEvidence(result.data.data);
 }
 
 function toSavedPlanFileEvidence(

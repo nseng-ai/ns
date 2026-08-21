@@ -141,19 +141,7 @@ describe("saved plan session selection", () => {
 				type: "message",
 				message: { role: "toolResult", toolName: "other_tool", isError: false, details: {} },
 			},
-			{
-				type: "message",
-				message: {
-					role: "toolResult",
-					toolName: "write_saved_plan_file",
-					isError: true,
-					details: {},
-				},
-			},
-			{
-				type: "message",
-				message: { role: "toolResult", toolName: "write_saved_plan_file", details: { slug: 123 } },
-			},
+			{ type: "custom", customType: "ns:saved-plan", data: { slug: 123 } },
 		];
 
 		expect(extractSavedPlanFileEvidenceFromSessionEntry(entries[0])).toBeUndefined();
@@ -173,15 +161,10 @@ describe("saved plan session selection", () => {
 			summary: "Use this plan.",
 		});
 		const result = extractSavedPlanFileEvidenceFromSessionEntry({
-			type: "message",
+			type: "custom",
+			customType: "ns:saved-plan",
 			entryExtra: "ignored",
-			message: {
-				role: "toolResult",
-				toolName: "write_saved_plan_file",
-				isError: false,
-				messageExtra: "ignored",
-				details: { ...plan, evidenceExtra: "ignored" },
-			},
+			data: { ...plan, evidenceExtra: "ignored" },
 		});
 
 		expect(result).toEqual(plan);
@@ -196,17 +179,14 @@ describe("saved plan session selection", () => {
 
 		expect(
 			extractSavedPlanFileEvidenceFromSessionEntry({
-				type: "message",
-				message: {
-					role: "toolResult",
-					toolName: "write_saved_plan_file",
-					details: { ...plan, summary: 123 },
-				},
+				type: "custom",
+				customType: "ns:saved-plan",
+				data: { ...plan, summary: 123 },
 			}),
 		).toBeUndefined();
 	});
 
-	test("only rejects literal true tool errors", async () => {
+	test("rejects the removed legacy tool-result entry shape", async () => {
 		const fixture = await makeFixture();
 		const plan = evidence(fixture.directory, {
 			filePath: join(fixture.directory.directoryPath, PLAN_KEY),
@@ -218,22 +198,10 @@ describe("saved plan session selection", () => {
 				message: {
 					role: "toolResult",
 					toolName: "write_saved_plan_file",
-					isError: true,
 					details: plan,
 				},
 			}),
 		).toBeUndefined();
-		expect(
-			extractSavedPlanFileEvidenceFromSessionEntry({
-				type: "message",
-				message: {
-					role: "toolResult",
-					toolName: "write_saved_plan_file",
-					isError: "true",
-					details: plan,
-				},
-			}),
-		).toEqual(plan);
 	});
 
 	test("treats a missing session file as stale and continues to older valid evidence", async () => {
@@ -454,17 +422,9 @@ function evidence(
 }
 
 function savedPlanEntry(plan: SavedPlanFileEvidence): unknown {
-	return savedPlanEntryForTool(plan, "write_saved_plan_file");
-}
-
-function savedPlanEntryForTool(plan: SavedPlanFileEvidence, toolName: string): unknown {
 	return {
-		type: "message",
-		message: {
-			role: "toolResult",
-			toolName,
-			isError: false,
-			details: plan,
-		},
+		type: "custom",
+		customType: "ns:saved-plan",
+		data: plan,
 	};
 }

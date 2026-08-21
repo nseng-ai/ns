@@ -241,20 +241,16 @@ describe("loadAttachedPlan", () => {
 				planStoreRoot,
 				sessionEntries: [
 					{
-						type: "message",
-						message: {
-							role: "toolResult",
-							toolName: "write_saved_plan_file",
-							isError: false,
-							details: {
-								slug: PLAN_SLUG,
-								repoRoot: ROOT,
-								repoKey,
-								repoIdentitySource: "origin-url",
-								sourceBranch,
-								branchKey,
-								filePath,
-							},
+						type: "custom",
+						customType: "ns:saved-plan",
+						data: {
+							slug: PLAN_SLUG,
+							repoRoot: ROOT,
+							repoKey,
+							repoIdentitySource: "origin-url",
+							sourceBranch,
+							branchKey,
+							filePath,
 						},
 					},
 				],

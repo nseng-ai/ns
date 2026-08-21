@@ -17,14 +17,14 @@ A **Saved Plan** file tied to the source branch that produced it. The source bra
 *Avoid*: attached plan, implementation branch plan, handoff locator
 
 **Saved-Plan Selection**:
-The workflow that chooses an explicit, session-evidence, or latest **Saved Plan** while validating repository, source-branch, filename, slug, and path-containment evidence.
+The workflow that chooses an explicit, custom-session-evidence, or latest **Saved Plan** while validating repository, source-branch, filename, slug, and path-containment evidence.
 *Avoid*: branch-context selection, arbitrary Markdown lookup, unsafe fallback
 
 **Plan Store Directory Evidence**:
 The repository identity, source branch, encoded path keys, and directory path facts used to validate **Saved Plan** evidence before selecting a file.
 *Avoid*: untrusted session metadata, branch context, attachment evidence
 
-The package's command surface (the CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at the edge, writes/lists/selects plans, and presents user-facing output) and its domain logic (saved-plan path, evidence, and selection functions that take resolved evidence or injected **Gateways** rather than raw host context, and may perform filesystem I/O through an explicit gateway or already-resolved path evidence) are ordinary architectural layers, not defined terms.
+The package's command surface (the CLI-facing shell that parses user intent, reads finite whole-plan payloads through an injected reader, constructs real **Gateways** at the edge, derives slugs, writes/lists/selects plans, and presents user-facing output) and its domain logic (saved-plan path, evidence, and selection functions that take resolved evidence or injected **Gateways** rather than raw host context, and may perform filesystem I/O through an explicit gateway or already-resolved path evidence) are ordinary architectural layers, not defined terms.
 
 **Plans extension package API**:
 The curated `@nseng-ai/plans/api` surface used by downstream consumer packages and their tests for in-process saved-plan composition without broad package-root imports. It includes saved-plan path, evidence, selection, and slug-prompt helpers needed by consumer composition and test fixtures. Owning `@nseng-ai/plans` tests may still import the package root when covering root compatibility.

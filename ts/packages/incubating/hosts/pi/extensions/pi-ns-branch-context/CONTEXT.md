@@ -9,5 +9,5 @@ The incubating `@nseng-ai/pi-ns-branch-context` package under `ts/packages/incub
 *Avoid*: Branch Context domain owner, Branch Context Pi subpackage, `@nseng-ai/branch-context/pi`, private Branch Context source consumer
 
 **Branch Context Pi command surface**:
-The preserved `/ns:branch-context:*` and `/ns:plan:*` commands registered by the **Branch Context Pi host adapter**. The adapter owns Pi registration, prompt/status wording, saved-plan write tooling, Grill activation, session replacement, and parity metadata; command names and implementation-command formatting are stable consumer metadata owned by `@nseng-ai/branch-context/api`.
+The preserved `/ns:branch-context:*` and `/ns:plan:*` commands registered by the **Branch Context Pi host adapter**. The adapter owns Pi registration, prompt wording, Saved Plan CLI-result observation and custom session evidence, Grill activation, session replacement, and parity metadata; command names and implementation-command formatting are stable consumer metadata owned by `@nseng-ai/branch-context/api`.
 *Avoid*: Pi-owned Branch Context semantics, duplicated command-name literals, project-only Grill UI names in the Branch Context API

@@ -124,6 +124,8 @@ export interface CommandContext {
 }
 
 export interface ExtensionAPI {
+	on?(event: string, handler: (event: unknown, ctx: CommandContext) => Promise<void> | void): void;
+	appendEntry?(customType: string, data?: unknown): void;
 	registerCommand(
 		name: string,
 		options: {

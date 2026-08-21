@@ -5,8 +5,9 @@ import {
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-	registerSavedPlanCommandsAndTools,
+	registerSavedPlanCommands,
 } from "./saved-plan-commands.ts";
+import { registerSavedPlanObserver } from "./saved-plan-observer.ts";
 import {
 	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
 	GT_UPSTACK_IMPL_COMMAND_NAME,
@@ -22,12 +23,11 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		surface: WRITE_PLAN_COMMAND_NAME,
 		workflow: "Write and save a reviewed implementation plan in the local plan store",
 		parity: "WAIVED",
-		fallback: "Saved Plan authoring is available through Pi /ns:plan:save.",
+		fallback: "Use enriched-plan exec save --file <path> --format json.",
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
-		notes:
-			"The portable Saved Plan save command and skill were deleted; Pi drives the retained typed saved-plan file tool.",
+		notes: "Pi prompts plan authoring and observes the hidden portable Saved Plan save command.",
 	},
 	{
 		kind: "command",
@@ -39,8 +39,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		ownerObjective: "cross-harness-parity",
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
-		notes:
-			"Structured grill UI is Pi-native; the saved-plan storage path is accounted by write_saved_plan_file.",
+		notes: "Structured grill UI is Pi-native; Saved Plan persistence uses enriched-plan exec save.",
 	},
 	{
 		kind: "command",
@@ -103,7 +102,6 @@ export {
 	WRITE_PLAN_COMMAND_NAME,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
-	buildWriteSavedPlanFileTool,
 	handleWriteGrilledPlanCommand,
 	handleWritePlanCommand,
 } from "./saved-plan-commands.ts";
@@ -151,6 +149,7 @@ export default function registerBranchContextExtension(
 	options: BranchContextExtensionOptions = {},
 ): void {
 	const commandPi = createBranchContextPiCommandApi(pi);
-	registerSavedPlanCommandsAndTools(commandPi, options);
+	const observer = registerSavedPlanObserver(commandPi, options);
+	registerSavedPlanCommands(commandPi, observer, options);
 	registerBranchContextCommands(commandPi, options);
 }

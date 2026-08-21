@@ -30,7 +30,7 @@ Pi users run `/ns:plan:save`. The static planning-policy body lives at:
 
 For `/ns:plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
 
-The structured grilling variant is `/ns:plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`. The `grill_ask` tool is inactive by default in a fresh session; invoking `/ns:plan:grill-and-save` (or a `/pi:grill-*` command) activates it before the kickoff prompt is sent, and it stays active for the rest of that session rather than depending on global availability. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
+The structured grilling variant is `/ns:plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved Plan artifact through hidden `enriched-plan exec save --file <path> --format json`; the Pi adapter validates the successful standalone Bash result and records custom session evidence. The `grill_ask` tool is inactive by default in a fresh session; invoking `/ns:plan:grill-and-save` (or a `/pi:grill-*` command) activates it before the kickoff prompt is sent, and it stays active for the rest of that session rather than depending on global availability. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
 
 Saved plans are written to:
 

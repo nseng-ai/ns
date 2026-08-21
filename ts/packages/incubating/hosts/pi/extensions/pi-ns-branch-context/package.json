@@ -17,7 +17,8 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/pi-runtime": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
-		"@nseng-ai/sdk": "workspace:*"
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
 	},
 	"ns": {
 		"tier": "host"

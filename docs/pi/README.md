@@ -198,7 +198,7 @@ Do not register compatibility aliases for these old names unless an explicit mig
 
 ### Parity metadata scope
 
-The `@nseng-ai/pi-runtime` typed parity gate tracks package-owned Pi **command** registrations. Pi model-visible tools are host-native bridges and do not require standalone parity metadata rows. If a command depends on a tool, put the fallback and parity rationale on the command row. Examples of tool bridges that are intentionally not rows: `grill_ask`, `subagent`, `write_saved_plan_file`, `derive_handoff_slug_from_content`, and `handoff_tab_launch`.
+The `@nseng-ai/pi-runtime` typed parity gate tracks package-owned Pi **command** registrations. Pi model-visible tools are host-native bridges and do not require standalone parity metadata rows. If a command depends on a tool, put the fallback and parity rationale on the command row. Examples of tool bridges that are intentionally not rows: `grill_ask`, `subagent`, `derive_handoff_slug_from_content`, and `handoff_tab_launch`. Saved Plan persistence instead uses hidden `enriched-plan exec save` plus a Pi Bash-result observer.
 
 ## Skill/extension router pattern
 

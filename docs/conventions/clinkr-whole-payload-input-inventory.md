@@ -13,11 +13,11 @@ This inventory is the migration baseline for replacing general whole-stream inpu
 
 Clinkr owns the reusable JSON-input operation through `@nseng-ai/clinkr/app`: it accepts inline option text, file text, or a supplied `readJsonInput` callback and leaves command-specific schema wording and error translation with the owning command.
 
-## Deleted portable Saved Plan path
+## Command-owned Saved Plan payload
 
-The former `enriched-plan exec save` command and `enriched-plan-save` skill were the only shared-style arbitrary-text consumer and have been deleted. The retained `enriched-plan` CLI supports Saved Plan listing and resolution only.
+Hidden `enriched-plan exec save` accepts one finite Markdown payload from `--file` or stdin through an injected Plans-owned whole-payload reader. It derives a semantic slug and calls `writeSavedPlanFile()`; this arbitrary-text source does not widen Clinkr's shared JSON request seam.
 
-Pi `/ns:plan:save`, `/ns:plan:grill-and-save`, `write_saved_plan_file`, and `writeSavedPlanFile()` receive complete content as command/tool/domain arguments and are not stdin consumers.
+Pi `/ns:plan:save` and `/ns:plan:grill-and-save` instruct the model to write a temporary file and invoke the hidden command as standalone Bash. The Pi adapter observes and validates its structured result; no model-visible Saved Plan write tool remains.
 
 ## Command-owned non-JSON payloads outside the shared seam
 
@@ -38,4 +38,4 @@ Clinkr raw commands receive verbatim argv plus invocation-scoped byte output (`t
 
 ## Conclusion
 
-After portable Saved Plan save was deleted, every production consumer of the **shared** Clinkr/SDK whole-payload surface is a finite JSON request. No shared non-JSON whole-payload consumer remains. Retained arbitrary Brmem/Handoff content is command-owned behind `BrmemSourceReader`, interactive input is line-oriented semantic interaction, and raw commands have no shared input transport.
+Every production consumer of the **shared** Clinkr/SDK whole-payload surface is a finite JSON request. The Plans-owned Saved Plan reader, like the Brmem/Handoff readers, is command-owned and does not use that shared seam. No shared non-JSON whole-payload consumer remains. Retained arbitrary Brmem/Handoff content is command-owned behind `BrmemSourceReader`, interactive input is line-oriented semantic interaction, and raw commands have no shared input transport.

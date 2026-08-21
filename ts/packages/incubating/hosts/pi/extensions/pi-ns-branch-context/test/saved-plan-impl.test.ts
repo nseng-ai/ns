@@ -13,7 +13,7 @@ import {
 	createContext,
 	makeNamedPlanFile,
 	savedPlanEvidence,
-	sourcePlanToolResultEntry,
+	sourcePlanSessionEntry,
 } from "./branch-context-extension-support.ts";
 import type { SelectedSavedPlanFile } from "@nseng-ai/plans/api";
 
@@ -112,7 +112,7 @@ describe("saved-plan implementation command", () => {
 		});
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("ns:plan:impl-saved-plan");
-		const sessionEntry = sourcePlanToolResultEntry(sessionEvidence);
+		const sessionEntry = sourcePlanSessionEntry(sessionEvidence);
 		const context = createContext([], { sessionEntries: [sessionEntry] });
 
 		await command?.handler("--dry-run", context.ctx);

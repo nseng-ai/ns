@@ -163,11 +163,11 @@ describe("buildWritePlanPrompt", () => {
 
 		expect(prompt).toContain("/ns:plan:save request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
-		expect(prompt).toContain("write_saved_plan_file");
+		expect(prompt).toContain("enriched-plan exec save");
 		expect(prompt).toContain(
 			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
 		);
-		expect(prompt).toContain("No fallback path is read or written");
+		expect(prompt).toContain("refuses to overwrite an existing file");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");
@@ -182,9 +182,9 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("External/off-repo research context");
 		expect(prompt).toContain("Validation guidance and expected results");
 		expect(prompt).toContain("leave ordinary validation coverage to the implementing agent");
-		expect(prompt).toContain("do not generate or pass a slug");
-		expect(prompt).toContain("Codex-backed slug model");
-		expect(prompt).toContain('"content": "# Plan');
+		expect(prompt).toContain("Do not generate or pass a slug");
+		expect(prompt).toContain("configured model policy");
+		expect(prompt).toContain("temporary Markdown file");
 		expect(prompt).not.toContain('"slug": "semantic-kebab-case-slug"');
 		expect(prompt).not.toContain("create_brmem_plan_branch_from_file");
 		expect(prompt).not.toContain("branchCreation");
@@ -273,7 +273,7 @@ describe("buildWriteGrilledPlanPrompt", () => {
 
 		expect(prompt).toContain("/ns:plan:grill-and-save");
 		expect(prompt).toContain("plan the grilled command variant");
-		expect(prompt).toContain("write_saved_plan_file");
+		expect(prompt).toContain("enriched-plan exec save");
 		expect(prompt).toContain("grill_ask");
 		expect(prompt).toContain("up to 12");
 		expect(prompt).toContain("may not require any user-facing questions");
@@ -282,7 +282,7 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("ui_unavailable");
 		expect(prompt).toContain("status_request");
 		expect(prompt).toContain("end_grill");
-		expect(prompt).toContain("do not call write_saved_plan_file");
+		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("material requirements remain unresolved");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
 		expect(prompt).toContain("validation guidance");

@@ -58,7 +58,7 @@ export {
 	type SavedPlanContentSlugEvidence,
 } from "./saved-plan-content-slug.ts";
 export {
-	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
+	SAVED_PLAN_SESSION_ENTRY_TYPE,
 	extractSavedPlanFileEvidenceFromSessionEntry,
 	findLatestSessionSavedPlanFile,
 	resolveSelectedSavedPlanFile,

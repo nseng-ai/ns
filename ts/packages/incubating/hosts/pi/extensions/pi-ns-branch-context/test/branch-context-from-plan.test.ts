@@ -22,7 +22,7 @@ import {
 	branchContextOutputMessageEntry,
 	savedPlanFileContent,
 	sourcePlanEvidence,
-	sourcePlanToolResultEntry,
+	sourcePlanSessionEntry,
 	writePlanStoreFile,
 } from "./branch-context-extension-support.ts";
 
@@ -116,7 +116,7 @@ describe("branch-context-from-plan", () => {
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
-				sourcePlanToolResultEntry(
+				sourcePlanSessionEntry(
 					sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }),
 				),
 			],
@@ -154,7 +154,7 @@ describe("branch-context-from-plan", () => {
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
-				sourcePlanToolResultEntry(
+				sourcePlanSessionEntry(
 					sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }),
 				),
 			],
@@ -250,7 +250,7 @@ describe("branch-context-from-plan", () => {
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
-				sourcePlanToolResultEntry(
+				sourcePlanSessionEntry(
 					sourcePlanEvidence({ slug: missingSlug, filePath: missingPath, sourceBranch }),
 				),
 			],
@@ -285,7 +285,7 @@ describe("branch-context-from-plan", () => {
 		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
-			sessionEntries: [sourcePlanToolResultEntry(wrongBranchEvidence)],
+			sessionEntries: [sourcePlanSessionEntry(wrongBranchEvidence)],
 		});
 
 		await command?.handler("--dry-run", context.ctx);
@@ -315,7 +315,7 @@ describe("branch-context-from-plan", () => {
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
-				sourcePlanToolResultEntry(
+				sourcePlanSessionEntry(
 					sourcePlanEvidence({ slug: PLAN_SLUG, filePath: outsidePath, sourceBranch }),
 				),
 			],
@@ -354,7 +354,7 @@ describe("branch-context-from-plan", () => {
 		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
-			sessionEntries: [sourcePlanToolResultEntry(wrongBranchKeyEvidence)],
+			sessionEntries: [sourcePlanSessionEntry(wrongBranchKeyEvidence)],
 		});
 
 		await command?.handler("--dry-run", context.ctx);
@@ -388,7 +388,7 @@ describe("branch-context-from-plan", () => {
 		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
-			sessionEntries: [sourcePlanToolResultEntry(mismatchEvidence)],
+			sessionEntries: [sourcePlanSessionEntry(mismatchEvidence)],
 		});
 
 		await command?.handler("--dry-run", context.ctx);
@@ -424,7 +424,7 @@ describe("branch-context-from-plan", () => {
 		const command = pi.commands.get("ns:branch-context:from-plan");
 		const context = createContext([], {
 			sessionEntries: [
-				sourcePlanToolResultEntry(
+				sourcePlanSessionEntry(
 					sourcePlanEvidence({ slug: sessionSlug, filePath: sessionPath, sourceBranch }),
 				),
 				branchContextOutputMessageEntry(

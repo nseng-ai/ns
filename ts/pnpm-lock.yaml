@@ -392,6 +392,9 @@ importers:
       '@nseng-ai/sdk':
         specifier: workspace:*
         version: link:../../../../../public/sdk
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
 
   packages/incubating/hosts/pi/extensions/pi-ns-flow:
     dependencies:

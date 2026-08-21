@@ -21,14 +21,24 @@ import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-
 import {
 	buildPlanStoreOptions,
 	findLatestSavedPlanFile,
+	formatSavedPlanFileEvidence,
 	NoSavedPlanAvailableError,
 	listSavedPlans,
+	writeSavedPlanFile,
 	type LatestSavedPlanFileEvidence,
 	type PlanStoreOptions,
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
+import { deriveSavedPlanContentSlug } from "./saved-plan-content-slug.ts";
+import { NodeWholePayloadReader, type WholePayloadReader } from "./whole-payload-reader.ts";
+import {
+	saveSavedPlanRequestSchema,
+	saveSavedPlanResultSchema,
+	type SaveSavedPlanRequest,
+	type SaveSavedPlanResult,
+} from "./save-contract.ts";
 
-type PlansOperation = "list" | "resolve";
+type PlansOperation = "list" | "resolve" | "save";
 
 const listRequestSchema = z.object({
 	planStoreRoot: z
@@ -61,32 +71,37 @@ interface NoSavedPlanData {
 
 type ResolvePlanData = ReturnType<typeof resolvePlanJson> | NoSavedPlanData;
 
-export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
+export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "env" | "stdout" | "stderr"> {
 	commands?: CommandExecApi;
 	git?: GitGateway;
 	planStoreRoot?: string;
 	planStoreGateway?: PlanStoreGateway;
+	wholePayloadReader?: WholePayloadReader;
 }
 
 export interface PlansCliContext {
 	commands: CommandExecApi;
 	git: GitGateway;
 	cwd: string;
+	env: NodeJS.ProcessEnv;
 	planStoreRoot?: string;
 	planStoreGateway: PlanStoreGateway;
+	wholePayloadReader: WholePayloadReader;
 }
 
 const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
 	description: "Enriched-plan operations. An enriched plan is any plan saved into ns.",
-	prepareRun: ({ deps, cwd }) => {
+	prepareRun: ({ deps, cwd, env }) => {
 		const commands = deps.commands ?? new NodeCommandExecApi();
 		const context: PlansCliContext = {
 			commands,
 			git: deps.git ?? new RealGitGateway(commands),
 			cwd,
+			env,
 			planStoreGateway: deps.planStoreGateway ?? createRealPlanStoreGateway(),
+			wholePayloadReader: deps.wholePayloadReader ?? new NodeWholePayloadReader(),
 			...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 		};
 		return { type: "run", context, buildState: undefined };
@@ -104,6 +119,15 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			name: "exec",
 			description: "Run hidden deterministic saved-plan operations for agents.",
 			isHidden: true,
+		});
+		execGroup.command({
+			name: "save",
+			description: "Derive a semantic slug and save final Markdown in the local plan store.",
+			schema: saveSavedPlanRequestSchema,
+			options: { file: { short: "-i" } },
+			resultSchema: saveSavedPlanResultSchema,
+			handler: handleSave,
+			renderHuman: renderSaveSavedPlanResult,
 		});
 		execGroup.command({
 			name: "resolve",
@@ -146,6 +170,40 @@ async function handleList(
 	});
 }
 
+async function handleSave(
+	ctx: PlansCliContext,
+	request: SaveSavedPlanRequest,
+): Promise<ClinkrExit<SaveSavedPlanResult>> {
+	return await runOperationCommand({
+		operation: "save" as const,
+		action: async () => {
+			const content =
+				request.file === undefined
+					? await ctx.wholePayloadReader.readStdin()
+					: await ctx.wholePayloadReader.readFile(request.file, { cwd: ctx.cwd });
+			const slugEvidence = await deriveSavedPlanContentSlug(ctx.commands, {
+				content,
+				cwd: ctx.cwd,
+			});
+			const evidence = await writeSavedPlanFile(
+				ctx.commands,
+				{
+					slug: slugEvidence.slug,
+					content,
+					...(request.summary === undefined ? {} : { summary: request.summary }),
+				},
+				planStoreOptions(ctx),
+			);
+			return ok({
+				...evidence,
+				provider: slugEvidence.provider,
+				model: slugEvidence.model,
+			});
+		},
+		failureFromError: plansFailureFromError,
+	});
+}
+
 async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
@@ -183,6 +241,7 @@ function planStoreOptions(
 		git: ctx.git,
 		planStoreGateway: ctx.planStoreGateway,
 		planStoreRoot,
+		env: ctx.env,
 	});
 }
 
@@ -192,6 +251,8 @@ function plansErrorType(operation: PlansOperation): string {
 			return "saved-plan-list-failed";
 		case "resolve":
 			return "saved-plan-resolution-failed";
+		case "save":
+			return "saved-plan-save-failed";
 	}
 }
 
@@ -234,6 +295,15 @@ function formatSavedPlanListData(data: SavedPlanListData): string {
 		);
 	}
 	return lines.join("\n");
+}
+
+function renderSaveSavedPlanResult(data: SaveSavedPlanResult): string {
+	const { provider, model, summary, ...requiredEvidence } = data;
+	const evidence = {
+		...requiredEvidence,
+		...(summary === undefined ? {} : { summary }),
+	};
+	return `${formatSavedPlanFileEvidence(evidence)}\nSlug model: ${provider}/${model}`;
 }
 
 function renderResolvePlanData(data: ResolvePlanData): string {

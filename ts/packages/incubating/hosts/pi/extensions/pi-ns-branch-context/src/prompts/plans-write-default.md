@@ -26,39 +26,16 @@ Recommended saved plan sections:
 
 Workflow:
 
-1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
-2. Produce a detailed Markdown implementation plan.
-3. Review the final Markdown plan content for completeness.
-4. Call write_saved_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
-5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
-6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any branch-context command/tool.
+1. Inspect the repository, documentation, and current conversation context as needed.
+2. Produce and review the final Markdown plan.
+3. Write the complete plan to a temporary Markdown file with Pi's built-in write tool.
+4. Run `enriched-plan exec save --file <temporary-path> --format json` as a standalone bash command. Do not chain, redirect, or wrap it. Do not generate or pass a slug.
+5. On success, remove the temporary file, report the returned saved-plan evidence, and stop. On collision or derivation failure, preserve the temporary file and report the failure.
+6. Do not create a branch or write Branch Memory.
 
 Local plan store contract:
 
-- Canonical path convention: $XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md, defaulting to $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md. No fallback path is read or written; only $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md is used.
-- <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
-- <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
-- Existing saved plan file: write_saved_plan_file refuses to overwrite it; do not manually choose a replacement slug.
-- Working-tree behavior: no checked-in plan file is created.
-
-Saved-plan filename slug rules:
-
-- write_saved_plan_file derives the final saved-plan filename slug from the final plan content through the Codex-backed slug model.
-- Do not generate, guess, or pass a slug yourself.
-- The derived slug is kebab-case, 3–7 words, specific to the work described by the final plan, and rejects dates, random IDs, and generic-only slugs.
-
-When the plan is ready, call write_saved_plan_file with:
-
-- content: the complete reviewed Markdown plan content
-- summary: optional one-sentence summary of the plan
-
-Exact tool call shape:
-\`\`\`json
-{
-"content": "# Plan\\n...",
-"summary": "One-sentence summary of the plan."
-}
-\`\`\`
-
-If summary is not useful, omit it from the tool call rather than passing an empty string. Do not create target branches or write Branch Memory in this workflow.
+- Path: `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`).
+- The command derives the semantic 3–7 word kebab-case slug from final plan content using configured model policy.
+- The command validates repository and named source branch, creates private parent directories, and refuses to overwrite an existing file.
+- JSON output is authoritative and includes file/repository/branch evidence plus slug provider/model and optional summary.

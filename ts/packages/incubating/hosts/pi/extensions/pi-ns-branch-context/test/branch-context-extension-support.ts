@@ -5,7 +5,7 @@ const TEST_MODEL_SELECTION = {
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/extension-kit/brmem-cli/testing";
-import { afterEach, expect } from "vitest";
+import { afterEach } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -40,7 +40,6 @@ import {
 	type BranchContextOperations,
 	type CommandContext,
 	type ExtensionAPI,
-	type ToolContext,
 	type ToolDefinition,
 } from "../src/extension.ts";
 
@@ -67,7 +66,6 @@ export const IMPL_PLAN_CONTENT = "# Impl Plan\n\n- Load the attached plan.\n- Im
 export type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 export type SendMessage = NonNullable<ExtensionAPI["sendMessage"]>;
 export type SentMessage = Parameters<SendMessage>[0] & { options?: Parameters<SendMessage>[1] };
-export type ToolUpdate = Parameters<NonNullable<Parameters<ToolDefinition["execute"]>[3]>>[0];
 
 export interface ExecCall {
 	command: string;
@@ -99,6 +97,11 @@ export class FakePi implements ExtensionAPI {
 	readonly defaultBranchAvailabilityProbeCalls: ExecCall[] = [];
 	readonly sentMessages: SentMessage[] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly appendedEntries: Array<{ customType: string; data: unknown }> = [];
+	private readonly handlers = new Map<
+		string,
+		Array<(event: unknown, ctx: CommandContext) => Promise<void> | void>
+	>();
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly events: string[] | undefined;
 	// Mutated in place (never reassigned) so state is shared with the
@@ -108,6 +111,20 @@ export class FakePi implements ExtensionAPI {
 	constructor(script: ScriptedExec[] = [], events?: string[]) {
 		this.script = new ScriptedQueue(script, (step) => step);
 		this.events = events;
+	}
+
+	on(event: string, handler: (event: unknown, ctx: CommandContext) => Promise<void> | void): void {
+		const handlers = this.handlers.get(event) ?? [];
+		handlers.push(handler);
+		this.handlers.set(event, handlers);
+	}
+
+	async emit(event: string, value: unknown, ctx: CommandContext): Promise<void> {
+		for (const handler of this.handlers.get(event) ?? []) await handler(value, ctx);
+	}
+
+	appendEntry(customType: string, data?: unknown): void {
+		this.appendedEntries.push({ customType, data });
 	}
 
 	registerCommand(name: string, options: RegisteredCommand): void {
@@ -675,23 +692,11 @@ export function sourcePlanEvidence(input: {
 	};
 }
 
-export function sourcePlanToolResultEntry(evidence: SavedPlanFileEvidence): unknown {
-	return sourcePlanToolResultEntryForTool(evidence, "write_saved_plan_file");
-}
-
-export function sourcePlanToolResultEntryForTool(
-	evidence: SavedPlanFileEvidence,
-	toolName: string,
-): unknown {
+export function sourcePlanSessionEntry(evidence: SavedPlanFileEvidence): unknown {
 	return {
-		type: "message",
-		message: {
-			role: "toolResult",
-			toolName,
-			isError: false,
-			content: [],
-			details: evidence,
-		},
+		type: "custom",
+		customType: "ns:saved-plan",
+		data: evidence,
 	};
 }
 
@@ -833,32 +838,4 @@ export function createContext(
 		wasSessionReplaced: () => isSessionReplaced,
 		waits: () => waitCount,
 	};
-}
-
-export function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
-	ctx: ToolContext;
-	statuses: Array<{ key: string; value: string | undefined }>;
-} {
-	const statuses: Array<{ key: string; value: string | undefined }> = [];
-	return {
-		ctx: {
-			cwd: options.cwd ?? ROOT,
-			hasUI: options.hasUI ?? true,
-			ui: {
-				setStatus(key, value): void {
-					statuses.push({ key, value });
-				},
-			},
-		},
-		statuses,
-	};
-}
-
-export function registeredTool(pi: FakePi, name = "write_saved_plan_file"): ToolDefinition {
-	const tool = pi.tools.get(name);
-	expect(tool).toBeDefined();
-	if (!tool) {
-		throw new Error(`${name} was not registered`);
-	}
-	return tool;
 }

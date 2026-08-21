@@ -705,22 +705,18 @@ export function savedPlanEntry(
 	overrides: Record<string, unknown> = {},
 ): PiSessionEntry {
 	return {
-		type: "message",
-		message: {
-			role: "toolResult",
-			toolName: "write_saved_plan_file",
-			isError: false,
-			details: {
-				slug: PLAN_SLUG,
-				repoRoot,
-				repoKey: buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl(REPO_ORIGIN_URL)),
-				repoIdentitySource: "origin-url",
-				sourceBranch: SOURCE_BRANCH,
-				branchKey: encodeBranchForPlanPath(SOURCE_BRANCH),
-				filePath: planFile,
-				summary: "Test saved plan.",
-				...overrides,
-			},
+		type: "custom",
+		customType: "ns:saved-plan",
+		data: {
+			slug: PLAN_SLUG,
+			repoRoot,
+			repoKey: buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl(REPO_ORIGIN_URL)),
+			repoIdentitySource: "origin-url",
+			sourceBranch: SOURCE_BRANCH,
+			branchKey: encodeBranchForPlanPath(SOURCE_BRANCH),
+			filePath: planFile,
+			summary: "Test saved plan.",
+			...overrides,
 		},
 	};
 }

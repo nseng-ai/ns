@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
@@ -9,6 +10,7 @@ import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { VERSION } from "../../src/cli.ts";
 import { buildRepoPlanStoreKey, encodeBranchForPlanPath, runCli } from "../../src/index.ts";
 import { InMemoryPlanStoreGateway } from "../../src/testing.ts";
+import type { WholePayloadReader } from "../../src/whole-payload-reader.ts";
 
 const ORIGIN = "git@github.com:Owner/Repo.git";
 const SOURCE_BRANCH = "feature/source-plan";
@@ -54,8 +56,25 @@ const EXEC_HELP = [
 	"  -h, --help                display help for command",
 	"",
 	"Commands:",
+	"  save [options]            Derive a semantic slug and save final Markdown in",
+	"                            the local plan store.",
 	"  resolve [options] [path]  Resolve an explicit or latest source-branch plan",
 	"                            file.",
+	"",
+].join("\n");
+const SAVE_HELP = [
+	"Usage: enriched-plan exec save [options]",
+	"",
+	"Derive a semantic slug and save final Markdown in the local plan store.",
+	"",
+	"Options:",
+	"  -i, --file <value>  Markdown source file. Omit to read stdin.",
+	"  --summary <value>   Optional one-sentence plan summary.",
+	'  --format <format>   Output format. (choices: "human", "json", "markdown",',
+	'                      "md", default: "human")',
+	"  --json-schema       Print the JSON Schema for this command's input/output and",
+	"                      exit.",
+	"  -h, --help          display help for command",
 	"",
 ].join("\n");
 const RESOLVE_HELP = [
@@ -92,6 +111,9 @@ interface Fixture {
 
 interface RunWithFakesOptions {
 	cwd?: string;
+	env?: NodeJS.ProcessEnv;
+	commands?: CommandExecApi;
+	wholePayloadReader?: WholePayloadReader;
 	planStoreRoot?: string;
 	git?: GitGateway;
 	planStoreGateway?: InMemoryPlanStoreGateway;
@@ -109,13 +131,22 @@ async function runWithFakes(
 		stderr,
 		exit: runCli(args, {
 			cwd,
+			...optionalEntry("env", options.env),
 			git:
 				options.git ??
 				new InMemoryGitGateway({ repoRoot: cwd, originUrl: ORIGIN, currentBranch: SOURCE_BRANCH }),
-			commands: unusedCommands,
+			commands: options.commands ?? unusedCommands,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),
 			planStoreGateway: options.planStoreGateway ?? new InMemoryPlanStoreGateway(),
+			wholePayloadReader: options.wholePayloadReader ?? {
+				async readFile() {
+					throw new Error("Unexpected file payload read in test.");
+				},
+				async readStdin() {
+					throw new Error("Unexpected stdin payload read in test.");
+				},
+			},
 			...optionalEntry("planStoreRoot", options.planStoreRoot),
 		}),
 	};
@@ -232,6 +263,8 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		[["exec"], EXEC_HELP],
 		[["exec", "--help"], EXEC_HELP],
 		[["exec", "-h"], EXEC_HELP],
+		[["exec", "save", "--help"], SAVE_HELP],
+		[["exec", "save", "-h"], SAVE_HELP],
 		[["exec", "resolve", "--help"], RESOLVE_HELP],
 		[["exec", "resolve", "-h"], RESOLVE_HELP],
 	])("prints exact help for %j", async (args, help) => {
@@ -384,6 +417,314 @@ describe("plans list CLI pins", () => {
 				],
 			},
 		});
+	});
+});
+
+describe("plans exec save", () => {
+	test("reads a file payload, derives its slug, writes exclusively, and returns typed evidence", async () => {
+		const fixture = await makeFixture();
+		const modelRoot = mkdtempSync(join(tmpdir(), "plans-cli-save-model-"));
+		writeFileSync(
+			join(modelRoot, "ns.toml"),
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+		const content = "# Portable Saved Plan\n\nPersist this reviewed plan.\n";
+		const sourceReads: string[] = [];
+		const commands: CommandExecApi = {
+			async exec(command, args) {
+				if (command === "git" && args[0] === "rev-parse") {
+					return { type: "exited", stdout: `${modelRoot}\n`, stderr: "", code: 0, signal: null };
+				}
+				if (command === "pi") {
+					return {
+						type: "exited",
+						stdout: "portable-saved-plan-flow\n",
+						stderr: "",
+						code: 0,
+						signal: null,
+					};
+				}
+				throw new Error(`Unexpected command: ${command} ${args.join(" ")}`);
+			},
+		};
+		const run = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--file",
+				"/tmp/final-plan.md",
+				"--summary",
+				"Portable plan.",
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				commands,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+				wholePayloadReader: {
+					async readFile(path) {
+						sourceReads.push(path);
+						return content;
+					},
+					async readStdin() {
+						throw new Error("Unexpected stdin read.");
+					},
+				},
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(sourceReads).toEqual(["/tmp/final-plan.md"]);
+		const result = parseJson(run);
+		expect(result).toMatchObject({
+			status: "ok",
+			exitCode: 0,
+			data: {
+				slug: "portable-saved-plan-flow",
+				repoRoot: fixture.repoRoot,
+				repoKey: fixture.repoKey,
+				repoIdentitySource: "origin-url",
+				sourceBranch: SOURCE_BRANCH,
+				branchKey: fixture.branchKey,
+				summary: "Portable plan.",
+				provider: "openai-codex",
+				model: "gpt-5.6-luna",
+			},
+		});
+		const data = result.data;
+		if (!isRecord(data) || typeof data.filePath !== "string") {
+			throw new Error("Expected saved file evidence.");
+		}
+		expect(fixture.planStoreGateway.readFile(data.filePath)).toBe(content);
+	});
+
+	test("uses the injected XDG state root when no plan-store override is supplied", async () => {
+		const fixture = await makeFixture();
+		const modelRoot = mkdtempSync(join(tmpdir(), "plans-cli-xdg-model-"));
+		writeFileSync(
+			join(modelRoot, "ns.toml"),
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+		const commands: CommandExecApi = {
+			async exec(command) {
+				return command === "git"
+					? { type: "exited", stdout: `${modelRoot}\n`, stderr: "", code: 0, signal: null }
+					: {
+							type: "exited",
+							stdout: "xdg-saved-plan-location\n",
+							stderr: "",
+							code: 0,
+							signal: null,
+						};
+			},
+		};
+		const run = await runWithFakes(["exec", "save", "--format", "json"], {
+			cwd: fixture.repoRoot,
+			env: { HOME: "/home/tester", XDG_STATE_HOME: "/custom-state" },
+			git: fixture.git,
+			commands,
+			planStoreGateway: fixture.planStoreGateway,
+			wholePayloadReader: {
+				async readFile() {
+					throw new Error("Unexpected file read.");
+				},
+				async readStdin() {
+					return "# XDG Plan\n";
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			status: "ok",
+			data: {
+				filePath: join(
+					"/custom-state/ns/enriched-plan",
+					fixture.repoKey,
+					fixture.branchKey,
+					"xdg-saved-plan-location.md",
+				),
+			},
+		});
+	});
+
+	test("reads stdin, honors the configured slug operation, and renders human evidence", async () => {
+		const fixture = await makeFixture();
+		const modelRoot = mkdtempSync(join(tmpdir(), "plans-cli-configured-model-"));
+		writeFileSync(
+			join(modelRoot, "ns.toml"),
+			[
+				"[models.profiles.fast]",
+				'model = "fallback/fast"',
+				'thinking = "minimal"',
+				"[models.profiles.slugger]",
+				'model = "configured/slug-model"',
+				'thinking = "low"',
+				"[models.operations]",
+				'slug = "slugger"',
+				"",
+			].join("\n"),
+		);
+		const piArgs: string[][] = [];
+		const commands: CommandExecApi = {
+			async exec(command, args) {
+				if (command === "git") {
+					return { type: "exited", stdout: `${modelRoot}\n`, stderr: "", code: 0, signal: null };
+				}
+				piArgs.push([...args]);
+				return {
+					type: "exited",
+					stdout: "configured-saved-plan-slug\n",
+					stderr: "",
+					code: 0,
+					signal: null,
+				};
+			},
+		};
+		const content = "# Configured Plan\n";
+		const run = await runWithFakes(["exec", "save"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			commands,
+			planStoreRoot: fixture.planStoreRoot,
+			planStoreGateway: fixture.planStoreGateway,
+			wholePayloadReader: {
+				async readFile() {
+					throw new Error("Unexpected file read.");
+				},
+				async readStdin() {
+					return content;
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(piArgs[0]).toEqual(
+			expect.arrayContaining(["--provider", "configured", "--model", "slug-model"]),
+		);
+		const output = run.stdout.join("");
+		expect(output).toContain("Saved plan file in local plan store.");
+		expect(output).toContain("Slug: configured-saved-plan-slug");
+		expect(output).toContain("Slug model: configured/slug-model");
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("publishes the save request and result schema", async () => {
+		const run = await runWithFakes(["exec", "save", "--json-schema"]);
+
+		expect(await run.exit).toBe(0);
+		const schema = parseJson(run);
+		expect(JSON.stringify(schema)).toContain('"file"');
+		expect(JSON.stringify(schema)).toContain('"provider"');
+		expect(JSON.stringify(schema)).toContain('"model"');
+		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("fails without fallback on invalid model output and writes nothing", async () => {
+		const fixture = await makeFixture();
+		const modelRoot = mkdtempSync(join(tmpdir(), "plans-cli-invalid-model-"));
+		writeFileSync(
+			join(modelRoot, "ns.toml"),
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+		const commands: CommandExecApi = {
+			async exec(command) {
+				return command === "git"
+					? { type: "exited", stdout: `${modelRoot}\n`, stderr: "", code: 0, signal: null }
+					: { type: "exited", stdout: "work plan task\n", stderr: "", code: 0, signal: null };
+			},
+		};
+		const run = await runWithFakes(["exec", "save", "--format", "json"], {
+			cwd: fixture.repoRoot,
+			git: fixture.git,
+			commands,
+			planStoreRoot: fixture.planStoreRoot,
+			planStoreGateway: fixture.planStoreGateway,
+			wholePayloadReader: {
+				async readFile() {
+					return "";
+				},
+				async readStdin() {
+					return "# Plan\n";
+				},
+			},
+		});
+
+		expect(await run.exit).toBe(2);
+		expect(parseJson(run)).toMatchObject({
+			status: "failure",
+			errorType: "saved-plan-save-failed",
+		});
+		expect(run.stdout.join("")).toContain(
+			"No assistant-generated slug or deterministic fallback was attempted.",
+		);
+		expect(
+			await fixture.planStoreGateway.listDirectory(
+				join(fixture.planStoreRoot, fixture.repoKey, fixture.branchKey),
+			),
+		).toEqual({ type: "missing" });
+	});
+
+	test("rejects detached HEAD and exclusive collisions", async () => {
+		const fixture = await makeFixture();
+		const modelRoot = mkdtempSync(join(tmpdir(), "plans-cli-collision-model-"));
+		writeFileSync(
+			join(modelRoot, "ns.toml"),
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+		const commands: CommandExecApi = {
+			async exec(command) {
+				return command === "git"
+					? { type: "exited", stdout: `${modelRoot}\n`, stderr: "", code: 0, signal: null }
+					: {
+							type: "exited",
+							stdout: "exclusive-saved-plan-collision\n",
+							stderr: "",
+							code: 0,
+							signal: null,
+						};
+			},
+		};
+		const options = {
+			cwd: fixture.repoRoot,
+			commands,
+			planStoreRoot: fixture.planStoreRoot,
+			planStoreGateway: fixture.planStoreGateway,
+			wholePayloadReader: {
+				async readFile() {
+					return "";
+				},
+				async readStdin() {
+					return "# Plan\n";
+				},
+			},
+		};
+		const detached = await runWithFakes(["exec", "save", "--format", "json"], {
+			...options,
+			git: new InMemoryGitGateway({
+				repoRoot: fixture.repoRoot,
+				originUrl: ORIGIN,
+				currentBranch: { type: "detached" },
+			}),
+		});
+		expect(await detached.exit).toBe(2);
+		expect(detached.stdout.join("")).toContain("detached or unnamed");
+
+		const first = await runWithFakes(["exec", "save", "--format", "json"], {
+			...options,
+			git: fixture.git,
+		});
+		expect(await first.exit).toBe(0);
+		const collision = await runWithFakes(["exec", "save", "--format", "json"], {
+			...options,
+			git: fixture.git,
+		});
+		expect(await collision.exit).toBe(2);
+		expect(collision.stdout.join("")).toContain("already exists");
+		expect(collision.stdout.join("")).toContain("refusing to overwrite");
 	});
 });
 
