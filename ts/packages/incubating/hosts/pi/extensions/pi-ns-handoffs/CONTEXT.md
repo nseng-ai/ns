@@ -1,6 +1,6 @@
 # @nseng-ai/pi-ns-handoffs
 
-`@nseng-ai/pi-ns-handoffs` is the Pi host adapter for the Handoffs ns extension. It owns Pi command and tool registration, prompt/status presentation, content-derived slugging, create-then-launch session orchestration, interactive Claude launch, and Handoff Pi parity identity.
+`@nseng-ai/pi-ns-handoffs` is the Pi host adapter for the Handoffs ns extension. It owns Pi command and tool registration, prompt/status presentation, content-derived slugging, create-then-launch session orchestration, and Handoff Pi parity identity.
 
 ## Language
 

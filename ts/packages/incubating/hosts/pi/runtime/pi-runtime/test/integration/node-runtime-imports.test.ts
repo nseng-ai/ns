@@ -35,7 +35,6 @@ const PI_EXTENSIONS_WORKSPACE_IMPORTS = [
 
 const PI_HANDOFFS_EXPORT_IMPORTS = [
 	"@nseng-ai/pi-ns-handoffs",
-	"@nseng-ai/pi-ns-handoffs/claude-extension",
 	"@nseng-ai/pi-ns-handoffs/handoff-launch",
 ] as const;
 

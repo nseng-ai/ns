@@ -7,13 +7,11 @@ import {
 } from "@nseng-ai/pi-runtime/parity/check";
 import { FakePiSurfaceHost, registerWithFakeHost } from "@nseng-ai/pi-runtime/parity/testing";
 import { handoffSkillBackedCommandRegistrations } from "@nseng-ai/handoffs/api";
-import claudeExtension, { claudeHandoffParity } from "../src/claude-extension.ts";
 import handoffExtension, { handoffParity } from "../src/extension.ts";
 
 async function collectHandoffPiSurfaces(): Promise<LivePiSurface[]> {
 	const pi = new FakePiSurfaceHost();
 	await registerWithFakeHost(pi, handoffExtension);
-	await registerWithFakeHost(pi, claudeExtension);
 	return pi.surfaces();
 }
 
@@ -36,7 +34,7 @@ describe("Handoff Pi extension parity metadata", () => {
 	test("registered command surfaces match package metadata", async () => {
 		const comparison = comparePiSurfaceParity({
 			liveSurfaces: await collectHandoffPiSurfaces(),
-			metadata: [...handoffParity, ...claudeHandoffParity],
+			metadata: handoffParity,
 		});
 
 		if (
