@@ -410,9 +410,9 @@ Unrecorded terms:
 
 - **Semantic Slug Derivation** — deriving a handoff slug from the Continuation Focus
   text (lowercase, dash-joined, ≤8 words). (src/core/identity.ts:12-22)
-- **Content-Derived Slug** — the Pi tool `derive_handoff_slug_from_content` deriving
-  the slug from session content instead. (src/pi/command-constants.ts:22,
-  src/pi/tab.ts:44-47)
+- **Content-Derived Slug** — Handoffs domain policy that derives the slug from final
+  artifact content during atomic `ns handoff create`, also exposed by hidden
+  `ns handoff exec derive-slug` for inspection.
 - **Handoff Tab** — the `/ns:ccc:handoff-tab` workflow: create a directed handoff,
   then launch a pickup Pi in a new cmux tab (tool `handoff_tab_launch`).
   (src/pi/command-constants.ts:15-23, src/pi/tab.ts:32-79)

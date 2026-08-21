@@ -5,23 +5,31 @@ import {
 	type BrmemSourceReader,
 } from "@nseng-ai/brmem";
 import { createNsClinkrInteraction, NsStdinCapableCommandExecApi } from "@nseng-ai/extension-kit";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
 import type { ClinkrInteraction, ConfirmationRequest } from "@nseng-ai/clinkr";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
+import {
+	nodeProjectConfigGateway,
+	type ProjectConfigGateway,
+} from "@nseng-ai/sdk/project-config/points";
 
 import type { HandoffCliContext } from "../core/context.ts";
 
 interface HandoffNsExtensionOverrides {
 	brmem?: BrmemGateway;
+	commands?: CommandExecApi;
 	git?: GitGateway;
+	projectConfig?: ProjectConfigGateway;
 	sourceReader?: BrmemSourceReader;
 	interaction?: ClinkrInteraction;
 }
 
 export async function createNsHandoffContext(ctx: NsExtensionApi): Promise<HandoffCliContext> {
 	const overrides = readHandoffOverrides(ctx);
+	const commands = overrides?.commands ?? new NsStdinCapableCommandExecApi(ctx);
 	const git = overrides?.git ?? createNsGitGateway(ctx);
 	const brmem =
 		overrides?.brmem ??
@@ -34,7 +42,9 @@ export async function createNsHandoffContext(ctx: NsExtensionApi): Promise<Hando
 	return {
 		cwd: ctx.cwd,
 		env: ctx.env as NodeJS.ProcessEnv,
+		commands,
 		git,
+		projectConfig: overrides?.projectConfig ?? nodeProjectConfigGateway,
 		brmem,
 		sourceReader: overrides?.sourceReader ?? new NodeBrmemSourceReader(),
 		interaction:
@@ -53,7 +63,9 @@ function readHandoffOverrides(ctx: NsExtensionApi): HandoffNsExtensionOverrides 
 	const overrides = raw as Partial<HandoffNsExtensionOverrides>;
 	return optionalEntries({
 		brmem: overrides.brmem,
+		commands: overrides.commands,
 		git: overrides.git,
+		projectConfig: overrides.projectConfig,
 		sourceReader: overrides.sourceReader,
 		interaction: overrides.interaction,
 	});

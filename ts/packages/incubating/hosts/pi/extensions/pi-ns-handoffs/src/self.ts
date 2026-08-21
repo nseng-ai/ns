@@ -18,7 +18,6 @@ import {
 	type HandoffInvestigationSourceOptions,
 } from "./investigation-sources.ts";
 import {
-	DERIVE_HANDOFF_SLUG_TOOL_NAME,
 	HANDOFF_SELF_COMMAND_NAME,
 	HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME,
 	HANDOFF_SELF_STATUS_KEY,
@@ -335,7 +334,7 @@ export function buildHandoffSelfPrompt(options: HandoffSelfPromptOptions): strin
 		extraTargetSections: [
 			`Session replacement rendezvous:\n\n- Tool: ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME}\n- workflow_id: ${workflowId}`,
 		],
-		toolCallInstruction: `After \`ns handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` set to \`${request.branch}\`, \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}, and \`workflow_id\` set to \`${workflowId}\`.`,
+		toolCallInstruction: `After \`ns handoff create\` succeeds, call ${HANDOFF_SELF_QUEUE_PICKUP_TOOL_NAME} with \`branch\` and \`slug\` set to the exact values returned by the create JSON result, and \`workflow_id\` set to \`${workflowId}\`.`,
 		extraRequirements: [
 			`Do not queue slash commands such as /${HANDOFF_SELF_COMMAND_NAME}-resume, /${HANDOFF_SELF_COMMAND_NAME}-pickup, or /new as user messages. The command owns session replacement after this tool resolves.`,
 		],

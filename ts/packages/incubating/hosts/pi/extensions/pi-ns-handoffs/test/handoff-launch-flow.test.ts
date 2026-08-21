@@ -2,9 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createPiHandoffGitGateway } from "../src/api-context.ts";
-import { createHandoffLaunchIntegration } from "../src/handoff-launch.ts";
 import { deriveSourcePiSessionId, resolveSourcePiSessionId } from "../src/investigation-sources.ts";
-import handoffExtension from "../src/registration.ts";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
 	buildHandoffLaunchRequest,
@@ -35,32 +33,6 @@ const PROMPT_COPY = {
 		return `test launch ${branch}`;
 	},
 } satisfies HandoffLaunchPromptCopy;
-
-describe("handoff launch integration", () => {
-	test("registers the shared content slug tool once across Handoffs and Herdr requests", () => {
-		const pi = new FakePi();
-
-		handoffExtension(pi);
-		createHandoffLaunchIntegration(pi).registerContentSlugTool();
-		createHandoffLaunchIntegration(pi).registerContentSlugTool();
-
-		expect(
-			pi.toolRegistrationNames.filter((name) => name === "derive_handoff_slug_from_content"),
-		).toEqual(["derive_handoff_slug_from_content"]);
-	});
-
-	test("does not register the shared slug tool through a second scoped Pi API", () => {
-		const sharedToolNames = new Set<string>();
-		const firstPi = new FakePi([], { sharedToolNames });
-		const secondPi = new FakePi([], { sharedToolNames });
-
-		createHandoffLaunchIntegration(firstPi).registerContentSlugTool();
-		createHandoffLaunchIntegration(secondPi).registerContentSlugToolIfMissing();
-
-		expect(firstPi.toolRegistrationNames).toEqual(["derive_handoff_slug_from_content"]);
-		expect(secondPi.toolRegistrationNames).toEqual([]);
-	});
-});
 
 describe("handoff launch flow helpers", () => {
 	test("buildHandoffLaunchRequest trims and validates continuation focus", () => {

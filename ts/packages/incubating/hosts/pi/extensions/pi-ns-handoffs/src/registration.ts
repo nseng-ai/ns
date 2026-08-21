@@ -2,7 +2,6 @@ import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/a
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import { createPiHandoffContext } from "./api-context.ts";
-import { createHandoffLaunchIntegration } from "./handoff-launch.ts";
 import { createHandoffSelfWorkflow } from "./self.ts";
 import { handleCreateHandoffCommand } from "./create.ts";
 import { handleListHandoffCommand, handlePickupHandoffCommand } from "./pickup-list.ts";
@@ -27,7 +26,7 @@ export const handoffParity = definePiSurfaceParity([
 		sourcePackage: "@nseng-ai/pi-ns-handoffs",
 		sourceModule: "handoff",
 		notes:
-			"Pi command expands the portable handoff-create skill; the final artifact is stored through `ns handoff create` after model confirmation.",
+			"Pi command expands the portable handoff-create skill; one atomic `ns handoff create --format json` invocation derives the default slug, collision-checks, and stores the exact final artifact after model confirmation.",
 	},
 	{
 		kind: "command",
@@ -80,7 +79,6 @@ export default function handoffExtension(pi: ExtensionAPI): void {
 			git: handoffContext.git,
 			commands,
 		});
-		createHandoffLaunchIntegration(pi).registerContentSlugTool();
 		pi.registerTool(selfWorkflow.buildTool());
 		registerCommandWithImmediateAck({
 			host: pi,

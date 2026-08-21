@@ -7,7 +7,7 @@ Handoff Extension package for directed Handoff Artifacts stored in Branch Memory
 ```text
 ns handoff list [--branch <branch>|--all] [--include-deleted]
 ns handoff pickup [--branch <branch>] <slug>
-ns handoff create --slug <slug> [--branch <branch>] [--file <path>]
+ns handoff create [--slug <explicit-override>] [--branch <branch>] [--file <path>]
 ns handoff delete [--branch <branch>] [--yes] <slug>
 ns handoff gc [--dry-run|--force]
 ```

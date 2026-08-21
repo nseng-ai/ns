@@ -8,7 +8,6 @@ import { HANDOFF_NAMESPACE, handoffSlugToKey, parseFlatHandoffSlug } from "@nsen
 import { isRecord, stringField } from "@nseng-ai/pi-runtime/runtime/primitives";
 import { formatPickupHandoffCommand } from "./identity.ts";
 import { currentBranch } from "./branch-resolution.ts";
-import { DERIVE_HANDOFF_SLUG_TOOL_NAME } from "./command-constants.ts";
 import { resolveCreateFocus } from "./create-focus.ts";
 import {
 	captureCreateHandoffSkill,
@@ -156,17 +155,17 @@ export function buildHandoffLaunchPrompt(
 ): string {
 	const request = options.request;
 	const targetSections = [
-		`Use this storage target:\n\n- Branch: ${request.branch}\n- Namespace: ${HANDOFF_NAMESPACE}\n- Entry: derive from the final Markdown handoff content with ${DERIVE_HANDOFF_SLUG_TOOL_NAME}`,
+		`Use this storage target:\n\n- Branch: ${request.branch}\n- Namespace: ${HANDOFF_NAMESPACE}\n- Entry: derive atomically from the final Markdown handoff content with ns handoff create`,
 		...(options.extraTargetSections ?? []),
 	];
 	const requirements = [
 		"Compose the final Markdown handoff artifact content first, using the existing handoff-create workflow.",
-		`Call ${DERIVE_HANDOFF_SLUG_TOOL_NAME} with exactly that final Markdown content.`,
-		"Use the returned slug/key. Do not derive the entry name from the raw continuation focus.",
-		`Store the exact final Markdown content through /dev/stdin with \`ns handoff create --slug <returned-slug> --branch ${request.branch} --file /dev/stdin\`. Do not create a temporary artifact file.`,
+		"Do not derive the entry name from the raw continuation focus.",
+		`Pipe the exact final Markdown content once to \`ns handoff create --branch ${request.branch} --file /dev/stdin --format json\`. Do not create a temporary artifact file or pass --slug unless the user explicitly supplied an override.`,
+		"Read branch, slug, key, and durable reference evidence from the successful create JSON result.",
 		`If \`ns handoff create\` reports an existing artifact, stop; do not overwrite and ${copy.abortClause}.`,
 		options.toolCallInstruction ??
-			`After \`ns handoff create\` succeeds, call ${copy.toolName} with \`branch\` set to \`${request.branch}\` and \`slug\` set to the slug returned by ${DERIVE_HANDOFF_SLUG_TOOL_NAME}.`,
+			`After \`ns handoff create\` succeeds, call ${copy.toolName} with \`branch\` and \`slug\` set to the exact values returned by the create JSON result.`,
 		`Do not call ${copy.toolName} before the handoff is saved successfully.`,
 		...(options.extraRequirements ?? []),
 	];

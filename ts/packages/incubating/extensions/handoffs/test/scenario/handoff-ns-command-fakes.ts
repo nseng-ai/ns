@@ -1,8 +1,10 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@nseng-ai/brmem";
 import type { ClinkrInteraction } from "@nseng-ai/clinkr";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import type {
 	ExecResult,
 	NsCommand,
@@ -19,7 +21,9 @@ export interface FakeHandoffNsApiOptions {
 	cwd?: string;
 	env?: Record<string, string | undefined>;
 	brmem?: FakeBrmemGateway;
+	commands?: CommandExecApi;
 	git?: InMemoryGitGateway;
+	projectConfig?: ProjectConfigGateway;
 	sourceReader?: BrmemSourceReader;
 	interaction?: ClinkrInteraction;
 	isInteractive?: boolean;
@@ -63,7 +67,9 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 		this.extensions = {
 			handoff: {
 				brmem,
+				...(options.commands === undefined ? {} : { commands: options.commands }),
 				git,
+				...(options.projectConfig === undefined ? {} : { projectConfig: options.projectConfig }),
 				...(options.sourceReader === undefined ? {} : { sourceReader: options.sourceReader }),
 				...(options.interaction === undefined ? {} : { interaction: options.interaction }),
 			},
@@ -173,6 +179,8 @@ export function fakeHandoffInteraction(
 export class FakeHandoffSourceReader implements BrmemSourceReader {
 	private readonly stdin: string;
 	private readonly files: Readonly<Record<string, string>>;
+	stdinReadCount = 0;
+	fileReadCount = 0;
 
 	constructor(options: { stdin?: string; files?: Readonly<Record<string, string>> } = {}) {
 		this.stdin = options.stdin ?? "";
@@ -180,12 +188,14 @@ export class FakeHandoffSourceReader implements BrmemSourceReader {
 	}
 
 	async readFileBytes(path: string, _options: { cwd: string }): Promise<SourceBytesResult> {
+		this.fileReadCount += 1;
 		const content = this.files[path];
 		if (content === undefined) return { type: "missing" };
 		return { type: "ok", bytes: new TextEncoder().encode(content) };
 	}
 
 	async readStdinBytes(): Promise<Uint8Array> {
+		this.stdinReadCount += 1;
 		return new TextEncoder().encode(this.stdin);
 	}
 }

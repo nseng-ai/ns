@@ -6,15 +6,16 @@ import {
 	type ContentSlugDerivationVariant,
 	type ContentSlugEvidence,
 } from "@nseng-ai/extension-kit/content-slug";
-import { parseFlatHandoffSlug } from "@nseng-ai/handoffs/api";
-import type { CommandExecApi } from "@nseng-ai/foundation/command";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
-import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+
+import { parseFlatHandoffSlug } from "./identity.ts";
 
 const MAX_HANDOFF_SLUG_WORDS = 8;
 const GENERIC_ONLY_WORDS = new Set([
@@ -30,6 +31,12 @@ const GENERIC_ONLY_WORDS = new Set([
 
 export const MAX_HANDOFF_CONTENT_CHARS = 32_000;
 export type HandoffContentSlugEvidence = ContentSlugEvidence;
+
+export interface HandoffContentSlugContext {
+	commands: CommandExecApi;
+	git: Pick<GitGateway, "optionalRepoRoot">;
+	projectConfig: ProjectConfigGateway;
+}
 
 const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 	slugKind: "handoff artifact slug",
@@ -49,7 +56,7 @@ const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 	emptyContentPlaceholder: "(empty handoff content)",
 	maxContentChars: MAX_HANDOFF_CONTENT_CHARS,
 	truncationMessage: "[Handoff content truncated for slug generation]",
-	invalidSlugMessage: "Pi slug model output normalized to an invalid handoff artifact slug.",
+	invalidSlugMessage: "Slug model output normalized to an invalid handoff artifact slug.",
 	failureHeader: "Failed to derive handoff slug from final artifact content.",
 	noFallbackLine: "No continuation-focus or deterministic fallback was attempted.",
 	normalization: {
@@ -60,18 +67,18 @@ const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 };
 
 export async function deriveHandoffContentSlug(
-	commands: CommandExecApi,
+	context: HandoffContentSlugContext,
 	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<HandoffContentSlugEvidence> {
-	const repository = await new RealGitGateway(commands).optionalRepoRoot({ cwd: input.cwd });
+	const repository = await context.git.optionalRepoRoot({ cwd: input.cwd });
 	if (repository.type !== "found")
 		throw new Error("Could not determine the repository root for ns.toml.");
-	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
+	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: context.projectConfig });
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
-		commands,
+		context.commands,
 		{ ...input, modelSelection: model.value.selection },
 		HANDOFF_CONTENT_SLUG_VARIANT,
 	);
@@ -91,14 +98,11 @@ export function truncateHandoffContentForSlug(content: string): string {
 
 export function validateHandoffContentSlug(slug: string): string | undefined {
 	const parsedSlug = parseFlatHandoffSlug(slug, "handoff artifact slug");
-	if (parsedSlug.type === "invalid") {
-		return parsedSlug.message;
-	}
+	if (parsedSlug.type === "invalid") return parsedSlug.message;
 
 	const words = parsedSlug.slug.split("-").filter(Boolean);
 	if (words.length > 0 && words.every((word) => GENERIC_ONLY_WORDS.has(word))) {
 		return "handoff artifact slug must include a specific continuation action or subject, not only generic handoff words.";
 	}
-
 	return undefined;
 }

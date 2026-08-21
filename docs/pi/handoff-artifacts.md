@@ -151,10 +151,12 @@ Portable ns command face:
 ```text
 ns handoff list [--branch <branch>|--all] [--include-deleted]
 ns handoff pickup [--branch <branch>] <slug>
-ns handoff create --slug <slug> [--branch <branch>] [--file <path>]
+ns handoff create [--slug <explicit override>] [--branch <branch>] [--file <path>]
 ns handoff delete [--branch <branch>] [--yes] <slug>
 ns handoff gc [--dry-run|--force]
 ```
+
+When `--slug` is omitted, create reads the exact final content once, derives a semantic slug, collision-checks, and stores those exact bytes. Its JSON result discriminates `slugSource` and includes model evidence for content-derived slugs or `requestedSlug` for an explicit override, plus durable reference evidence. Hidden `ns handoff exec derive-slug [--file <path>]` exposes the same derivation policy without writing.
 
 There is currently no `/handoff:delete` Pi command. Single-handoff deletion is available through `ns handoff delete`. `ns handoff delete` accepts the exact handoff slug without `.md`; `ns handoff delete alpha.md` is rejected so deletion cannot silently reinterpret storage keys as user-facing slugs.
 
