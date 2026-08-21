@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createPiHandoffGitGateway } from "../src/api-context.ts";
 import { createHandoffLaunchIntegration } from "../src/handoff-launch.ts";
+import { deriveSourcePiSessionId, resolveSourcePiSessionId } from "../src/investigation-sources.ts";
 import handoffExtension from "../src/registration.ts";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import {
@@ -160,5 +161,68 @@ describe("handoff launch flow helpers", () => {
 		expect(context.notifications[0]?.message).toContain(
 			'Could not load required skill "handoff-create"',
 		);
+	});
+});
+
+describe("Handoff investigation sources", () => {
+	test.each([
+		{
+			name: "timestamped session id keeps only the id segment",
+			input:
+				"/home/me/.pi/sessions/2026-06-12T06-03-30-136Z_019eba6d-abd8-7fa8-bb1f-1888f3b09a56.jsonl",
+			expected: "019eba6d-abd8-7fa8-bb1f-1888f3b09a56",
+		},
+		{
+			name: "posix path with extension",
+			input: "/home/me/.pi/sessions/sess-9f3c.jsonl",
+			expected: "sess-9f3c",
+		},
+		{
+			name: "windows path with extension",
+			input: "C:\\Users\\me\\sessions\\abc123.jsonl",
+			expected: "abc123",
+		},
+		{ name: "bare filename", input: "sess-9f3c.jsonl", expected: "sess-9f3c" },
+		{ name: "no extension", input: "/sessions/abc123", expected: "abc123" },
+		{
+			name: "multiple dots strips only last",
+			input: "/sessions/2026-06-12.abc.jsonl",
+			expected: "2026-06-12.abc",
+		},
+		{
+			name: "multiple underscores keeps last segment",
+			input: "/sessions/ts_extra_id.jsonl",
+			expected: "id",
+		},
+		{ name: "surrounding whitespace", input: "  /sessions/abc123.jsonl  ", expected: "abc123" },
+		{ name: "undefined", input: undefined, expected: undefined },
+		{ name: "empty string", input: "", expected: undefined },
+		{ name: "whitespace only", input: "   ", expected: undefined },
+		{ name: "directory path with trailing slash", input: "/sessions/", expected: undefined },
+		{ name: "dotfile only", input: "/sessions/.jsonl", expected: undefined },
+		{
+			name: "trailing underscore has no id segment",
+			input: "/sessions/2026-06-12T06-03-30-136Z_.jsonl",
+			expected: undefined,
+		},
+	])("deriveSourcePiSessionId: $name", ({ input, expected }) => {
+		expect(deriveSourcePiSessionId(input)).toBe(expected);
+	});
+
+	test("resolveSourcePiSessionId trims an explicit id before falling back to the session file", () => {
+		expect(
+			resolveSourcePiSessionId({
+				sourceSessionFile: "/sessions/filename-id.jsonl",
+				sourceSessionId: "  actual-session-id  ",
+			}),
+		).toBe("actual-session-id");
+		expect(
+			resolveSourcePiSessionId({
+				sourceSessionFile: "/sessions/filename-id.jsonl",
+				sourceSessionId: "   ",
+			}),
+		).toBe("filename-id");
+		expect(resolveSourcePiSessionId({ sourceSessionId: "in-memory-id" })).toBe("in-memory-id");
+		expect(resolveSourcePiSessionId({})).toBeUndefined();
 	});
 });

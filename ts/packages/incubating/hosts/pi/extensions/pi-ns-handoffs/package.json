@@ -4,8 +4,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./handoff-launch": "./src/handoff-launch.ts",
-		"./claude-extension": "./src/claude-extension.ts"
+		"./handoff-launch": "./src/handoff-launch.ts"
 	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
@@ -24,8 +23,7 @@
 	},
 	"pi": {
 		"extensions": [
-			"./src/extension.ts",
-			"./src/claude-extension.ts"
+			"./src/extension.ts"
 		]
 	}
 }

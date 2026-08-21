@@ -426,9 +426,6 @@ Unrecorded terms:
   from this handoff?" gate. (src/pi/command-constants.ts:34, src/pi/create-focus.ts:14-27)
 - **Command-backed skills handoff-create / handoff-pickup** — skill registrations
   bound to the create/pickup surfaces. (src/pi/command-backed-skills.ts:5-8)
-- **Interactive Claude Pickup Spawn** — running a continuation by spawning the
-  `claude` CLI with inherited stdio (`spawn-failed | exited`).
-  (src/pi/interactive-spawn.ts:10-33)
 - **GC report vocabulary** — per-entry actions `wouldDelete | deleted | keptActive |
   error` with counts. (src/core/gc-core.ts:16-44)
 - **Handoff gateway family** — per-operation narrowed gateway shapes
