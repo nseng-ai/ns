@@ -2,37 +2,45 @@ import { z } from "zod";
 
 import type { GsLocalInventory, GsLocalStack } from "./local-inventory.ts";
 
-const localPullRequestSchema = z
-	.object({
-		number: z.number().int().positive(),
-		merged: z.boolean().optional(),
-	})
-	.passthrough();
+const localPullRequestSchema = z.lazy(() =>
+	z
+		.object({
+			number: z.number().int().positive(),
+			merged: z.boolean().optional(),
+		})
+		.passthrough(),
+);
 
-const nonemptyStringSchema = z.string().trim().min(1);
+const nonemptyStringSchema = z.lazy(() => z.string().trim().min(1));
 
-const localBranchSchema = z
-	.object({
-		branch: nonemptyStringSchema,
-		pullRequest: localPullRequestSchema.optional(),
-	})
-	.passthrough();
+const localBranchSchema = z.lazy(() =>
+	z
+		.object({
+			branch: nonemptyStringSchema,
+			pullRequest: localPullRequestSchema.optional(),
+		})
+		.passthrough(),
+);
 
-const localStackSchema = z
-	.object({
-		number: z.number().int().positive().optional(),
-		id: nonemptyStringSchema.optional(),
-		trunk: z.object({ branch: nonemptyStringSchema }).passthrough(),
-		branches: z.array(localBranchSchema).min(1),
-	})
-	.passthrough();
+const localStackSchema = z.lazy(() =>
+	z
+		.object({
+			number: z.number().int().positive().optional(),
+			id: nonemptyStringSchema.optional(),
+			trunk: z.object({ branch: nonemptyStringSchema }).passthrough(),
+			branches: z.array(localBranchSchema).min(1),
+		})
+		.passthrough(),
+);
 
-const localStateSchema = z
-	.object({
-		schemaVersion: z.number().int(),
-		stacks: z.array(localStackSchema),
-	})
-	.passthrough();
+const localStateSchema = z.lazy(() =>
+	z
+		.object({
+			schemaVersion: z.number().int(),
+			stacks: z.array(localStackSchema),
+		})
+		.passthrough(),
+);
 
 export type GsLocalStateParseResult =
 	| { readonly ok: true; readonly value: GsLocalInventory }
