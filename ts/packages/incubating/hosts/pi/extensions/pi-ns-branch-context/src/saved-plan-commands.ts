@@ -105,9 +105,9 @@ Structured grilling contract:
 - Each question must include 2–5 affirmative, mutually exclusive options and a recommendation with concise rationale.
 - Frame each question and recommendation with uniform polarity: agreeing with the recommendation must be an affirmative answer — never a question whose recommended answer is "no" followed by "Do you agree?".
 - Use up to 12 high-leverage questions. Some plans are simple and may not require any user-facing questions; stop early when requirements are resolved, and exceed that budget only if the user explicitly asks to continue.
-- If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, summarize current status, and do not call write_saved_plan_file.
+- If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, and summarize current status without saving.
 - If ${GRILL_ASK_TOOL_NAME} returns status_request, provide a compact status report and re-ask the same pending question; do not count it as an answer.
-- If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop, summarize resolved decisions, unresolved branches, and final recommendation, and do not call write_saved_plan_file.
+- If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop and summarize resolved decisions, unresolved branches, and the final recommendation without saving.
 
 Save/no-save decision:
 - If material requirements remain unresolved after the budget, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, compatibility expectations, and irreversible migration or data-safety choices.
@@ -116,9 +116,15 @@ Save/no-save decision:
 - Do not include a full Q&A transcript or special Q&A section in the saved plan.
 
 Final plan requirements:
-- Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation guidance, risks/assumptions/open questions, and review/remediation.
-- Review the final Markdown plan for completeness, then call write_saved_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
-- Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
+- Produce self-contained final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation guidance, risks/assumptions/open questions, and review/remediation.
+- Review the final Markdown for completeness before saving it.
+- Create a temporary file with exactly \`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"\` and retain the exact path returned by \`mktemp\`.
+- Use the generic write tool to write the exact final Markdown content to that returned path.
+- Safely shell-quote the exact path and invoke \`enriched-plan exec save --content-file '<exact path>' --format json\`.
+- Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with \`status: "ok"\` and complete saved-plan evidence in its \`data\` object: format, slug, filePath, fileName, fileStem, timestamp, timestampNumber, sequence, repoRoot, repoKey, repoIdentitySource, sourceBranch, branchKey, and directoryPath.
+- Only after successful save evidence, run \`rm -- '<exact path>'\` for that exact temporary path. If cleanup fails, warn about cleanup and report the retained path, but do not invalidate the successful save.
+- If any step before confirmed save success fails, do not remove the temporary file; retain and report its exact path, report the failure evidence, and stop. If \`mktemp\` failed before returning a path, report that no temporary path was allocated.
+- Report the complete parsed saved-plan evidence and stop. Do not create Branch Context, start implementation, or write Branch Memory.`;
 }
 
 async function resolveWritePlanPromptBody(
@@ -475,10 +481,7 @@ function formatSteeringBlock(steering: string): string {
 	return `User steering for this planning request:\n\n\`\`\`text\n${trimmedSteering}\n\`\`\``;
 }
 
-export function registerSavedPlanCommandsAndTools(
-	pi: BranchContextPiCommandApi,
-	options: BranchContextExtensionOptions = {},
-): void {
+export function registerSavedPlanCommands(pi: BranchContextPiCommandApi): void {
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: WRITE_PLAN_COMMAND_NAME,
@@ -496,6 +499,4 @@ export function registerSavedPlanCommandsAndTools(
 			handler: async (args, ctx) => handleWriteGrilledPlanCommand(pi, args, ctx),
 		},
 	});
-
-	pi.registerTool(buildWriteSavedPlanFileTool(pi, options));
 }

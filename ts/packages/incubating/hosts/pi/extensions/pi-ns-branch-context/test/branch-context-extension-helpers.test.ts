@@ -163,11 +163,9 @@ describe("buildWritePlanPrompt", () => {
 
 		expect(prompt).toContain("/ns:plan:save request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
-		expect(prompt).toContain("write_saved_plan_file");
-		expect(prompt).toContain(
-			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md",
-		);
-		expect(prompt).toContain("No fallback path is read or written");
+		expect(prompt).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
+		expect(prompt).toContain("enriched-plan exec save --content-file '<exact path>' --format json");
+		expect(prompt).toContain("Clinkr success envelope");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
 		expect(prompt).toContain("Do not rely on this conversation");
@@ -182,10 +180,15 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("External/off-repo research context");
 		expect(prompt).toContain("Validation guidance and expected results");
 		expect(prompt).toContain("leave ordinary validation coverage to the implementing agent");
-		expect(prompt).toContain("do not generate or pass a slug");
-		expect(prompt).toContain("Codex-backed slug model");
-		expect(prompt).toContain('"content": "# Plan');
-		expect(prompt).not.toContain('"slug": "semantic-kebab-case-slug"');
+		expect(prompt).toContain(
+			"Use the generic write tool to write the exact final Markdown content",
+		);
+		expect(prompt).toContain("Only after successful save evidence");
+		expect(prompt).toContain("rm -- '<exact path>'");
+		expect(prompt).toContain("do not remove the temporary file");
+		expect(prompt).toContain(
+			"Do not create Branch Context, start implementation, or write Branch Memory",
+		);
 		expect(prompt).not.toContain("create_brmem_plan_branch_from_file");
 		expect(prompt).not.toContain("branchCreation");
 	});
@@ -209,6 +212,23 @@ describe("buildWritePlanPrompt", () => {
 		const checkedInContent = await readFile(promptPath, "utf8");
 
 		expect(checkedInContent).not.toBe(DEFAULT_WRITE_PLAN_PROMPT_BODY);
+		for (const content of [DEFAULT_WRITE_PLAN_PROMPT_BODY, checkedInContent]) {
+			expect(content).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
+			expect(content).toContain("generic write tool to write the exact final Markdown content");
+			expect(content).toContain(
+				"enriched-plan exec save --content-file '<exact path>' --format json",
+			);
+			expect(content).toContain(
+				'Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object',
+			);
+			expect(content).toContain("Only after successful save evidence");
+			expect(content).toContain("rm -- '<exact path>'");
+			expect(content).toContain("do not invalidate the successful save");
+			expect(content).toContain("do not remove the temporary file");
+			expect(content).toContain(
+				"Do not create Branch Context, start implementation, or write Branch Memory",
+			);
+		}
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Subagent orchestration opportunities:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Harness-neutral command guidance:");
 		expect(DEFAULT_WRITE_PLAN_PROMPT_BODY).not.toContain("Implementation checkpoint guidance:");
@@ -273,7 +293,7 @@ describe("buildWriteGrilledPlanPrompt", () => {
 
 		expect(prompt).toContain("/ns:plan:grill-and-save");
 		expect(prompt).toContain("plan the grilled command variant");
-		expect(prompt).toContain("write_saved_plan_file");
+		expect(prompt).toContain("enriched-plan exec save --content-file");
 		expect(prompt).toContain("grill_ask");
 		expect(prompt).toContain("up to 12");
 		expect(prompt).toContain("may not require any user-facing questions");
@@ -282,14 +302,16 @@ describe("buildWriteGrilledPlanPrompt", () => {
 		expect(prompt).toContain("ui_unavailable");
 		expect(prompt).toContain("status_request");
 		expect(prompt).toContain("end_grill");
-		expect(prompt).toContain("do not call write_saved_plan_file");
+		expect(prompt).toContain("without saving");
 		expect(prompt).toContain("material requirements remain unresolved");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
 		expect(prompt).toContain("validation guidance");
 		expect(prompt).not.toContain("validation scope");
 		expect(prompt).toContain("do not save");
 		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
-		expect(prompt).toContain("Do not create a branch or write Branch Memory");
+		expect(prompt).toContain(
+			"Do not create Branch Context, start implementation, or write Branch Memory",
+		);
 		expect(prompt).not.toContain("GRILL_UI_CONTRACT");
 	});
 

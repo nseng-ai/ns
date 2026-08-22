@@ -24,41 +24,20 @@ Recommended saved plan sections:
 - Validation guidance and expected results. Do not over-specify routine test/check scope as a planning decision; leave ordinary validation coverage to the implementing agent's project policy and changed-file judgment.
 - Risks, assumptions, edge cases, and open questions.
 
-Workflow:
+Exact save procedure:
 
 1. Inspect the repository, documentation, and current conversation context as needed for the requested work.
-2. Produce a detailed Markdown implementation plan.
-3. Review the final Markdown plan content for completeness.
-4. Call write_saved_plan_file with the full Markdown content and optional one-sentence summary; do not generate or pass a slug.
-5. Report the saved plan evidence: file path, repo key, repo root, repo identity source, source branch, branch path segment, slug, slug model, and summary when present.
-6. Stop after reporting the saved plan evidence. Do not create a branch, write Branch Memory, or call any branch-context command/tool.
+2. Produce detailed, self-contained final Markdown and review the exact final content for completeness.
+3. Run exactly `mktemp "${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"` and retain the exact path returned by `mktemp`.
+4. Use the generic write tool to write the exact final Markdown content to that returned path. Do not transform, summarize, or reconstruct the content through shell interpolation.
+5. Safely shell-quote the exact path and invoke `enriched-plan exec save --content-file '<exact path>' --format json`.
+6. Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object: `format`, `slug`, `filePath`, `fileName`, `fileStem`, `timestamp`, `timestampNumber`, `sequence`, `repoRoot`, `repoKey`, `repoIdentitySource`, `sourceBranch`, `branchKey`, and `directoryPath`.
+7. Only after successful save evidence, run `rm -- '<exact path>'` for that exact temporary path. If cleanup fails, warn about cleanup and report the retained path, but do not invalidate the successful save.
+8. If any step before confirmed save success fails, do not remove the temporary file. Retain and report its exact path, report the command exit and parse/failure evidence, and stop. If `mktemp` failed before returning a path, report that no temporary path was allocated.
+9. Report the complete parsed saved-plan evidence and stop. Do not create Branch Context, start implementation, or write Branch Memory.
 
 Local plan store contract:
 
-- Canonical path convention: $XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md, defaulting to $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md. No fallback path is read or written; only $HOME/.local/state/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md is used.
-- <repo>: for github.com origins, gh--<owner>--<repo> from sanitized GitHub owner and repo path segments; for non-GitHub or origin-less repos, one sanitized path segment from the normalized remote.origin.url or real repo root path
-- <encoded-source-branch>: current branch at plan-file creation time encoded as one filesystem-safe path segment; branch slashes become --- (for example, branch-contexts/add-widget becomes branch-contexts---add-widget)
-- <slug>: semantic kebab-case saved-plan filename slug without .md; this is a local plan-store locator, not necessarily the later implementation branch slug
-- Repeated publication: write_saved_plan_file allocates the next sequence for the local timestamp and never overwrites an existing file; do not manually choose a replacement slug.
+- The `enriched-plan exec save` command derives the timestamped filename slug, repository identity, source branch, and destination in the XDG local plan store from the final content and current repository.
+- The temporary file is only transport for exact plan bytes. It is not the Saved Plan and must not be used as implementation input after a successful save.
 - Working-tree behavior: no checked-in plan file is created.
-
-Saved-plan filename slug rules:
-
-- write_saved_plan_file derives the final saved-plan filename slug from the final plan content through the Codex-backed slug model.
-- Do not generate, guess, or pass a slug yourself.
-- The derived slug is kebab-case, 3–7 words, specific to the work described by the final plan, and rejects dates, random IDs, and generic-only slugs.
-
-When the plan is ready, call write_saved_plan_file with:
-
-- content: the complete reviewed Markdown plan content
-- summary: optional one-sentence summary of the plan
-
-Exact tool call shape:
-\`\`\`json
-{
-"content": "# Plan\\n...",
-"summary": "One-sentence summary of the plan."
-}
-\`\`\`
-
-If summary is not useful, omit it from the tool call rather than passing an empty string. Do not create target branches or write Branch Memory in this workflow.

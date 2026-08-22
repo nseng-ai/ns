@@ -5,7 +5,8 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import registerBranchContextExtension from "../src/extension.ts";
+import { buildWriteSavedPlanFileTool } from "../src/extension.ts";
+import { createBranchContextPiCommandApi } from "../src/pi-command-api.ts";
 
 import {
 	DEFAULT_PLAN_CONTENT,
@@ -15,7 +16,6 @@ import {
 	contentSlugEvidence,
 	createBranchContextOperationFakes,
 	createToolContext,
-	registeredTool,
 	savedPlanSlugArgs,
 	savedPlanSlugStep,
 	type ToolUpdate,
@@ -23,8 +23,7 @@ import {
 describe("write_saved_plan_file tool", () => {
 	test("describes the local plan store contract and strict parameters", () => {
 		const pi = new FakePi();
-		registerBranchContextExtension(pi);
-		const tool = registeredTool(pi, "write_saved_plan_file");
+		const tool = buildWriteSavedPlanFileTool(createBranchContextPiCommandApi(pi), {});
 		const parameters = tool.parameters as {
 			properties?: Record<string, unknown>;
 			required?: string[];
@@ -58,8 +57,9 @@ describe("write_saved_plan_file tool", () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
 		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const tool = registeredTool(pi, "write_saved_plan_file");
+		const tool = buildWriteSavedPlanFileTool(createBranchContextPiCommandApi(pi), {
+			branchContextOperations: fakes.operations,
+		});
 
 		const result = await tool.execute(
 			"tool-call",
@@ -97,8 +97,9 @@ describe("write_saved_plan_file tool", () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
 		const fakes = createBranchContextOperationFakes();
-		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
-		const tool = registeredTool(pi, "write_saved_plan_file");
+		const tool = buildWriteSavedPlanFileTool(createBranchContextPiCommandApi(pi), {
+			branchContextOperations: fakes.operations,
+		});
 		const updates: ToolUpdate[] = [];
 		const toolContext = createToolContext({ hasUI: true });
 
@@ -165,8 +166,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("rejects assistant-provided saved-plan slugs so /ns:plan:save cannot bypass Codex slugging", async () => {
 		const pi = new FakePi();
-		registerBranchContextExtension(pi);
-		const tool = registeredTool(pi, "write_saved_plan_file");
+		const tool = buildWriteSavedPlanFileTool(createBranchContextPiCommandApi(pi), {});
 
 		await expect(
 			tool.execute(
@@ -182,8 +182,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("clears write-plan status when validation fails", async () => {
 		const pi = new FakePi();
-		registerBranchContextExtension(pi);
-		const tool = registeredTool(pi, "write_saved_plan_file");
+		const tool = buildWriteSavedPlanFileTool(createBranchContextPiCommandApi(pi), {});
 		const toolContext = createToolContext({ hasUI: true });
 
 		await expect(
@@ -199,8 +198,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("renders tool-call argument streaming progress without dumping plan content", () => {
 		const pi = new FakePi();
-		registerBranchContextExtension(pi);
-		const tool = registeredTool(pi, "write_saved_plan_file");
+		const tool = buildWriteSavedPlanFileTool(createBranchContextPiCommandApi(pi), {});
 		const renderCall = tool.renderCall;
 
 		expect(renderCall).toBeDefined();
@@ -241,8 +239,7 @@ describe("write_saved_plan_file tool", () => {
 
 	test("renders partial write-plan progress with an in-progress heading", () => {
 		const pi = new FakePi();
-		registerBranchContextExtension(pi);
-		const tool = registeredTool(pi, "write_saved_plan_file");
+		const tool = buildWriteSavedPlanFileTool(createBranchContextPiCommandApi(pi), {});
 		const renderResult = tool.renderResult;
 
 		expect(renderResult).toBeDefined();
