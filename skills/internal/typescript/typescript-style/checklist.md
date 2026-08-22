@@ -29,7 +29,8 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] Object literals use `satisfies` or `as const satisfies T` instead of broad casts.
 - [ ] No value is laundered through `as unknown as T` (`NS_TS_BAN_AS_UNKNOWN_AS`); any cast is narrow,
       justified, and boundary-local.
-- [ ] External/HTTP/model/tool boundaries parse input with schemas declared through `z.lazy(() => ...)`;
+- [ ] External/HTTP/model/tool boundaries parse input with composite schema graphs declared through
+      `z.lazy(() => ...)`; small primitive schemas are normally inlined inside those graphs;
       unknown-key-preserving objects use `z.looseObject({...})`, not `.passthrough()`; and static types
       use `z.infer<typeof schema>` rather than hand-written mirror types.
 - [ ] Empty `interface X extends Y {}` aliases are written as `type X = Y` unless real members are added

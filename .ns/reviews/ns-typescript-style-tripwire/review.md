@@ -97,20 +97,24 @@ to each rule's exceptions.
    are clearly local values. If unsure whether the arrow is top-level module
    logic, skip the finding.
 7. **Zod schema declaration, loose-object, naming, and inference conventions.**
-   Flag newly declared Zod schemas that eagerly construct their schema graph
-   instead of wrapping the declaration in `z.lazy(() => ...)`. Flag
-   `z.object({...}).passthrough()` and direct `.passthrough()` chains; use
+   Flag newly declared composite Zod schema graphs that construct eagerly
+   instead of wrapping the declaration in `z.lazy(() => ...)`. Flag separately
+   named and lazily wrapped small primitive schemas when the changed code could
+   inline them in their lazy parent and shows no meaningful independent reuse.
+   Flag `z.object({...}).passthrough()` and direct `.passthrough()` chains; use
    `z.looseObject({...})` when unknown keys must be preserved. Flag Zod schema
    constants not named `<noun>Schema`, such as `const input = z.object({ ... })`
    or `const User = z.object({ ... })`. When the diff visibly declares a static
    type for the value represented by a schema, flag a hand-written mirror object
    type and require `type Value = z.infer<typeof valueSchema>` against the lazy
-   schema instead. Severity: `warning`. Do not flag names already ending in
-   `Schema`, such as `inputSchema`, `userSchema`, or `readToolInputSchema`. Do
-   not flag `z.object` merely because it is nested inside `z.lazy`; strict and
-   stripping object schemas may still use `z.object`. Do not require a static
-   type alias when no code needs one, and do not flag `z.input` or `z.output`
-   where input and output types intentionally differ.
+   schema instead. Severity: `warning`. Do not flag a standalone primitive
+   schema merely for being eager when its independent reuse or exported contract
+   gives the name real value. Do not flag names already ending in `Schema`, such
+   as `inputSchema`, `userSchema`, or `readToolInputSchema`. Do not flag
+   `z.object` merely because it is nested inside `z.lazy`; strict and stripping
+   object schemas may still use `z.object`. Do not require a static type alias
+   when no code needs one, and do not flag `z.input` or `z.output` where input
+   and output types intentionally differ.
 8. **TypeScript suppressions without discipline.** Flag `@ts-ignore` anywhere
    in added or modified lines. Flag `@ts-expect-error` without a same-line or
    immediately adjacent reason explaining why the suppression is safe or

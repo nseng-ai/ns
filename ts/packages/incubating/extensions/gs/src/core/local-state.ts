@@ -9,11 +9,9 @@ const localPullRequestSchema = z.lazy(() =>
 	}),
 );
 
-const nonemptyStringSchema = z.lazy(() => z.string().trim().min(1));
-
 const localBranchSchema = z.lazy(() =>
 	z.looseObject({
-		branch: nonemptyStringSchema,
+		branch: z.string().trim().min(1),
 		pullRequest: localPullRequestSchema.optional(),
 	}),
 );
@@ -21,8 +19,8 @@ const localBranchSchema = z.lazy(() =>
 const localStackSchema = z.lazy(() =>
 	z.looseObject({
 		number: z.number().int().positive().optional(),
-		id: nonemptyStringSchema.optional(),
-		trunk: z.looseObject({ branch: nonemptyStringSchema }),
+		id: z.string().trim().min(1).optional(),
+		trunk: z.looseObject({ branch: z.string().trim().min(1) }),
 		branches: z.array(localBranchSchema).min(1),
 	}),
 );
