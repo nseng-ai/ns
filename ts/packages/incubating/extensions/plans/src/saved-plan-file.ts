@@ -29,7 +29,7 @@ import {
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
-const PLAN_FILE_DISPLAY_NAME = "Markdown saved plan";
+const PLAN_FILE_DISPLAY_NAME = "timestamped Saved Plan";
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
 

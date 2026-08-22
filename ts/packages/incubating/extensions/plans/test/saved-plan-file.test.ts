@@ -155,12 +155,12 @@ describe("writeSavedPlanFile", () => {
 		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# Test Plan\n");
 	});
 
-	test("ignores legacy same-slug files when writing to the default XDG root", async () => {
+	test("ignores same-slug files in the old .ns store when writing to the default XDG root", async () => {
 		const tempHome = makeTempDir("source-plan-home-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
-		const legacyPath = join(
+		const oldStorePath = join(
 			tempHome,
 			".ns",
 			"enriched-plan",
@@ -168,7 +168,7 @@ describe("writeSavedPlanFile", () => {
 			branchKey,
 			PLAN_FILE_NAME,
 		);
-		planStoreGateway.writeFile(legacyPath, "# Legacy Plan\n");
+		planStoreGateway.writeFile(oldStorePath, "# Old Store Plan\n");
 		const git = new FakeGitGateway({
 			currentBranch: fakeCurrentBranch(sourceBranch),
 			origin: fakeOriginUrl("git@github.com:owner/repo.git"),
@@ -199,7 +199,7 @@ describe("writeSavedPlanFile", () => {
 			),
 		);
 		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# New Plan\n");
-		expect(planStoreGateway.readFile(legacyPath)).toBe("# Legacy Plan\n");
+		expect(planStoreGateway.readFile(oldStorePath)).toBe("# Old Store Plan\n");
 	});
 
 	test("rejects invalid slug before git commands or filesystem writes", async () => {
