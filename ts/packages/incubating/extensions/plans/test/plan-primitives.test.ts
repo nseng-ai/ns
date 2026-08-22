@@ -100,7 +100,7 @@ describe("source branch plan path helpers", () => {
 		expect(buildRepoPlanStoreKey("/repo", "/repo")).toBe("repo");
 	});
 
-	test("finds the newest saved Markdown plan file", async () => {
+	test("finds the newest timestamped Saved Plan file", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
@@ -149,16 +149,16 @@ describe("source branch plan path helpers", () => {
 		});
 	});
 
-	test("ignores legacy saved plans when the XDG store is absent", async () => {
+	test("ignores the old .ns plan store when the XDG store is absent", async () => {
 		const tempHome = makeTempDir("source-plan-home-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
-		const legacyRoot = join(tempHome, ".ns", "enriched-plan");
-		const legacyDirectory = planStoreDirectory(legacyRoot, sourceBranch);
+		const oldStoreRoot = join(tempHome, ".ns", "enriched-plan");
+		const oldStoreDirectory = planStoreDirectory(oldStoreRoot, sourceBranch);
 		await writePlanStoreFile(
 			planStoreGateway,
-			legacyDirectory,
-			"legacy-source-plan.md",
+			oldStoreDirectory,
+			"source-plan--26-03-19T12-00-00--1.md",
 			1_800_000_000_000,
 		);
 		const git = new InMemoryGitGateway({
@@ -200,12 +200,12 @@ describe("source branch plan path helpers", () => {
 		await expect(promise).rejects.toMatchObject({ reason: "missing-directory" });
 	});
 
-	test("reports a typed error when no Markdown saved plans exist", async () => {
+	test("reports a typed error when no timestamped Saved Plan files exist", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		planStoreGateway.writeFile(join(directoryPath, "notes.txt"), "not a plan");
+		planStoreGateway.writeFile(join(directoryPath, "plain-plan.md"), "not a durable Saved Plan");
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
@@ -219,7 +219,7 @@ describe("source branch plan path helpers", () => {
 			planStoreGateway,
 		});
 		await expect(promise).rejects.toThrow(
-			/No Markdown saved plan files exist[\s\S]*Create a saved plan first/,
+			/No timestamped Saved Plan files exist[\s\S]*Create a saved plan first/,
 		);
 		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
 		await expect(promise).rejects.toMatchObject({ reason: "no-plan-files" });

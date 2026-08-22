@@ -340,12 +340,11 @@ describe("plans list CLI pins", () => {
 		// PINNED CLINKR SEMANTICS: usage errors are raw stderr, never JSON-enveloped.
 	});
 
-	test("prints one-plan JSON and human list byte-exactly", async () => {
+	test("prints one-plan JSON and human list byte-exactly while ignoring plain filenames", async () => {
 		const fixture = await makeFixture();
-		const filePath = await writePlanFile(
-			fixture,
-			"first-useful-saved-plan--26-03-19T12-00-00--1.md",
-		);
+		await writePlanFile(fixture, "ignored-plain-saved-plan.md", MODIFIED_TIME_MS + 1);
+		const fileName = "first-useful-saved-plan--26-03-19T12-00-00--1.md";
+		const filePath = await writePlanFile(fixture, fileName);
 		const json = await runWithFakes(
 			["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot],
 			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
@@ -361,7 +360,7 @@ describe("plans list CLI pins", () => {
 						branchKey: fixture.branchKey,
 						modifiedTimeMs: MODIFIED_TIME_MS,
 						path: filePath,
-						fileName: "first-useful-saved-plan--26-03-19T12-00-00--1.md",
+						fileName,
 						repo: {
 							root: fixture.repoRoot,
 							key: fixture.repoKey,
@@ -396,10 +395,8 @@ describe("plans list CLI pins", () => {
 		const fixture = await makeFixture();
 		const relativeRoot = "relative-store";
 		const absoluteRoot = join(fixture.repoRoot, relativeRoot);
-		const filePath = await writePlanFile(
-			{ ...fixture, planStoreRoot: absoluteRoot },
-			"relative-root-plan-file--26-03-19T12-00-00--1.md",
-		);
+		const fileName = "relative-root-plan-file--26-03-19T12-00-00--1.md";
+		const filePath = await writePlanFile({ ...fixture, planStoreRoot: absoluteRoot }, fileName);
 
 		const run = await runWithFakes(
 			["list", "--format", "json", "--plan-store-root", relativeRoot],
@@ -418,7 +415,7 @@ describe("plans list CLI pins", () => {
 						branchKey: fixture.branchKey,
 						modifiedTimeMs: MODIFIED_TIME_MS,
 						path: filePath,
-						fileName: "relative-root-plan-file--26-03-19T12-00-00--1.md",
+						fileName,
 						repo: {
 							root: fixture.repoRoot,
 							key: fixture.repoKey,
@@ -745,12 +742,10 @@ describe("plans exec resolve pins", () => {
 
 	test("resolves latest plan JSON and human output byte-exactly", async () => {
 		const fixture = await makeFixture();
+		await writePlanFile(fixture, "ignored-plain-saved-plan-file.md", 3_000);
 		await writePlanFile(fixture, "older-saved-plan-file--26-03-18T12-00-00--1.md", 1_000);
-		const newer = await writePlanFile(
-			fixture,
-			"newer-saved-plan-file--26-03-19T12-00-00--1.md",
-			2_000,
-		);
+		const newerFileName = "newer-saved-plan-file--26-03-19T12-00-00--1.md";
+		const newer = await writePlanFile(fixture, newerFileName, 2_000);
 		const json = await runWithFakes(["exec", "resolve", "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
@@ -764,7 +759,7 @@ describe("plans exec resolve pins", () => {
 				source: "latest",
 				filePath: newer,
 				slug: "newer-saved-plan-file",
-				fileName: "newer-saved-plan-file--26-03-19T12-00-00--1.md",
+				fileName: newerFileName,
 				modifiedTimeMs: 2_000,
 				repoRoot: fixture.repoRoot,
 				repoKey: fixture.repoKey,

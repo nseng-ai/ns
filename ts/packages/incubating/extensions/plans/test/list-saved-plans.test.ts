@@ -54,7 +54,7 @@ describe("listSavedPlans", () => {
 			fileName: "ignore.txt",
 			modifiedTimeMs: 1_900_000_000_000,
 		});
-		await writePlanFile({
+		const plainPath = await writePlanFile({
 			fixture,
 			branchKey: otherBranchKey,
 			fileName: "unsupported-plain-plan.md",
@@ -93,6 +93,7 @@ describe("listSavedPlans", () => {
 				filePath: timestampedPath,
 			},
 		]);
+		expect(plans.some((plan) => plan.filePath === plainPath)).toBe(false);
 	});
 });
 
