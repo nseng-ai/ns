@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import type { GsLocalInventoryGateway } from "../../src/core/local-inventory.ts";
-import { renderGsListHuman, runGsList } from "../../src/core/list-command.ts";
+import {
+	gsListRequestSchema,
+	gsListResultSchema,
+	renderGsListHuman,
+	runGsList,
+} from "../../src/core/list-command.ts";
+import { command } from "../../src/ns/cli/gs/list/command.ts";
 
 const INVENTORY = {
 	stacks: [
@@ -18,6 +25,15 @@ const INVENTORY = {
 };
 
 describe("gs list command", () => {
+	it("unwraps the lazy request schema at the concrete SDK boundary", async () => {
+		const commandDefinition = await command();
+
+		expect(gsListRequestSchema).toBeInstanceOf(z.ZodLazy);
+		expect(gsListResultSchema).toBeInstanceOf(z.ZodLazy);
+		expect(commandDefinition.schema).toBeInstanceOf(z.ZodObject);
+		expect(commandDefinition.resultSchema).toBe(gsListResultSchema);
+	});
+
 	it("returns the complete inventory without changing branch order", async () => {
 		await expect(
 			runGsList(gatewayFor(INVENTORY), { cwd: "/repo", outputFormat: "human" }, { verbose: false }),

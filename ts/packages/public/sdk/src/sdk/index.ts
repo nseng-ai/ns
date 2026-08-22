@@ -9,6 +9,7 @@ export type {
 	NsCommandCompletionProvider,
 	NsCommandCompletionRequest,
 	NsCommandCompletionResult,
+	NsCommandInputSchema,
 	NsCommandRequest,
 	NsCommandSchema,
 	NsRawCommandDefinition,

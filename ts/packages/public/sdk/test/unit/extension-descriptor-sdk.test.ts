@@ -75,6 +75,18 @@ describe("modern ns extension author API", () => {
 		});
 	});
 
+	test("defineCommand unwraps a lazy request schema at the concrete Clinkr boundary", () => {
+		const requestSchema = z.lazy(() => z.object({ name: z.string() }));
+		const command = defineCommand({
+			schema: requestSchema,
+			options: { name: {} },
+			handler: async (_context, request) => ok(request.name),
+		});
+
+		expect(requestSchema).toBeInstanceOf(z.ZodLazy);
+		expect(command.schema).toBeInstanceOf(z.ZodObject);
+	});
+
 	test("defineRawCommand keeps truthful raw options and definition names", () => {
 		const outputBytes: Uint8Array[] = [];
 		const output = {

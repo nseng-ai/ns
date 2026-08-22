@@ -182,7 +182,7 @@ boundaries, then derive the static type from the schema:
 ```ts
 import { z } from "zod";
 
-const configSchema = z.object({ endpoint: z.string().url() });
+const configSchema = z.lazy(() => z.object({ endpoint: z.string().url() }));
 type Config = z.infer<typeof configSchema>;
 
 function parseConfig(value: unknown): Config {

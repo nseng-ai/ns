@@ -12,25 +12,36 @@ import { gsLocalStackSummary } from "./local-state.ts";
 const DETAIL_MAX_CHARS = 500;
 const EMPTY_MESSAGE = "No local gh-stack stacks found.";
 
-export const gsListRequestSchema = z.strictObject({
-	verbose: z.boolean().default(false),
-});
+export const gsListRequestSchema = z.lazy(() =>
+	z.strictObject({
+		verbose: z.boolean().default(false),
+	}),
+);
 export type GsListRequest = z.infer<typeof gsListRequestSchema>;
 
-const pullRequestSchema = z.strictObject({
-	number: z.number().int().positive(),
-	recordedMerged: z.boolean(),
-});
-const branchSchema = z.strictObject({
-	name: z.string().min(1),
-	pullRequest: pullRequestSchema.nullable(),
-});
-const stackSchema = z.strictObject({
-	number: z.number().int().positive().nullable(),
-	base: z.string().min(1),
-	branches: z.array(branchSchema).min(1),
-});
-export const gsListResultSchema = z.strictObject({ stacks: z.array(stackSchema) });
+export const gsListResultSchema = z.lazy(() =>
+	z.strictObject({
+		stacks: z.array(
+			z.strictObject({
+				number: z.number().int().positive().nullable(),
+				base: z.string().min(1),
+				branches: z
+					.array(
+						z.strictObject({
+							name: z.string().min(1),
+							pullRequest: z
+								.strictObject({
+									number: z.number().int().positive(),
+									recordedMerged: z.boolean(),
+								})
+								.nullable(),
+						}),
+					)
+					.min(1),
+			}),
+		),
+	}),
+);
 export type GsListResult = z.infer<typeof gsListResultSchema>;
 
 export interface GsListInvocation {
