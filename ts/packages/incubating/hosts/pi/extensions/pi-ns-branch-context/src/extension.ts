@@ -5,7 +5,7 @@ import {
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-	registerSavedPlanCommandsAndTools,
+	registerSavedPlanCommands,
 } from "./saved-plan-commands.ts";
 import {
 	CREATE_BRANCH_CONTEXT_COMMAND_NAME,
@@ -27,7 +27,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
 		notes:
-			"The portable Saved Plan save command and skill were deleted; Pi drives the retained typed saved-plan file tool.",
+			"Pi keeps the conversational planning turn while the injected prompt drives the portable enriched-plan exec save command.",
 	},
 	{
 		kind: "command",
@@ -40,7 +40,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
 		notes:
-			"Structured grill UI is Pi-native; the saved-plan storage path is accounted by write_saved_plan_file.",
+			"Structured grill UI is Pi-native; after requirements settle, the injected prompt drives enriched-plan exec save.",
 	},
 	{
 		kind: "command",
@@ -151,6 +151,6 @@ export default function registerBranchContextExtension(
 	options: BranchContextExtensionOptions = {},
 ): void {
 	const commandPi = createBranchContextPiCommandApi(pi);
-	registerSavedPlanCommandsAndTools(commandPi, options);
+	registerSavedPlanCommands(commandPi);
 	registerBranchContextCommands(commandPi, options);
 }
