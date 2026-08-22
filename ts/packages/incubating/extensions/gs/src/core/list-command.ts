@@ -19,26 +19,29 @@ export const gsListRequestSchema = z.lazy(() =>
 );
 export type GsListRequest = z.infer<typeof gsListRequestSchema>;
 
-const pullRequestSchema = z.lazy(() =>
+export const gsListResultSchema = z.lazy(() =>
 	z.strictObject({
-		number: z.number().int().positive(),
-		recordedMerged: z.boolean(),
+		stacks: z.array(
+			z.strictObject({
+				number: z.number().int().positive().nullable(),
+				base: z.string().min(1),
+				branches: z
+					.array(
+						z.strictObject({
+							name: z.string().min(1),
+							pullRequest: z
+								.strictObject({
+									number: z.number().int().positive(),
+									recordedMerged: z.boolean(),
+								})
+								.nullable(),
+						}),
+					)
+					.min(1),
+			}),
+		),
 	}),
 );
-const branchSchema = z.lazy(() =>
-	z.strictObject({
-		name: z.string().min(1),
-		pullRequest: pullRequestSchema.nullable(),
-	}),
-);
-const stackSchema = z.lazy(() =>
-	z.strictObject({
-		number: z.number().int().positive().nullable(),
-		base: z.string().min(1),
-		branches: z.array(branchSchema).min(1),
-	}),
-);
-export const gsListResultSchema = z.lazy(() => z.strictObject({ stacks: z.array(stackSchema) }));
 export type GsListResult = z.infer<typeof gsListResultSchema>;
 
 export interface GsListInvocation {
