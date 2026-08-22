@@ -10,7 +10,7 @@ import type {
 
 interface InMemoryNode {
 	type: PlanStorePathType;
-	content?: string;
+	content?: Uint8Array;
 	mtimeMs: number;
 }
 
@@ -32,7 +32,6 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 		const node = this.nodes.get(normalizedPath);
 		if (node === undefined) return { type: "missing" };
 		if (node.type !== "directory") return { type: "present", entries: [] };
-
 		const entries = new Map<string, PlanStoreDirectoryEntry>();
 		const prefix = normalizedPath === "/" ? "/" : `${normalizedPath}/`;
 		for (const [candidatePath, candidate] of this.nodes) {
@@ -49,17 +48,15 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 
 	async statPath(path: string): Promise<PlanStorePathStat | undefined> {
 		const node = this.nodes.get(normalize(path));
-		if (node === undefined) return undefined;
-		return { type: node.type, mtimeMs: node.mtimeMs };
+		return node === undefined ? undefined : { type: node.type, mtimeMs: node.mtimeMs };
 	}
 
 	async readTextFile(path: string): Promise<string> {
-		const normalizedPath = normalize(path);
-		const node = this.nodes.get(normalizedPath);
-		if (node?.type !== "file" || node.content === undefined) {
-			throw new Error(`ENOENT: no such file or directory, open '${normalizedPath}'`);
-		}
-		return node.content;
+		return new TextDecoder().decode(await this.readRegularFileBytes(path));
+	}
+
+	async readRegularFileBytes(path: string): Promise<Uint8Array> {
+		return this.readBytes(path);
 	}
 
 	async writeTextFileExclusive(path: string, content: string): Promise<void> {
@@ -70,6 +67,33 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 			);
 		}
 		this.writeFile(normalizedPath, content);
+	}
+
+	async publishBytesAtomic(options: {
+		directoryPath: string;
+		fileNameForSequence(sequence: number): string;
+		sequenceFromFileName(fileName: string): number | undefined;
+		content: Uint8Array;
+		signal?: AbortSignal;
+	}): Promise<{ filePath: string; fileName: string; sequence: number }> {
+		if (options.signal?.aborted === true) throw new Error("Saved plan publication cancelled.");
+		for (let collision = 0; collision < 100; collision += 1) {
+			let greatest = 0;
+			const directory = await this.listDirectory(options.directoryPath);
+			if (directory.type === "present") {
+				for (const entry of directory.entries) {
+					const existing = options.sequenceFromFileName(entry.name);
+					if (existing !== undefined && existing > greatest) greatest = existing;
+				}
+			}
+			const sequence = greatest + 1;
+			const fileName = options.fileNameForSequence(sequence);
+			const filePath = normalize(resolve(options.directoryPath, fileName));
+			if (this.nodes.has(filePath)) continue;
+			this.writeBytes(filePath, options.content);
+			return { filePath, fileName, sequence };
+		}
+		throw new Error("Could not publish saved plan after 100 filename collisions.");
 	}
 
 	async realpathOrResolve(path: string): Promise<string> {
@@ -86,22 +110,34 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 	}
 
 	writeFile(path: string, content: string, options: WriteInMemoryPlanStoreFileOptions = {}): void {
+		this.writeBytes(path, new TextEncoder().encode(content), options);
+	}
+
+	writeBytes(
+		path: string,
+		content: Uint8Array,
+		options: WriteInMemoryPlanStoreFileOptions = {},
+	): void {
 		const normalizedPath = normalize(path);
 		this.ensureParentDirectories(normalizedPath);
 		this.nodes.set(normalizedPath, {
 			type: "file",
-			content,
+			content: content.slice(),
 			mtimeMs: options.mtimeMs ?? this.nextMtime(),
 		});
 	}
 
 	readFile(path: string): string {
+		return new TextDecoder().decode(this.readBytes(path));
+	}
+
+	readBytes(path: string): Uint8Array {
 		const normalizedPath = normalize(path);
 		const node = this.nodes.get(normalizedPath);
 		if (node?.type !== "file" || node.content === undefined) {
 			throw new Error(`In-memory plan store file does not exist: ${normalizedPath}`);
 		}
-		return node.content;
+		return node.content.slice();
 	}
 
 	hasFile(path: string): boolean {

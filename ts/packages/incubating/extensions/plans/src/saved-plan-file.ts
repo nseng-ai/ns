@@ -1,14 +1,23 @@
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
+import type { Clock } from "@nseng-ai/foundation/clock";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { systemClock } from "@nseng-ai/foundation/time";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
 } from "@nseng-ai/extension-kit/github/identity";
 import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
+import {
+	buildTimestampedSavedPlanFileName,
+	deriveDeterministicSavedPlanSlug,
+	formatLocalSavedPlanTimestamp,
+	parseSavedPlanFileName,
+	type SavedPlanFormat,
+} from "./saved-plan-format.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/extension-kit/xdg";
 import {
@@ -37,6 +46,8 @@ export interface PlanStoreOptions {
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: GitGateway;
 	planStoreGateway?: PlanStoreGateway;
+	clock?: Clock;
+	localTimestamp?: string;
 }
 
 interface BuildPlanStoreOptionsInput {
@@ -46,6 +57,8 @@ interface BuildPlanStoreOptionsInput {
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: ExplicitUndefined<"di-seam", GitGateway>;
 	planStoreGateway?: ExplicitUndefined<"di-seam", PlanStoreGateway>;
+	clock?: ExplicitUndefined<"di-seam", Clock>;
+	localTimestamp?: ExplicitUndefined<"di-seam", string>;
 }
 
 export function buildPlanStoreOptions(options: BuildPlanStoreOptionsInput): PlanStoreOptions {
@@ -57,6 +70,8 @@ export function buildPlanStoreOptions(options: BuildPlanStoreOptionsInput): Plan
 			env: options.env,
 			git: options.git,
 			planStoreGateway: options.planStoreGateway,
+			clock: options.clock,
+			localTimestamp: options.localTimestamp,
 		}),
 	};
 }
@@ -75,6 +90,7 @@ export interface PlanStoreDirectoryEvidence extends PlanStoreRepoEvidence {
 }
 
 export interface SavedPlanListItem extends PlanStoreRepoEvidence {
+	format: SavedPlanFormat;
 	slug: string;
 	branchKey: string;
 	filePath: string;
@@ -99,6 +115,26 @@ export interface SavedPlanFileEvidence {
 	filePath: string;
 	summary?: string;
 }
+
+interface DurableSavedPlanBase extends PlanStoreDirectoryEvidence {
+	slug: string;
+	filePath: string;
+	fileName: string;
+	fileStem: string;
+}
+
+export interface TimestampedDurableSavedPlan extends DurableSavedPlanBase {
+	format: "timestamped";
+	timestamp: string;
+	timestampNumber: number;
+	sequence: number;
+}
+
+export interface LegacyDurableSavedPlan extends DurableSavedPlanBase {
+	format: "legacy";
+}
+
+export type DurableSavedPlan = TimestampedDurableSavedPlan | LegacyDurableSavedPlan;
 
 interface RepoIdentity {
 	source: RepoIdentitySource;
@@ -258,9 +294,9 @@ export async function listSavedPlans(
 		const branchDirectoryPath = join(repoDirectory.repoDirectoryPath, branchKey);
 		const planEntries = await listDirectoryEntriesIfPresent(planStoreGateway, branchDirectoryPath);
 		for (const planEntry of planEntries) {
-			if (planEntry.type !== "file" || !planEntry.name.endsWith(PLAN_FILE_SUFFIX)) {
-				continue;
-			}
+			if (planEntry.type !== "file") continue;
+			const parsedName = parseSavedPlanFileName(planEntry.name);
+			if (parsedName === undefined) continue;
 
 			const filePath = join(branchDirectoryPath, planEntry.name);
 			const fileStat = await statFileIfRegular(planStoreGateway, filePath);
@@ -271,7 +307,8 @@ export async function listSavedPlans(
 			plans.push({
 				...repoDirectory,
 				branchKey,
-				slug: planEntry.name.slice(0, -PLAN_FILE_SUFFIX.length),
+				format: parsedName.format,
+				slug: parsedName.slug,
 				filePath,
 				fileName: planEntry.name,
 				modifiedTimeMs: fileStat.mtimeMs,
@@ -354,6 +391,44 @@ export async function findLatestSavedPlanFile(
 		filePath: latest.filePath,
 		fileName: latest.fileName,
 		modifiedTimeMs: latest.modifiedTimeMs,
+	};
+}
+
+export async function savePlanContentBytes(
+	pi: CommandExecApi,
+	content: Uint8Array,
+	options: PlanStoreOptions,
+): Promise<TimestampedDurableSavedPlan> {
+	const decodedContent = decodeSavedPlanContent(content);
+	if (decodedContent.trim().length === 0) {
+		throw new Error("Saved plan content must contain non-whitespace text.");
+	}
+	const slug = deriveDeterministicSavedPlanSlug(content, decodedContent);
+	const directory = await resolvePlanStoreDirectory(pi, options);
+	const timestamp =
+		options.localTimestamp ?? formatLocalSavedPlanTimestamp((options.clock ?? systemClock).nowMs());
+	const publication = await resolvePlanStoreGateway(options).publishBytesAtomic({
+		directoryPath: directory.directoryPath,
+		fileNameForSequence: (sequence) => buildTimestampedSavedPlanFileName(slug, timestamp, sequence),
+		sequenceFromFileName: (fileName) => {
+			const parsed = parseSavedPlanFileName(fileName);
+			return parsed?.format === "timestamped" && parsed.timestamp === timestamp
+				? parsed.sequence
+				: undefined;
+		},
+		content,
+		...optionalEntry("signal", options.signal),
+	});
+	return {
+		...directory,
+		format: "timestamped",
+		slug,
+		filePath: publication.filePath,
+		fileName: publication.fileName,
+		fileStem: publication.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
+		timestamp,
+		timestampNumber: Number(timestamp.replace(/\D/g, "")),
+		sequence: publication.sequence,
 	};
 }
 
@@ -562,7 +637,18 @@ async function statFileIfRegular(
 }
 
 function compareSavedPlanListItems(left: SavedPlanListItem, right: SavedPlanListItem): number {
-	if (left.modifiedTimeMs !== right.modifiedTimeMs) {
+	const leftName = parseSavedPlanFileName(left.fileName);
+	const rightName = parseSavedPlanFileName(right.fileName);
+	if (leftName?.format === "timestamped" && rightName?.format === "timestamped") {
+		if (leftName.timestampNumber !== rightName.timestampNumber) {
+			return rightName.timestampNumber - leftName.timestampNumber;
+		}
+		if (leftName.sequence !== rightName.sequence) return rightName.sequence - leftName.sequence;
+	} else if (leftName?.format === "timestamped") {
+		return -1;
+	} else if (rightName?.format === "timestamped") {
+		return 1;
+	} else if (left.modifiedTimeMs !== right.modifiedTimeMs) {
 		return right.modifiedTimeMs - left.modifiedTimeMs;
 	}
 	const branchCompare = left.branchKey.localeCompare(right.branchKey);
@@ -570,6 +656,14 @@ function compareSavedPlanListItems(left: SavedPlanListItem, right: SavedPlanList
 		return branchCompare;
 	}
 	return left.fileName.localeCompare(right.fileName);
+}
+
+function decodeSavedPlanContent(content: Uint8Array): string {
+	try {
+		return new TextDecoder("utf-8", { fatal: true }).decode(content);
+	} catch {
+		throw new Error("Saved plan content must be valid UTF-8.");
+	}
 }
 
 function compareLatestSavedPlanCandidates(
