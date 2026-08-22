@@ -53,13 +53,15 @@ async function writeSavedPlan(
 		slug?: string;
 		branch?: string;
 		content?: string;
+		format?: "timestamped" | "legacy";
 	} = {},
 ): Promise<string> {
 	const slug = params.slug ?? PLAN_SLUG;
 	const branch = params.branch ?? SOURCE_BRANCH;
 	const planDirectory = join(planStoreRoot, REPO_KEY, encodeBranchForPlanPath(branch));
 	await mkdir(planDirectory, { recursive: true });
-	const filePath = join(planDirectory, `${slug}.md`);
+	const fileName = params.format === "legacy" ? `${slug}.md` : `${slug}--26-03-19T12-00-00--1.md`;
+	const filePath = join(planDirectory, fileName);
 	await writeFile(filePath, params.content ?? "# Saved Plan\n", "utf8");
 	return filePath;
 }
@@ -97,7 +99,7 @@ describe("attachBranchContextEntry", () => {
 
 	test("rejects a missing saved-plan slug with available slugs from one store listing", async () => {
 		const planStoreRoot = await makePlanStore();
-		await writeSavedPlan(planStoreRoot, { slug: "available-plan" });
+		await writeSavedPlan(planStoreRoot, { slug: "available-plan-fixture" });
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchMemoryGateway();
 
@@ -108,7 +110,7 @@ describe("attachBranchContextEntry", () => {
 				{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
 			),
 		).rejects.toThrow(
-			/No saved plan found for slug `missing-plan`\.[\s\S]*Available slugs:[\s\S]*- available-plan/,
+			/No saved plan found for slug `missing-plan`\.[\s\S]*Available slugs:[\s\S]*- available-plan-fixture/,
 		);
 		expect(git.repoRootCalls).toEqual([{ cwd: ROOT }]);
 		expect(git.originUrlCalls).toEqual([{ cwd: ROOT }]);
@@ -189,7 +191,7 @@ describe("attachBranchContextEntry", () => {
 
 	test("rejects explicit legacy plan.md attach keys", async () => {
 		const planStoreRoot = await makePlanStore();
-		const sourceFile = await writeSavedPlan(planStoreRoot);
+		const sourceFile = await writeSavedPlan(planStoreRoot, { format: "legacy" });
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchMemoryGateway();
 

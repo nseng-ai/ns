@@ -108,13 +108,13 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"older-source-plan.md",
+			"older-source-plan--26-01-01T00-00-00--1.md",
 			1_700_000_000_000,
 		);
 		const newestPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"newer-source-plan.md",
+			"newer-source-plan--26-01-02T00-00-00--1.md",
 			1_800_000_000_000,
 		);
 		await writePlanStoreFile(
@@ -139,7 +139,7 @@ describe("source branch plan path helpers", () => {
 		expect(evidence).toMatchObject({
 			slug: "newer-source-plan",
 			filePath: newestPath,
-			fileName: "newer-source-plan.md",
+			fileName: "newer-source-plan--26-01-02T00-00-00--1.md",
 			repoKey: "gh--owner--repo",
 			sourceBranch,
 			branchKey: "branch-contexts---add-widget",
@@ -231,13 +231,13 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"valid-source-plan.md",
+			"valid-source-plan--26-01-01T00-00-00--1.md",
 			1_700_000_000_000,
 		);
 		const latestPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"bad.md",
+			"bad-plan-name--26-01-02T00-00-00--1.md",
 			1_800_000_000_000,
 		);
 		const git = new InMemoryGitGateway({
@@ -253,7 +253,7 @@ describe("source branch plan path helpers", () => {
 			planStoreGateway,
 		});
 
-		expect(evidence.slug).toBe("bad");
+		expect(evidence.slug).toBe("bad-plan-name");
 		expect(evidence.filePath).toBe(latestPath);
 	});
 
@@ -265,13 +265,13 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"alpha-source-plan.md",
+			"alpha-source-plan--26-01-01T00-00-00--1.md",
 			1_800_000_000_000,
 		);
 		const expectedPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"zeta-source-plan.md",
+			"zeta-source-plan--26-01-01T00-00-00--2.md",
 			1_800_000_000_000,
 		);
 		const git = new InMemoryGitGateway({
@@ -303,7 +303,6 @@ describe("formatSavedPlanFileEvidence", () => {
 			branchKey: "branch-contexts---add-widget",
 			filePath:
 				"/plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
-			summary: "Plan the local plan store file.",
 		});
 
 		expect(text).toContain("Saved plan file in local plan store.");
@@ -316,7 +315,6 @@ describe("formatSavedPlanFileEvidence", () => {
 		expect(text).toContain("Source branch: branch-contexts/add-widget");
 		expect(text).toContain("Branch path segment: branch-contexts---add-widget");
 		expect(text).toContain(`Slug: ${PLAN_SLUG}`);
-		expect(text).toContain("Summary: Plan the local plan store file.");
 	});
 });
 

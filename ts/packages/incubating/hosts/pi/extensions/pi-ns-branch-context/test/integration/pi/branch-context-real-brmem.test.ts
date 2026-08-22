@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, test } from "vitest";
@@ -8,6 +8,7 @@ import type { RawPiExecOptions, RawPiExecResult } from "../../../src/host-types.
 import { copyExecOptionsWithout } from "@nseng-ai/foundation/exec/testing";
 import { createTempGitRepo } from "@nseng-ai/foundation/git/testing";
 import { createTempDirTracker } from "@nseng-ai/foundation/test-kit";
+import { buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@nseng-ai/plans/api";
 import registerBranchContextExtension from "../../../src/extension.ts";
 import {
 	DEFAULT_PLAN_CONTENT,
@@ -39,9 +40,10 @@ describe("branch-context extension with real Branch Memory", () => {
 				'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
 				"utf8",
 			);
-			const planFile = await createPlanFile();
+			const planStoreRoot = await tempDirs.makeTempDir("branch-context-real-brmem-plans-");
+			const planFile = await createPlanFile(repo.path, planStoreRoot);
 			const pi = new StdinDroppingPi();
-			registerBranchContextExtension(pi);
+			registerBranchContextExtension(pi, { planStoreRoot });
 			const command = pi.commands.get("ns:branch-context:from-plan");
 			if (command === undefined) throw new Error("missing branch-context command");
 
@@ -114,10 +116,12 @@ class StdinDroppingPi implements ExtensionAPI {
 	}
 }
 
-async function createPlanFile(): Promise<string> {
-	const dir = await tempDirs.makeTempDir("branch-context-real-brmem-plan-");
+async function createPlanFile(repoPath: string, planStoreRoot: string): Promise<string> {
+	const repoRoot = await realpath(repoPath);
+	const repoKey = buildRepoPlanStoreKey(repoRoot, repoRoot);
+	const dir = join(planStoreRoot, repoKey, encodeBranchForPlanPath("main"));
 	await mkdir(dir, { recursive: true });
-	const planFile = join(dir, `${PLAN_SLUG}.md`);
+	const planFile = join(dir, `${PLAN_SLUG}--26-01-02T03-04-05--1.md`);
 	await writeFile(planFile, DEFAULT_PLAN_CONTENT, "utf8");
 	return planFile;
 }

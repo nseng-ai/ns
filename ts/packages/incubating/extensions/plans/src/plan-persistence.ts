@@ -136,14 +136,6 @@ export async function resolveGitRepoRoot(
 	return root.type === "found" ? resolve(root.value) : undefined;
 }
 
-export function normalizeSummary(summary: string | undefined): string | undefined {
-	if (summary === undefined) {
-		return undefined;
-	}
-	const trimmed = summary.trim();
-	return trimmed.length > 0 ? trimmed : undefined;
-}
-
 function displayNonEmpty(value: string): string {
 	return value.length > 0 ? value : "(empty)";
 }

@@ -5,7 +5,7 @@ const TEST_MODEL_SELECTION = {
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/extension-kit/brmem-cli/testing";
-import { afterEach, expect } from "vitest";
+import { afterEach } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -28,7 +28,6 @@ type ExecResultFixture = Partial<RawPiExecResult>;
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
-	buildSavedPlanContentSlugPrompt,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
 	type SavedPlanFileEvidence,
@@ -40,7 +39,6 @@ import {
 	type BranchContextOperations,
 	type CommandContext,
 	type ExtensionAPI,
-	type ToolContext,
 	type ToolDefinition,
 } from "../src/extension.ts";
 
@@ -67,7 +65,6 @@ export const IMPL_PLAN_CONTENT = "# Impl Plan\n\n- Load the attached plan.\n- Im
 export type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 export type SendMessage = NonNullable<ExtensionAPI["sendMessage"]>;
 export type SentMessage = Parameters<SendMessage>[0] & { options?: Parameters<SendMessage>[1] };
-export type ToolUpdate = Parameters<NonNullable<Parameters<ToolDefinition["execute"]>[3]>>[0];
 
 export interface ExecCall {
 	command: string;
@@ -222,7 +219,6 @@ export interface BranchContextOperationFakes {
 	operations: BranchContextOperations;
 	loadPlanCalls: Array<Parameters<BranchContextOperations["loadBranchContextPlan"]>>;
 	createBranchCalls: Array<Parameters<BranchContextOperations["createBranchContextFromFile"]>>;
-	writePlanCalls: Array<Parameters<BranchContextOperations["writeSavedPlanFile"]>>;
 	selectPlanCalls: Array<Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>>;
 }
 
@@ -233,14 +229,12 @@ export function createBranchContextOperationFakes(
 	const createBranchCalls: Array<
 		Parameters<BranchContextOperations["createBranchContextFromFile"]>
 	> = [];
-	const writePlanCalls: Array<Parameters<BranchContextOperations["writeSavedPlanFile"]>> = [];
 	const selectPlanCalls: Array<
 		Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>
 	> = [];
 	return {
 		loadPlanCalls,
 		createBranchCalls,
-		writePlanCalls,
 		selectPlanCalls,
 		operations: {
 			async loadBranchContextPlan(...args) {
@@ -256,13 +250,6 @@ export function createBranchContextOperationFakes(
 					return overrides.createBranchContextFromFile(...args);
 				}
 				return branchContextEvidenceFromParams(args[1]);
-			},
-			async writeSavedPlanFile(...args) {
-				writePlanCalls.push(args);
-				if (overrides.writeSavedPlanFile !== undefined) {
-					return overrides.writeSavedPlanFile(...args);
-				}
-				return savedPlanEvidence({ slug: paramsSlug(args[1]) });
 			},
 			async resolveSelectedSavedPlanFile(...args) {
 				selectPlanCalls.push(args);
@@ -350,7 +337,26 @@ export function explicitSelectedPlanFile(
 	filePath = "/tmp/branch-scoped-plan-extension.md",
 	fileName = PLAN_KEY,
 ): SelectedSavedPlanFile {
-	return { type: "explicit", filePath, fileName, savedPlanFileStem: fileName.replace(/\.md$/, "") };
+	const sourceBranch = SOURCE_BRANCH;
+	const branchKey = encodeBranchForPlanPath(sourceBranch);
+	return {
+		type: "explicit",
+		plan: {
+			format: "legacy",
+			slug: fileName.replace(/\.md$/, ""),
+			filePath,
+			fileName,
+			fileStem: fileName.replace(/\.md$/, ""),
+			repoRoot: ROOT,
+			repoKey: "gh--owner--repo",
+			repoIdentitySource: "origin-url",
+			repoDirectoryPath: "/plans/gh--owner--repo",
+			sourceBranch,
+			branchKey,
+			directoryPath: `/plans/gh--owner--repo/${branchKey}`,
+			content: DEFAULT_PLAN_CONTENT,
+		},
+	};
 }
 
 export function savedPlanEvidence(
@@ -369,18 +375,6 @@ export function savedPlanEvidence(
 		branchKey: input.branchKey ?? encodeBranchForPlanPath(sourceBranch),
 		filePath: input.filePath ?? `/tmp/${slug}.md`,
 	};
-}
-
-export function paramsSlug(rawParams: unknown): string {
-	if (
-		typeof rawParams === "object" &&
-		rawParams !== null &&
-		"slug" in rawParams &&
-		typeof rawParams.slug === "string"
-	) {
-		return rawParams.slug;
-	}
-	return PLAN_SLUG;
 }
 
 export const tempDirs: string[] = [];
@@ -466,24 +460,6 @@ export function planSlugStep(
 
 export function planSlugExecCall(content: string): { command: string; args: string[] } {
 	return { command: "pi", args: planSlugArgs(content) };
-}
-
-export function savedPlanSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
-}
-
-export interface SavedPlanSlugStepOptions {
-	slug?: string;
-	result?: ExecResultFixture;
-}
-
-export function savedPlanSlugStep(
-	content: string,
-	options: SavedPlanSlugStepOptions = {},
-): ScriptedExec {
-	const slug = options.slug ?? PLAN_SLUG;
-	const result = options.result ?? { stdout: `${slug}\n` };
-	return step("pi", savedPlanSlugArgs(content), result);
 }
 
 export function contentSlugEvidence(slug: string = PLAN_SLUG): {
@@ -583,6 +559,16 @@ export async function makeNamedPlanFile(
 	return filePath;
 }
 
+export async function makeStoredPlanFile(
+	fileName = `${PLAN_SLUG}--26-03-19T12-00-00--1.md`,
+	content = DEFAULT_PLAN_CONTENT,
+): Promise<{ filePath: string; planStoreRoot: string }> {
+	const planStoreRoot = await makeTempDir("source-plan-store-");
+	const directoryPath = planStoreDirectory(planStoreRoot, SOURCE_BRANCH);
+	const filePath = await writePlanStoreFile(directoryPath, fileName, 1_800_000_000_000, content);
+	return { filePath, planStoreRoot };
+}
+
 export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): Promise<string> {
 	const dir = await makeTempDir();
 	const promptDir = join(dir, ".ns", "prompts");
@@ -655,44 +641,6 @@ export async function writePlanStoreFile(
 	const modified = new Date(modifiedTimeMs);
 	await utimes(filePath, modified, modified);
 	return filePath;
-}
-
-export function sourcePlanEvidence(input: {
-	slug: string;
-	filePath: string;
-	sourceBranch: string;
-	origin?: string;
-}): SavedPlanFileEvidence {
-	const origin = input.origin ?? "git@github.com:owner/repo.git";
-	return {
-		slug: input.slug,
-		repoRoot: ROOT,
-		repoKey: buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin)),
-		repoIdentitySource: "origin-url",
-		sourceBranch: input.sourceBranch,
-		branchKey: encodeBranchForPlanPath(input.sourceBranch),
-		filePath: input.filePath,
-	};
-}
-
-export function sourcePlanToolResultEntry(evidence: SavedPlanFileEvidence): unknown {
-	return sourcePlanToolResultEntryForTool(evidence, "write_saved_plan_file");
-}
-
-export function sourcePlanToolResultEntryForTool(
-	evidence: SavedPlanFileEvidence,
-	toolName: string,
-): unknown {
-	return {
-		type: "message",
-		message: {
-			role: "toolResult",
-			toolName,
-			isError: false,
-			content: [],
-			details: evidence,
-		},
-	};
 }
 
 export function branchContextOutputMessageEntry(content: string, details?: unknown): unknown {
@@ -833,32 +781,4 @@ export function createContext(
 		wasSessionReplaced: () => isSessionReplaced,
 		waits: () => waitCount,
 	};
-}
-
-export function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
-	ctx: ToolContext;
-	statuses: Array<{ key: string; value: string | undefined }>;
-} {
-	const statuses: Array<{ key: string; value: string | undefined }> = [];
-	return {
-		ctx: {
-			cwd: options.cwd ?? ROOT,
-			hasUI: options.hasUI ?? true,
-			ui: {
-				setStatus(key, value): void {
-					statuses.push({ key, value });
-				},
-			},
-		},
-		statuses,
-	};
-}
-
-export function registeredTool(pi: FakePi, name = "write_saved_plan_file"): ToolDefinition {
-	const tool = pi.tools.get(name);
-	expect(tool).toBeDefined();
-	if (!tool) {
-		throw new Error(`${name} was not registered`);
-	}
-	return tool;
 }

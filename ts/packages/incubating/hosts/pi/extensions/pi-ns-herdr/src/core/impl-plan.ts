@@ -1,6 +1,6 @@
 /**
- * Herdr impl-plan: attaches the latest session-saved plan to a
- * Graphite-tracked branch via branch-context, then opens the branch either in
+ * Herdr impl-plan: attaches the latest durable timestamped Saved Plan to a
+ * Graphite-tracked branch via Branch Context, then opens the branch either in
  * a new Herdr space (impl:plan:space) or in a focused tab inside
  * the caller's Herdr space (impl:plan:tab).
  *
@@ -32,7 +32,7 @@ import {
 	type BranchContextOutputDetails,
 	type ReadyPreparedPlanBranchContext,
 } from "@nseng-ai/branch-context/api";
-import { prepareLatestSessionSavedPlan, type ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
+import { resolveSelectedSavedPlanFile, type DurableSavedPlan } from "@nseng-ai/plans/api";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import {
 	prepareLocalGraphiteTrunk,
@@ -134,17 +134,11 @@ export async function handleHerdrSlotImplPlan(
 
 		options.notifyProgress("Finding latest saved plan…");
 		setStatus(ctx, config, "finding latest saved plan…");
-		const selected = await prepareLatestSessionSavedPlan(pi, {
+		const selected = await resolveSelectedSavedPlanFile(pi, {
 			cwd: ctx.cwd,
-			entries: ctx.sessionManager?.getBranch?.() ?? [],
 			...optionalEntry("planStoreRoot", options.dependencies.planStoreRoot),
 		});
-		if (!selected.ok) {
-			present(ctx, selected.error, "error");
-			return;
-		}
-
-		const checkout = selected.directory;
+		const checkout = selected.plan;
 		const selectedPlan = selected.plan;
 		const basis =
 			selection.basis === "trunk"
@@ -364,7 +358,7 @@ async function createAttachAndImplement(options: {
 }
 
 function formatDryRun(options: {
-	plan: ValidatedSessionSavedPlan;
+	plan: DurableSavedPlan;
 	operation: BranchContextCreateOperation;
 	branchContextPreview: string;
 	launchOptions: PiLaunchOptions;
@@ -389,7 +383,6 @@ function formatDryRun(options: {
 		`Repo identity source: ${plan.repoIdentitySource}`,
 		`Source branch: ${plan.sourceBranch}`,
 		`Branch path segment: ${plan.branchKey}`,
-		plan.summary ? `Summary: ${plan.summary}` : undefined,
 		...(options.basis.type === "current-head"
 			? []
 			: [

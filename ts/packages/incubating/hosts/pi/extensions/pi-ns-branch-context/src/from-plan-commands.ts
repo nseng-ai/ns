@@ -90,7 +90,7 @@ Options:
 
 ${GRAPHITE_BRANCH_CREATION_HELP}
 
-With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
+With no file path, the command selects the latest timestamped Saved Plan in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
@@ -109,7 +109,7 @@ Options:
 ${GRAPHITE_BRANCH_CREATION_HELP}
 
 The current branch must be trunk or a Graphite-tracked branch; otherwise this command fails before creating a branch or attaching a plan.
-With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
+With no file path, the command selects the latest timestamped Saved Plan in the current repo/source branch local plan store directory.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 
 This command intentionally models the manual flow: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} --graphite, git checkout <branch>, /new, then /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> in the new Pi session.`;
@@ -122,7 +122,7 @@ Options:
   --dry-run          Show the selected plan and launch flow without mutating or starting a session.
   --help, -h         Show this help.
 
-With no file path, the command prefers the most recent Saved Plan represented in the current session, then falls back to the newest .md Saved Plan in the current repo/source branch local plan store directory.
+With no file path, the command selects the latest timestamped Saved Plan in the current repo/source branch local plan store directory.
 An explicit file path selects that Saved Plan even when it is older. The path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 Branch creation flags such as --branch, --graphite, and --plain-git are intentionally unsupported.`;
 
@@ -153,14 +153,13 @@ interface ExplicitImplSavedPlanPreview extends ImplSavedPlanPreviewBase {
 }
 
 interface StoredImplSavedPlanPreview extends ImplSavedPlanPreviewBase {
-	mode: "latest" | "session";
+	mode: "latest";
 	repoRoot: string;
 	repoKey: string;
 	repoIdentitySource: RepoIdentitySource;
 	sourceBranch: string;
 	branchKey: string;
-	modifiedTimeMs?: number;
-	summary?: string;
+	modifiedTimeMs: number;
 }
 
 export type ImplSavedPlanPreview = ExplicitImplSavedPlanPreview | StoredImplSavedPlanPreview;
@@ -179,7 +178,6 @@ interface CreateBranchContextPreviewBase {
 	branchSelection?: BranchContextBranchSelection;
 	slugEvidence: PlanContentSlugEvidence;
 	branchCreation: BranchCreationMethod;
-	summary?: string;
 }
 
 interface ExplicitCreateBranchContextPreview extends CreateBranchContextPreviewBase {
@@ -187,7 +185,7 @@ interface ExplicitCreateBranchContextPreview extends CreateBranchContextPreviewB
 }
 
 interface StoredCreateBranchContextPreview extends CreateBranchContextPreviewBase {
-	mode: "latest" | "session";
+	mode: "latest";
 	repoRoot: string;
 	repoKey: string;
 	repoIdentitySource: RepoIdentitySource;
@@ -211,14 +209,13 @@ interface ExplicitSavedPlanEvidence {
 }
 
 interface StoredSavedPlanEvidence {
-	mode: "latest" | "session";
+	mode: "latest";
 	repoRoot: string;
 	repoKey: string;
 	repoIdentitySource: RepoIdentitySource;
 	sourceBranch: string;
 	branchKey: string;
 	modifiedTimeMs: number;
-	summary?: string;
 }
 
 type SelectedSavedPlanEvidence = ExplicitSavedPlanEvidence | StoredSavedPlanEvidence;
@@ -436,7 +433,7 @@ export async function deriveCreateBranchContextPreview(
 	}
 	const base = {
 		slug: slugEvidence.slug,
-		savedPlanFileStem: selected.savedPlanFileStem,
+		savedPlanFileStem: selected.plan.fileStem,
 		filePath: selectedFile.filePath,
 		fileName: selectedFile.fileName,
 		planKey,
@@ -466,9 +463,7 @@ export function formatCreateBranchContextPreview(preview: CreateBranchContextPre
 	const lines = [
 		preview.mode === "explicit"
 			? "Explicit saved plan file:"
-			: preview.mode === "session"
-				? "Saved plan from current session:"
-				: "Latest saved plan from local plan store:",
+			: "Latest saved plan from local plan store:",
 	];
 	lines.push(`Path: ${preview.filePath}`);
 	lines.push(`Saved-plan file stem: ${preview.savedPlanFileStem}`);
@@ -501,7 +496,7 @@ export async function deriveImplSavedPlanPreview(
 	const selectedFile = selectedSavedPlanFileInfo(selected);
 	const planContent = await readFile(selectedFile.filePath, "utf8");
 	const base = {
-		savedPlanFileStem: selected.savedPlanFileStem,
+		savedPlanFileStem: selected.plan.fileStem,
 		filePath: selectedFile.filePath,
 		fileName: selectedFile.fileName,
 		planContent,
@@ -514,9 +509,7 @@ export function formatImplSavedPlanEvidence(preview: ImplSavedPlanPreview): stri
 	const lines = [
 		preview.mode === "explicit"
 			? "Explicit saved plan file:"
-			: preview.mode === "session"
-				? "Saved plan from current session:"
-				: "Latest saved plan from local plan store:",
+			: "Latest saved plan from local plan store:",
 	];
 	lines.push(`Path: ${preview.filePath}`);
 	lines.push(`File name: ${preview.fileName}`);
@@ -531,9 +524,6 @@ export function formatImplSavedPlanEvidence(preview: ImplSavedPlanPreview): stri
 		lines.push(`Branch path segment: ${preview.branchKey}`);
 		if (preview.modifiedTimeMs !== undefined) {
 			lines.push(`Modified: ${new Date(preview.modifiedTimeMs).toISOString()}`);
-		}
-		if (preview.summary !== undefined) {
-			lines.push(`Summary: ${preview.summary}`);
 		}
 	}
 	return lines.join("\n");
@@ -585,7 +575,6 @@ export async function handleImplBranchContextCommand(
 			cwd: ctx.cwd,
 			context: resolveBranchContextContext(pi, ctx.cwd, options),
 			...optionalEntry("planStoreRoot", resolvePlanStoreRootOption(options)),
-			sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
 		});
 		presentBranchContextMessage(
 			pi,
@@ -969,7 +958,6 @@ async function createBranchContextFromPreview({
 		filePath: string;
 		creation: ReturnType<typeof branchContextCreationPolicyFromMethod>;
 		branchName?: string;
-		summary?: string;
 	} = {
 		slug: preview.slug,
 		filePath: preview.filePath,
@@ -978,10 +966,6 @@ async function createBranchContextFromPreview({
 	if (preview.branchNameForCreation !== undefined) {
 		params.branchName = preview.branchNameForCreation;
 	}
-	if (preview.summary !== undefined) {
-		params.summary = preview.summary;
-	}
-
 	return operations.createBranchContextFromFile(pi, params, {
 		cwd: ctx.cwd,
 		context: resolveBranchContextContext(pi, ctx.cwd, extensionOptions),
@@ -1137,8 +1121,6 @@ async function resolveSelectedSavedPlanFile(
 	return operations.resolveSelectedSavedPlanFile(pi, {
 		cwd: ctx.cwd,
 		...optionalEntries({ planStoreRoot, explicitPath: args.filePath }),
-		sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
-		shouldFallbackToLatest: true,
 	});
 }
 
@@ -1146,9 +1128,6 @@ function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): {
 	filePath: string;
 	fileName: string;
 } {
-	if (selected.type === "explicit") {
-		return { filePath: selected.filePath, fileName: selected.fileName };
-	}
 	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 }
 
@@ -1164,9 +1143,6 @@ function selectedSavedPlanEvidence(selected: SelectedSavedPlanFile): SelectedSav
 		sourceBranch: selected.plan.sourceBranch,
 		branchKey: selected.plan.branchKey,
 		modifiedTimeMs: selected.plan.modifiedTimeMs,
-		...(selected.type === "session" && selected.plan.summary !== undefined
-			? { summary: selected.plan.summary }
-			: {}),
 	};
 }
 
@@ -1258,7 +1234,7 @@ export function registerBranchContextCommands(
 		commandName: IMPL_SAVED_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
-				"Implement a session-selected, latest fallback, or explicit Saved Plan in a fresh current-branch Pi session without attaching Branch Context.",
+				"Implement the latest durable or an explicit Saved Plan in a fresh current-branch Pi session without attaching Branch Context.",
 			handler: async (args, ctx) => handleImplSavedPlanCommand(pi, args, ctx, options),
 		},
 	});

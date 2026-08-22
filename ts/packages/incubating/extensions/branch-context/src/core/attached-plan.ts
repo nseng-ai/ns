@@ -49,7 +49,6 @@ export interface LoadAttachedPlanOptions {
 	context: BranchContextContext;
 	signal?: AbortSignal;
 	planStoreRoot?: string;
-	sessionEntries?: readonly unknown[];
 	readTextFile?: (path: string) => Promise<string>;
 }
 
@@ -256,12 +255,7 @@ async function loadSavedPlanFallback(
 	const selected = await resolveSelectedSavedPlanFile(pi, {
 		cwd: options.cwd,
 		git: options.context.git,
-		...optionalEntries({
-			planStoreRoot: options.planStoreRoot,
-			sessionEntries: options.sessionEntries,
-		}),
-		shouldAllowSessionSourceBranchMismatch: true,
-		shouldFallbackToLatest: true,
+		...optionalEntries({ planStoreRoot: options.planStoreRoot }),
 	});
 	const fileInfo = selectedSavedPlanFileInfo(selected);
 	const readTextFile = options.readTextFile ?? defaultReadTextFile;
@@ -286,9 +280,6 @@ function defaultReadTextFile(path: string): Promise<string> {
 function selectedSavedPlanFileInfo(
 	selected: Awaited<ReturnType<typeof resolveSelectedSavedPlanFile>>,
 ): { filePath: string; fileName: string } {
-	if (selected.type === "explicit") {
-		return { filePath: selected.filePath, fileName: selected.fileName };
-	}
 	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 }
 

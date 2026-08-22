@@ -6,7 +6,7 @@ The branch-context workflow turns a reviewed Saved plan into an implementation b
 
 The workflow has two storage layers:
 
-- **Local plan store**: `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`), owned by `@nseng-ai/plans` and the `enriched-plan` CLI.
+- **Local plan store**: `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md` (default `$HOME/.local/state/ns/enriched-plan/...`), owned by `@nseng-ai/plans` and the `enriched-plan` CLI. Legacy `<slug>.md` files remain listable but are explicit-only.
 - **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@nseng-ai/branch-context` and the `branch-context` CLI. From-plan attachments use `<branch-context-slug>.md`; the legacy `plan.md` key is not a supported attached-plan key.
 
 Branch Memory is the lower storage adapter for attached branch context entries. It stores text under explicit namespace/key contracts, but branch-context policy belongs to the planning layer. Branch context is standing context on a branch, not a special branch type; a plan can be the founding entry where one exists.
@@ -25,30 +25,38 @@ For Pi users, `/ns:branch-context:upstack-impl-from-plan` creates or reuses a br
 Pi users run `/ns:plan:save`. The static planning-policy body lives at:
 
 ```text
-.ns/prompts/plans-write.md
+.ns/prompts/branch-context.plans-write.md
 ```
 
-For `/ns:plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
+For `/ns:plan:save`, the TypeScript Pi extension resolves this prompt Point from the current Git root and falls back to its built-in prompt body if resolution or safe reading fails.
 
-The structured grilling variant is `/ns:plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`. The `grill_ask` tool is inactive by default in a fresh session; invoking `/ns:plan:grill-and-save` (or a `/pi:grill-*` command) activates it before the kickoff prompt is sent, and it stays active for the rest of that session rather than depending on global availability. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
+The structured grilling variant is `/ns:plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved Plan artifact through the same CLI save contract. The `grill_ask` tool is inactive by default in a fresh session; invoking `/ns:plan:grill-and-save` (or a `/pi:grill-*` command) activates it before the kickoff prompt is sent, and it stays active for the rest of that session rather than depending on global availability. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
 
-Saved plans are written to:
+Both commands save exact bytes through a temporary regular file and the hidden, deterministic file-input operation:
 
 ```text
-$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+enriched-plan exec save --content-file <temporary-path> --format json
 ```
 
-When `XDG_STATE_HOME` is unset, the default is `$HOME/.local/state/ns/enriched-plan/...`. Legacy `~/.ns/enriched-plan/...` files are not read, migrated, or dual-written.
+The CLI derives the slug from the content and writes:
 
-Saving a plan creates no implementation branch, writes no Branch Memory, and checks in no plan artifact.
+```text
+$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md
+```
+
+The slug contains 3–7 lowercase kebab-case tokens, includes at least one specific non-generic token, and excludes date-like year tokens. `YY-MM-DDTHH-mm-ss` is valid local wall-clock time, and `sequence` is a positive integer used for same-second publication. When `XDG_STATE_HOME` is unset, the default is `$HOME/.local/state/ns/enriched-plan/...`. Legacy `~/.ns/enriched-plan/...` files are not read, migrated, or dual-written.
+
+There is no `write_saved_plan_file` model-visible tool and no Saved Plan session evidence. Saving a plan creates no implementation branch, attaches no Branch Context, writes no Branch Memory, and checks in no plan artifact.
 
 ## Resolve or inspect saved plans
 
-Resolve a specific saved plan, or the latest saved plan for the current repo/source branch:
+Resolve an explicit validated Saved Plan, or the latest timestamped Saved Plan for the current repository/source branch:
 
 ```text
 enriched-plan exec resolve [absolute-or-home-plan-file.md] [--format json]
 ```
+
+Explicit resolution accepts timestamped or legacy filename grammar and validates that the path is a regular file lexically and physically contained in the current source branch's Local Plan Store. With no path, resolution ignores legacy `<slug>.md` files and selects the greatest parsed local timestamp, then the greatest sequence. Filesystem modification time is not the selection authority. Local clock rollback, timezone changes, and daylight-saving fallback can therefore make implicit latest selection inaccurate; this is an accepted local-store limitation. Pass an explicit path when ordering is uncertain.
 
 Inspect saved plans for the current repository:
 
@@ -145,9 +153,9 @@ This does not switch the current checkout. The plan attachment still passes the 
 
 ### `upstack-impl-session` creation and resumption
 
-On the creation path, `/ns:branch-context:upstack-impl-from-plan` resolves a Saved plan from the Local plan store before creating or attaching anything. With no explicit plan path, it prefers the most recent Saved plan created in the current Pi session, then falls back to the newest Markdown file in the current repository/source-branch Local plan store directory.
+On the creation path, `/ns:branch-context:upstack-impl-from-plan` resolves a Saved Plan from the Local Plan Store before creating or attaching anything. With no explicit plan path, it selects the latest timestamped Saved Plan by parsed local timestamp and sequence. It does not consult Pi session messages or tool-call evidence. Legacy `<slug>.md` files require an explicit path.
 
-An explicit plan path may be absolute or current-user home-relative with `~` or `~/`; a leading `@` is accepted and stripped, and the normalized path must be absolute and end in `.md`.
+An explicit plan path may be absolute or current-user home-relative with `~` or `~/`; a leading `@` is accepted and stripped. The normalized path must be absolute, match valid timestamped or legacy Saved Plan filename grammar, be a regular file, and remain lexically and physically inside the current repository/source-branch Local Plan Store.
 
 After resolving the Saved plan, the command derives the branch-context slug from the plan content. With Graphite creation, it verifies that the current branch is trunk or Graphite-tracked before creating a branch or attaching a plan. Only after those preconditions pass does it create the target branch and attach the plan in Branch Memory namespace `branch-context` with key `<branch-context-slug>.md`.
 
@@ -158,7 +166,7 @@ Resumption verifies candidate branches by listing branch-context entries in Bran
 Candidate selection order for resumption is:
 
 1. `--branch <name>`: verify that exact branch has one selectable branch-context entry. No other candidates are tried.
-2. Current-session branch-context session artifact: verify the single `{ branch, key }` candidate from prior branch-context command output in the current Pi session.
+2. Current-session Branch Context resumption artifact: verify the single `{ branch, key }` candidate from prior branch-context command output in the current Pi session. This is Attached Plan reuse evidence, not Saved Plan selection evidence.
 3. Current Git branch: verify the current branch has one selectable branch-context entry. This is useful when you are already checked out on the implementation branch.
 
 Candidates are verified in that order and the first verified candidate wins. If no candidate verifies, the command fails with one message listing every verification failure, including a current branch that could not be resolved.
@@ -230,6 +238,6 @@ brmem get <key> --namespace branch-context --branch <branch>
 
 ## Related surfaces
 
-- Pi commands: `/ns:plan:save`, `/ns:plan:grill-and-save`, `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`.
+- Pi commands: `/ns:plan:save`, `/ns:plan:grill-and-save`, `/ns:plan:impl-saved-plan`, `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`.
 - CLIs: `enriched-plan`, `branch-context`, and low-level `brmem`.
 - Agent skills: `branch-context`, `branch-context-from-plan`, and `branch-context-impl`.

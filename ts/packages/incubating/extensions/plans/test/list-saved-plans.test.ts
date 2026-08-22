@@ -36,16 +36,16 @@ describe("listSavedPlans", () => {
 		const fixture = await makeFixture();
 		const featureBranchKey = encodeBranchForPlanPath("feature/source-plan");
 		const otherBranchKey = encodeBranchForPlanPath("bugfix/other-plan");
-		const olderPath = await writePlanFile({
+		const legacyPath = await writePlanFile({
 			fixture,
 			branchKey: featureBranchKey,
 			fileName: "first-useful-saved-plan.md",
 			modifiedTimeMs: 1_700_000_000_000,
 		});
-		const newerPath = await writePlanFile({
+		const timestampedPath = await writePlanFile({
 			fixture,
 			branchKey: otherBranchKey,
-			fileName: "second-useful-saved-plan.md",
+			fileName: "second-useful-saved-plan--26-03-19T12-00-00--1.md",
 			modifiedTimeMs: 1_800_000_000_000,
 		});
 		await writePlanFile({
@@ -69,14 +69,14 @@ describe("listSavedPlans", () => {
 			{
 				slug: "second-useful-saved-plan",
 				branchKey: otherBranchKey,
-				fileName: "second-useful-saved-plan.md",
-				filePath: newerPath,
+				fileName: "second-useful-saved-plan--26-03-19T12-00-00--1.md",
+				filePath: timestampedPath,
 			},
 			{
 				slug: "first-useful-saved-plan",
 				branchKey: featureBranchKey,
 				fileName: "first-useful-saved-plan.md",
-				filePath: olderPath,
+				filePath: legacyPath,
 			},
 		]);
 	});
@@ -248,9 +248,13 @@ describe("plans list CLI", () => {
 describe("plans exec CLI", () => {
 	test("resolve returns explicit paths and the latest saved source-branch plan", async () => {
 		const fixture = await makeFixture();
-		const outsideDir = makeTempDir();
-		const explicitPlan = join(outsideDir, "explicit.md");
-		fixture.planStoreGateway.writeFile(explicitPlan, "# Explicit\n");
+		const branchKey = encodeBranchForPlanPath("feature/source-plan");
+		const explicitPlan = await writePlanFile({
+			fixture,
+			branchKey,
+			fileName: "explicit-saved-plan.md",
+			modifiedTimeMs: 1_000,
+		});
 
 		const explicitOutput = createOutputCapture();
 		const explicitExitCode = await runCli(["exec", "resolve", explicitPlan, "--format", "json"], {
@@ -258,6 +262,7 @@ describe("plans exec CLI", () => {
 			git: fixture.git,
 			commands: unusedCommands,
 			planStoreGateway: fixture.planStoreGateway,
+			planStoreRoot: fixture.planStoreRoot,
 			stdout: explicitOutput.stdout,
 			stderr: explicitOutput.stderr,
 		});
@@ -270,17 +275,16 @@ describe("plans exec CLI", () => {
 			},
 		});
 
-		const branchKey = encodeBranchForPlanPath("feature/source-plan");
 		const older = await writePlanFile({
 			fixture,
 			branchKey,
-			fileName: "older-plan-file.md",
+			fileName: "older-plan-file--26-01-01T00-00-00--1.md",
 			modifiedTimeMs: 1_000,
 		});
 		const newer = await writePlanFile({
 			fixture,
 			branchKey,
-			fileName: "newer-plan-file.md",
+			fileName: "newer-plan-file--26-01-02T00-00-00--1.md",
 			modifiedTimeMs: 2_000,
 		});
 		void older;

@@ -1,6 +1,5 @@
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
-import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
+import type { DurableSavedPlan, PlanStoreDirectoryEvidence } from "@nseng-ai/plans/api";
 import { resolvePlanSourceFile } from "@nseng-ai/plans";
 
 import {
@@ -19,7 +18,7 @@ import type { BranchContextContext } from "./context.ts";
 import { derivePlanContentSlug } from "./plan-content-slug.ts";
 
 interface PreparedPlanBranchContextDetails {
-	plan: ValidatedSessionSavedPlan;
+	plan: DurableSavedPlan;
 	checkout: PlanStoreDirectoryEvidence;
 	operation: BranchContextCreateOperation;
 	context: BranchContextContext;
@@ -41,7 +40,7 @@ export type PreparedPlanBranchContext =
 export async function preparePlanBranchContext(
 	pi: CommandExecApi,
 	options: {
-		plan: ValidatedSessionSavedPlan;
+		plan: DurableSavedPlan;
 		checkout: PlanStoreDirectoryEvidence;
 		context: BranchContextContext;
 		shouldBuildPreview?: boolean;
@@ -56,7 +55,6 @@ export async function preparePlanBranchContext(
 		slug: slugEvidence.slug,
 		filePath: options.plan.filePath,
 		creation: options.creation,
-		...optionalEntries({ summary: options.plan.summary }),
 	});
 	const creationDescriptor = describeBranchContextCreationPolicy(options.creation);
 	const operation =

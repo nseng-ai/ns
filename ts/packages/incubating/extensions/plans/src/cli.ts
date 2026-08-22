@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
+import type { Clock } from "@nseng-ai/foundation/clock";
 import {
 	defineCli,
 	runOperationCommand,
@@ -16,19 +17,22 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { z } from "zod";
 
-import { normalizePlanFilePath, resolvePlanSourceFile } from "./plan-persistence.ts";
+import { normalizePlanFilePath } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import {
 	buildPlanStoreOptions,
 	findLatestSavedPlanFile,
 	NoSavedPlanAvailableError,
 	listSavedPlans,
-	type LatestSavedPlanFileEvidence,
+	savePlanContentBytes,
+	type DurableSavedPlan,
 	type PlanStoreOptions,
+	type TimestampedDurableSavedPlan,
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
+import { resolveExplicitSavedPlanFile } from "./saved-plan-selection.ts";
 
-type PlansOperation = "list" | "resolve";
+type PlansOperation = "list" | "save" | "resolve";
 
 const listRequestSchema = z.object({
 	planStoreRoot: z
@@ -37,35 +41,115 @@ const listRequestSchema = z.object({
 		.describe("Plan store root directory (relative paths resolve against cwd)."),
 });
 
+const listResultSchema = z.object({
+	plans: z.array(
+		z.object({
+			format: z.enum(["timestamped", "legacy"]),
+			slug: z.string(),
+			branchKey: z.string(),
+			modifiedTimeMs: z.number(),
+			path: z.string(),
+			fileName: z.string(),
+			repo: z.object({
+				root: z.string(),
+				key: z.string(),
+				identitySource: z.enum(["origin-url", "repo-root"]),
+				planStorePath: z.string(),
+			}),
+		}),
+	),
+});
+
+const saveRequestSchema = z.object({
+	contentFile: z
+		.string()
+		.describe("Markdown content file path (relative paths resolve against cwd)."),
+});
+const saveResultSchema = z.object({
+	format: z.literal("timestamped"),
+	slug: z.string(),
+	filePath: z.string(),
+	fileName: z.string(),
+	fileStem: z.string(),
+	timestamp: z.string(),
+	timestampNumber: z.number().int(),
+	sequence: z.number().int().positive(),
+	repoRoot: z.string(),
+	repoKey: z.string(),
+	repoIdentitySource: z.enum(["origin-url", "repo-root"]),
+	sourceBranch: z.string(),
+	branchKey: z.string(),
+	directoryPath: z.string(),
+});
+
 const resolveRequestSchema = z.object({
 	path: z.string().optional().describe("Absolute, @-prefixed, or home-relative plan file path."),
 });
+const durablePlanResultBaseSchema = z.object({
+	filePath: z.string(),
+	fileName: z.string(),
+	fileStem: z.string(),
+	slug: z.string(),
+	repoRoot: z.string(),
+	repoKey: z.string(),
+	repoIdentitySource: z.enum(["origin-url", "repo-root"]),
+	sourceBranch: z.string(),
+	branchKey: z.string(),
+	directoryPath: z.string(),
+});
+const timestampedPlanResultSchema = durablePlanResultBaseSchema.extend({
+	format: z.literal("timestamped"),
+	timestamp: z.string(),
+	timestampNumber: z.number().int(),
+	sequence: z.number().int().positive(),
+});
+const legacyPlanResultSchema = durablePlanResultBaseSchema.extend({
+	format: z.literal("legacy"),
+});
+const resolveResultSchema = z.union([
+	timestampedPlanResultSchema.extend({ source: z.literal("explicit") }),
+	legacyPlanResultSchema.extend({ source: z.literal("explicit") }),
+	timestampedPlanResultSchema.extend({
+		source: z.literal("latest"),
+		modifiedTimeMs: z.number(),
+	}),
+]);
 
 type ListRequest = z.infer<typeof listRequestSchema>;
+type SaveRequest = z.infer<typeof saveRequestSchema>;
 type ResolveRequest = z.infer<typeof resolveRequestSchema>;
 
-interface ExplicitResolvePlanEvidence {
-	source: "explicit";
-	filePath: string;
-}
-
-type LatestResolvePlanEvidence = LatestSavedPlanFileEvidence & { source: "latest" };
+type ExplicitResolvePlanEvidence = DurableSavedPlan & { source: "explicit" };
+type LatestResolvePlanEvidence = TimestampedDurableSavedPlan & {
+	source: "latest";
+	modifiedTimeMs: number;
+};
 
 type ResolvePlanEvidence = ExplicitResolvePlanEvidence | LatestResolvePlanEvidence;
 
-type SavedPlanListData = ReturnType<typeof savedPlanListJson>;
+type SavedPlanListData = z.infer<typeof listResultSchema>;
 interface NoSavedPlanData {
 	code: NoSavedPlanAvailableError["reason"];
 	directoryPath: string;
 }
 
-type ResolvePlanData = ReturnType<typeof resolvePlanJson> | NoSavedPlanData;
+interface ExplicitResolveFailureData {
+	code: "not-found" | "unsafe" | "error";
+	path: string;
+}
+
+type ResolvePlanData =
+	| z.infer<typeof resolveResultSchema>
+	| NoSavedPlanData
+	| ExplicitResolveFailureData;
 
 export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "stderr"> {
 	commands?: CommandExecApi;
 	git?: GitGateway;
 	planStoreRoot?: string;
 	planStoreGateway?: PlanStoreGateway;
+	clock?: Clock;
+	localTimestamp?: string;
 }
 
 export interface PlansCliContext {
@@ -74,6 +158,8 @@ export interface PlansCliContext {
 	cwd: string;
 	planStoreRoot?: string;
 	planStoreGateway: PlanStoreGateway;
+	clock?: Clock;
+	localTimestamp?: string;
 }
 
 const entry = defineCli<PlansCliContext, CliDeps, undefined>({
@@ -86,7 +172,11 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			commands,
 			git: deps.git ?? new RealGitGateway(commands),
 			cwd,
-			planStoreGateway: deps.planStoreGateway ?? createRealPlanStoreGateway(),
+			planStoreGateway:
+				deps.planStoreGateway ??
+				createRealPlanStoreGateway(deps.clock === undefined ? {} : { clock: deps.clock }),
+			...(deps.clock === undefined ? {} : { clock: deps.clock }),
+			...(deps.localTimestamp === undefined ? {} : { localTimestamp: deps.localTimestamp }),
 			...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
 		};
 		return { type: "run", context, buildState: undefined };
@@ -96,6 +186,7 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			name: "list",
 			description: "List saved plans for the current repository across all branch keys.",
 			schema: listRequestSchema,
+			resultSchema: listResultSchema,
 			handler: handleList,
 			renderHuman: formatSavedPlanListData,
 		});
@@ -106,10 +197,19 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			isHidden: true,
 		});
 		execGroup.command({
+			name: "save",
+			description: "Save Markdown bytes as a timestamped source-branch plan.",
+			schema: saveRequestSchema,
+			resultSchema: saveResultSchema,
+			handler: handleSave,
+			renderHuman: renderSavedPlan,
+		});
+		execGroup.command({
 			name: "resolve",
 			description: "Resolve an explicit or latest source-branch plan file.",
 			schema: resolveRequestSchema,
 			positionals: { path: { position: 0 } },
+			resultSchema: resolveResultSchema,
 			handler: handleResolve,
 			renderHuman: renderResolvePlanData,
 		});
@@ -146,6 +246,22 @@ async function handleList(
 	});
 }
 
+async function handleSave(
+	ctx: PlansCliContext,
+	request: SaveRequest,
+): Promise<ClinkrExit<z.infer<typeof saveResultSchema>>> {
+	return await runOperationCommand({
+		operation: "save",
+		action: async () => {
+			const contentPath = resolve(ctx.cwd, normalizePlanFilePath(request.contentFile));
+			const content = await ctx.planStoreGateway.readRegularFileBytes(contentPath);
+			const plan = await savePlanContentBytes(ctx.commands, content, planStoreOptions(ctx));
+			return ok(savedPlanJson(plan));
+		},
+		failureFromError: plansFailureFromError,
+	});
+}
+
 async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
@@ -154,7 +270,15 @@ async function handleResolve(
 		operation: "resolve",
 		action: async () => {
 			try {
-				return ok(resolvePlanJson(await resolvePlanEvidence(request, ctx)));
+				const evidence = await resolvePlanEvidence(request, ctx);
+				if (evidence.type === "resolved") return ok(resolvePlanJson(evidence.evidence));
+				const data: ExplicitResolveFailureData = {
+					code: evidence.type,
+					path: normalizePlanFilePath(request.path ?? ""),
+				};
+				return evidence.type === "error"
+					? failure("saved-plan-resolution-failed", evidence.message, data)
+					: negative(evidence.message, { data });
 			} catch (error) {
 				if (error instanceof NoSavedPlanAvailableError) {
 					return negative(error.message, {
@@ -183,6 +307,8 @@ function planStoreOptions(
 		git: ctx.git,
 		planStoreGateway: ctx.planStoreGateway,
 		planStoreRoot,
+		...(ctx.clock === undefined ? {} : { clock: ctx.clock }),
+		...(ctx.localTimestamp === undefined ? {} : { localTimestamp: ctx.localTimestamp }),
 	});
 }
 
@@ -190,6 +316,8 @@ function plansErrorType(operation: PlansOperation): string {
 	switch (operation) {
 		case "list":
 			return "saved-plan-list-failed";
+		case "save":
+			return "saved-plan-write-failed";
 		case "resolve":
 			return "saved-plan-resolution-failed";
 	}
@@ -200,21 +328,25 @@ function normalizeRootPath(rawPath: string, cwd: string): string {
 	return resolve(cwd, normalized);
 }
 
+type ResolvePlanEvidenceResult =
+	| { type: "resolved"; evidence: ResolvePlanEvidence }
+	| { type: "not-found" | "unsafe" | "error"; message: string };
+
 async function resolvePlanEvidence(
 	args: ResolveRequest,
 	ctx: PlansCliContext,
-): Promise<ResolvePlanEvidence> {
+): Promise<ResolvePlanEvidenceResult> {
 	if (args.path !== undefined) {
-		const filePath = await resolvePlanSourceFile(ctx.commands, {
-			cwd: ctx.cwd,
-			rawFilePath: args.path,
-			git: ctx.git,
-			planStoreGateway: ctx.planStoreGateway,
+		const result = await resolveExplicitSavedPlanFile(ctx.commands, {
+			...planStoreOptions(ctx),
+			explicitPath: args.path,
 		});
-		return { source: "explicit", filePath };
+		return result.type === "resolved"
+			? { type: "resolved", evidence: { source: "explicit", ...result.plan } }
+			: result;
 	}
 	const latest = await findLatestSavedPlanFile(ctx.commands, planStoreOptions(ctx));
-	return { source: "latest", ...latest };
+	return { type: "resolved", evidence: { source: "latest", ...latest } };
 }
 
 function formatSavedPlanListData(data: SavedPlanListData): string {
@@ -227,6 +359,7 @@ function formatSavedPlanListData(data: SavedPlanListData): string {
 		lines.push(
 			[
 				`- ${plan.slug}`,
+				`  Format: ${plan.format}`,
 				`  Branch key: ${plan.branchKey}`,
 				`  Modified: ${new Date(plan.modifiedTimeMs).toISOString()}`,
 				`  Path: ${plan.path}`,
@@ -238,10 +371,17 @@ function formatSavedPlanListData(data: SavedPlanListData): string {
 
 function renderResolvePlanData(data: ResolvePlanData): string {
 	if (!("source" in data)) {
-		return `No saved plan available: ${data.code}\nDirectory: ${data.directoryPath}`;
+		return "directoryPath" in data
+			? `No saved plan available: ${data.code}\nDirectory: ${data.directoryPath}`
+			: `Saved Plan resolution did not succeed: ${data.code}\nPath: ${data.path}`;
 	}
 	if (data.source === "explicit") {
-		return [`Resolved explicit plan file.`, `Path: ${data.filePath}`].join("\n");
+		return [
+			"Resolved explicit saved plan file in local plan store.",
+			`Path: ${data.filePath}`,
+			`Format: ${data.format}`,
+			`Slug: ${data.slug}`,
+		].join("\n");
 	}
 	return [
 		"Resolved latest saved plan file in local plan store.",
@@ -256,13 +396,42 @@ function renderResolvePlanData(data: ResolvePlanData): string {
 	].join("\n");
 }
 
-function savedPlanListJson(plans: readonly SavedPlanListItem[]): {
-	plans: ReturnType<typeof savedPlanListItemJson>[];
-} {
+function renderSavedPlan(data: z.infer<typeof saveResultSchema>): string {
+	return [
+		"Saved timestamped plan file in local plan store.",
+		`Path: ${data.filePath}`,
+		`Slug: ${data.slug}`,
+		`Timestamp: ${data.timestamp}`,
+		`Sequence: ${data.sequence}`,
+		`Source branch: ${data.sourceBranch}`,
+	].join("\n");
+}
+
+function savedPlanJson(plan: TimestampedDurableSavedPlan): z.infer<typeof saveResultSchema> {
+	return {
+		format: plan.format,
+		slug: plan.slug,
+		filePath: plan.filePath,
+		fileName: plan.fileName,
+		fileStem: plan.fileStem,
+		timestamp: plan.timestamp,
+		timestampNumber: plan.timestampNumber,
+		sequence: plan.sequence,
+		repoRoot: plan.repoRoot,
+		repoKey: plan.repoKey,
+		repoIdentitySource: plan.repoIdentitySource,
+		sourceBranch: plan.sourceBranch,
+		branchKey: plan.branchKey,
+		directoryPath: plan.directoryPath,
+	};
+}
+
+function savedPlanListJson(plans: readonly SavedPlanListItem[]): SavedPlanListData {
 	return { plans: plans.map(savedPlanListItemJson) };
 }
 
 function savedPlanListItemJson(plan: SavedPlanListItem): {
+	format: "timestamped" | "legacy";
 	slug: string;
 	branchKey: string;
 	modifiedTimeMs: number;
@@ -271,11 +440,12 @@ function savedPlanListItemJson(plan: SavedPlanListItem): {
 	repo: {
 		root: string;
 		key: string;
-		identitySource: string;
+		identitySource: SavedPlanListItem["repoIdentitySource"];
 		planStorePath: string;
 	};
 } {
 	return {
+		format: plan.format,
 		slug: plan.slug,
 		branchKey: plan.branchKey,
 		modifiedTimeMs: plan.modifiedTimeMs,
@@ -290,45 +460,40 @@ function savedPlanListItemJson(plan: SavedPlanListItem): {
 	};
 }
 
-function resolvePlanJson(evidence: ResolvePlanEvidence):
-	| {
-			source: "explicit";
-			filePath: string;
-	  }
-	| {
-			source: "latest";
-			filePath: string;
-			slug: string;
-			fileName: string;
-			modifiedTimeMs: number;
-			repoRoot: string;
-			repoKey: string;
-			repoIdentitySource: LatestSavedPlanFileEvidence["repoIdentitySource"];
-			sourceBranch: string;
-			branchKey: string;
-			directoryPath: string;
-	  } {
-	switch (evidence.source) {
-		case "explicit":
-			return {
-				source: evidence.source,
-				filePath: evidence.filePath,
-			};
-		case "latest":
-			return {
-				source: evidence.source,
-				filePath: evidence.filePath,
-				slug: evidence.slug,
-				fileName: evidence.fileName,
-				modifiedTimeMs: evidence.modifiedTimeMs,
-				repoRoot: evidence.repoRoot,
-				repoKey: evidence.repoKey,
-				repoIdentitySource: evidence.repoIdentitySource,
-				sourceBranch: evidence.sourceBranch,
-				branchKey: evidence.branchKey,
-				directoryPath: evidence.directoryPath,
-			};
+function resolvePlanJson(evidence: ResolvePlanEvidence): z.infer<typeof resolveResultSchema> {
+	const common = {
+		filePath: evidence.filePath,
+		fileName: evidence.fileName,
+		fileStem: evidence.fileStem,
+		slug: evidence.slug,
+		repoRoot: evidence.repoRoot,
+		repoKey: evidence.repoKey,
+		repoIdentitySource: evidence.repoIdentitySource,
+		sourceBranch: evidence.sourceBranch,
+		branchKey: evidence.branchKey,
+		directoryPath: evidence.directoryPath,
+	};
+	if (evidence.source === "latest") {
+		return {
+			...common,
+			source: evidence.source,
+			format: evidence.format,
+			timestamp: evidence.timestamp,
+			timestampNumber: evidence.timestampNumber,
+			sequence: evidence.sequence,
+			modifiedTimeMs: evidence.modifiedTimeMs,
+		};
 	}
+	return evidence.format === "timestamped"
+		? {
+				...common,
+				source: evidence.source,
+				format: evidence.format,
+				timestamp: evidence.timestamp,
+				timestampNumber: evidence.timestampNumber,
+				sequence: evidence.sequence,
+			}
+		: { ...common, source: evidence.source, format: evidence.format };
 }
 
 await entry.runIfMain({ isImportMetaMain: import.meta.main });

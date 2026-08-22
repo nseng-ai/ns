@@ -46,7 +46,6 @@ describe("writeSavedPlanFile", () => {
 			{
 				slug: PLAN_SLUG,
 				content: "# Test Plan\n\nDo the work.\n",
-				summary: "Plan the local plan store file.",
 			},
 			{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
 		);
@@ -64,7 +63,6 @@ describe("writeSavedPlanFile", () => {
 			sourceBranch,
 			branchKey,
 			filePath: expectedPath,
-			summary: "Plan the local plan store file.",
 		});
 		expect(planStoreGateway.readFile(expectedPath)).toBe("# Test Plan\n\nDo the work.\n");
 	});

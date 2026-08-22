@@ -1,326 +1,84 @@
 import { basename, isAbsolute } from "node:path";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
-import { z } from "zod";
 
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+
+import { isPathInside, normalizePlanFilePath } from "./plan-persistence.ts";
+import { createRealPlanStoreGateway } from "./plan-store-gateway.ts";
 import {
-	buildPlanFileName,
-	buildPlanStoreBranchDirectoryPath,
-	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
 	resolvePlanStoreDirectory,
+	type DurableSavedPlan,
 	type LatestSavedPlanFileEvidence,
-	type PlanStoreDirectoryEvidence,
-	type SavedPlanFileEvidence,
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
-import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
-
-export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";
-
-export type ValidatedSessionSavedPlan = LatestSavedPlanFileEvidence & {
-	summary?: string;
-};
-
-export type SessionSavedPlanValidation =
-	| { type: "valid"; plan: ValidatedSessionSavedPlan }
-	| { type: "stale"; reason: string }
-	| { type: "unsafe"; message: string };
-
-export type LatestSessionSavedPlanResult =
-	| { type: "found"; plan: ValidatedSessionSavedPlan }
-	| { type: "not-found" }
-	| { type: "unsafe"; message: string };
-
-export type PreparedSessionSavedPlanResult =
-	| { ok: true; directory: PlanStoreDirectoryEvidence; plan: ValidatedSessionSavedPlan }
-	| { ok: false; error: string };
-
-export type SelectedSavedPlanFile =
-	| {
-			type: "explicit";
-			filePath: string;
-			fileName: string;
-			savedPlanFileStem: string;
-	  }
-	| {
-			type: "session";
-			plan: ValidatedSessionSavedPlan;
-			savedPlanFileStem: string;
-	  }
-	| {
-			type: "latest";
-			plan: LatestSavedPlanFileEvidence;
-			savedPlanFileStem: string;
-	  };
-
-export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
-	explicitPath?: string;
-	sessionEntries?: readonly unknown[];
-	shouldFallbackToLatest?: boolean;
-	shouldAllowSessionSourceBranchMismatch?: boolean;
-}
+import { parseSavedPlanFileName } from "./saved-plan-format.ts";
 
 export interface ResolveExplicitSavedPlanFileOptions extends PlanStoreOptions {
 	explicitPath: string;
 }
 
-export interface ResolvedExplicitSavedPlanFile extends SavedPlanFileEvidence {
+export type ResolvedExplicitSavedPlanFile = DurableSavedPlan & {
 	content: string;
-}
+};
 
 export type ExplicitSavedPlanFileResolution =
 	| { type: "resolved"; plan: ResolvedExplicitSavedPlanFile }
 	| { type: "not-found" | "unsafe" | "error"; message: string };
 
-export interface ValidateSessionSavedPlanCandidateOptions {
-	shouldAllowSourceBranchMismatch?: boolean;
-	planStoreGateway?: PlanStoreGateway;
-}
+export type SelectedSavedPlanFile =
+	| { type: "explicit"; plan: ResolvedExplicitSavedPlanFile }
+	| { type: "latest"; plan: LatestSavedPlanFileEvidence };
 
-const repoIdentitySourceSchema = z.enum(["origin-url", "repo-root"]);
-
-const savedPlanFileEvidenceSchema = z.object({
-	slug: z.string(),
-	repoRoot: z.string(),
-	repoKey: z.string(),
-	repoIdentitySource: repoIdentitySourceSchema,
-	sourceBranch: z.string(),
-	branchKey: z.string(),
-	filePath: z.string(),
-	summary: z.string().optional(),
-});
-
-const savedPlanFileSessionEntrySchema = z.object({
-	type: z.literal("message"),
-	message: z
-		.object({
-			role: z.literal("toolResult"),
-			toolName: z.literal(WRITE_SAVED_PLAN_FILE_TOOL_NAME),
-			isError: z.unknown().optional(),
-			details: savedPlanFileEvidenceSchema,
-		})
-		.refine((message) => message.isError !== true),
-});
-
-export function extractSavedPlanFileEvidenceFromSessionEntry(
-	entry: unknown,
-): SavedPlanFileEvidence | undefined {
-	const result = savedPlanFileSessionEntrySchema.safeParse(entry);
-	if (!result.success) {
-		return undefined;
-	}
-
-	return toSavedPlanFileEvidence(result.data.message.details);
-}
-
-function toSavedPlanFileEvidence(
-	data: z.infer<typeof savedPlanFileEvidenceSchema>,
-): SavedPlanFileEvidence {
-	const { summary, ...evidence } = data;
-	return { ...evidence, ...(summary === undefined ? {} : { summary }) };
-}
-
-export async function validateSessionSavedPlanCandidate(
-	evidence: SavedPlanFileEvidence,
-	directory: PlanStoreDirectoryEvidence,
-	options: ValidateSessionSavedPlanCandidateOptions = {},
-): Promise<SessionSavedPlanValidation> {
-	if (!isAbsolute(evidence.filePath)) {
-		return unsafe(
-			`Session saved-plan evidence file path must be absolute: ${evidence.filePath || "(empty)"}`,
-		);
-	}
-	if (!evidence.filePath.endsWith(".md")) {
-		return unsafe(
-			`Session saved-plan evidence file path must use a .md filename: ${evidence.filePath}`,
-		);
-	}
-
-	const slugError = validatePlanSlug(evidence.slug);
-	if (slugError !== undefined) {
-		return unsafe(
-			`Session saved-plan evidence has an invalid slug ${JSON.stringify(evidence.slug)}: ${slugError}`,
-		);
-	}
-
-	const fileName = basename(evidence.filePath);
-	const expectedFileName = buildPlanFileName(evidence.slug);
-	if (fileName !== expectedFileName) {
-		return unsafe(
-			`Session saved-plan evidence basename must match slug: expected ${expectedFileName}, got ${fileName || "(empty)"}.`,
-		);
-	}
-
-	const planStoreGateway = options.planStoreGateway ?? createRealPlanStoreGateway();
-	const metadata = validateDirectoryMetadata(evidence, directory, options);
-	if (metadata.type === "invalid") {
-		return unsafe(metadata.message);
-	}
-
-	const expectedDirectoryPath = metadata.directoryPath;
-	if (!isPathInside(expectedDirectoryPath, evidence.filePath)) {
-		return unsafe(
-			[
-				formatOutsidePlanStoreDirectoryMessage(expectedDirectoryPath, directory.directoryPath),
-				`Plan store directory: ${expectedDirectoryPath}`,
-				`Saved plan path: ${evidence.filePath}`,
-			].join("\n"),
-		);
-	}
-
-	const fileStat = await planStoreGateway.statPath(evidence.filePath);
-	if (fileStat === undefined) {
-		return {
-			type: "stale",
-			reason: `Saved plan file no longer exists or is not accessible: ${evidence.filePath}`,
-		};
-	}
-	if (fileStat.type !== "file") {
-		return unsafe(`Session saved-plan evidence path is not a regular file: ${evidence.filePath}`);
-	}
-
-	const realDirectoryPath = await planStoreGateway.realpathOrResolve(expectedDirectoryPath);
-	const realFilePath = await planStoreGateway.realpathOrResolve(evidence.filePath);
-	if (!isPathInside(realDirectoryPath, realFilePath)) {
-		return unsafe(
-			[
-				"Session saved-plan evidence resolves outside the current local plan store directory.",
-				`Plan store directory: ${directory.directoryPath}`,
-				`Resolved plan store directory: ${realDirectoryPath}`,
-				`Saved plan path: ${evidence.filePath}`,
-				`Resolved saved plan path: ${realFilePath}`,
-			].join("\n"),
-		);
-	}
-
-	const plan: ValidatedSessionSavedPlan = {
-		...directory,
-		sourceBranch: evidence.sourceBranch,
-		branchKey: evidence.branchKey,
-		directoryPath: expectedDirectoryPath,
-		slug: evidence.slug,
-		filePath: evidence.filePath,
-		fileName,
-		modifiedTimeMs: fileStat.mtimeMs,
-		...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
-	};
-	return { type: "valid", plan };
-}
-
-export async function prepareLatestSessionSavedPlan(
-	pi: CommandExecApi,
-	options: PlanStoreOptions & { entries: readonly unknown[] },
-): Promise<PreparedSessionSavedPlanResult> {
-	let directory: PlanStoreDirectoryEvidence;
-	try {
-		directory = await resolvePlanStoreDirectory(pi, options);
-	} catch (error) {
-		return {
-			ok: false,
-			error: `Could not resolve current repository and source branch.\n${error instanceof Error ? error.message : String(error)}`,
-		};
-	}
-	const selectionOptions: ValidateSessionSavedPlanCandidateOptions =
-		options.planStoreGateway === undefined ? {} : { planStoreGateway: options.planStoreGateway };
-	const selected = await findLatestSessionSavedPlanFile(
-		options.entries,
-		directory,
-		selectionOptions,
-	);
-	switch (selected.type) {
-		case "found":
-			return { ok: true, directory, plan: selected.plan };
-		case "unsafe":
-			return { ok: false, error: selected.message };
-		case "not-found":
-			return {
-				ok: false,
-				error:
-					"No saved plan from /ns:plan:save was found in the current session branch.\nRun /ns:plan:save first, then rerun the dispatch command.",
-			};
-	}
-}
-
-export async function findLatestSessionSavedPlanFile(
-	entries: readonly unknown[],
-	directory: PlanStoreDirectoryEvidence,
-	options: ValidateSessionSavedPlanCandidateOptions = {},
-): Promise<LatestSessionSavedPlanResult> {
-	for (let index = entries.length - 1; index >= 0; index -= 1) {
-		const entry = entries[index];
-		const evidence = extractSavedPlanFileEvidenceFromSessionEntry(entry);
-		if (evidence === undefined) {
-			continue;
-		}
-
-		const validation = await validateSessionSavedPlanCandidate(evidence, directory, options);
-		switch (validation.type) {
-			case "valid":
-				return { type: "found", plan: validation.plan };
-			case "stale":
-				continue;
-			case "unsafe":
-				return validation;
-		}
-	}
-
-	return { type: "not-found" };
+export interface ResolveSelectedSavedPlanFileOptions extends PlanStoreOptions {
+	explicitPath?: string;
 }
 
 export async function resolveExplicitSavedPlanFile(
-	pi: CommandExecApi,
+	commands: CommandExecApi,
 	options: ResolveExplicitSavedPlanFileOptions,
 ): Promise<ExplicitSavedPlanFileResolution> {
-	let directory: PlanStoreDirectoryEvidence;
+	let directory;
 	try {
-		directory = await resolvePlanStoreDirectory(pi, options);
+		directory = await resolvePlanStoreDirectory(commands, options);
 	} catch (error) {
 		return { type: "error", message: formatErrorMessage(error) };
 	}
 
 	const filePath = normalizePlanFilePath(options.explicitPath);
 	if (!isAbsolute(filePath)) {
-		return unsafeExplicit(
+		return unsafe(
 			`Saved Plan path must be absolute or home-relative; got ${filePath || "(empty)"}.`,
 		);
 	}
 	if (!filePath.endsWith(".md")) {
-		return unsafeExplicit(
-			`Saved Plan must use a .md filename; got ${basename(filePath) || "(empty)"}.`,
-		);
+		return unsafe(`Saved Plan must use a .md filename; got ${basename(filePath) || "(empty)"}.`);
 	}
-
-	const slug = basename(filePath, ".md");
-	const slugError = validatePlanSlug(slug);
-	if (slugError !== undefined) {
-		return unsafeExplicit(`Saved Plan has an invalid slug ${JSON.stringify(slug)}: ${slugError}`);
-	}
+	const parsedName = parseSavedPlanFileName(basename(filePath));
+	if (parsedName === undefined) return unsafe("Saved Plan has an invalid .md filename.");
 	if (!isPathInside(directory.directoryPath, filePath)) {
-		return unsafeExplicit(
+		return unsafe(
 			[
-				"Saved Plan resolves outside the current source branch's local plan store directory.",
+				"Saved Plan is lexically outside the current source branch's local plan store directory.",
 				`Plan store directory: ${directory.directoryPath}`,
 				`Saved Plan path: ${filePath}`,
 			].join("\n"),
 		);
 	}
 
-	const planStoreGateway = options.planStoreGateway ?? createRealPlanStoreGateway();
+	const gateway = options.planStoreGateway ?? createRealPlanStoreGateway();
 	try {
-		const fileStat = await planStoreGateway.statPath(filePath);
+		const fileStat = await gateway.statPath(filePath);
 		if (fileStat === undefined) {
 			return { type: "not-found", message: `Saved Plan does not exist: ${filePath}` };
 		}
-		if (fileStat.type !== "file") {
-			return unsafeExplicit(`Saved Plan path is not a regular file: ${filePath}`);
-		}
+		if (fileStat.type !== "file")
+			return unsafe(`Saved Plan path is not a regular file: ${filePath}`);
 
-		const realDirectoryPath = await planStoreGateway.realpathOrResolve(directory.directoryPath);
-		const realFilePath = await planStoreGateway.realpathOrResolve(filePath);
+		const realDirectoryPath = await gateway.realpathOrResolve(directory.directoryPath);
+		const realFilePath = await gateway.realpathOrResolve(filePath);
 		if (!isPathInside(realDirectoryPath, realFilePath)) {
-			return unsafeExplicit(
+			return unsafe(
 				[
 					"Saved Plan resolves outside the current source branch's local plan store directory.",
 					`Resolved plan store directory: ${realDirectoryPath}`,
@@ -329,166 +87,49 @@ export async function resolveExplicitSavedPlanFile(
 			);
 		}
 
-		return {
-			type: "resolved",
-			plan: {
-				slug,
-				repoRoot: directory.repoRoot,
-				repoKey: directory.repoKey,
-				repoIdentitySource: directory.repoIdentitySource,
-				sourceBranch: directory.sourceBranch,
-				branchKey: directory.branchKey,
-				filePath,
-				content: await planStoreGateway.readTextFile(filePath),
-			},
+		const common = {
+			...directory,
+			slug: parsedName.slug,
+			filePath,
+			fileName: parsedName.fileName,
+			fileStem: parsedName.fileName.slice(0, -".md".length),
 		};
+		const plan: ResolvedExplicitSavedPlanFile =
+			parsedName.format === "timestamped"
+				? {
+						...common,
+						format: parsedName.format,
+						timestamp: parsedName.timestamp,
+						timestampNumber: parsedName.timestampNumber,
+						sequence: parsedName.sequence,
+						content: await gateway.readTextFile(filePath),
+					}
+				: {
+						...common,
+						format: parsedName.format,
+						content: await gateway.readTextFile(filePath),
+					};
+		return { type: "resolved", plan };
 	} catch (error) {
 		return { type: "error", message: formatErrorMessage(error) };
 	}
 }
 
 export async function resolveSelectedSavedPlanFile(
-	pi: CommandExecApi,
+	commands: CommandExecApi,
 	options: ResolveSelectedSavedPlanFileOptions,
 ): Promise<SelectedSavedPlanFile> {
 	if (options.explicitPath !== undefined) {
-		const filePath = normalizePlanFilePath(options.explicitPath);
-		if (!isAbsolute(filePath)) {
-			throw new Error(
-				`Plan file path must be absolute or home-relative; got ${filePath || "(empty)"}.`,
-			);
-		}
-
-		const fileName = basename(filePath);
-		if (!fileName.endsWith(".md")) {
-			throw new Error(`Plan file must use a .md filename; got ${fileName || "(empty)"}.`);
-		}
-
-		return {
-			type: "explicit",
-			savedPlanFileStem: fileName.slice(0, -".md".length),
-			filePath,
-			fileName,
-		};
-	}
-
-	const sessionEntries = options.sessionEntries ?? [];
-	if (sessionEntries.length > 0) {
-		const directory = await resolvePlanStoreDirectory(pi, options);
-		const sessionResult = await findLatestSessionSavedPlanFile(sessionEntries, directory, {
-			shouldAllowSourceBranchMismatch: options.shouldAllowSessionSourceBranchMismatch ?? false,
-			...(options.planStoreGateway === undefined
-				? {}
-				: { planStoreGateway: options.planStoreGateway }),
+		const result = await resolveExplicitSavedPlanFile(commands, {
+			...options,
+			explicitPath: options.explicitPath,
 		});
-		switch (sessionResult.type) {
-			case "found":
-				return {
-					type: "session",
-					plan: sessionResult.plan,
-					savedPlanFileStem: sessionResult.plan.slug,
-				};
-			case "unsafe":
-				throw new Error(sessionResult.message);
-			case "not-found":
-				break;
-		}
+		if (result.type === "resolved") return { type: "explicit", plan: result.plan };
+		throw new Error(result.message);
 	}
-
-	if (options.shouldFallbackToLatest ?? false) {
-		const latest = await findLatestSavedPlanFile(pi, options);
-		return { type: "latest", plan: latest, savedPlanFileStem: latest.slug };
-	}
-
-	throw new Error("No usable saved plan was found in the current session branch.");
+	return { type: "latest", plan: await findLatestSavedPlanFile(commands, options) };
 }
 
-type DirectoryMetadataValidation =
-	| { type: "valid"; directoryPath: string }
-	| { type: "invalid"; message: string };
-
-function validateDirectoryMetadata(
-	evidence: SavedPlanFileEvidence,
-	directory: PlanStoreDirectoryEvidence,
-	options: ValidateSessionSavedPlanCandidateOptions,
-): DirectoryMetadataValidation {
-	const mismatches = validateRepoMetadata(evidence, directory);
-	if (mismatches.length > 0) {
-		return metadataInvalid(mismatches);
-	}
-
-	const expectedBranchKey = encodeBranchForPlanPath(evidence.sourceBranch);
-	if (evidence.branchKey !== expectedBranchKey) {
-		return metadataInvalid([
-			`branchKey: evidence ${evidence.branchKey}, expected ${expectedBranchKey} for sourceBranch ${evidence.sourceBranch}`,
-		]);
-	}
-
-	const branchMatchesCurrent =
-		evidence.sourceBranch === directory.sourceBranch && evidence.branchKey === directory.branchKey;
-	if (branchMatchesCurrent) {
-		return { type: "valid", directoryPath: directory.directoryPath };
-	}
-
-	if (!(options.shouldAllowSourceBranchMismatch ?? false)) {
-		return metadataInvalid([
-			`sourceBranch: evidence ${evidence.sourceBranch}, current ${directory.sourceBranch}`,
-			`branchKey: evidence ${evidence.branchKey}, current ${directory.branchKey}`,
-		]);
-	}
-
-	return {
-		type: "valid",
-		directoryPath: buildPlanStoreBranchDirectoryPath({
-			repoDirectoryPath: directory.repoDirectoryPath,
-			branchKey: evidence.branchKey,
-		}),
-	};
-}
-
-function validateRepoMetadata(
-	evidence: SavedPlanFileEvidence,
-	directory: PlanStoreDirectoryEvidence,
-): string[] {
-	const mismatches: string[] = [];
-	if (evidence.repoRoot !== directory.repoRoot) {
-		mismatches.push(`repoRoot: evidence ${evidence.repoRoot}, current ${directory.repoRoot}`);
-	}
-	if (evidence.repoKey !== directory.repoKey) {
-		mismatches.push(`repoKey: evidence ${evidence.repoKey}, current ${directory.repoKey}`);
-	}
-	if (evidence.repoIdentitySource !== directory.repoIdentitySource) {
-		mismatches.push(
-			`repoIdentitySource: evidence ${evidence.repoIdentitySource}, current ${directory.repoIdentitySource}`,
-		);
-	}
-	return mismatches;
-}
-
-function metadataInvalid(mismatches: readonly string[]): DirectoryMetadataValidation {
-	return {
-		type: "invalid",
-		message: [
-			"Latest saved plan belongs to a different repo or branch than the current checkout, or an incompatible source branch.",
-			...mismatches,
-		].join("\n"),
-	};
-}
-
-function formatOutsidePlanStoreDirectoryMessage(
-	expectedDirectoryPath: string,
-	currentDirectoryPath: string,
-): string {
-	if (expectedDirectoryPath === currentDirectoryPath) {
-		return "Session saved-plan evidence points outside the current local plan store directory.";
-	}
-	return "Session saved-plan evidence points outside the saved plan source-branch local plan store directory.";
-}
-
-function unsafe(message: string): SessionSavedPlanValidation {
-	return { type: "unsafe", message };
-}
-
-function unsafeExplicit(message: string): ExplicitSavedPlanFileResolution {
+function unsafe(message: string): ExplicitSavedPlanFileResolution {
 	return { type: "unsafe", message };
 }

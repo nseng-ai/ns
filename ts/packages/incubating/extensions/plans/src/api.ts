@@ -5,7 +5,12 @@ export {
 	formatSavedPlanFileEvidence,
 	normalizeRepoOriginUrl,
 	resolvePlanStoreDirectory,
+	savePlanContentBytes,
 	writeSavedPlanFile,
+	type DurableSavedPlan,
+	type LatestSavedPlanFileEvidence,
+	type LegacyDurableSavedPlan,
+	type TimestampedDurableSavedPlan,
 	type PlanStoreDirectoryEvidence,
 	type RepoIdentitySource,
 	type SavedPlanFileEvidence,
@@ -16,16 +21,19 @@ export {
 	type SavedPlanContentSlugEvidence,
 } from "./saved-plan-content-slug.ts";
 export {
-	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
-	findLatestSessionSavedPlanFile,
-	prepareLatestSessionSavedPlan,
+	buildTimestampedSavedPlanFileName,
+	deriveDeterministicSavedPlanSlug,
+	formatLocalSavedPlanTimestamp,
+	parseSavedPlanFileName,
+	type ParsedSavedPlanName,
+	type SavedPlanFormat,
+} from "./saved-plan-format.ts";
+export {
 	resolveExplicitSavedPlanFile,
 	resolveSelectedSavedPlanFile,
 	type ExplicitSavedPlanFileResolution,
-	type PreparedSessionSavedPlanResult,
 	type ResolveExplicitSavedPlanFileOptions,
 	type ResolvedExplicitSavedPlanFile,
+	type ResolveSelectedSavedPlanFileOptions,
 	type SelectedSavedPlanFile,
-	type ValidateSessionSavedPlanCandidateOptions,
-	type ValidatedSessionSavedPlan,
 } from "./saved-plan-selection.ts";

@@ -176,7 +176,7 @@ describe("branch-context session artifact", () => {
 		expect(
 			extractBranchContextEvidenceFromSessionEntry({
 				type: "toolResult",
-				toolName: "write_saved_plan_file",
+				toolName: "arbitrary_command",
 				details: { status: "success", evidence: EVIDENCE },
 			}),
 		).toBeUndefined();

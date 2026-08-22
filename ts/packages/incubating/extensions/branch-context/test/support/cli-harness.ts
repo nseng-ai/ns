@@ -82,13 +82,15 @@ export async function writeSavedPlan(
 		slug?: string;
 		branch?: string;
 		content?: string;
+		format?: "timestamped" | "legacy";
 	} = {},
 ): Promise<string> {
 	const slug = params.slug ?? PLAN_SLUG;
 	const branch = params.branch ?? SOURCE_BRANCH;
 	const planDirectory = join(planStoreRoot, PLAN_STORE_REPO_KEY, encodeBranchForPlanPath(branch));
 	await mkdir(planDirectory, { recursive: true });
-	const filePath = join(planDirectory, `${slug}.md`);
+	const fileName = params.format === "legacy" ? `${slug}.md` : `${slug}--26-03-19T12-00-00--1.md`;
+	const filePath = join(planDirectory, fileName);
 	await writeFile(filePath, params.content ?? "# Saved Plan\n", "utf8");
 	return filePath;
 }

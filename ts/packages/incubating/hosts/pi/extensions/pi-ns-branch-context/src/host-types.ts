@@ -10,7 +10,7 @@ import type {
 	SessionReplacementOptions,
 	SessionReplacementResult,
 } from "@nseng-ai/pi-runtime/sessions/replacement";
-import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
+import type { resolveSelectedSavedPlanFile } from "@nseng-ai/plans/api";
 import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type { SendMessageOptions } from "@nseng-ai/pi-runtime/shared/message-delivery";
 
@@ -62,7 +62,6 @@ export type NewSessionOptions = SessionReplacementOptions<
 export interface BranchContextOperations {
 	loadBranchContextPlan: typeof loadBranchContextPlan;
 	createBranchContextFromFile: typeof createBranchContextFromFile;
-	writeSavedPlanFile: typeof writeSavedPlanFile;
 	resolveSelectedSavedPlanFile: typeof resolveSelectedSavedPlanFile;
 }
 

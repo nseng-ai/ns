@@ -81,7 +81,6 @@ import {
 	gitRootStep,
 	headStep,
 	writePlanStoreFile,
-	savedPlanEntry,
 } from "./herdr-test-harness.ts";
 
 afterEach(resetHerdrTestEnvironment);
@@ -841,7 +840,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 	test("resolves an invalid tab destination atomically before branch-context mutation", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -856,7 +855,6 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({
 			optionalRepoRoot: { type: "missing" },
@@ -1028,7 +1026,7 @@ describe("ns:herdr:impl:plan:space", () => {
 	test("executes from local exact SHA with explicit Graphite parent and inherited collision suffix", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1047,7 +1045,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			selectIndices: [1],
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({
@@ -1097,7 +1094,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		expect(messages).toContain(`Selected target branch: ${PLAN_SLUG}-2`);
 	});
 
-	test("fails without a session saved plan before trunk preparation or mutation", async () => {
+	test("fails without a durable saved plan before trunk preparation or mutation", async () => {
 		const pi = new FakePi({ script: implValidationScript(ROOT) });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ cwd: ROOT, branchEntries: [] });
@@ -1126,7 +1123,7 @@ describe("ns:herdr:impl:plan:space", () => {
 	test("trunk preparation failure stops before branch, attachment, slot, or Herdr mutation", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1140,7 +1137,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			selectIndices: [1],
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({ branchUpstream: { type: "missing" } });
 		const brmem = new TrackingBranchMemoryGateway();
@@ -1175,13 +1171,12 @@ describe("ns:herdr:impl:plan:space", () => {
 	test("trunk resolution failure stops before trunk preparation, branch, attachment, slot, or Herdr mutation", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({ script: implValidationScript(repoRoot) });
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			selectIndices: [1],
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({ branchUpstream: { type: "missing" } });
 		const brmem = new TrackingBranchMemoryGateway();
@@ -1219,7 +1214,7 @@ describe("ns:herdr:impl:plan:space", () => {
 	test("dry-run previews the explicit local-trunk basis without any mutation", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1238,7 +1233,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			selectIndices: [1],
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
@@ -1277,11 +1271,11 @@ describe("ns:herdr:impl:plan:space", () => {
 });
 
 describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
-	test("registered command selects a plan saved in the current Pi session", async () => {
+	test("registered command selects a durable plan from the local store", async () => {
 		const repoRoot = await makeTempDir();
 		const xdgStateHome = await makeTempDir();
 		const planStoreRoot = join(xdgStateHome, "ns", "enriched-plan");
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, {
+		await writePlanStoreFile(planStoreRoot, repoRoot, {
 			content: PLAN_CONTENT,
 		});
 		vi.stubEnv("XDG_STATE_HOME", xdgStateHome);
@@ -1302,7 +1296,6 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 		await registerHerdrPiExtension(pi);
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
 		await pi.commands.get("ns:herdr:impl:plan:space")?.handler("--dry-run", ctx);
@@ -1338,7 +1331,6 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {
@@ -1380,7 +1372,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 	test("executes from local trunk using the caller workspace captured before interaction", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1401,7 +1393,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			selectIndices: [1],
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 			// The caller space is resolved exactly once, before idle waiting and
 			// interaction; it is never re-queried afterwards.
 			onWaitForIdle: () => expect(herdr.resolveCallerPaneCalls).toBe(1),
@@ -1454,7 +1445,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 	test("local-trunk dry-run previews the tab implementation without fetching or mutating", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1473,7 +1464,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
 			selectIndices: [1],
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
 		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
@@ -1545,7 +1535,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 	test("captures the exact caller ID and carries it to the created tab", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1564,7 +1554,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		});
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		let contextConstructions = 0;
@@ -1608,7 +1597,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 	test("space implementation branch-context failure names the unopened Herdr space", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1625,7 +1614,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = (_commands, _cwd) => ({
@@ -1664,7 +1652,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 	test("tab implementation branch-context failure names the unopened Herdr tab", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
+		await writePlanStoreFile(planStoreRoot, repoRoot, { content: PLAN_CONTENT });
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
@@ -1681,7 +1669,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = (_commands, _cwd) => ({
@@ -1719,7 +1706,7 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 	test("resolved-caller dry-run shows tab preview without creating tab or pane", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		const planFile = await writePlanStoreFile(planStoreRoot, repoRoot, {
+		await writePlanStoreFile(planStoreRoot, repoRoot, {
 			content: PLAN_CONTENT,
 		});
 		const pi = new FakePi({
@@ -1739,7 +1726,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({
 			cwd: repoRoot,
-			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 
 		await handleHerdrSlotImplPlan(herdrPlanTestContext({ pi, ctx, herdr }), {

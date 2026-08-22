@@ -1,14 +1,23 @@
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
+import type { Clock } from "@nseng-ai/foundation/clock";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { systemClock } from "@nseng-ai/foundation/time";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
 } from "@nseng-ai/extension-kit/github/identity";
-import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
+import { validatePlanSlug } from "./plan-persistence.ts";
+import {
+	buildTimestampedSavedPlanFileName,
+	deriveDeterministicSavedPlanSlug,
+	formatLocalSavedPlanTimestamp,
+	parseSavedPlanFileName,
+	type SavedPlanFormat,
+} from "./saved-plan-format.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/extension-kit/xdg";
 import {
@@ -27,7 +36,6 @@ export type RepoIdentitySource = "origin-url" | "repo-root";
 export interface SavedPlanFileParams {
 	slug: string;
 	content: string;
-	summary?: string;
 }
 
 export interface PlanStoreOptions {
@@ -37,6 +45,8 @@ export interface PlanStoreOptions {
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: GitGateway;
 	planStoreGateway?: PlanStoreGateway;
+	clock?: Clock;
+	localTimestamp?: string;
 }
 
 interface BuildPlanStoreOptionsInput {
@@ -46,6 +56,8 @@ interface BuildPlanStoreOptionsInput {
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: ExplicitUndefined<"di-seam", GitGateway>;
 	planStoreGateway?: ExplicitUndefined<"di-seam", PlanStoreGateway>;
+	clock?: ExplicitUndefined<"di-seam", Clock>;
+	localTimestamp?: ExplicitUndefined<"di-seam", string>;
 }
 
 export function buildPlanStoreOptions(options: BuildPlanStoreOptionsInput): PlanStoreOptions {
@@ -57,6 +69,8 @@ export function buildPlanStoreOptions(options: BuildPlanStoreOptionsInput): Plan
 			env: options.env,
 			git: options.git,
 			planStoreGateway: options.planStoreGateway,
+			clock: options.clock,
+			localTimestamp: options.localTimestamp,
 		}),
 	};
 }
@@ -75,6 +89,7 @@ export interface PlanStoreDirectoryEvidence extends PlanStoreRepoEvidence {
 }
 
 export interface SavedPlanListItem extends PlanStoreRepoEvidence {
+	format: SavedPlanFormat;
 	slug: string;
 	branchKey: string;
 	filePath: string;
@@ -82,12 +97,9 @@ export interface SavedPlanListItem extends PlanStoreRepoEvidence {
 	modifiedTimeMs: number;
 }
 
-export interface LatestSavedPlanFileEvidence extends PlanStoreDirectoryEvidence {
-	slug: string;
-	filePath: string;
-	fileName: string;
+export type LatestSavedPlanFileEvidence = TimestampedDurableSavedPlan & {
 	modifiedTimeMs: number;
-}
+};
 
 export interface SavedPlanFileEvidence {
 	slug: string;
@@ -97,8 +109,27 @@ export interface SavedPlanFileEvidence {
 	sourceBranch: string;
 	branchKey: string;
 	filePath: string;
-	summary?: string;
 }
+
+interface DurableSavedPlanBase extends PlanStoreDirectoryEvidence {
+	slug: string;
+	filePath: string;
+	fileName: string;
+	fileStem: string;
+}
+
+export interface TimestampedDurableSavedPlan extends DurableSavedPlanBase {
+	format: "timestamped";
+	timestamp: string;
+	timestampNumber: number;
+	sequence: number;
+}
+
+export interface LegacyDurableSavedPlan extends DurableSavedPlanBase {
+	format: "legacy";
+}
+
+export type DurableSavedPlan = TimestampedDurableSavedPlan | LegacyDurableSavedPlan;
 
 interface RepoIdentity {
 	source: RepoIdentitySource;
@@ -200,9 +231,6 @@ export function formatSavedPlanFileEvidence(evidence: SavedPlanFileEvidence): st
 		`Branch path segment: ${evidence.branchKey}`,
 		`Slug: ${evidence.slug}`,
 	];
-	if (evidence.summary !== undefined) {
-		lines.push(`Summary: ${evidence.summary}`);
-	}
 	return lines.join("\n");
 }
 
@@ -258,9 +286,9 @@ export async function listSavedPlans(
 		const branchDirectoryPath = join(repoDirectory.repoDirectoryPath, branchKey);
 		const planEntries = await listDirectoryEntriesIfPresent(planStoreGateway, branchDirectoryPath);
 		for (const planEntry of planEntries) {
-			if (planEntry.type !== "file" || !planEntry.name.endsWith(PLAN_FILE_SUFFIX)) {
-				continue;
-			}
+			if (planEntry.type !== "file") continue;
+			const parsedName = parseSavedPlanFileName(planEntry.name);
+			if (parsedName === undefined) continue;
 
 			const filePath = join(branchDirectoryPath, planEntry.name);
 			const fileStat = await statFileIfRegular(planStoreGateway, filePath);
@@ -271,7 +299,8 @@ export async function listSavedPlans(
 			plans.push({
 				...repoDirectory,
 				branchKey,
-				slug: planEntry.name.slice(0, -PLAN_FILE_SUFFIX.length),
+				format: parsedName.format,
+				slug: parsedName.slug,
 				filePath,
 				fileName: planEntry.name,
 				modifiedTimeMs: fileStat.mtimeMs,
@@ -293,13 +322,22 @@ export async function findLatestSavedPlanFile(
 		fileName: string;
 		filePath: string;
 		modifiedTimeMs: number;
+		slug: string;
+		timestamp: string;
+		timestampNumber: number;
+		sequence: number;
 	}> = [];
 	const directoryRead = await planStoreGateway.listDirectory(directory.directoryPath);
 	const entries = directoryRead.type === "present" ? directoryRead.entries : [];
+	let hasLegacyPlans = false;
 	for (const entry of entries) {
-		if (entry.type !== "file" || !entry.name.endsWith(PLAN_FILE_SUFFIX)) {
+		if (entry.type !== "file") continue;
+		const parsedName = parseSavedPlanFileName(entry.name);
+		if (parsedName?.format === "legacy") {
+			hasLegacyPlans = true;
 			continue;
 		}
+		if (parsedName?.format !== "timestamped") continue;
 
 		const filePath = join(directory.directoryPath, entry.name);
 		const fileStat = await planStoreGateway.statPath(filePath);
@@ -311,6 +349,10 @@ export async function findLatestSavedPlanFile(
 			fileName: entry.name,
 			filePath,
 			modifiedTimeMs: fileStat.mtimeMs,
+			slug: parsedName.slug,
+			timestamp: parsedName.timestamp,
+			timestampNumber: parsedName.timestampNumber,
+			sequence: parsedName.sequence,
 		});
 	}
 
@@ -333,11 +375,17 @@ export async function findLatestSavedPlanFile(
 		throw new NoSavedPlanAvailableError({
 			reason: "no-plan-files",
 			directoryPath: directory.directoryPath,
-			message: [
-				`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store for the current repository and branch.`,
-				`Plan store directory: ${directory.directoryPath}`,
-				"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
-			].join("\n"),
+			message: hasLegacyPlans
+				? [
+						"Only legacy Saved Plans exist in the local plan store for the current repository and branch.",
+						`Plan store directory: ${directory.directoryPath}`,
+						"Pass an explicit absolute or home-relative plan file path, or save the plan again to create a timestamped Saved Plan.",
+					].join("\n")
+				: [
+						`No ${PLAN_FILE_DISPLAY_NAME} files exist in the local plan store for the current repository and branch.`,
+						`Plan store directory: ${directory.directoryPath}`,
+						"Create a saved plan first, or pass an explicit absolute or home-relative plan file path.",
+					].join("\n"),
 		});
 	}
 
@@ -350,10 +398,53 @@ export async function findLatestSavedPlanFile(
 
 	return {
 		...latest.directory,
-		slug: latest.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
+		format: "timestamped",
+		slug: latest.slug,
+		timestamp: latest.timestamp,
+		timestampNumber: latest.timestampNumber,
+		sequence: latest.sequence,
 		filePath: latest.filePath,
 		fileName: latest.fileName,
+		fileStem: latest.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
 		modifiedTimeMs: latest.modifiedTimeMs,
+	};
+}
+
+export async function savePlanContentBytes(
+	pi: CommandExecApi,
+	content: Uint8Array,
+	options: PlanStoreOptions,
+): Promise<TimestampedDurableSavedPlan> {
+	const decodedContent = decodeSavedPlanContent(content);
+	if (decodedContent.trim().length === 0) {
+		throw new Error("Saved plan content must contain non-whitespace text.");
+	}
+	const slug = deriveDeterministicSavedPlanSlug(content, decodedContent);
+	const directory = await resolvePlanStoreDirectory(pi, options);
+	const timestamp =
+		options.localTimestamp ?? formatLocalSavedPlanTimestamp((options.clock ?? systemClock).nowMs());
+	const publication = await resolvePlanStoreGateway(options).publishBytesAtomic({
+		directoryPath: directory.directoryPath,
+		fileNameForSequence: (sequence) => buildTimestampedSavedPlanFileName(slug, timestamp, sequence),
+		sequenceFromFileName: (fileName) => {
+			const parsed = parseSavedPlanFileName(fileName);
+			return parsed?.format === "timestamped" && parsed.timestamp === timestamp
+				? parsed.sequence
+				: undefined;
+		},
+		content,
+		...optionalEntry("signal", options.signal),
+	});
+	return {
+		...directory,
+		format: "timestamped",
+		slug,
+		filePath: publication.filePath,
+		fileName: publication.fileName,
+		fileStem: publication.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
+		timestamp,
+		timestampNumber: Number(timestamp.replace(/\D/g, "")),
+		sequence: publication.sequence,
 	};
 }
 
@@ -376,7 +467,7 @@ export async function writeSavedPlanFile(
 
 	await planStoreGateway.writeTextFileExclusive(filePath, params.content);
 
-	const evidence = {
+	return {
 		slug,
 		repoRoot: directory.repoRoot,
 		repoKey: directory.repoKey,
@@ -385,11 +476,6 @@ export async function writeSavedPlanFile(
 		branchKey: directory.branchKey,
 		filePath,
 	};
-	const summary = normalizeSummary(params.summary);
-	if (summary === undefined) {
-		return evidence;
-	}
-	return { ...evidence, summary };
 }
 
 function resolvePrimaryPlanStoreRoot(options: PlanStoreOptions): string {
@@ -407,21 +493,13 @@ function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
 
 	const slug = params.slug;
 	const content = params.content;
-	const summary = params.summary;
 	if (typeof slug !== "string") {
 		throw new Error("writeSavedPlanFile requires string parameter `slug`.");
 	}
 	if (typeof content !== "string") {
 		throw new Error("writeSavedPlanFile requires string parameter `content`.");
 	}
-	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error("writeSavedPlanFile parameter `summary` must be a string when provided.");
-	}
-
-	if (summary === undefined) {
-		return { slug, content };
-	}
-	return { slug, content, summary };
+	return { slug, content };
 }
 
 async function resolveRequiredGitRepoRoot(
@@ -562,7 +640,18 @@ async function statFileIfRegular(
 }
 
 function compareSavedPlanListItems(left: SavedPlanListItem, right: SavedPlanListItem): number {
-	if (left.modifiedTimeMs !== right.modifiedTimeMs) {
+	const leftName = parseSavedPlanFileName(left.fileName);
+	const rightName = parseSavedPlanFileName(right.fileName);
+	if (leftName?.format === "timestamped" && rightName?.format === "timestamped") {
+		if (leftName.timestampNumber !== rightName.timestampNumber) {
+			return rightName.timestampNumber - leftName.timestampNumber;
+		}
+		if (leftName.sequence !== rightName.sequence) return rightName.sequence - leftName.sequence;
+	} else if (leftName?.format === "timestamped") {
+		return -1;
+	} else if (rightName?.format === "timestamped") {
+		return 1;
+	} else if (left.modifiedTimeMs !== right.modifiedTimeMs) {
 		return right.modifiedTimeMs - left.modifiedTimeMs;
 	}
 	const branchCompare = left.branchKey.localeCompare(right.branchKey);
@@ -573,11 +662,20 @@ function compareSavedPlanListItems(left: SavedPlanListItem, right: SavedPlanList
 }
 
 function compareLatestSavedPlanCandidates(
-	left: { filePath: string; modifiedTimeMs: number },
-	right: { filePath: string; modifiedTimeMs: number },
+	left: { filePath: string; timestampNumber: number; sequence: number },
+	right: { filePath: string; timestampNumber: number; sequence: number },
 ): number {
-	if (left.modifiedTimeMs !== right.modifiedTimeMs) {
-		return right.modifiedTimeMs - left.modifiedTimeMs;
+	if (left.timestampNumber !== right.timestampNumber) {
+		return right.timestampNumber - left.timestampNumber;
 	}
+	if (left.sequence !== right.sequence) return right.sequence - left.sequence;
 	return right.filePath.localeCompare(left.filePath);
+}
+
+function decodeSavedPlanContent(content: Uint8Array): string {
+	try {
+		return new TextDecoder("utf-8", { fatal: true }).decode(content);
+	} catch {
+		throw new Error("Saved plan content must be valid UTF-8.");
+	}
 }

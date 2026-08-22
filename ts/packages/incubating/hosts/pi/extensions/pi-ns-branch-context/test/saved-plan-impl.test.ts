@@ -13,7 +13,6 @@ import {
 	createContext,
 	makeNamedPlanFile,
 	savedPlanEvidence,
-	sourcePlanToolResultEntry,
 } from "./branch-context-extension-support.ts";
 import type { SelectedSavedPlanFile } from "@nseng-ai/plans/api";
 
@@ -28,11 +27,10 @@ describe("saved-plan implementation command", () => {
 		await command?.handler("--help", context.ctx);
 
 		expect(command?.description).toContain("fresh current-branch Pi session");
-		expect(command?.description).toContain("session-selected");
-		expect(command?.description).toContain("latest fallback");
+		expect(command?.description).toContain("latest");
 		expect(pi.sentMessages[0]?.content).toContain("Usage: /ns:plan:impl-saved-plan");
 		expect(pi.sentMessages[0]?.content).toContain("does not create or check out a branch");
-		expect(pi.sentMessages[0]?.content).toContain("then falls back to the newest .md Saved Plan");
+		expect(pi.sentMessages[0]?.content).toContain("latest timestamped Saved Plan");
 		expect(pi.sentMessages[0]?.content).toContain(
 			"An explicit file path selects that Saved Plan even when it is older",
 		);
@@ -54,8 +52,8 @@ describe("saved-plan implementation command", () => {
 		expect(fakes.selectPlanCalls[0]?.[1]).toMatchObject({
 			cwd: ROOT,
 			explicitPath: filePath,
-			shouldFallbackToLatest: true,
 		});
+		expect(fakes.selectPlanCalls[0]?.[1]).not.toHaveProperty("shouldFallbackToLatest");
 		expect(fakes.createBranchCalls).toEqual([]);
 		expect(pi.execCalls).toEqual([]);
 		expect(context.replacementUserMessages).toEqual([]);
@@ -90,39 +88,40 @@ describe("saved-plan implementation command", () => {
 		expect(events).toContain("replacement-send");
 	});
 
-	test("no path passes session entries and prefers the selected session saved plan", async () => {
-		const filePath = await makeNamedPlanFile("session-plan.md", "# Session Plan\n");
-		const sessionEvidence = savedPlanEvidence({ slug: "session-plan", filePath });
+	test("no path selects the latest durable timestamped Saved Plan", async () => {
+		const fileName = "session-plan--26-03-19T12-00-00--1.md";
+		const filePath = await makeNamedPlanFile(fileName, "# Session Plan\n");
+		const durableEvidence = savedPlanEvidence({ slug: "session-plan", filePath });
 		const pi = new FakePi();
 		const fakes = createBranchContextOperationFakes({
 			async resolveSelectedSavedPlanFile(): Promise<SelectedSavedPlanFile> {
 				return {
-					type: "session",
-					savedPlanFileStem: "session-plan",
+					type: "latest",
 					plan: {
-						...sessionEvidence,
+						...durableEvidence,
+						format: "timestamped",
+						timestamp: "26-03-19T12-00-00",
+						timestampNumber: 260319120000,
+						sequence: 1,
 						repoDirectoryPath: "/plans/repo",
 						directoryPath: "/plans/repo/source-branch",
-						fileName: "session-plan.md",
+						fileName,
+						fileStem: fileName.slice(0, -3),
 						modifiedTimeMs: 200,
-						summary: "session summary",
 					},
 				};
 			},
 		});
 		registerBranchContextExtension(pi, branchContextExtensionTestOptions(fakes.operations));
 		const command = pi.commands.get("ns:plan:impl-saved-plan");
-		const sessionEntry = sourcePlanToolResultEntry(sessionEvidence);
-		const context = createContext([], { sessionEntries: [sessionEntry] });
+		const context = createContext();
 
 		await command?.handler("--dry-run", context.ctx);
 
-		expect(fakes.selectPlanCalls[0]?.[1]).toMatchObject({
-			sessionEntries: [sessionEntry],
-			shouldFallbackToLatest: true,
-		});
-		expect(pi.sentMessages[0]?.content).toContain("Saved plan from current session");
-		expect(pi.sentMessages[0]?.content).toContain("Summary: session summary");
+		expect(fakes.selectPlanCalls[0]?.[1]).not.toHaveProperty("sessionEntries");
+		expect(fakes.selectPlanCalls[0]?.[1]).not.toHaveProperty("shouldFallbackToLatest");
+		expect(pi.sentMessages[0]?.content).toContain("Latest saved plan from local plan store");
+		expect(pi.sentMessages[0]?.content).not.toContain("Summary:");
 	});
 
 	test("rejects branch creation flags as not applicable", () => {

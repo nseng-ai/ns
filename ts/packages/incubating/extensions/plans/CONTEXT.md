@@ -5,8 +5,8 @@ This context captures domain language for saved implementation plans and their l
 ## Language
 
 **Saved Plan**:
-A Markdown implementation plan saved in the machine-local XDG enriched-plan store for later implementation or branch-context attachment.
-*Avoid*: hidden task, handoff artifact, Branch Memory entry
+A Markdown implementation plan saved byte-for-byte in the machine-local XDG enriched-plan store for later implementation or branch-context attachment. New durable files use `<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md`, where the slug has 3–7 lowercase kebab-case tokens with at least one specific non-generic token and no date-like year token, the timestamp is valid local wall-clock time, and the sequence is a positive integer. Older `<slug>.md` files are legacy Saved Plans, remain listable, and require explicit selection.
+*Avoid*: hidden task, handoff artifact, Branch Memory entry, session artifact
 
 **Local Plan Store**:
 The XDG state tree under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/` (default `$HOME/.local/state/ns/enriched-plan/...`) that stores **Saved Plan** files by repository identity and source branch.
@@ -17,8 +17,10 @@ A **Saved Plan** file tied to the source branch that produced it. The source bra
 *Avoid*: attached plan, implementation branch plan, handoff locator
 
 **Saved-Plan Selection**:
-The workflow that chooses an explicit, session-evidence, or latest **Saved Plan** while validating repository, source-branch, filename, slug, and path-containment evidence.
-*Avoid*: branch-context selection, arbitrary Markdown lookup, unsafe fallback
+The workflow that chooses an explicit validated **Saved Plan**, or otherwise the latest timestamped **Saved Plan**, for the current repository and Source Branch. Explicit selection validates filename grammar, regular-file type, and lexical plus realpath containment in the Local Plan Store. Implicit latest selection compares the parsed local timestamp tuple and then the numeric sequence; legacy files require explicit selection. Local wall-clock rollback, a timezone change, or daylight-saving fallback can make implicit latest selection inaccurate; this is an accepted local-store limitation.
+*Avoid*: session evidence, branch-context selection, arbitrary Markdown lookup, unsafe fallback
+
+The Local Plan Store may contain internal lock and temporary publication metadata. These entries are not Saved Plans and never participate in list or resolution operations.
 
 **Plan Store Directory Evidence**:
 The repository identity, source branch, encoded path keys, and directory path facts used to validate **Saved Plan** evidence before selecting a file.

@@ -16,7 +16,7 @@ import {
 } from "./branch-context-extension-support.ts";
 
 describe("enriched-plan-commands", () => {
-	test("registers plans write commands, branch-context workflow commands, and write tool", () => {
+	test("registers plans write and branch-context workflow commands without a custom save tool", () => {
 		const pi = new FakePi();
 		registerBranchContextExtension(pi);
 
@@ -36,8 +36,7 @@ describe("enriched-plan-commands", () => {
 		expect(pi.commands.has("ns:plan:impl-current")).toBe(false);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("enriched-plan:"))).toBe(false);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("branch-context:"))).toBe(false);
-		expect(pi.tools.has("write_saved_plan_file")).toBe(true);
-		expect([...pi.tools.keys()]).toEqual(["write_saved_plan_file"]);
+		expect([...pi.tools.keys()]).toEqual([]);
 	});
 
 	test("ns:plan:grill-and-save waits for idle and dispatches embedded prompt without prompt resolution", async () => {
@@ -60,7 +59,7 @@ describe("enriched-plan-commands", () => {
 		]);
 		expect(pi.sentUserMessages[0]).toContain("grill_ask");
 		expect(pi.sentUserMessages[0]).toContain("uniform polarity");
-		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
+		expect(pi.sentUserMessages[0]).toContain("enriched-plan exec save --content-file");
 		expect(context.notifications).toEqual([
 			{ message: "Starting /ns:plan:grill-and-save planning grill…", level: "info" },
 		]);
@@ -159,11 +158,11 @@ describe("enriched-plan-commands", () => {
 		expect(pi.sentUserMessages[0]).toBe(
 			buildWritePlanPrompt("add a tiny docs note plan for testing"),
 		);
-		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
+		expect(pi.sentUserMessages[0]).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
 		expect(pi.sentUserMessages[0]).toContain(
-			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"enriched-plan exec save --content-file '<exact path>' --format json",
 		);
-		expect(pi.sentUserMessages[0]).toContain("No fallback path is read or written");
+		expect(pi.sentUserMessages[0]).toContain("Clinkr success envelope");
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
 		expect(pi.sentUserMessages[0]).toContain("External research/context contract");
 		expect(pi.sentUserMessages[0]).not.toContain("create_brmem_plan_branch_from_file");

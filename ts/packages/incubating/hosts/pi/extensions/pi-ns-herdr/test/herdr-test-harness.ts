@@ -694,35 +694,9 @@ export async function writePlanStoreFile(
 ): Promise<string> {
 	const directoryPath = herdrPlanStoreDirectory(planStoreRoot, repoRoot);
 	await mkdir(directoryPath, { recursive: true });
-	const planFile = join(directoryPath, options.fileName ?? `${PLAN_SLUG}.md`);
+	const planFile = join(directoryPath, options.fileName ?? `${PLAN_SLUG}--26-03-19T12-00-00--1.md`);
 	await writeFile(planFile, options.content ?? PLAN_CONTENT, "utf8");
 	return planFile;
-}
-
-export function savedPlanEntry(
-	repoRoot: string,
-	planFile: string,
-	overrides: Record<string, unknown> = {},
-): PiSessionEntry {
-	return {
-		type: "message",
-		message: {
-			role: "toolResult",
-			toolName: "write_saved_plan_file",
-			isError: false,
-			details: {
-				slug: PLAN_SLUG,
-				repoRoot,
-				repoKey: buildRepoPlanStoreKey(repoRoot, normalizeRepoOriginUrl(REPO_ORIGIN_URL)),
-				repoIdentitySource: "origin-url",
-				sourceBranch: SOURCE_BRANCH,
-				branchKey: encodeBranchForPlanPath(SOURCE_BRANCH),
-				filePath: planFile,
-				summary: "Test saved plan.",
-				...overrides,
-			},
-		},
-	};
 }
 
 function parseObjectiveListStdout(stdout: string): ObjectiveListParseResult {
