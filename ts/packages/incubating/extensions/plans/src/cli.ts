@@ -365,12 +365,12 @@ function savedPlanJson(plan: TimestampedDurableSavedPlan): z.infer<typeof saveRe
 		timestamp: plan.timestamp,
 		timestampNumber: plan.timestampNumber,
 		sequence: plan.sequence,
-		repoRoot: plan.repoRoot,
-		repoKey: plan.repoKey,
-		repoIdentitySource: plan.repoIdentitySource,
-		sourceBranch: plan.sourceBranch,
-		branchKey: plan.branchKey,
-		directoryPath: plan.directoryPath,
+		repoRoot: plan.directory.repoRoot,
+		repoKey: plan.directory.repoKey,
+		repoIdentitySource: plan.directory.repoIdentitySource,
+		sourceBranch: plan.directory.sourceBranch,
+		branchKey: plan.directory.branchKey,
+		directoryPath: plan.directory.directoryPath,
 	};
 }
 
