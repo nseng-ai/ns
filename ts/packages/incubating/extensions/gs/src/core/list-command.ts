@@ -39,7 +39,7 @@ const stackSchema = z.lazy(() =>
 	}),
 );
 export const gsListResultSchema = z.lazy(() => z.strictObject({ stacks: z.array(stackSchema) }));
-export type GsListResult = z.output<typeof gsListResultSchema>;
+export type GsListResult = z.infer<typeof gsListResultSchema>;
 
 export interface GsListInvocation {
 	readonly cwd: string;
