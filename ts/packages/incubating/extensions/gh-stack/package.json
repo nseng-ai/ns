@@ -1,0 +1,40 @@
+{
+	"name": "@nseng-ai/gh-stack",
+	"version": "0.1.4",
+	"license": "MIT",
+	"files": [
+		"src",
+		"reference"
+	],
+	"type": "module",
+	"exports": {
+		"./api": "./src/api/index.ts",
+		"./ns-extension": "./src/ns/extension.ts",
+		"./ns/commands/list": "./src/ns/commands/list.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../.. && vitest run --config vitest.config.ts packages/incubating/extensions/gh-stack/test",
+		"pack:local": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm pack ./dist/publish --pack-destination dist",
+		"publish:dry-run": "pnpm --workspace-root exec ns-dev prepare-source-publish-package \"$PWD\" && npm publish --dry-run ./dist/publish"
+	},
+	"dependencies": {
+		"@nseng-ai/clinkr": "workspace:*",
+		"@nseng-ai/extension-kit": "workspace:*",
+		"@nseng-ai/foundation": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
+	},
+	"ns": {
+		"description": "Inspect official GitHub gh-stack provider inventory.",
+		"tier": "extension",
+		"subpackages": [
+			"api",
+			"core",
+			"ns"
+		]
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}

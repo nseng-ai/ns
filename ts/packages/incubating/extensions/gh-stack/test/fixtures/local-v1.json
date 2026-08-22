@@ -1,0 +1,15 @@
+{
+	"schemaVersion": 1,
+	"repository": "example/project",
+	"stacks": [
+		{
+			"id": "9001",
+			"number": 42,
+			"trunk": { "branch": "main", "head": "0000000" },
+			"branches": [
+				{ "branch": "feature-base", "pullRequest": { "number": 101, "id": "PR_101" } },
+				{ "branch": "feature-top" }
+			]
+		}
+	]
+}

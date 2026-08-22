@@ -16,6 +16,7 @@ interface SourceExtensionExpectation {
 const SOURCE_EXTENSIONS = [
 	{ directoryName: "branch-context", packageName: "@nseng-ai/branch-context" },
 	{ directoryName: "flow", packageName: "@nseng-ai/flow" },
+	{ directoryName: "gh-stack", packageName: "@nseng-ai/gh-stack" },
 	{ directoryName: "handoffs", packageName: "@nseng-ai/handoffs" },
 	{ directoryName: "herdr", packageName: "@nseng-ai/herdr" },
 	{ directoryName: "objectives", packageName: "@nseng-ai/objectives" },

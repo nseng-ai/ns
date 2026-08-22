@@ -1,11 +1,11 @@
 # Stack Provider Capability Matrix
 
-This matrix supports [ADR 0049](../adr/0049-opt-in-provider-neutral-stacking.md). It records the semantics that ns neutral stacking contracts must preserve across Graphite, the observed `github/gh-stack` extension, and a hypothetical colocated-Jujutsu provider. It is a design input and conformance-test checklist, not a promise that ns ships gh-stack or Jujutsu adapters.
+This matrix supports [ADR 0049](../adr/0049-opt-in-provider-neutral-stacking.md). It records the semantics that ns neutral stacking contracts must preserve across Graphite, the observed `github/gh-stack` extension, and a hypothetical colocated-Jujutsu provider. It is a design input and conformance-test checklist. ns ships a provider-specific read-only gh-stack inventory adapter; it does not ship a gh-stack adapter for the neutral Flow lifecycle capabilities below or any Jujutsu adapter.
 
 ## Evidence baseline
 
 - **Graphite:** current `@nseng-ai/extension-kit/graphite` adapters, Flow submit/land behavior, and the repository's `gt` workflow as of this document.
-- **gh-stack:** locally installed official `github/gh-stack` extension v0.1.0, verified through `gh stack version`, `add`/`init`/`view` help, and a disposable-repository `init` plus `view --json` observation. It is pre-1.0 and may drift before an adapter is built.
+- **gh-stack:** locally installed official `github/gh-stack` extension v0.1.0, verified through `gh stack version`, `add`/`init`/`view` help, and a disposable-repository `init` plus `view --json` observation. The separately revalidated local-state and Stacks API evidence in `ts/packages/incubating/extensions/gh-stack/reference/provider-contract.md` supports the shipped read-only inventory adapter. It is pre-1.0 and may drift.
 - **Jujutsu:** colocated-mode findings in [`docs/research/vcs-evaluation-jujutsu.md`](../research/vcs-evaluation-jujutsu.md), explored 2026-06-14. Jujutsu is a contract-shape constraint only.
 
 ## Capability matrix
@@ -48,4 +48,4 @@ Neutral conformance suites should exercise semantics rather than command parity:
 - partial providers that implement only topology or publication;
 - Git- and GitHub-observed postcondition verification.
 
-Graphite is the sole real adapter required by ADR 0049. The provisional `/ns:flow:gs:autobranch` Skill-Backed Command uses only the verified v0.1.0 `init`, `add`, and `view --json` scope and verifies Git/provider postconditions without reading private metadata; it is not a shipped adapter. Any future gh-stack adapter must revalidate pre-1.0 behavior before implementation. No Jujutsu adapter or conformance run is implied.
+Graphite is the sole real adapter required by ADR 0049 for Flow's neutral lifecycle capabilities. The provisional `/ns:flow:gs:autobranch` Skill-Backed Command uses only the verified v0.1.0 `init`, `add`, and `view --json` scope and verifies Git/provider postconditions without reading private metadata; it is not a shipped Flow adapter. Separately, `@nseng-ai/gh-stack` ships the provider-branded Tier 0 `ns gs list` inventory command: it reads local provider state and GitHub's Stacks endpoint, reconciles them strictly, and performs no mutation. Flow still has no gh-stack topology, preparation, reconciliation, publication, or branch-creation adapter. Any future lifecycle adapter must revalidate pre-1.0 behavior. No Jujutsu adapter or conformance run is implied.
