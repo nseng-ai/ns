@@ -120,7 +120,7 @@ async function createFixture(
 	if (options.withoutState === true && "state" in options) {
 		throw new Error("Fixture cannot define state when withoutState is true.");
 	}
-	const cwd = await mkdtemp(join(tmpdir(), "gh-stack-ns-scenario-"));
+	const cwd = await mkdtemp(join(tmpdir(), "gs-ns-scenario-"));
 	tempDirectories.push(cwd);
 	const commonDir = join(cwd, ".git-common");
 	await mkdir(commonDir);

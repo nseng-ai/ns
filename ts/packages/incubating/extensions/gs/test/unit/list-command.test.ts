@@ -17,7 +17,7 @@ const INVENTORY = {
 	],
 };
 
-describe("gh-stack list command", () => {
+describe("gs list command", () => {
 	it("returns the complete inventory without changing branch order", async () => {
 		await expect(
 			runGsList(gatewayFor(INVENTORY), { cwd: "/repo", outputFormat: "human" }, { verbose: false }),
@@ -79,7 +79,7 @@ describe("gh-stack list command", () => {
 	});
 });
 
-describe("gh-stack list human renderer", () => {
+describe("gs list human renderer", () => {
 	it("renders the exact compact table", () => {
 		expect(renderGsListHuman(INVENTORY, false)).toBe(
 			"NUMBER  STACK         BASE\n12      bottom...top  main\n—       solo          trunk",
