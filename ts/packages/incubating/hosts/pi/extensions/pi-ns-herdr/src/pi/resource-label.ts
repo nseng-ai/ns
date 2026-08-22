@@ -8,7 +8,7 @@ import {
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { HerdrResourceLabelDeriver } from "../core/new-space.ts";
 import type { HerdrPiContext } from "./context.ts";
@@ -53,7 +53,7 @@ export function createHerdrResourceLabelDeriver(
 			}
 			const policy = loadModelPolicy({
 				repoRoot: repository.value,
-				gateway: nodeProjectConfigGateway,
+				gateway: createNodeProjectConfigGateway(),
 			});
 			if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 			const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);

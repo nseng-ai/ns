@@ -5,6 +5,7 @@ import type { ExtensionDescriptor } from "../../src/sdk/descriptor.ts";
 import {
 	buildPointCatalog,
 	composeLayeredPointDefinitions,
+	createNodeProjectConfigGateway,
 	loadPointCatalog,
 	loadProjectConfig,
 	parseProjectConfigToml,
@@ -25,6 +26,10 @@ const pointDefinitions = [
 ] as const satisfies readonly PointDefinition[];
 
 describe("project point config", () => {
+	test("constructs independent Node gateway instances", () => {
+		expect(createNodeProjectConfigGateway()).not.toBe(createNodeProjectConfigGateway());
+	});
+
 	test("loads repo-root ns.toml through one gateway read and validates point installations", () => {
 		const gateway = new InMemoryProjectConfigGateway({
 			"ns.toml": `[points]

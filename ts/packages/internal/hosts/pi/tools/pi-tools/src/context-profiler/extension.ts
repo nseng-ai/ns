@@ -16,7 +16,7 @@ import {
 } from "@nseng-ai/extension-kit/model-policy";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import {
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	type ProjectConfigGateway,
 } from "@nseng-ai/sdk/project-config/points";
 import type {
@@ -96,7 +96,7 @@ export function registerContextProfilerExtension(
 	options: RegisterContextProfilerExtensionOptions = {},
 ): void {
 	const runtime = new ProfilerRuntimeStore();
-	const projectConfigGateway = options.projectConfigGateway ?? nodeProjectConfigGateway;
+	const projectConfigGateway = options.projectConfigGateway ?? createNodeProjectConfigGateway();
 	const segmentationCache = createSegmentationCacheCell();
 	const sessions = new OverlaySessionController();
 

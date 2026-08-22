@@ -22,7 +22,7 @@ import {
 import {
 	hookCommandsForPoint,
 	loadPointCatalog,
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
 } from "@nseng-ai/sdk/project-config/points";
@@ -89,7 +89,7 @@ export async function loadFlowSubmitHooks(
 ): Promise<FlowSubmitHooksLoad> {
 	const catalog = loadPointCatalog({
 		repoRoot: options.repoRoot,
-		gateway: nodeProjectConfigGateway,
+		gateway: createNodeProjectConfigGateway(),
 		settingsSchemas: [LEGACY_FLOW_HOOKS_SETTING_SCHEMA],
 	});
 	const blockingDiagnostics = catalog.diagnostics.filter(

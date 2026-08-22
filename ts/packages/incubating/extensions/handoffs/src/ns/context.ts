@@ -12,7 +12,7 @@ import type { ClinkrInteraction, ConfirmationRequest } from "@nseng-ai/clinkr";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { NsExtensionApi } from "@nseng-ai/sdk";
 import {
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	type ProjectConfigGateway,
 } from "@nseng-ai/sdk/project-config/points";
 
@@ -44,7 +44,7 @@ export async function createNsHandoffContext(ctx: NsExtensionApi): Promise<Hando
 		env: ctx.env as NodeJS.ProcessEnv,
 		commands,
 		git,
-		projectConfig: overrides?.projectConfig ?? nodeProjectConfigGateway,
+		projectConfig: overrides?.projectConfig ?? createNodeProjectConfigGateway(),
 		brmem,
 		sourceReader: overrides?.sourceReader ?? new NodeBrmemSourceReader(),
 		interaction:

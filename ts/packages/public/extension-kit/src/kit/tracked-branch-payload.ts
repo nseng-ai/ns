@@ -23,7 +23,7 @@ import {
 } from "@nseng-ai/foundation/branch-slug";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundation/primitives";
-import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
 import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
@@ -379,7 +379,10 @@ async function generateTrackedBranchSlug(
 			message: `Could not resolve the Git repository root: ${repository.error.message}`,
 		};
 	}
-	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
+	const policy = loadModelPolicy({
+		repoRoot: repository.value,
+		gateway: createNodeProjectConfigGateway(),
+	});
 	if (!policy.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);

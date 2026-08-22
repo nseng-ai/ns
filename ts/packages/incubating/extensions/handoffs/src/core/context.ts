@@ -10,7 +10,7 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
 import {
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	type ProjectConfigGateway,
 } from "@nseng-ai/sdk/project-config/points";
 
@@ -40,7 +40,7 @@ export function createRealHandoffContext(
 		env,
 		commands: execApi,
 		git,
-		projectConfig: nodeProjectConfigGateway,
+		projectConfig: createNodeProjectConfigGateway(),
 		brmem: new RealGitBrmemGateway({ cwd, commands: execApi, git }),
 		sourceReader: new NodeBrmemSourceReader(),
 		interaction: resolveClinkrInteraction({

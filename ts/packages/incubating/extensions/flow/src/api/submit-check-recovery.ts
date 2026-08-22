@@ -1,5 +1,5 @@
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { nodePromptPointContentReader } from "@nseng-ai/sdk/project-config/prompt-content";
 
 import { flowExtensionDescriptorSource } from "../ns/extension.ts";
@@ -18,7 +18,7 @@ export type FlowSubmitRecoveryGitGateway = Pick<GitGateway, "optionalRepoRoot">;
 
 /** Flow-owned real recovery context binding the SDK Node adapters once. */
 export const nodeFlowSubmitRecoveryContext: FlowSubmitRecoveryContext = {
-	projectConfigGateway: nodeProjectConfigGateway,
+	projectConfigGateway: createNodeProjectConfigGateway(),
 	promptReader: nodePromptPointContentReader,
 };
 

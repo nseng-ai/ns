@@ -278,21 +278,23 @@ function tryProjectConfigProbe<T>(
 	}
 }
 
-export const nodeProjectConfigGateway: ProjectConfigGateway = {
-	readTextFile(request) {
-		return tryProjectConfigProbe(() => ({
-			type: "found",
-			text: readFileSync(join(request.repoRoot, request.relativePath), "utf8"),
-		}));
-	},
-	pathExists(request) {
-		return tryProjectConfigProbe(() =>
-			existsSync(join(request.repoRoot, request.relativePath))
-				? { type: "present" }
-				: { type: "missing" },
-		);
-	},
-};
+export function createNodeProjectConfigGateway(): ProjectConfigGateway {
+	return {
+		readTextFile(request) {
+			return tryProjectConfigProbe(() => ({
+				type: "found",
+				text: readFileSync(join(request.repoRoot, request.relativePath), "utf8"),
+			}));
+		},
+		pathExists(request) {
+			return tryProjectConfigProbe(() =>
+				existsSync(join(request.repoRoot, request.relativePath))
+					? { type: "present" }
+					: { type: "missing" },
+			);
+		},
+	};
+}
 
 export function loadProjectConfig(request: {
 	repoRoot: string;

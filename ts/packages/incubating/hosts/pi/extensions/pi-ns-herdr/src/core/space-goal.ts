@@ -14,7 +14,7 @@ import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-typ
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
-import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 
@@ -58,7 +58,10 @@ export async function generateWorkspaceGoalSlug(
 		};
 	}
 
-	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: nodeProjectConfigGateway });
+	const policy = loadModelPolicy({
+		repoRoot: repository.value,
+		gateway: createNodeProjectConfigGateway(),
+	});
 	if (!policy.ok) {
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
 	}

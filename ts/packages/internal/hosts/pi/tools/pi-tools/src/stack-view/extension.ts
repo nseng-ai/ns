@@ -21,7 +21,7 @@ import { truncateDisplayLine } from "@nseng-ai/pi-runtime/terminal/presentation"
 import type { PiModelRegistryLike } from "@nseng-ai/pi-runtime/models/call";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import {
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	type ProjectConfigGateway,
 } from "@nseng-ai/sdk/project-config/points";
 import {
@@ -171,7 +171,7 @@ export function registerStackViewExtension(
 		store: createEnrichmentStore(),
 		engineFactory: options.engineFactory ?? createStackEnrichmentEngine,
 		loadStackView: options.loadStackView ?? loadStackView,
-		projectConfigGateway: options.projectConfigGateway ?? nodeProjectConfigGateway,
+		projectConfigGateway: options.projectConfigGateway ?? createNodeProjectConfigGateway(),
 	};
 
 	registerCommandWithImmediateAck({

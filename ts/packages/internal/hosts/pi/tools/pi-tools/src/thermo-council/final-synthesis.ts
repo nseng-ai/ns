@@ -3,7 +3,7 @@ import {
 	loadModelPolicy,
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
-import { nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import {
 	dispatchTrackedSingleSubagentFleetRun,
 	resultDiagnostic,
@@ -50,7 +50,10 @@ export async function synthesizeThermoCouncilFinalReport({
 		return { type: "completed", report: deterministicReport };
 	}
 
-	const policy = loadModelPolicy({ repoRoot: scope.cwd, gateway: nodeProjectConfigGateway });
+	const policy = loadModelPolicy({
+		repoRoot: scope.cwd,
+		gateway: createNodeProjectConfigGateway(),
+	});
 	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
 	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
 	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };
