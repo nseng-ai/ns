@@ -8,8 +8,9 @@ Read-only ns inventory for local state recorded by the official
 - Node.js 24.12 or newer and ns;
 - a current working directory inside a Git repository.
 
-The command does not require `gh`, GitHub authentication, or network access. It reads only
-`<git-common-dir>/gh-stack`, so linked worktrees share one repository-level inventory.
+The command does not require `gh`, GitHub authentication, or network access. It reads
+`<git-common-dir>/gh-stack` and local Git branch refs, so linked worktrees share one
+repository-level inventory.
 
 ## Install
 
@@ -30,9 +31,14 @@ ns gs list --format json
 ns gs list --json-schema
 ```
 
-`ns gs list` reports every locally recorded stack. It does not contact GitHub to verify current PR or
-branch state, and it does not filter fully merged records or deduplicate repeated stack numbers. A
-missing state file and an empty `stacks` array both return a successful empty inventory.
+`ns gs list` reports each recorded stack that still has at least one recorded stack branch present as
+a local Git branch. The base branch alone does not keep a stack in the inventory. A retained stack
+preserves all provider-recorded branches, including branches that were deleted locally, because the
+recorded shape remains useful context.
+
+The command does not contact GitHub to verify current PR state, and it does not deduplicate repeated
+stack numbers. A missing state file, an empty `stacks` array, or no recorded stack with a remaining
+local branch returns a successful empty inventory.
 
 The compact view has `NUMBER`, `STACK`, and `BASE` columns. A one-branch stack shows its branch once;
 other stacks use `<bottom>...<top>`. `--verbose` (`-v`) renders each stack from its top branch down to

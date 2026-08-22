@@ -5,11 +5,11 @@ This context names the local-only inventory exposed by the gs ns extension.
 ## Language
 
 **Local gh-stack inventory**:
-The complete collection of stacks recorded in one repository's local gh-stack provider state. It is evidence of what the checkout knows locally, not evidence of current GitHub state.
+The collection of Recorded stacks that have at least one recorded stack branch present as a local Git branch. It is evidence of what the repository knows locally, not evidence of current GitHub state.
 *Avoid*: active stack inventory, remote inventory, reconciled inventory
 
 **Recorded stack**:
-One stack entry preserved from local gh-stack state, including fully merged entries and entries that repeat another stack number.
+One stack entry preserved from local gh-stack state. A Recorded stack remains in the Local gh-stack inventory while at least one of its recorded stack branches exists locally; its complete recorded branch shape is preserved even when some branches were deleted. The base branch alone does not retain it.
 *Avoid*: active stack, deduplicated stack
 
 **Recorded PR**:
@@ -25,9 +25,9 @@ A recorded branch with no local pull-request identity. It makes no claim about w
 *Avoid*: unpushed, no PR exists
 
 **GS command face**:
-The provider-branded `ns gs` command group. Its `list` operation exposes the complete Local gh-stack inventory for humans and agents and has no Pi mirror.
+The provider-branded `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory for humans and agents and has no Pi mirror.
 *Avoid*: `ns flow gs`, generic stack command
 
 **Local-only inventory**:
-The command contract that resolves Git's common directory and consumes only gh-stack's local state file. It does not require provider installation, GitHub authentication, or network access.
+The command contract that resolves Git's common directory, consumes gh-stack's local state file, and checks local Git branch refs. It does not require provider installation, GitHub authentication, or network access.
 *Avoid*: fallback mode, partial remote inventory
