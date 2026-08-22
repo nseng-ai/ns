@@ -116,7 +116,7 @@ interface Fixture {
 async function createFixture(
 	options: { state?: unknown; gitFailure?: string } = {},
 ): Promise<Fixture> {
-	const cwd = await mkdtemp(join(tmpdir(), "gh-stack-ns-scenario-"));
+	const cwd = await mkdtemp(join(tmpdir(), "gs-ns-scenario-"));
 	tempDirectories.push(cwd);
 	const commonDir = join(cwd, ".git-common");
 	await mkdir(commonDir);

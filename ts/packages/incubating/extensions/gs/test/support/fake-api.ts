@@ -6,11 +6,11 @@ export function createFakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtens
 		env: {},
 		hasExtension: () => false,
 		async exec() {
-			throw new Error("Unexpected command execution in gh-stack unit test.");
+			throw new Error("Unexpected command execution in gs unit test.");
 		},
 		textGenerator: {
 			async generateText() {
-				throw new Error("Unexpected text generation in gh-stack unit test.");
+				throw new Error("Unexpected text generation in gs unit test.");
 			},
 		},
 		commandIo: {
@@ -24,10 +24,10 @@ export function createFakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtens
 		outputFormat: "human",
 		isInteractive: () => false,
 		confirm: () => {
-			throw new Error("Unexpected confirmation prompt in gh-stack unit test.");
+			throw new Error("Unexpected confirmation prompt in gs unit test.");
 		},
 		select: () => {
-			throw new Error("Unexpected selection prompt in gh-stack unit test.");
+			throw new Error("Unexpected selection prompt in gs unit test.");
 		},
 		...overrides,
 	};

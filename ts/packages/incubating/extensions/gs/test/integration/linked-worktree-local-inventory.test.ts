@@ -22,7 +22,7 @@ afterEach(async () => {
 
 describe("linked worktree local gh-stack inventory", () => {
 	test("uses the actual Git common directory and reads its shared state", async () => {
-		const root = await mkdtemp(join(tmpdir(), "gh-stack-linked-worktree-"));
+		const root = await mkdtemp(join(tmpdir(), "gs-linked-worktree-"));
 		tempDirectories.push(root);
 		const repository = join(root, "repository");
 		const linked = join(root, "linked");
