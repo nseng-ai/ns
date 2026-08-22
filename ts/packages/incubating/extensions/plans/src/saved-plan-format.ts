@@ -1,0 +1,175 @@
+import { createHash } from "node:crypto";
+
+import { validatePlanSlug } from "./plan-persistence.ts";
+
+const TIMESTAMP_PATTERN =
+	/^(?<year>\d{2})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2})-(?<minute>\d{2})-(?<second>\d{2})$/;
+const TIMESTAMPED_FILE_PATTERN =
+	/^(?<slug>[a-z0-9]+(?:-[a-z0-9]+)*)--(?<timestamp>\d{2}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})--(?<sequence>[1-9]\d*)\.md$/;
+
+export type SavedPlanFormat = "timestamped" | "legacy";
+
+export interface TimestampedSavedPlanName {
+	format: "timestamped";
+	slug: string;
+	fileName: string;
+	timestamp: string;
+	timestampNumber: number;
+	sequence: number;
+}
+
+export interface LegacySavedPlanName {
+	format: "legacy";
+	slug: string;
+	fileName: string;
+}
+
+export type ParsedSavedPlanName = TimestampedSavedPlanName | LegacySavedPlanName;
+
+export function deriveDeterministicSavedPlanSlug(
+	content: Uint8Array,
+	decodedContent: string,
+): string {
+	const heading = findFirstEligibleH1(decodedContent);
+	if (heading !== undefined) {
+		const slug = headingSlug(heading);
+		if (validatePlanSlug(slug) === undefined) return slug;
+	}
+	return `saved-plan-${createHash("sha256").update(content).digest("hex").slice(0, 12)}`;
+}
+
+export function formatLocalSavedPlanTimestamp(nowMs: number): string {
+	const date = new Date(nowMs);
+	return [
+		String(date.getFullYear()).slice(-2),
+		"-",
+		pad(date.getMonth() + 1),
+		"-",
+		pad(date.getDate()),
+		"T",
+		pad(date.getHours()),
+		"-",
+		pad(date.getMinutes()),
+		"-",
+		pad(date.getSeconds()),
+	].join("");
+}
+
+export function buildTimestampedSavedPlanFileName(
+	slug: string,
+	timestamp: string,
+	sequence: number,
+): string {
+	if (validatePlanSlug(slug) !== undefined) throw new Error(`Invalid Saved Plan slug: ${slug}`);
+	if (parseLocalSavedPlanTimestamp(timestamp) === undefined) {
+		throw new Error(`Invalid local Saved Plan timestamp: ${timestamp}`);
+	}
+	if (!Number.isSafeInteger(sequence) || sequence < 1) {
+		throw new Error("Saved Plan sequence must be a positive safe integer.");
+	}
+	return `${slug}--${timestamp}--${sequence}.md`;
+}
+
+export function parseSavedPlanFileName(fileName: string): ParsedSavedPlanName | undefined {
+	const match = TIMESTAMPED_FILE_PATTERN.exec(fileName);
+	if (match?.groups !== undefined) {
+		const slug = match.groups.slug;
+		const timestamp = match.groups.timestamp;
+		const sequenceText = match.groups.sequence;
+		if (slug === undefined || timestamp === undefined || sequenceText === undefined)
+			return undefined;
+		const timestampNumber = parseLocalSavedPlanTimestamp(timestamp);
+		const sequence = Number(sequenceText);
+		if (
+			validatePlanSlug(slug) !== undefined ||
+			timestampNumber === undefined ||
+			!Number.isSafeInteger(sequence)
+		) {
+			return undefined;
+		}
+		return { format: "timestamped", slug, fileName, timestamp, timestampNumber, sequence };
+	}
+	if (!fileName.endsWith(".md")) return undefined;
+	const slug = fileName.slice(0, -3);
+	if (validatePlanSlug(slug) !== undefined) return undefined;
+	return { format: "legacy", slug, fileName };
+}
+
+export function parseLocalSavedPlanTimestamp(timestamp: string): number | undefined {
+	const match = TIMESTAMP_PATTERN.exec(timestamp);
+	if (match?.groups === undefined) return undefined;
+	const { year, month, day, hour, minute, second } = match.groups;
+	if (
+		year === undefined ||
+		month === undefined ||
+		day === undefined ||
+		hour === undefined ||
+		minute === undefined ||
+		second === undefined
+	) {
+		return undefined;
+	}
+	const values = [year, month, day, hour, minute, second].map(Number);
+	const [yearNumber, monthNumber, dayNumber, hourNumber, minuteNumber, secondNumber] = values;
+	if (
+		yearNumber === undefined ||
+		monthNumber === undefined ||
+		dayNumber === undefined ||
+		hourNumber === undefined ||
+		minuteNumber === undefined ||
+		secondNumber === undefined
+	) {
+		return undefined;
+	}
+	const candidate = new Date(
+		Date.UTC(2000 + yearNumber, monthNumber - 1, dayNumber, hourNumber, minuteNumber, secondNumber),
+	);
+	if (
+		candidate.getUTCFullYear() !== 2000 + yearNumber ||
+		candidate.getUTCMonth() !== monthNumber - 1 ||
+		candidate.getUTCDate() !== dayNumber ||
+		candidate.getUTCHours() !== hourNumber ||
+		candidate.getUTCMinutes() !== minuteNumber ||
+		candidate.getUTCSeconds() !== secondNumber
+	) {
+		return undefined;
+	}
+	return Number(`${year}${month}${day}${hour}${minute}${second}`);
+}
+
+function findFirstEligibleH1(content: string): string | undefined {
+	let fence: { marker: "`" | "~"; length: number } | undefined;
+	for (const rawLine of content.split(/\r?\n/)) {
+		const line = rawLine.replace(/^\uFEFF/, "");
+		if (fence !== undefined) {
+			const closing = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line)?.[1];
+			if (closing?.[0] === fence.marker && closing.length >= fence.length) fence = undefined;
+			continue;
+		}
+		const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+		if (opening !== undefined) {
+			fence = { marker: opening[0] === "`" ? "`" : "~", length: opening.length };
+			continue;
+		}
+		const match = /^ {0,3}#(?!#)[\t ]+(.+?)\s*$/.exec(line);
+		if (match?.[1] === undefined) continue;
+		return match[1].replace(/[\t ]+#+[\t ]*$/, "");
+	}
+	return undefined;
+}
+
+function headingSlug(rawHeading: string): string {
+	const visible = rawHeading
+		.replace(/!?(?:\[([^\]]+)\])(?:\([^)]*\)|\[[^\]]*\])/g, "$1")
+		.replace(/<[^>]*>/g, " ")
+		.replace(/`([^`]*)`/g, "$1")
+		.replace(/`+/g, "")
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.toLowerCase();
+	return (visible.match(/[a-z0-9]+/g) ?? []).slice(0, 7).join("-");
+}
+
+function pad(value: number): string {
+	return String(value).padStart(2, "0");
+}
