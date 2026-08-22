@@ -14,7 +14,11 @@ import type { AttachedPlanEntry } from "../src/core/branch-memory.ts";
 import { BRANCH_CONTEXT_NAMESPACE, type BranchContextContext } from "@nseng-ai/branch-context";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { buildPlanFileName, buildRepoPlanStoreKey, encodeBranchForPlanPath } from "@nseng-ai/plans";
+import {
+	buildRepoPlanStoreKey,
+	buildTimestampedSavedPlanFileName,
+	encodeBranchForPlanPath,
+} from "@nseng-ai/plans";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 
@@ -163,7 +167,7 @@ describe("loadAttachedPlan", () => {
 		const planStoreRoot = await mkdtemp(join(tmpdir(), "branch-context-fallback-"));
 		tempDirs.push(planStoreRoot);
 		const savedSlug = "saved-plan-fallback-content";
-		const fileName = buildPlanFileName(savedSlug);
+		const fileName = buildTimestampedSavedPlanFileName(savedSlug, "26-01-02T03-04-05", 1);
 		const directory = join(
 			planStoreRoot,
 			buildRepoPlanStoreKey(ROOT, "git@github.com:sdl/sdl-tools.git"),
@@ -218,7 +222,7 @@ describe("loadAttachedPlan", () => {
 		const implementationBranch = "feature/implementation-upstack";
 		const repoKey = buildRepoPlanStoreKey(ROOT, "git@github.com:sdl/sdl-tools.git");
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
-		const fileName = buildPlanFileName(PLAN_SLUG);
+		const fileName = buildTimestampedSavedPlanFileName(PLAN_SLUG, "26-01-02T03-04-05", 1);
 		const directory = join(planStoreRoot, repoKey, branchKey);
 		const filePath = join(directory, fileName);
 		await mkdir(directory, { recursive: true });

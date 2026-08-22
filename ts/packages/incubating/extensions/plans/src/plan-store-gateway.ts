@@ -9,7 +9,6 @@ export interface PlanStoreGateway {
 	statPath(path: string): Promise<PlanStorePathStat | undefined>;
 	readTextFile(path: string): Promise<string>;
 	readRegularFileBytes(path: string): Promise<Uint8Array>;
-	writeTextFileExclusive(path: string, content: string): Promise<void>;
 	writeBytesExclusive(path: string, content: Uint8Array): Promise<void>;
 	realpathOrResolve(path: string): Promise<string>;
 }
@@ -77,10 +76,6 @@ export class RealPlanStoreGateway implements PlanStoreGateway {
 		} finally {
 			await file?.close();
 		}
-	}
-
-	async writeTextFileExclusive(path: string, content: string): Promise<void> {
-		await this.writeFileExclusive(path, async (file) => await file.writeFile(content, "utf8"));
 	}
 
 	async writeBytesExclusive(path: string, content: Uint8Array): Promise<void> {

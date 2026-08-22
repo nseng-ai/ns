@@ -384,11 +384,11 @@ function formatDryRun(options: {
 		`Path: ${plan.filePath}`,
 		`Saved-plan filename slug: ${plan.slug}`,
 		`Content-derived branch-context slug: ${operation.slug}`,
-		`Repo key: ${plan.repoKey}`,
-		`Repo root: ${plan.repoRoot}`,
-		`Repo identity source: ${plan.repoIdentitySource}`,
-		`Source branch: ${plan.sourceBranch}`,
-		`Branch path segment: ${plan.branchKey}`,
+		`Repo key: ${plan.directory.repoKey}`,
+		`Repo root: ${plan.directory.repoRoot}`,
+		`Repo identity source: ${plan.directory.repoIdentitySource}`,
+		`Source branch: ${plan.directory.sourceBranch}`,
+		`Branch path segment: ${plan.directory.branchKey}`,
 		plan.summary ? `Summary: ${plan.summary}` : undefined,
 		...(options.basis.type === "current-head"
 			? []
@@ -412,7 +412,7 @@ function formatDryRun(options: {
 		formatHerdrImplPreview({
 			destination: destination.type,
 			branchName: operation.branch,
-			description: `herdr ${options.config.commandName.split(":").at(-1) ?? "impl-plan"} from ${options.basis.type === "resolved-local-trunk" ? options.basis.preparation.trunkBranch : plan.sourceBranch}`,
+			description: `herdr ${options.config.commandName.split(":").at(-1) ?? "impl-plan"} from ${options.basis.type === "resolved-local-trunk" ? options.basis.preparation.trunkBranch : plan.directory.sourceBranch}`,
 			launchCommand,
 		}),
 	]

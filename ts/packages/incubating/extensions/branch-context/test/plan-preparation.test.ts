@@ -77,7 +77,7 @@ async function fixture(): Promise<{
 	return {
 		checkout: evidence,
 		plan: {
-			...evidence,
+			directory: evidence,
 			slug: "saved-plan",
 			filePath,
 			fileName: "saved-plan.md",

@@ -7,8 +7,6 @@ export {
 	resolvePlanStoreDirectory,
 	savePlanContentBytes,
 	writeSavedPlanFile,
-	type DurableSavedPlan,
-	type LegacyDurableSavedPlan,
 	type PlanStoreDirectoryEvidence,
 	type TimestampedDurableSavedPlan,
 	type RepoIdentitySource,

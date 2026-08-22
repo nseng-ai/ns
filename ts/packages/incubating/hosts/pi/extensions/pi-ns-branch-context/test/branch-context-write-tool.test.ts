@@ -32,10 +32,10 @@ describe("write_saved_plan_file tool", () => {
 		};
 
 		expect(tool.description).toContain(
-			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md",
 		);
 		expect(tool.description).not.toContain("Legacy `~/.ns/enriched-plan` content");
-		expect(tool.description).toContain("refuses to overwrite");
+		expect(tool.description).toContain("allocates the next sequence without overwriting");
 		expect(tool.description).toContain("does not create branches or write Branch Memory");
 		expect(tool.description).toContain("self-contained");
 		expect(tool.description).toContain("Codex-backed slug model");

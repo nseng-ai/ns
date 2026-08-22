@@ -694,7 +694,7 @@ export async function writePlanStoreFile(
 ): Promise<string> {
 	const directoryPath = herdrPlanStoreDirectory(planStoreRoot, repoRoot);
 	await mkdir(directoryPath, { recursive: true });
-	const planFile = join(directoryPath, options.fileName ?? `${PLAN_SLUG}.md`);
+	const planFile = join(directoryPath, options.fileName ?? `${PLAN_SLUG}--26-01-02T03-04-05--1.md`);
 	await writeFile(planFile, options.content ?? PLAN_CONTENT, "utf8");
 	return planFile;
 }

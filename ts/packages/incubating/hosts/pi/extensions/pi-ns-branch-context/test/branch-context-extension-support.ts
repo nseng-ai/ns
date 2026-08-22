@@ -643,6 +643,10 @@ export function planStoreDirectory(
 	return join(planStoreRoot, repoKey, branchKey);
 }
 
+export function savedPlanStoreFileName(slug: string, sequence = 1): string {
+	return `${slug}--26-01-02T03-04-05--${sequence}.md`;
+}
+
 export async function writePlanStoreFile(
 	directoryPath: string,
 	fileName: string,

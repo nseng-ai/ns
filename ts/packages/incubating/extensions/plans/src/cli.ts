@@ -17,7 +17,11 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { z } from "zod";
 
-import { normalizePlanFilePath, resolvePlanSourceFile } from "./plan-persistence.ts";
+import {
+	normalizePlanFilePath,
+	resolvePlanContentFile,
+	resolvePlanSourceFile,
+} from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import {
 	buildPlanStoreOptions,
@@ -43,7 +47,7 @@ const listRequestSchema = z.object({
 const listResultSchema = z.object({
 	plans: z.array(
 		z.object({
-			format: z.enum(["timestamped", "legacy"]),
+			format: z.literal("timestamped"),
 			slug: z.string(),
 			branchKey: z.string(),
 			modifiedTimeMs: z.number(),
@@ -60,6 +64,7 @@ const listResultSchema = z.object({
 });
 
 const saveRequestSchema = z.object({
+	slug: z.string().describe("Meaningful lowercase kebab-case slug derived from the plan content."),
 	contentFile: z
 		.string()
 		.describe("Markdown content file path (relative paths resolve against cwd)."),
@@ -216,14 +221,17 @@ async function handleSave(
 		operation: "save",
 		action: async () => {
 			const contentPath = resolve(ctx.cwd, normalizePlanFilePath(request.contentFile));
-			const safeContentPath = await resolvePlanSourceFile(ctx.commands, {
-				cwd: ctx.cwd,
+			const safeContentPath = await resolvePlanContentFile({
 				rawFilePath: contentPath,
-				git: ctx.git,
 				planStoreGateway: ctx.planStoreGateway,
 			});
 			const content = await ctx.planStoreGateway.readRegularFileBytes(safeContentPath);
-			const plan = await savePlanContentBytes(ctx.commands, content, planStoreOptions(ctx));
+			const plan = await savePlanContentBytes(
+				ctx.commands,
+				request.slug,
+				content,
+				planStoreOptions(ctx),
+			);
 			return ok(savedPlanJson(plan));
 		},
 		failureFromError: plansFailureFromError,
@@ -379,7 +387,7 @@ function savedPlanListJson(plans: readonly SavedPlanListItem[]): SavedPlanListDa
 }
 
 function savedPlanListItemJson(plan: SavedPlanListItem): {
-	format: "timestamped" | "legacy";
+	format: "timestamped";
 	slug: string;
 	branchKey: string;
 	modifiedTimeMs: number;
@@ -388,7 +396,7 @@ function savedPlanListItemJson(plan: SavedPlanListItem): {
 	repo: {
 		root: string;
 		key: string;
-		identitySource: SavedPlanListItem["repoIdentitySource"];
+		identitySource: SavedPlanListItem["repo"]["repoIdentitySource"];
 		planStorePath: string;
 	};
 } {
@@ -400,10 +408,10 @@ function savedPlanListItemJson(plan: SavedPlanListItem): {
 		path: plan.filePath,
 		fileName: plan.fileName,
 		repo: {
-			root: plan.repoRoot,
-			key: plan.repoKey,
-			identitySource: plan.repoIdentitySource,
-			planStorePath: plan.repoDirectoryPath,
+			root: plan.repo.repoRoot,
+			key: plan.repo.repoKey,
+			identitySource: plan.repo.repoIdentitySource,
+			planStorePath: plan.repo.repoDirectoryPath,
 		},
 	};
 }
@@ -421,7 +429,7 @@ function resolvePlanJson(evidence: ResolvePlanEvidence):
 			modifiedTimeMs: number;
 			repoRoot: string;
 			repoKey: string;
-			repoIdentitySource: LatestSavedPlanFileEvidence["repoIdentitySource"];
+			repoIdentitySource: LatestSavedPlanFileEvidence["directory"]["repoIdentitySource"];
 			sourceBranch: string;
 			branchKey: string;
 			directoryPath: string;
@@ -439,12 +447,12 @@ function resolvePlanJson(evidence: ResolvePlanEvidence):
 				slug: evidence.slug,
 				fileName: evidence.fileName,
 				modifiedTimeMs: evidence.modifiedTimeMs,
-				repoRoot: evidence.repoRoot,
-				repoKey: evidence.repoKey,
-				repoIdentitySource: evidence.repoIdentitySource,
-				sourceBranch: evidence.sourceBranch,
-				branchKey: evidence.branchKey,
-				directoryPath: evidence.directoryPath,
+				repoRoot: evidence.directory.repoRoot,
+				repoKey: evidence.directory.repoKey,
+				repoIdentitySource: evidence.directory.repoIdentitySource,
+				sourceBranch: evidence.directory.sourceBranch,
+				branchKey: evidence.directory.branchKey,
+				directoryPath: evidence.directory.directoryPath,
 			};
 	}
 }

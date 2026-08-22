@@ -18,7 +18,8 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 
 const SOURCE_BRANCH = "feature/source-plan";
 const PLAN_SLUG = "canonical-saved-plan";
-const PLAN_KEY = `${PLAN_SLUG}.md`;
+const PLAN_TIMESTAMP = "26-01-02T03-04-05";
+const PLAN_KEY = `${PLAN_SLUG}--${PLAN_TIMESTAMP}--1.md`;
 const ORIGIN = "git@github.com:owner/repo.git";
 
 describe("prepareLatestSessionSavedPlan", () => {
@@ -105,7 +106,7 @@ describe("saved plan session selection", () => {
 		const olderPath = await writePlanFile(
 			fixture,
 			fixture.directory,
-			"older-valid-saved-plan.md",
+			`older-valid-saved-plan--${PLAN_TIMESTAMP}--1.md`,
 			1_700_000_000_000,
 		);
 		const newerPath = await writePlanFile(fixture, fixture.directory, PLAN_KEY, 1_800_000_000_000);
@@ -241,7 +242,7 @@ describe("saved plan session selection", () => {
 		const olderPath = await writePlanFile(
 			fixture,
 			fixture.directory,
-			"older-valid-saved-plan.md",
+			`older-valid-saved-plan--${PLAN_TIMESTAMP}--1.md`,
 			1_700_000_000_000,
 		);
 		const missingPath = join(fixture.directory.directoryPath, PLAN_KEY);
@@ -317,7 +318,7 @@ describe("saved plan session selection", () => {
 			name: "basename slug mismatch",
 			mutate: (fixture, filePath) =>
 				evidence(fixture.directory, { slug: "other-valid-saved-plan", filePath }),
-			expected: "basename must match slug",
+			expected: "basename slug must match evidence.slug",
 		},
 		{
 			name: "invalid slug",
@@ -347,6 +348,24 @@ describe("saved plan session selection", () => {
 		});
 	}
 
+	test("rejects unsupported plain session saved-plan basenames clearly", async () => {
+		const fixture = await makeFixture();
+		const filePath = join(fixture.directory.directoryPath, `${PLAN_SLUG}.md`);
+
+		const result = await validateSessionSavedPlanCandidate(
+			evidence(fixture.directory, { filePath }),
+			fixture.directory,
+			{ planStoreGateway: fixture.planStoreGateway },
+		);
+
+		expect(result).toEqual({
+			type: "unsafe",
+			message: expect.stringContaining(
+				"must use the timestamped saved-plan format <slug>--YY-MM-DDTHH-mm-ss--<sequence>.md",
+			),
+		});
+	});
+
 	test("allows same-repo session evidence from a different source branch when requested", async () => {
 		const fixture = await makeFixture();
 		const sourceBranch = "feature/planning-branch";
@@ -370,9 +389,7 @@ describe("saved plan session selection", () => {
 		expect(result).toMatchObject({
 			type: "valid",
 			plan: {
-				sourceBranch,
-				branchKey,
-				directoryPath,
+				directory: { sourceBranch, branchKey, directoryPath },
 				filePath,
 			},
 		});

@@ -66,6 +66,8 @@ const SAVE_HELP = [
 	"Save Markdown bytes as a timestamped source-branch plan.",
 	"",
 	"Options:",
+	"  --slug <value>          Meaningful lowercase kebab-case slug derived from the",
+	"                          plan content.",
 	"  --content-file <value>  Markdown content file path (relative paths resolve",
 	"                          against cwd).",
 	'  --format <format>       Output format. (choices: "human", "json", "markdown",',
@@ -340,7 +342,10 @@ describe("plans list CLI pins", () => {
 
 	test("prints one-plan JSON and human list byte-exactly", async () => {
 		const fixture = await makeFixture();
-		const filePath = await writePlanFile(fixture, "first-useful-saved-plan.md");
+		const filePath = await writePlanFile(
+			fixture,
+			"first-useful-saved-plan--26-03-19T12-00-00--1.md",
+		);
 		const json = await runWithFakes(
 			["list", "--format", "json", "--plan-store-root", fixture.planStoreRoot],
 			{ cwd: fixture.repoRoot, git: fixture.git, planStoreGateway: fixture.planStoreGateway },
@@ -351,12 +356,12 @@ describe("plans list CLI pins", () => {
 			jsonSuccess({
 				plans: [
 					{
-						format: "legacy",
+						format: "timestamped",
 						slug: "first-useful-saved-plan",
 						branchKey: fixture.branchKey,
 						modifiedTimeMs: MODIFIED_TIME_MS,
 						path: filePath,
-						fileName: "first-useful-saved-plan.md",
+						fileName: "first-useful-saved-plan--26-03-19T12-00-00--1.md",
 						repo: {
 							root: fixture.repoRoot,
 							key: fixture.repoKey,
@@ -378,7 +383,7 @@ describe("plans list CLI pins", () => {
 			[
 				"Saved plans:",
 				"- first-useful-saved-plan",
-				"  Format: legacy",
+				"  Format: timestamped",
 				`  Branch key: ${fixture.branchKey}`,
 				"  Modified: 2023-11-14T22:13:20.000Z",
 				`  Path: ${filePath}`,
@@ -393,7 +398,7 @@ describe("plans list CLI pins", () => {
 		const absoluteRoot = join(fixture.repoRoot, relativeRoot);
 		const filePath = await writePlanFile(
 			{ ...fixture, planStoreRoot: absoluteRoot },
-			"relative-root-plan-file.md",
+			"relative-root-plan-file--26-03-19T12-00-00--1.md",
 		);
 
 		const run = await runWithFakes(
@@ -408,12 +413,12 @@ describe("plans list CLI pins", () => {
 			data: {
 				plans: [
 					{
-						format: "legacy",
+						format: "timestamped",
 						slug: "relative-root-plan-file",
 						branchKey: fixture.branchKey,
 						modifiedTimeMs: MODIFIED_TIME_MS,
 						path: filePath,
-						fileName: "relative-root-plan-file.md",
+						fileName: "relative-root-plan-file--26-03-19T12-00-00--1.md",
 						repo: {
 							root: fixture.repoRoot,
 							key: fixture.repoKey,
@@ -437,7 +442,16 @@ describe("plans exec save", () => {
 		]);
 		fixture.planStoreGateway.writeBytes(inputPath, content);
 		const run = await runWithFakes(
-			["exec", "save", "--content-file", inputPath, "--format", "json"],
+			[
+				"exec",
+				"save",
+				"--slug",
+				"ship-plan-store",
+				"--content-file",
+				inputPath,
+				"--format",
+				"json",
+			],
 			{
 				cwd: fixture.repoRoot,
 				git: fixture.git,
@@ -462,6 +476,29 @@ describe("plans exec save", () => {
 		expect(fixture.planStoreGateway.readBytes(data.filePath)).toEqual(content);
 	});
 
+	test("rejects an invalid caller-provided slug", async () => {
+		const fixture = await makeFixture();
+		const inputPath = join(makeTempDir(), "plan-input.md");
+		fixture.planStoreGateway.writeFile(inputPath, "# Valid content\n");
+		const run = await runWithFakes(
+			["exec", "save", "--slug", "generic-plan", "--content-file", inputPath, "--format", "json"],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+			},
+		);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe(
+			jsonFailure(
+				"Invalid saved plan slug: Slug must contain at least 3 words.",
+				"saved-plan-write-failed",
+			),
+		);
+	});
+
 	test.each([
 		["invalid UTF-8", new Uint8Array([0xff]), "Saved plan content must be valid UTF-8."],
 		[
@@ -474,7 +511,16 @@ describe("plans exec save", () => {
 		const inputPath = join(makeTempDir(), "invalid-plan.md");
 		fixture.planStoreGateway.writeBytes(inputPath, content);
 		const run = await runWithFakes(
-			["exec", "save", "--content-file", inputPath, "--format", "json"],
+			[
+				"exec",
+				"save",
+				"--slug",
+				"invalid-content-plan",
+				"--content-file",
+				inputPath,
+				"--format",
+				"json",
+			],
 			{
 				cwd: fixture.repoRoot,
 				git: fixture.git,
@@ -496,7 +542,16 @@ describe("plans exec save", () => {
 			[outsideDirectory, "Plan file must be a regular file"],
 		] as const) {
 			const run = await runWithFakes(
-				["exec", "save", "--content-file", contentPath, "--format", "json"],
+				[
+					"exec",
+					"save",
+					"--slug",
+					"outside-content-plan",
+					"--content-file",
+					contentPath,
+					"--format",
+					"json",
+				],
 				{
 					cwd: fixture.repoRoot,
 					git: fixture.git,
@@ -513,26 +568,38 @@ describe("plans exec save", () => {
 		}
 	});
 
-	test("rejects repository-internal content", async () => {
+	test("accepts repository-local content", async () => {
 		const fixture = await makeFixture();
 		const inputPath = join(fixture.repoRoot, "plan-input.md");
 		fixture.planStoreGateway.writeFile(inputPath, "# Internal Saved Plan\n");
 		const run = await runWithFakes(
-			["exec", "save", "--content-file", "plan-input.md", "--format", "json"],
+			[
+				"exec",
+				"save",
+				"--slug",
+				"repository-content-plan",
+				"--content-file",
+				"plan-input.md",
+				"--format",
+				"json",
+			],
 			{
 				cwd: fixture.repoRoot,
 				git: fixture.git,
 				planStoreRoot: fixture.planStoreRoot,
 				planStoreGateway: fixture.planStoreGateway,
+				localTimestamp: "26-01-02T03-04-05",
 			},
 		);
-		expect(await run.exit).toBe(2);
-		expect(run.stdout.join("")).toBe(
-			jsonFailure(
-				`Plan file must be outside the repository; got ${inputPath} inside ${fixture.repoRoot}.`,
-				"saved-plan-write-failed",
-			),
-		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			status: "ok",
+			data: {
+				slug: "repository-content-plan",
+				fileName: "repository-content-plan--26-01-02T03-04-05--1.md",
+			},
+		});
 	});
 });
 
@@ -678,8 +745,12 @@ describe("plans exec resolve pins", () => {
 
 	test("resolves latest plan JSON and human output byte-exactly", async () => {
 		const fixture = await makeFixture();
-		await writePlanFile(fixture, "older-saved-plan-file.md", 1_000);
-		const newer = await writePlanFile(fixture, "newer-saved-plan-file.md", 2_000);
+		await writePlanFile(fixture, "older-saved-plan-file--26-03-18T12-00-00--1.md", 1_000);
+		const newer = await writePlanFile(
+			fixture,
+			"newer-saved-plan-file--26-03-19T12-00-00--1.md",
+			2_000,
+		);
 		const json = await runWithFakes(["exec", "resolve", "--format", "json"], {
 			cwd: fixture.repoRoot,
 			git: fixture.git,
@@ -693,7 +764,7 @@ describe("plans exec resolve pins", () => {
 				source: "latest",
 				filePath: newer,
 				slug: "newer-saved-plan-file",
-				fileName: "newer-saved-plan-file.md",
+				fileName: "newer-saved-plan-file--26-03-19T12-00-00--1.md",
 				modifiedTimeMs: 2_000,
 				repoRoot: fixture.repoRoot,
 				repoKey: fixture.repoKey,
