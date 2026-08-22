@@ -186,6 +186,7 @@ describe("saved-plan implementation command", () => {
 		);
 		expect(prompt).not.toContain("verification gate fails twice");
 		expect(prompt).not.toContain("fails twice after reasonable local attempts");
+		expect(prompt).not.toContain("do not commit, push, submit, or publish");
 		expect(prompt).toContain(
 			"Investigate validation failures, rerun appropriate gates after fixes, and report unresolved failures accurately",
 		);
