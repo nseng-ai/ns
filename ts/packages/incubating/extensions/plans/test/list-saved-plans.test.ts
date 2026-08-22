@@ -32,14 +32,14 @@ describe("plan-store key helpers", () => {
 });
 
 describe("listSavedPlans", () => {
-	test("lists saved plans for the current repo across all branch-key directories", async () => {
+	test("lists saved plans across branch directories by descending modification time", async () => {
 		const fixture = await makeFixture();
 		const featureBranchKey = encodeBranchForPlanPath("feature/source-plan");
 		const otherBranchKey = encodeBranchForPlanPath("bugfix/other-plan");
-		const legacyPath = await writePlanFile({
+		const firstPath = await writePlanFile({
 			fixture,
 			branchKey: featureBranchKey,
-			fileName: "first-useful-saved-plan.md",
+			fileName: "first-useful-saved-plan--26-03-18T12-00-00--1.md",
 			modifiedTimeMs: 1_900_000_000_000,
 		});
 		const timestampedPath = await writePlanFile({
@@ -52,6 +52,18 @@ describe("listSavedPlans", () => {
 			fixture,
 			branchKey: otherBranchKey,
 			fileName: "ignore.txt",
+			modifiedTimeMs: 1_900_000_000_000,
+		});
+		await writePlanFile({
+			fixture,
+			branchKey: otherBranchKey,
+			fileName: "unsupported-plain-plan.md",
+			modifiedTimeMs: 1_900_000_000_000,
+		});
+		await writePlanFile({
+			fixture,
+			branchKey: otherBranchKey,
+			fileName: "malformed--26-99-99T99-99-99--1.md",
 			modifiedTimeMs: 1_900_000_000_000,
 		});
 		fixture.planStoreGateway.mkdir(
@@ -68,17 +80,17 @@ describe("listSavedPlans", () => {
 		expect(plans).toMatchObject([
 			{
 				format: "timestamped",
+				slug: "first-useful-saved-plan",
+				branchKey: featureBranchKey,
+				fileName: "first-useful-saved-plan--26-03-18T12-00-00--1.md",
+				filePath: firstPath,
+			},
+			{
+				format: "timestamped",
 				slug: "second-useful-saved-plan",
 				branchKey: otherBranchKey,
 				fileName: "second-useful-saved-plan--26-03-19T12-00-00--1.md",
 				filePath: timestampedPath,
-			},
-			{
-				format: "legacy",
-				slug: "first-useful-saved-plan",
-				branchKey: featureBranchKey,
-				fileName: "first-useful-saved-plan.md",
-				filePath: legacyPath,
 			},
 		]);
 	});
@@ -178,7 +190,7 @@ describe("plans list CLI", () => {
 		const filePath = await writePlanFile({
 			fixture,
 			branchKey,
-			fileName: "first-useful-saved-plan.md",
+			fileName: "first-useful-saved-plan--26-03-19T12-00-00--1.md",
 			modifiedTimeMs: 1_700_000_000_000,
 		});
 		const output = createOutputCapture();
@@ -207,7 +219,7 @@ describe("plans list CLI", () => {
 		const filePath = await writePlanFile({
 			fixture,
 			branchKey,
-			fileName: "first-useful-saved-plan.md",
+			fileName: "first-useful-saved-plan--26-03-19T12-00-00--1.md",
 			modifiedTimeMs: 1_700_000_000_000,
 		});
 		const output = createOutputCapture();
@@ -231,11 +243,11 @@ describe("plans list CLI", () => {
 			data: {
 				plans: [
 					{
-						format: "legacy",
+						format: "timestamped",
 						slug: "first-useful-saved-plan",
 						branchKey: branchKey,
 						path: filePath,
-						fileName: "first-useful-saved-plan.md",
+						fileName: "first-useful-saved-plan--26-03-19T12-00-00--1.md",
 						repo: {
 							key: "gh--owner--repo",
 							identitySource: "origin-url",
@@ -277,13 +289,13 @@ describe("plans exec CLI", () => {
 		const older = await writePlanFile({
 			fixture,
 			branchKey,
-			fileName: "older-plan-file.md",
+			fileName: "older-plan-file--26-03-18T12-00-00--1.md",
 			modifiedTimeMs: 1_000,
 		});
 		const newer = await writePlanFile({
 			fixture,
 			branchKey,
-			fileName: "newer-plan-file.md",
+			fileName: "newer-plan-file--26-03-19T12-00-00--1.md",
 			modifiedTimeMs: 2_000,
 		});
 		void older;

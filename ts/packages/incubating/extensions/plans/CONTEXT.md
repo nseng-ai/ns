@@ -5,7 +5,7 @@ This context captures domain language for saved implementation plans and their l
 ## Language
 
 **Saved Plan**:
-A Markdown implementation plan saved byte-for-byte in the machine-local XDG enriched-plan store for later implementation or branch-context attachment. New durable files use `<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md`; the sequence increases across all files with the same timestamp in one source-branch directory. Older `<slug>.md` files remain supported while the legacy Pi write and selection flow is live.
+A Markdown implementation plan saved byte-for-byte in the machine-local XDG enriched-plan store for later implementation or branch-context attachment. Durable files use `<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md`; the sequence increases across all files with the same timestamp in one source-branch directory. Plain `<slug>.md` files are not a supported Local Plan Store format.
 *Avoid*: hidden task, handoff artifact, Branch Memory entry, session artifact
 
 **Local Plan Store**:

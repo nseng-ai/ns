@@ -108,13 +108,13 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"older-source-plan.md",
+			"older-source-plan--26-03-18T12-00-00--1.md",
 			1_700_000_000_000,
 		);
 		const newestPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"newer-source-plan.md",
+			"newer-source-plan--26-03-19T12-00-00--1.md",
 			1_800_000_000_000,
 		);
 		await writePlanStoreFile(
@@ -137,13 +137,15 @@ describe("source branch plan path helpers", () => {
 		});
 
 		expect(evidence).toMatchObject({
+			directory: {
+				repoKey: "gh--owner--repo",
+				sourceBranch,
+				branchKey: "branch-contexts---add-widget",
+				directoryPath,
+			},
 			slug: "newer-source-plan",
 			filePath: newestPath,
-			fileName: "newer-source-plan.md",
-			repoKey: "gh--owner--repo",
-			sourceBranch,
-			branchKey: "branch-contexts---add-widget",
-			directoryPath,
+			fileName: "newer-source-plan--26-03-19T12-00-00--1.md",
 		});
 	});
 
@@ -223,22 +225,28 @@ describe("source branch plan path helpers", () => {
 		await expect(promise).rejects.toMatchObject({ reason: "no-plan-files" });
 	});
 
-	test("treats the latest filename stem as a locator even when it is not a valid branch slug", async () => {
+	test("ignores plain and malformed Markdown filenames", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
+		const expectedPath = await writePlanStoreFile(
+			planStoreGateway,
+			directoryPath,
+			"valid-source-plan--26-03-19T12-00-00--1.md",
+			1_700_000_000_000,
+		);
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"valid-source-plan.md",
-			1_700_000_000_000,
+			"unsupported-plain-plan.md",
+			1_900_000_000_000,
 		);
-		const latestPath = await writePlanStoreFile(
+		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"bad.md",
-			1_800_000_000_000,
+			"malformed--26-99-99T99-99-99--1.md",
+			2_000_000_000_000,
 		);
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
@@ -253,8 +261,8 @@ describe("source branch plan path helpers", () => {
 			planStoreGateway,
 		});
 
-		expect(evidence.slug).toBe("bad");
-		expect(evidence.filePath).toBe(latestPath);
+		expect(evidence.slug).toBe("valid-source-plan");
+		expect(evidence.filePath).toBe(expectedPath);
 	});
 
 	test("tie-breaks exact matching mtimes by filename path", async () => {
@@ -265,13 +273,13 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"alpha-source-plan.md",
+			"alpha-source-plan--26-03-19T12-00-00--1.md",
 			1_800_000_000_000,
 		);
 		const expectedPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"zeta-source-plan.md",
+			"zeta-source-plan--26-03-19T12-00-00--1.md",
 			1_800_000_000_000,
 		);
 		const git = new InMemoryGitGateway({

@@ -3,7 +3,6 @@ import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import {
-	buildPlanFileName,
 	buildPlanStoreBranchDirectoryPath,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
@@ -16,12 +15,18 @@ import {
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { isPathInside, normalizePlanFilePath, validatePlanSlug } from "./plan-persistence.ts";
+import { parseSavedPlanFileName } from "./saved-plan-format.ts";
 
 export const WRITE_SAVED_PLAN_FILE_TOOL_NAME = "write_saved_plan_file";
 
-export type ValidatedSessionSavedPlan = LatestSavedPlanFileEvidence & {
+export interface ValidatedSessionSavedPlan {
+	directory: PlanStoreDirectoryEvidence;
+	slug: string;
+	filePath: string;
+	fileName: string;
+	modifiedTimeMs: number;
 	summary?: string;
-};
+}
 
 export type SessionSavedPlanValidation =
 	| { type: "valid"; plan: ValidatedSessionSavedPlan }
@@ -146,10 +151,15 @@ export async function validateSessionSavedPlanCandidate(
 	}
 
 	const fileName = basename(evidence.filePath);
-	const expectedFileName = buildPlanFileName(evidence.slug);
-	if (fileName !== expectedFileName) {
+	const parsedFileName = parseSavedPlanFileName(fileName);
+	if (parsedFileName === undefined) {
 		return unsafe(
-			`Session saved-plan evidence basename must match slug: expected ${expectedFileName}, got ${fileName || "(empty)"}.`,
+			`Session saved-plan evidence basename must use the timestamped saved-plan format <slug>--YY-MM-DDTHH-mm-ss--<sequence>.md; got ${fileName || "(empty)"}.`,
+		);
+	}
+	if (parsedFileName.slug !== evidence.slug) {
+		return unsafe(
+			`Session saved-plan evidence basename slug must match evidence.slug: expected ${evidence.slug}, got ${parsedFileName.slug}.`,
 		);
 	}
 
@@ -196,10 +206,12 @@ export async function validateSessionSavedPlanCandidate(
 	}
 
 	const plan: ValidatedSessionSavedPlan = {
-		...directory,
-		sourceBranch: evidence.sourceBranch,
-		branchKey: evidence.branchKey,
-		directoryPath: expectedDirectoryPath,
+		directory: {
+			...directory,
+			sourceBranch: evidence.sourceBranch,
+			branchKey: evidence.branchKey,
+			directoryPath: expectedDirectoryPath,
+		},
 		slug: evidence.slug,
 		filePath: evidence.filePath,
 		fileName,

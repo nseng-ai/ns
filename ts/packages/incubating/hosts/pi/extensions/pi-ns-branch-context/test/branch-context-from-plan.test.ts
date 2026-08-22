@@ -23,6 +23,7 @@ import {
 	savedPlanFileContent,
 	sourcePlanEvidence,
 	sourcePlanToolResultEntry,
+	savedPlanStoreFileName,
 	writePlanStoreFile,
 } from "./branch-context-extension-support.ts";
 
@@ -55,12 +56,16 @@ describe("branch-context-from-plan", () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		const filePath = await writePlanStoreFile(directoryPath, `${PLAN_KEY}`, 1_800_000_000_000);
+		const filePath = await writePlanStoreFile(
+			directoryPath,
+			savedPlanStoreFileName(PLAN_SLUG),
+			1_800_000_000_000,
+		);
 		const pi = new FakePi([
 			gitRootStep(),
 			gitCurrentBranchStep(sourceBranch),
 			gitOriginStep(),
-			planSlugStep(savedPlanFileContent(PLAN_KEY)),
+			planSlugStep(savedPlanFileContent(savedPlanStoreFileName(PLAN_SLUG))),
 		]);
 		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
@@ -78,7 +83,7 @@ describe("branch-context-from-plan", () => {
 			{ command: "git", args: ["rev-parse", "--show-toplevel"] },
 			{ command: "git", args: ["branch", "--show-current"] },
 			{ command: "git", args: ["config", "--get", "remote.origin.url"] },
-			planSlugExecCall(savedPlanFileContent(PLAN_KEY)),
+			planSlugExecCall(savedPlanFileContent(savedPlanStoreFileName(PLAN_SLUG))),
 		]);
 		expect(pi.sentMessages).toHaveLength(1);
 		expect(pi.sentMessages[0]?.content).toContain(
@@ -102,10 +107,14 @@ describe("branch-context-from-plan", () => {
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const sessionSlug = "submit-dirty-worktree-checkpoint";
 		const newerDiskSlug = "harden-cp-autobranch-validation";
-		const sessionKey = `${sessionSlug}.md`;
+		const sessionKey = savedPlanStoreFileName(sessionSlug);
 		const contentSlug = "add-session-branch-context";
 		const sessionPath = await writePlanStoreFile(directoryPath, sessionKey, 1_700_000_000_000);
-		await writePlanStoreFile(directoryPath, `${newerDiskSlug}.md`, 1_800_000_000_000);
+		await writePlanStoreFile(
+			directoryPath,
+			savedPlanStoreFileName(newerDiskSlug),
+			1_800_000_000_000,
+		);
 		const pi = new FakePi([
 			gitRootStep(),
 			gitCurrentBranchStep(sourceBranch),
@@ -143,7 +152,7 @@ describe("branch-context-from-plan", () => {
 		const explicitSlug = "harden-cp-autobranch-validation";
 		const sessionPath = await writePlanStoreFile(
 			directoryPath,
-			`${sessionSlug}.md`,
+			savedPlanStoreFileName(sessionSlug),
 			1_700_000_000_000,
 		);
 		const explicitKey = `${explicitSlug}.md`;
@@ -234,8 +243,8 @@ describe("branch-context-from-plan", () => {
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const missingSlug = "submit-dirty-worktree-checkpoint";
 		const diskSlug = "harden-cp-autobranch-validation";
-		const missingPath = join(directoryPath, `${missingSlug}.md`);
-		const diskKey = `${diskSlug}.md`;
+		const missingPath = join(directoryPath, savedPlanStoreFileName(missingSlug));
+		const diskKey = savedPlanStoreFileName(diskSlug);
 		const diskPath = await writePlanStoreFile(directoryPath, diskKey, 1_800_000_000_000);
 		const pi = new FakePi([
 			gitRootStep(),
@@ -273,7 +282,7 @@ describe("branch-context-from-plan", () => {
 		const sessionSlug = "submit-dirty-worktree-checkpoint";
 		const sessionPath = await writePlanStoreFile(
 			directoryPath,
-			`${sessionSlug}.md`,
+			savedPlanStoreFileName(sessionSlug),
 			1_700_000_000_000,
 		);
 		const wrongBranchEvidence = {
@@ -309,7 +318,7 @@ describe("branch-context-from-plan", () => {
 	test("ns:branch-context:from-plan rejects outside-plan-store session evidence", async () => {
 		const planStoreRoot = await makeTempDir("source-plan-store-");
 		const sourceBranch = "main";
-		const outsidePath = await makeNamedPlanFile(`${PLAN_KEY}`);
+		const outsidePath = await makeNamedPlanFile(savedPlanStoreFileName(PLAN_SLUG));
 		const pi = new FakePi([gitRootStep(), gitCurrentBranchStep(sourceBranch), gitOriginStep()]);
 		registerFromPlanTestExtension(pi, { planStoreRoot });
 		const command = pi.commands.get("ns:branch-context:from-plan");
@@ -343,7 +352,7 @@ describe("branch-context-from-plan", () => {
 		const sessionSlug = "submit-dirty-worktree-checkpoint";
 		const sessionPath = await writePlanStoreFile(
 			directoryPath,
-			`${sessionSlug}.md`,
+			savedPlanStoreFileName(sessionSlug),
 			1_700_000_000_000,
 		);
 		const wrongBranchKeyEvidence = {
@@ -376,7 +385,7 @@ describe("branch-context-from-plan", () => {
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
 		const sessionPath = await writePlanStoreFile(
 			directoryPath,
-			`${PLAN_SLUG}.md`,
+			savedPlanStoreFileName(PLAN_SLUG),
 			1_700_000_000_000,
 		);
 		const mismatchEvidence = sourcePlanEvidence({
@@ -394,7 +403,7 @@ describe("branch-context-from-plan", () => {
 		await command?.handler("--dry-run", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentMessages[0]?.content).toContain("basename must match slug");
+		expect(pi.sentMessages[0]?.content).toContain("basename slug must match evidence.slug");
 		expect(
 			pi.execCalls.some(
 				(call) =>
@@ -411,9 +420,13 @@ describe("branch-context-from-plan", () => {
 		const sessionSlug = "submit-dirty-worktree-checkpoint";
 		const staleSlug = "harden-cp-autobranch-validation";
 		const contentSlug = "restore-session-plan-selection";
-		const sessionKey = `${sessionSlug}.md`;
+		const sessionKey = savedPlanStoreFileName(sessionSlug);
 		const sessionPath = await writePlanStoreFile(directoryPath, sessionKey, 1_700_000_000_000);
-		const stalePath = await writePlanStoreFile(directoryPath, `${staleSlug}.md`, 1_800_000_000_000);
+		const stalePath = await writePlanStoreFile(
+			directoryPath,
+			savedPlanStoreFileName(staleSlug),
+			1_800_000_000_000,
+		);
 		const pi = new FakePi([
 			gitRootStep(),
 			gitCurrentBranchStep(sourceBranch),

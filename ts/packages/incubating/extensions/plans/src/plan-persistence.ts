@@ -88,11 +88,9 @@ export interface ResolveGitRepoRootOptions {
 	git?: GitGateway;
 }
 
-export async function resolvePlanSourceFile(
-	pi: CommandExecApi,
-	options: ResolvePlanSourceFileOptions,
+export async function resolvePlanContentFile(
+	options: Pick<ResolvePlanSourceFileOptions, "rawFilePath" | "planStoreGateway">,
 ): Promise<string> {
-	const git = options.git ?? new RealGitGateway(pi);
 	const planStoreGateway = options.planStoreGateway ?? createRealPlanStoreGateway();
 	const normalizedPath = normalizePlanFilePath(options.rawFilePath);
 	if (!isAbsolute(normalizedPath)) {
@@ -109,7 +107,19 @@ export async function resolvePlanSourceFile(
 		throw new Error(`Plan file must be a regular file: ${normalizedPath}`);
 	}
 
-	const realFilePath = await planStoreGateway.realpathOrResolve(normalizedPath);
+	return await planStoreGateway.realpathOrResolve(normalizedPath);
+}
+
+export async function resolvePlanSourceFile(
+	pi: CommandExecApi,
+	options: ResolvePlanSourceFileOptions,
+): Promise<string> {
+	const git = options.git ?? new RealGitGateway(pi);
+	const planStoreGateway = options.planStoreGateway ?? createRealPlanStoreGateway();
+	const realFilePath = await resolvePlanContentFile({
+		rawFilePath: options.rawFilePath,
+		planStoreGateway,
+	});
 	const repoRoot = await resolveGitRepoRoot(pi, {
 		cwd: options.cwd,
 		git,
