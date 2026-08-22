@@ -10,7 +10,7 @@ import {
 	runOperationCommand,
 	type CliEntrypointDeps,
 } from "@nseng-ai/foundation/cli-runtime";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -135,12 +135,12 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			commands,
 			git: deps.git ?? new RealGitGateway(commands),
 			cwd,
-			planStoreGateway:
-				deps.planStoreGateway ??
-				createRealPlanStoreGateway(deps.clock === undefined ? {} : { clock: deps.clock }),
-			...(deps.clock === undefined ? {} : { clock: deps.clock }),
-			...(deps.localTimestamp === undefined ? {} : { localTimestamp: deps.localTimestamp }),
-			...(deps.planStoreRoot === undefined ? {} : { planStoreRoot: deps.planStoreRoot }),
+			planStoreGateway: deps.planStoreGateway ?? createRealPlanStoreGateway(),
+			...optionalEntries({
+				clock: deps.clock,
+				localTimestamp: deps.localTimestamp,
+				planStoreRoot: deps.planStoreRoot,
+			}),
 		};
 		return { type: "run", context, buildState: undefined };
 	},
@@ -267,8 +267,7 @@ function planStoreOptions(
 		git: ctx.git,
 		planStoreGateway: ctx.planStoreGateway,
 		planStoreRoot,
-		...(ctx.clock === undefined ? {} : { clock: ctx.clock }),
-		...(ctx.localTimestamp === undefined ? {} : { localTimestamp: ctx.localTimestamp }),
+		...optionalEntries({ clock: ctx.clock, localTimestamp: ctx.localTimestamp }),
 	});
 }
 

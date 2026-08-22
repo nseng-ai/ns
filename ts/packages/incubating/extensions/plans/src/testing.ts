@@ -69,31 +69,14 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 		this.writeFile(normalizedPath, content);
 	}
 
-	async publishBytesAtomic(options: {
-		directoryPath: string;
-		fileNameForSequence(sequence: number): string;
-		sequenceFromFileName(fileName: string): number | undefined;
-		content: Uint8Array;
-		signal?: AbortSignal;
-	}): Promise<{ filePath: string; fileName: string; sequence: number }> {
-		if (options.signal?.aborted === true) throw new Error("Saved plan publication cancelled.");
-		for (let collision = 0; collision < 100; collision += 1) {
-			let greatest = 0;
-			const directory = await this.listDirectory(options.directoryPath);
-			if (directory.type === "present") {
-				for (const entry of directory.entries) {
-					const existing = options.sequenceFromFileName(entry.name);
-					if (existing !== undefined && existing > greatest) greatest = existing;
-				}
-			}
-			const sequence = greatest + 1;
-			const fileName = options.fileNameForSequence(sequence);
-			const filePath = normalize(resolve(options.directoryPath, fileName));
-			if (this.nodes.has(filePath)) continue;
-			this.writeBytes(filePath, options.content);
-			return { filePath, fileName, sequence };
+	async writeBytesExclusive(path: string, content: Uint8Array): Promise<void> {
+		const normalizedPath = normalize(path);
+		if (this.nodes.has(normalizedPath)) {
+			throw new Error(
+				`Saved plan file already exists in the local plan store; refusing to overwrite.\nPath: ${normalizedPath}`,
+			);
 		}
-		throw new Error("Could not publish saved plan after 100 filename collisions.");
+		this.writeBytes(normalizedPath, content);
 	}
 
 	async realpathOrResolve(path: string): Promise<string> {
