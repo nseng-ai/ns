@@ -261,6 +261,18 @@ to each rule's exceptions.
     the finding rather than inventing intent. The package manifest topology guard
     remains authoritative for deterministic path, identity, tier, dependency,
     subpackage, and export invariants; this LM tripwire owns source-level judgment.
+25. **Unscoped ownership of an acquired resource.** Flag when the diff visibly
+    declares a mutable optional local resource before acquisition, assigns the
+    acquired resource inside a `try`, and conditionally releases it with optional
+    cleanup such as `resource?.close()` in an outer `finally`, solely to make that
+    cleanup possible. Severity: `warning`. Recommend binding the successfully
+    acquired resource as `const` in a lexical scope that keeps resource-dependent
+    work with guaranteed `finally` cleanup; acquisition-error translation may stay
+    outside that owner scope. Do not flag `let` or optional lifecycle state by
+    itself. Skip the finding when the resource genuinely spans branches, retries,
+    callbacks, multiple lifecycle methods, or another lifetime that one lexical
+    operation cannot own, or when the supplied diff does not establish why the
+    optional state exists.
 
 ## Severity
 
