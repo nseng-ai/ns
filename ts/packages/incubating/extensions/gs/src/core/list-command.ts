@@ -1,6 +1,5 @@
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
-import { failure, ok, usageError, type NsCommand, type NsExtensionApi, z } from "@nseng-ai/sdk";
-import { defineCommand } from "@nseng-ai/sdk";
+import { failure, ok, usageError, z } from "@nseng-ai/sdk";
 
 import type {
 	GsLocalInventory,
@@ -15,6 +14,7 @@ const EMPTY_MESSAGE = "No local gh-stack stacks found.";
 export const gsListRequestSchema = z.strictObject({
 	verbose: z.boolean().default(false),
 });
+export type GsListRequest = z.infer<typeof gsListRequestSchema>;
 
 const pullRequestSchema = z.strictObject({
 	number: z.number().int().positive(),
@@ -32,47 +32,40 @@ const stackSchema = z.strictObject({
 export const gsListResultSchema = z.strictObject({ stacks: z.array(stackSchema) });
 export type GsListResult = z.infer<typeof gsListResultSchema>;
 
-export interface GsListCommandDependencies {
-	readonly createGateway: (ctx: NsExtensionApi) => GsLocalInventoryGateway;
+export interface GsListInvocation {
+	readonly cwd: string;
+	readonly outputFormat?: "human" | "json" | "md";
 }
 
-export function createGsListCommand(
-	dependencies: GsListCommandDependencies,
-): NsCommand<typeof gsListRequestSchema, GsListResult> {
-	let verbose = false;
-	return defineCommand({
-		schema: gsListRequestSchema,
-		resultSchema: gsListResultSchema,
-		options: { verbose: { short: "-v" } },
-		renderHuman: (result) => renderGsListHuman(result, verbose),
-		handler: async (ctx, request) => {
-			if (request.verbose && ctx.outputFormat === "json") {
-				return usageError("--verbose cannot be combined with --format json.", {
-					conflictingOptions: ["--verbose", "--format json"],
-				});
-			}
-			const result = await dependencies.createGateway(ctx).readLocalInventory({ cwd: ctx.cwd });
-			if (!result.ok) return localInventoryFailure(result.error);
-			const data: GsListResult = {
-				stacks: result.value.stacks.map((stack) => ({
-					number: stack.number,
-					base: stack.base,
-					branches: stack.branches.map((branch) => ({
-						name: branch.name,
-						pullRequest:
-							branch.pullRequest === null
-								? null
-								: {
-										number: branch.pullRequest.number,
-										recordedMerged: branch.pullRequest.recordedMerged,
-									},
-					})),
-				})),
-			};
-			verbose = request.verbose;
-			return ok(data);
-		},
-	});
+export async function runGsList(
+	inventory: GsLocalInventoryGateway,
+	invocation: GsListInvocation,
+	request: GsListRequest,
+) {
+	if (request.verbose && invocation.outputFormat === "json") {
+		return usageError("--verbose cannot be combined with --format json.", {
+			conflictingOptions: ["--verbose", "--format json"],
+		});
+	}
+	const result = await inventory.readLocalInventory({ cwd: invocation.cwd });
+	if (!result.ok) return localInventoryFailure(result.error);
+	const data: GsListResult = {
+		stacks: result.value.stacks.map((stack) => ({
+			number: stack.number,
+			base: stack.base,
+			branches: stack.branches.map((branch) => ({
+				name: branch.name,
+				pullRequest:
+					branch.pullRequest === null
+						? null
+						: {
+								number: branch.pullRequest.number,
+								recordedMerged: branch.pullRequest.recordedMerged,
+							},
+			})),
+		})),
+	};
+	return ok(data);
 }
 
 export function renderGsListHuman(inventory: GsLocalInventory, verbose: boolean): string {

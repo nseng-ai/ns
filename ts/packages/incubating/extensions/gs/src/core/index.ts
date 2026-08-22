@@ -10,12 +10,12 @@ export type {
 	GsLocalStack,
 } from "./local-inventory.ts";
 export {
-	createGsListCommand,
 	gsListRequestSchema,
 	gsListResultSchema,
 	renderGsListHuman,
+	runGsList,
 } from "./list-command.ts";
-export type { GsListCommandDependencies, GsListResult } from "./list-command.ts";
+export type { GsListInvocation, GsListRequest, GsListResult } from "./list-command.ts";
 export { gsLocalStackSummary, parseGsLocalState } from "./local-state.ts";
 export type { GsLocalStateParseResult } from "./local-state.ts";
 export { NodeGsStateReader, RealGsLocalInventoryGateway } from "./real-local-inventory-gateway.ts";

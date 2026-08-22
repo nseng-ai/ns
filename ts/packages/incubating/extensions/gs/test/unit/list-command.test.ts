@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GsLocalInventoryGateway } from "../../src/core/local-inventory.ts";
-import { createGsListCommand, renderGsListHuman } from "../../src/core/list-command.ts";
-import { createFakeApi } from "../support/fake-api.ts";
+import { renderGsListHuman, runGsList } from "../../src/core/list-command.ts";
 
 const INVENTORY = {
 	stacks: [
@@ -20,18 +19,14 @@ const INVENTORY = {
 
 describe("gh-stack list command", () => {
 	it("returns the complete inventory without changing branch order", async () => {
-		const command = createGsListCommand({ createGateway: () => gatewayFor(INVENTORY) });
-
-		await expect(command.handler(createFakeApi(), { verbose: false })).resolves.toEqual({
-			status: "success",
-			data: INVENTORY,
-		});
+		await expect(
+			runGsList(gatewayFor(INVENTORY), { cwd: "/repo", outputFormat: "human" }, { verbose: false }),
+		).resolves.toEqual({ status: "success", data: INVENTORY });
 	});
 
 	it("rejects verbose JSON with both conflicting flags named", async () => {
-		const command = createGsListCommand({ createGateway: () => gatewayFor(INVENTORY) });
 		await expect(
-			command.handler(createFakeApi({ outputFormat: "json" }), { verbose: true }),
+			runGsList(gatewayFor(INVENTORY), { cwd: "/repo", outputFormat: "json" }, { verbose: true }),
 		).resolves.toEqual({
 			status: "usage-error",
 			errorType: "usage-error",
@@ -45,14 +40,15 @@ describe("gh-stack list command", () => {
 		["gh-stack-state-read-failed", "Could not read local gh-stack state."],
 		["gh-stack-state-unsupported", "Local gh-stack state is malformed or unsupported."],
 	] as const)("maps %s to a stable bounded failure", async (type, message) => {
-		const command = createGsListCommand({
-			createGateway: () => ({
+		const outcome = await runGsList(
+			{
 				async readLocalInventory() {
 					return { ok: false, error: { type, message: "x".repeat(800) } };
 				},
-			}),
-		});
-		const outcome = await command.handler(createFakeApi(), { verbose: false });
+			},
+			{ cwd: "/repo", outputFormat: "human" },
+			{ verbose: false },
+		);
 		expect(outcome).toMatchObject({
 			status: "failure",
 			errorType: type,
