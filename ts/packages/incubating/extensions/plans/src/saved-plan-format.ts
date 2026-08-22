@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import { validatePlanSlug } from "./plan-persistence.ts";
 
 const TIMESTAMP_PATTERN =
@@ -7,7 +5,7 @@ const TIMESTAMP_PATTERN =
 const TIMESTAMPED_FILE_PATTERN =
 	/^(?<slug>[a-z0-9]+(?:-[a-z0-9]+)*)--(?<timestamp>\d{2}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})--(?<sequence>[1-9]\d*)\.md$/;
 
-export type SavedPlanFormat = "timestamped" | "legacy";
+export type SavedPlanFormat = "timestamped";
 
 export interface TimestampedSavedPlanName {
 	format: "timestamped";
@@ -18,25 +16,7 @@ export interface TimestampedSavedPlanName {
 	sequence: number;
 }
 
-export interface LegacySavedPlanName {
-	format: "legacy";
-	slug: string;
-	fileName: string;
-}
-
-export type ParsedSavedPlanName = TimestampedSavedPlanName | LegacySavedPlanName;
-
-export function deriveDeterministicSavedPlanSlug(
-	content: Uint8Array,
-	decodedContent: string,
-): string {
-	const heading = findFirstEligibleH1(decodedContent);
-	if (heading !== undefined) {
-		const slug = headingSlug(heading);
-		if (validatePlanSlug(slug) === undefined) return slug;
-	}
-	return `saved-plan-${createHash("sha256").update(content).digest("hex").slice(0, 12)}`;
-}
+export type ParsedSavedPlanName = TimestampedSavedPlanName;
 
 export function formatLocalSavedPlanTimestamp(nowMs: number): string {
 	const date = new Date(nowMs);
@@ -89,10 +69,7 @@ export function parseSavedPlanFileName(fileName: string): ParsedSavedPlanName | 
 		}
 		return { format: "timestamped", slug, fileName, timestamp, timestampNumber, sequence };
 	}
-	if (!fileName.endsWith(".md")) return undefined;
-	const slug = fileName.slice(0, -3);
-	if (validatePlanSlug(slug) !== undefined) return undefined;
-	return { format: "legacy", slug, fileName };
+	return undefined;
 }
 
 export function parseLocalSavedPlanTimestamp(timestamp: string): number | undefined {
@@ -135,39 +112,6 @@ export function parseLocalSavedPlanTimestamp(timestamp: string): number | undefi
 		return undefined;
 	}
 	return Number(`${year}${month}${day}${hour}${minute}${second}`);
-}
-
-function findFirstEligibleH1(content: string): string | undefined {
-	let fence: { marker: "`" | "~"; length: number } | undefined;
-	for (const rawLine of content.split(/\r?\n/)) {
-		const line = rawLine.replace(/^\uFEFF/, "");
-		if (fence !== undefined) {
-			const closing = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line)?.[1];
-			if (closing?.[0] === fence.marker && closing.length >= fence.length) fence = undefined;
-			continue;
-		}
-		const opening = /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
-		if (opening !== undefined) {
-			fence = { marker: opening[0] === "`" ? "`" : "~", length: opening.length };
-			continue;
-		}
-		const match = /^ {0,3}#(?!#)[\t ]+(.+?)\s*$/.exec(line);
-		if (match?.[1] === undefined) continue;
-		return match[1].replace(/[\t ]+#+[\t ]*$/, "");
-	}
-	return undefined;
-}
-
-function headingSlug(rawHeading: string): string {
-	const visible = rawHeading
-		.replace(/!?(?:\[([^\]]+)\])(?:\([^)]*\)|\[[^\]]*\])/g, "$1")
-		.replace(/<[^>]*>/g, " ")
-		.replace(/`([^`]*)`/g, "$1")
-		.replace(/`+/g, "")
-		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.toLowerCase();
-	return (visible.match(/[a-z0-9]+/g) ?? []).slice(0, 7).join("-");
 }
 
 function pad(value: number): string {
