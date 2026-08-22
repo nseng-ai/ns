@@ -63,6 +63,7 @@ export function defineCommand<S extends NsCommandSchema, T = unknown>(
 	spec: DefineCommandSpec<z.ZodLazy<S>, T>,
 ): NsCommand<S, T>;
 export function defineCommand(spec: DefineCommandSpec<NsCommandInputSchema, unknown>): NsCommand {
+	// Parsing follows ZodLazy transparently, but CLI surface reflection requires the object's shape.
 	const commandSchema = spec.schema instanceof z.ZodLazy ? spec.schema.unwrap() : spec.schema;
 	for (const [field, options] of Object.entries(spec.options ?? {})) {
 		const schema = commandSchema.shape[field] as z.ZodType | undefined;
