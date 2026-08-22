@@ -107,6 +107,9 @@ importers:
       '@nseng-ai/foundation':
         specifier: workspace:*
         version: link:packages/public/infra/foundation
+      '@nseng-ai/gs':
+        specifier: workspace:*
+        version: link:packages/incubating/extensions/gs
       '@nseng-ai/handoffs':
         specifier: workspace:*
         version: link:packages/incubating/extensions/handoffs
@@ -215,6 +218,24 @@ importers:
       '@nseng-ai/slots':
         specifier: workspace:*
         version: link:../slots
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+
+  packages/incubating/extensions/gs:
+    dependencies:
+      '@nseng-ai/clinkr':
+        specifier: workspace:*
+        version: link:../../../public/infra/clinkr
+      '@nseng-ai/extension-kit':
+        specifier: workspace:*
+        version: link:../../../public/extension-kit
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../public/infra/foundation
+      '@nseng-ai/sdk':
+        specifier: workspace:*
+        version: link:../../../public/sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3
