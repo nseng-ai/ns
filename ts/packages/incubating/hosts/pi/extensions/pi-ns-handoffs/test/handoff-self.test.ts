@@ -61,7 +61,8 @@ describe("ns:handoff:self extension", () => {
 		expect(prompt).toContain("Source Pi session ID: self-source-id");
 		expect(prompt).toContain("Source Pi session log: /sessions/self-filename.jsonl");
 		expect(prompt).toContain(`- Branch: ${BRANCH}`);
-		expect(prompt).toContain("derive_handoff_slug_from_content");
+		expect(prompt).toContain("ns handoff create");
+		expect(prompt).toContain("create JSON result");
 		expect(prompt).toContain(`workflow_id: ${workflowId}`);
 		expect(prompt).toContain("After `ns handoff create` succeeds, call handoff_self_queue_pickup");
 		expect(prompt).toContain("do not clear context or pick up the handoff");

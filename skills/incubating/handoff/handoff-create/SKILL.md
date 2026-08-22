@@ -104,12 +104,12 @@ Do not create hidden temp/draft files for handoff-create. If the user needs revi
 Store the final artifact directly through the portable ns command face without an intermediate file. Use a quoted here-doc delimiter that does not appear in the handoff content:
 
 ```bash
-ns handoff create --slug <handoff name or slug> --branch <branch> --file /dev/stdin <<'HANDOFF_EOF'
+ns handoff create --branch <branch> --file /dev/stdin --format json <<'HANDOFF_EOF'
 <final Markdown handoff content>
 HANDOFF_EOF
 ```
 
-The command normalizes the passed name into the final slug and reports both (`slug` and `requestedSlug` in the JSON envelope); use the reported `slug` in follow-up commands and the user-facing report. `ns handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.
+The command reads the final content once, derives its semantic slug, checks for a collision, and stores the exact bytes. Its JSON result reports `slugSource: "content-derived"`, `slug`, `key`, `provider`, `model`, and durable reference evidence; use its reported `branch` and `slug` in follow-up commands and the user-facing report. Pass `--slug <handoff name or slug>` only when the user explicitly supplies an override; that result reports `slugSource: "explicit"` and `requestedSlug`. `ns handoff create` refuses an existing artifact by default. If it reports a collision, stop unless the user explicitly asked to replace it. Do not fall back to raw Branch Memory for normal creation.
 
 Raw `brmem` is recovery-only. If `ns handoff create` is unavailable or a storage-layer diagnostic requires it, preflight with `brmem check <semantic-slug>.md --namespace handoff --branch <branch>`, then use `brmem put <semantic-slug>.md --namespace handoff --branch <branch> --file /dev/stdin` only after preserving the same collision safety.
 

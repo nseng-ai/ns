@@ -1,9 +1,14 @@
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
+import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { describe, expect, test } from "vitest";
 
+import { createResultSchema } from "../../src/core/operations/create.ts";
+import { deriveSlugResultSchema } from "../../src/core/operations/derive-slug.ts";
 import { handoffCreateNsCommand } from "@nseng-ai/handoffs/ns/commands/create";
 import { handoffDeleteNsCommand } from "@nseng-ai/handoffs/ns/commands/delete";
+import { handoffExecDeriveSlugNsCommand } from "@nseng-ai/handoffs/ns/commands/exec-derive-slug";
 import { handoffExecMatchNsCommand } from "@nseng-ai/handoffs/ns/commands/exec-match";
 import { handoffGcNsCommand } from "@nseng-ai/handoffs/ns/commands/gc";
 import { handoffListNsCommand } from "@nseng-ai/handoffs/ns/commands/list";
@@ -18,7 +23,75 @@ import {
 	runHandoffCommand,
 } from "./handoff-ns-command-fakes.ts";
 
+const slugProjectConfig: ProjectConfigGateway = {
+	readTextFile: () => ({
+		type: "found",
+		text: '[models.profiles.fast]\nmodel = "openai-codex/test-slug"\nthinking = "minimal"\n',
+	}),
+	pathExists: () => ({ type: "missing" }),
+};
+
+class FakeSlugCommands implements CommandExecApi {
+	readonly calls: Array<{ command: string; args: string[] }> = [];
+	private readonly result: ExecResult;
+
+	constructor(
+		result: ExecResult = {
+			type: "exited",
+			stdout: "continue-auth-token-refresh\n",
+			stderr: "",
+			code: 0,
+			signal: null,
+		},
+	) {
+		this.result = result;
+	}
+
+	async exec(command: string, args: string[]): Promise<ExecResult> {
+		this.calls.push({ command, args: [...args] });
+		return this.result;
+	}
+}
+
 describe("handoff ns command objects", () => {
+	test("create and derive schemas publish discriminated slug and model evidence", () => {
+		const base = {
+			namespace: "handoff",
+			branch: "feat/x",
+			slug: "continue-auth-token-refresh",
+			key: "continue-auth-token-refresh.md",
+			entryLocator: "refs/brmem/ns/handoff/feat---x:continue-auth-token-refresh.md",
+			commit: "abc123",
+			sourceFile: "<stdin>",
+		};
+		expect(
+			createResultSchema.safeParse({
+				...base,
+				slugSource: "content-derived",
+				provider: "openai-codex",
+				model: "test-slug",
+			}).success,
+		).toBe(true);
+		expect(
+			createResultSchema.safeParse({
+				...base,
+				slugSource: "explicit",
+				requestedSlug: "Continue Auth Token Refresh",
+			}).success,
+		).toBe(true);
+		expect(createResultSchema.safeParse({ ...base, slugSource: "content-derived" }).success).toBe(
+			false,
+		);
+		expect(
+			deriveSlugResultSchema.safeParse({
+				slug: base.slug,
+				key: base.key,
+				provider: "openai-codex",
+				model: "test-slug",
+			}).success,
+		).toBe(true);
+	});
+
 	test("list returns branch-scoped entries from fake storage", async () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, { key: "alpha.md", branch: "feat/x", content: "alpha" });
@@ -92,16 +165,215 @@ describe("handoff ns command objects", () => {
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("alpha");
 	});
 
-	test("create stores stdin content on the current branch", async () => {
+	test("create derives a slug and stores the exact stdin content once", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x"],
+			repoRoot: "/work",
+		});
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" });
+		const commands = new FakeSlugCommands();
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({
+					brmem,
+					git,
+					sourceReader,
+					commands,
+					projectConfig: slugProjectConfig,
+				}),
+			},
+		);
+
+		expect(exit).toMatchObject({
+			type: "ok",
+			data: {
+				slugSource: "content-derived",
+				slug: "continue-auth-token-refresh",
+				key: "continue-auth-token-refresh.md",
+				provider: "openai-codex",
+				model: "test-slug",
+				entryLocator: "refs/brmem/ns/handoff/feat---x:continue-auth-token-refresh.md",
+			},
+		});
+		expect(
+			await getHandoffContent(brmem, {
+				key: "continue-auth-token-refresh.md",
+				branch: "feat/x",
+			}),
+		).toBe("# Continue auth token refresh\n");
+		expect(commands.calls).toHaveLength(1);
+		expect(sourceReader.stdinReadCount).toBe(1);
+		expect(sourceReader.fileReadCount).toBe(0);
+	});
+
+	test("derived create reads a file once and stores its exact content", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x"],
+			repoRoot: "/work",
+		});
+		const content = "# Continue auth token refresh\n\nPreserve trailing whitespace.  \n";
+		const sourceReader = new FakeHandoffSourceReader({ files: { "artifact.md": content } });
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{ file: "artifact.md" },
+			{
+				api: createFakeHandoffNsApi({
+					brmem,
+					git,
+					sourceReader,
+					commands: new FakeSlugCommands(),
+					projectConfig: slugProjectConfig,
+				}),
+			},
+		);
+
+		expect(exit).toMatchObject({ type: "ok", data: { sourceFile: "artifact.md" } });
+		expect(
+			await getHandoffContent(brmem, {
+				key: "continue-auth-token-refresh.md",
+				branch: "feat/x",
+			}),
+		).toBe(content);
+		expect(sourceReader.fileReadCount).toBe(1);
+		expect(sourceReader.stdinReadCount).toBe(0);
+	});
+
+	test("model failure stops derived create before storage mutation", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x"],
+			repoRoot: "/work",
+		});
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" });
+		const commands = new FakeSlugCommands({
+			type: "exited",
+			stdout: "",
+			stderr: "model unavailable",
+			code: 1,
+			signal: null,
+		});
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({
+					brmem,
+					git,
+					sourceReader,
+					commands,
+					projectConfig: slugProjectConfig,
+				}),
+			},
+		);
+
+		expect(exit).toMatchObject({
+			type: "failure",
+			errorType: "handoff-slug-derivation-failed",
+			message: expect.stringContaining("No continuation-focus or deterministic fallback"),
+		});
+		expect(sourceReader.stdinReadCount).toBe(1);
+		expect(commands.calls).toHaveLength(1);
+		expect(
+			await getHandoffContent(brmem, {
+				key: "continue-auth-token-refresh.md",
+				branch: "feat/x",
+			}),
+		).toBeUndefined();
+	});
+
+	test("derived create refuses a collision without overwriting stored content", async () => {
+		const brmem = new FakeBrmemGateway();
+		await putHandoffEntry(brmem, {
+			key: "continue-auth-token-refresh.md",
+			branch: "feat/x",
+			content: "old",
+		});
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x"],
+			repoRoot: "/work",
+		});
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "new" });
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({
+					brmem,
+					git,
+					sourceReader,
+					commands: new FakeSlugCommands(),
+					projectConfig: slugProjectConfig,
+				}),
+			},
+		);
+
+		expect(exit).toMatchObject({ type: "failure", errorType: "handoff-already-exists" });
+		expect(
+			await getHandoffContent(brmem, {
+				key: "continue-auth-token-refresh.md",
+				branch: "feat/x",
+			}),
+		).toBe("old");
+		expect(sourceReader.stdinReadCount).toBe(1);
+	});
+
+	test("exec derive-slug returns schema-first slug and model evidence without writing", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({ repoRoot: "/work" });
+		const commands = new FakeSlugCommands();
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" });
+
+		const exit = await runHandoffCommand(
+			handoffExecDeriveSlugNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({
+					brmem,
+					git,
+					commands,
+					projectConfig: slugProjectConfig,
+					sourceReader,
+				}),
+			},
+		);
+
+		expect(exit).toEqual({
+			type: "ok",
+			data: {
+				slug: "continue-auth-token-refresh",
+				key: "continue-auth-token-refresh.md",
+				provider: "openai-codex",
+				model: "test-slug",
+			},
+		});
+		expect(
+			await getHandoffContent(brmem, { key: "continue-auth-token-refresh.md", branch: "main" }),
+		).toBeUndefined();
+	});
+
+	test("create stores stdin content on the current branch without invoking slug derivation", async () => {
 		const brmem = new FakeBrmemGateway();
 		const git = new InMemoryGitGateway({ currentBranch: "feat/x", existingBranches: ["feat/x"] });
 		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Alpha\n" });
+		const commands = new FakeSlugCommands();
 
 		const exit = await runHandoffCommand(
 			handoffCreateNsCommand,
 			{ slug: "alpha" },
 			{
-				api: createFakeHandoffNsApi({ brmem, git, sourceReader }),
+				api: createFakeHandoffNsApi({ brmem, git, sourceReader, commands }),
 			},
 		);
 
@@ -110,13 +382,17 @@ describe("handoff ns command objects", () => {
 			data: {
 				namespace: "handoff",
 				branch: "feat/x",
+				slugSource: "explicit",
 				slug: "alpha",
+				requestedSlug: "alpha",
 				key: "alpha.md",
 				entryLocator: "refs/brmem/ns/handoff/feat---x:alpha.md",
 				sourceFile: "<stdin>",
 			},
 		});
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("# Alpha\n");
+		expect(sourceReader.stdinReadCount).toBe(1);
+		expect(commands.calls).toEqual([]);
 	});
 
 	test("create stores file content on an explicit branch", async () => {
@@ -153,9 +429,6 @@ describe("handoff ns command objects", () => {
 		const sourceReader = new FakeHandoffSourceReader({ stdin: "new" });
 		const api = createFakeHandoffNsApi({ brmem, git, sourceReader });
 
-		const missingSlug = await runHandoffCommand(handoffCreateNsCommand, {}, { api });
-		expect(missingSlug).toMatchObject({ type: "usageError" });
-
 		const invalidSlug = await runHandoffCommand(handoffCreateNsCommand, { slug: "!!!" }, { api });
 		expect(invalidSlug).toMatchObject({
 			type: "failure",
@@ -168,6 +441,7 @@ describe("handoff ns command objects", () => {
 			errorType: "handoff-already-exists",
 		});
 		expect(await getHandoffContent(brmem, { key: "alpha.md", branch: "feat/x" })).toBe("old");
+		expect(sourceReader.stdinReadCount).toBe(0);
 	});
 
 	test("create normalizes a raw handoff name into the stored slug", async () => {
@@ -184,6 +458,7 @@ describe("handoff ns command objects", () => {
 		expect(exit).toMatchObject({
 			type: "ok",
 			data: {
+				slugSource: "explicit",
 				slug: "address-review-feedback",
 				requestedSlug: "Address Review: Feedback!",
 				key: "address-review-feedback.md",

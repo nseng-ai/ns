@@ -5,15 +5,21 @@ import {
 	type BrmemSourceReader,
 } from "@nseng-ai/brmem";
 import { resolveClinkrInteraction, type ClinkrInteraction } from "@nseng-ai/clinkr";
-import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
+import { NodeCommandExecApi, type CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { readStdinLine } from "@nseng-ai/foundation/cli-runtime";
+import {
+	createNodeProjectConfigGateway,
+	type ProjectConfigGateway,
+} from "@nseng-ai/sdk/project-config/points";
 
 export interface HandoffCliContext {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
+	commands: CommandExecApi;
 	git: GitGateway;
+	projectConfig: ProjectConfigGateway;
 	brmem: BrmemGateway;
 	sourceReader: BrmemSourceReader;
 	interaction: ClinkrInteraction;
@@ -32,7 +38,9 @@ export function createRealHandoffContext(
 	return {
 		cwd,
 		env,
+		commands: execApi,
 		git,
+		projectConfig: createNodeProjectConfigGateway(),
 		brmem: new RealGitBrmemGateway({ cwd, commands: execApi, git }),
 		sourceReader: new NodeBrmemSourceReader(),
 		interaction: resolveClinkrInteraction({

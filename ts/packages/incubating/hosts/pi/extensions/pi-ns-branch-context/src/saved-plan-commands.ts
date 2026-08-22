@@ -10,7 +10,10 @@ import {
 	optionalEntry,
 } from "@nseng-ai/foundation/primitives";
 import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
-import { loadPointCatalog, nodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import {
+	loadPointCatalog,
+	createNodeProjectConfigGateway,
+} from "@nseng-ai/sdk/project-config/points";
 import {
 	resolvePromptPointContent,
 	type PromptPointContentReader,
@@ -175,7 +178,7 @@ const branchContextPromptReader: PromptPointContentReader = {
 };
 
 async function readWritePlanPromptBody(repoRoot: string): Promise<WritePlanPromptBodyResolution> {
-	const catalog = loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway });
+	const catalog = loadPointCatalog({ repoRoot, gateway: createNodeProjectConfigGateway() });
 	const resolved = await resolvePromptPointContent({
 		repoRoot,
 		catalog,

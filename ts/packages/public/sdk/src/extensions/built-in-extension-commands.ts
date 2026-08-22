@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	resolvePromptPointSource,
 	type PointCatalog,
 	type PointCatalogEntry,
@@ -116,7 +116,7 @@ async function loadCatalog(
 ): Promise<PointCatalog> {
 	return await loadPointCatalogWithDescriptors({
 		repoRoot: cwd,
-		gateway: nodeProjectConfigGateway,
+		gateway: createNodeProjectConfigGateway(),
 		env,
 		...optionalEntries({ homeDir }),
 		promptEnvOverride: knownPromptEnvOverride,

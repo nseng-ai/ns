@@ -178,6 +178,12 @@ Full reasoning + examples: `references/type-system.md`.
   once, then read flags. Avoid scattered name checks like `if (backend.includes("x"))`.
 - **Use dependency injection at boundaries.** Pass collaborators (`Clock`, `FileSystem`, `Shell`,
   `Logger`, `Transport`, `Renderer`) as interfaces or option objects instead of reaching for globals.
+- **Construct injectable collaborators at composition time.** Do not instantiate or export a concrete
+  gateway, adapter, client, store, or other injectable collaborator as a module-level singleton. Export
+  a `create*` factory (or a class when it owns meaningful state/lifecycle), call it from the composition
+  root, and inject the returned interface. This keeps initialization explicit and permits independent
+  runtime instances. Module-level immutable data and constants remain appropriate; process-wide
+  identity requires an explicit lifecycle rationale rather than import-time construction.
 - **Wrap third-party dependencies behind project-owned seams.** Keep runtime dependency surfaces small:
   translate external SDK/client/library shapes at the boundary, expose a project-owned contract inward,
   and avoid letting optional dependencies, transport details, or vendor error types spread through core

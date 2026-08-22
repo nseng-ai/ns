@@ -171,7 +171,7 @@ package root.
 
 Build a catalog, then read installations from it:
 
-- `loadPointCatalog({ repoRoot, gateway: nodeProjectConfigGateway, preferredDescriptors })`
+- `loadPointCatalog({ repoRoot, gateway: createNodeProjectConfigGateway(), preferredDescriptors })`
   builds the catalog synchronously from known definitions. Pass your extension's
   preloaded descriptor through `preferredDescriptors` so your package's point
   definitions — including prompt `default` paths and manifest provenance — stay

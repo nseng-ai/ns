@@ -19,7 +19,7 @@ export type { TimeServices } from "@nseng-ai/foundation/time";
 import { formatElapsedMs } from "@nseng-ai/foundation/time-format";
 import {
 	loadPointCatalog,
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	type PreloadedPointDescriptor,
 } from "@nseng-ai/sdk/project-config/points";
 import {
@@ -149,7 +149,7 @@ export async function resolvePrInventoryPrompt(
 	const catalogRoot = input.repoRoot ?? input.cwd ?? process.cwd();
 	const catalog = loadPointCatalog({
 		repoRoot: catalogRoot,
-		gateway: nodeProjectConfigGateway,
+		gateway: createNodeProjectConfigGateway(),
 		preferredDescriptors: [
 			{
 				descriptor: input.descriptorSource.descriptor,

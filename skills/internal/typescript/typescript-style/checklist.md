@@ -49,6 +49,8 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] Backend-specific behavior is behind adapters, capability flags, or translation functions.
 - [ ] Runtime sniffing and substring checks are not scattered through call sites.
 - [ ] Collaborators are injected through interfaces/options instead of hidden globals.
+- [ ] Injectable gateways, adapters, clients, stores, and similar collaborators are constructed at a
+      composition root through a factory or class, not exported as import-time singleton instances.
 - [ ] Third-party dependencies are wrapped at project-owned seams instead of leaking vendor shapes
       through core logic.
 - [ ] Redundant identity is derived from one source of truth rather than hand-authored in parallel.

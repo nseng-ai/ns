@@ -8,6 +8,7 @@ import descriptor from "../../src/ns/extension.ts";
 const EXPECTED_ROUTES = [
 	"handoff/create",
 	"handoff/delete",
+	"handoff/exec/derive-slug",
 	"handoff/exec/match",
 	"handoff/gc",
 	"handoff/list",
@@ -37,5 +38,18 @@ describe("handoffs extension descriptor", () => {
 		).toContain("group.ts");
 		expect(await commandRoutes(descriptor.commandDirectory)).toEqual(EXPECTED_ROUTES);
 		expect(path.isAbsolute(descriptor.commandDirectory)).toBe(true);
+	});
+
+	test("keeps derive-slug invocable under a hidden exec group with help metadata", async () => {
+		const execGroup = await import("../../src/ns/cli/handoff/exec/group.ts");
+		const deriveSlugMetadata =
+			await import("../../src/ns/cli/handoff/exec/derive-slug/metadata.ts");
+		expect(execGroup.group()).toEqual({
+			description: "Agent-only handoff operations.",
+			hidden: true,
+		});
+		expect(deriveSlugMetadata.metadata()).toEqual({
+			description: "Derive a semantic handoff slug from final Markdown content.",
+		});
 	});
 });

@@ -352,7 +352,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		expect(prompt).toContain("Compose the final Markdown handoff artifact content first");
 		expect(prompt).toContain("After `ns handoff create` succeeds");
 		expect(prompt).toContain("ns herdr exec handoff-tab launch --input-json --format json");
-		expect(prompt).toContain('"branch":"feature/test"');
+		expect(prompt).toContain('"branch":"<returned-branch>"');
 		expect(prompt).toContain('"slug":"<returned-slug>"');
 		expect(prompt).toContain('"workspaceId":"workspace-');
 		expect(prompt).toContain('"provider":"anthropic"');
@@ -363,7 +363,7 @@ describe("Herdr Handoff Pi prompt", () => {
 		expect(prompt).toContain("reads and verifies the stored Handoff Artifact by branch and slug");
 		expect(prompt).toContain("do not pipe, quote, or otherwise send the Markdown artifact to it");
 		expect(prompt).not.toContain(["herdr", "handoff", "tab", "launch"].join("_"));
-		expect(pi.tools.has("derive_handoff_slug_from_content")).toBe(false);
+		expect(pi.tools.size).toBe(0);
 	});
 
 	test("transports thinking off in the launch command when thinking is off", async () => {

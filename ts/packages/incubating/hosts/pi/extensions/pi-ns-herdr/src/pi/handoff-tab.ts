@@ -33,7 +33,6 @@ export function registerHerdrHandoffTab(
 	herdr: Pick<HerdrGateway, "resolveCallerPane">,
 ): void {
 	if (pi.registerTool === undefined) return;
-	pi.on?.("session_start", () => integration.registerContentSlugToolIfMissing());
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: HERDR_TAB_HANDOFF_COMMAND_NAME,
@@ -56,7 +55,7 @@ export function registerHerdrHandoffTab(
 					statusKey: HERDR_TAB_HANDOFF_STATUS_KEY,
 					promptCopy: PROMPT_COPY,
 					startMessages: START_MESSAGES,
-					preflight: async ({ request }) => {
+					preflight: async () => {
 						if (ctx.model === undefined) {
 							return {
 								type: "failed",
@@ -66,7 +65,7 @@ export function registerHerdrHandoffTab(
 						}
 						const thinking = pi.getThinkingLevel?.() ?? "medium";
 						const launchRequestJson = JSON.stringify({
-							branch: request.branch,
+							branch: "<returned-branch>",
 							slug: "<returned-slug>",
 							workspaceId,
 							provider: ctx.model.provider,
@@ -85,7 +84,7 @@ export function registerHerdrHandoffTab(
 									`Caller Pi launch profile: provider ${ctx.model.provider}, model ${ctx.model.id}, thinking ${thinking}`,
 									`Caller working directory: ${ctx.cwd}`,
 								],
-								toolCallInstruction: `After \`ns handoff create\` succeeds, run \`${launchCommand}\`. Replace only \`<returned-slug>\` with the exact slug returned by derive_handoff_slug_from_content.`,
+								toolCallInstruction: `After \`ns handoff create\` succeeds, run \`${launchCommand}\`. Replace \`<returned-branch>\` and \`<returned-slug>\` with the exact branch and slug returned by the create JSON result.`,
 								extraRequirements: [
 									"The Herdr launch command reads and verifies the stored Handoff Artifact by branch and slug; do not pipe, quote, or otherwise send the Markdown artifact to it.",
 									"Run the Herdr launch command from the captured caller working directory; do not change the branch, workspace ID, provider, model, or thinking values.",

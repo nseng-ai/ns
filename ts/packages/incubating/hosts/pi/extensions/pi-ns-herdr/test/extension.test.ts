@@ -156,7 +156,7 @@ describe("herdr Pi extension", () => {
 		expect([...commands.keys()].sort()).toEqual(
 			[...HERDR_BASE_COMMAND_NAMES, "ns:herdr:tab:handoff"].sort(),
 		);
-		expect([...tools.keys()].sort()).toEqual(["derive_handoff_slug_from_content"]);
+		expect([...tools.keys()].sort()).toEqual([]);
 		expect(tools.has("handoff_tab_launch")).toBe(false);
 	});
 

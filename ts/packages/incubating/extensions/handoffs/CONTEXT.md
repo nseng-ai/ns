@@ -65,7 +65,7 @@ The explicit operation that previews or deletes Handoff Artifacts whose local br
 *Avoid*: automatic cleanup, archive, Objective Close.
 
 **Handoff Command Face**:
-The portable ns command surface `ns handoff list|pickup|create|delete|gc` for deterministic Handoff lifecycle operations.
+The portable ns command surface `ns handoff list|pickup|create|delete|gc`, plus hidden schema-first `ns handoff exec ...` helpers, for Handoff lifecycle operations. Create derives a semantic slug from the exact content by default and accepts `--slug` only as an explicit override.
 *Avoid*: standalone `handoff` binary as durable public surface, Pi-only lifecycle, raw Branch Memory as default UX.
 
 **Handoff extension package API**:
@@ -73,7 +73,7 @@ The curated in-process `@nseng-ai/handoffs/api` surface consumed by ns command l
 *Avoid*: package-root imports for domain composition, Pi presentation/session launch behavior, Pi-only command metadata, raw storage recipes in consumers.
 
 **Handoff Domain Core**:
-Gateway-injected Handoff behavior for storage-compatible list, read/pickup, create, delete, and garbage-collection operations.
+Gateway-injected Handoff behavior for storage-compatible list, read/pickup, content-derived slugging, atomic create, delete, and garbage-collection operations.
 *Avoid*: subprocess-only behavior, Pi UI/session continuation, hidden registries, alternate storage layout.
 
 **Handoff Pi Adapter**:

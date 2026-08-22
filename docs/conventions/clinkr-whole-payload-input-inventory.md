@@ -24,7 +24,7 @@ Pi `/ns:plan:save`, `/ns:plan:grill-and-save`, `write_saved_plan_file`, and `wri
 Two retained production workflows read arbitrary complete content, but neither consumes Clinkr or `NsExtensionApi.readJsonInput()`:
 
 - Brmem `put --stdin` uses `BrmemSourceReader.readStdinBytes()` in `ts/packages/public/infra/brmem/src/source-reader.ts`. Brmem owns byte acquisition and file/stdin source selection.
-- Handoff `create` defaults final Markdown to stdin through the same injected `BrmemSourceReader` in `ts/packages/incubating/extensions/handoffs/src/core/operations/create.ts`. Handoffs owns this artifact-content source and can also accept `--file`.
+- Handoff `create` and hidden `handoff exec derive-slug` default final Markdown to stdin through the same injected `BrmemSourceReader` in `ts/packages/incubating/extensions/handoffs/src/core/operations/{create,derive-slug}.ts`. Handoffs owns this artifact-content source and can also accept `--file`. Create reads the exact content once before deriving its default slug, collision-checking, and writing those exact bytes.
 
 These are explicit source-reader/domain capabilities. They are evidence against claiming that the repository has no non-JSON whole-payload input, but they are not exceptions that require widening the shared structured-command request seam.
 

@@ -48,8 +48,6 @@ function handoffHost(surfaces: LivePiSurface[]): HandoffExtensionAPI {
 
 function fakeHandoffIntegration(): HandoffPromptCreateIntegration {
 	return {
-		registerContentSlugTool() {},
-		registerContentSlugToolIfMissing() {},
 		async runCreateCommand() {},
 	};
 }

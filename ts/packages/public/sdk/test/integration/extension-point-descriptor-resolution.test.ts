@@ -7,7 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { loadPointCatalogWithDescriptors } from "../../src/extensions/point-catalog.ts";
 import {
-	nodeProjectConfigGateway,
+	createNodeProjectConfigGateway,
 	resolvePromptPointSource,
 } from "../../src/project-config/points.ts";
 import {
@@ -65,7 +65,7 @@ describe("extension point descriptor resolution", () => {
 
 			const catalog = await loadPointCatalogWithDescriptors({
 				repoRoot: root,
-				gateway: nodeProjectConfigGateway,
+				gateway: createNodeProjectConfigGateway(),
 				homeDir: root,
 			});
 			const manifestPath = join(flowPackageRoot, "src", "ns", "extension.ts");
@@ -124,7 +124,7 @@ describe("extension point descriptor resolution", () => {
 
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
+			gateway: createNodeProjectConfigGateway(),
 			homeDir: root,
 		});
 
@@ -143,7 +143,7 @@ describe("extension point descriptor resolution", () => {
 
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
+			gateway: createNodeProjectConfigGateway(),
 			homeDir: root,
 		});
 
@@ -175,7 +175,7 @@ describe("extension point descriptor resolution", () => {
 
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
+			gateway: createNodeProjectConfigGateway(),
 			homeDir: root,
 		});
 
@@ -200,7 +200,7 @@ describe("extension point descriptor resolution", () => {
 
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
+			gateway: createNodeProjectConfigGateway(),
 			homeDir: root,
 		});
 
@@ -224,7 +224,7 @@ describe("extension point descriptor resolution", () => {
 
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
+			gateway: createNodeProjectConfigGateway(),
 			env: { HOME: homeDir },
 		});
 
@@ -247,7 +247,7 @@ describe("extension point descriptor resolution", () => {
 
 		const catalog = await loadPointCatalogWithDescriptors({
 			repoRoot: root,
-			gateway: nodeProjectConfigGateway,
+			gateway: createNodeProjectConfigGateway(),
 			env: { HOME: homeDir },
 		});
 

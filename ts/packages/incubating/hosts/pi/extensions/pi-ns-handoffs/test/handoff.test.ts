@@ -594,8 +594,9 @@ describe("handoff pure helpers", () => {
 
 		expect(prompt).toContain("# handoff-create skill");
 		expect(prompt).toContain("ship the frontend command");
+		expect(prompt).toContain("ns handoff create --branch <branch> --file /dev/stdin --format json");
 		expect(prompt).toContain(
-			"ns handoff create --slug <semantic-slug> --branch <branch> --file /dev/stdin",
+			"Pass `--slug <semantic-slug>` only when the user explicitly supplied",
 		);
 		expect(prompt).toContain("refuses existing artifacts by default");
 		expect(prompt).toContain("## Investigation Sources");
