@@ -8,6 +8,7 @@ import type {
 import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { HERDR_COMMAND_NAMES } from "@nseng-ai/herdr/api";
 import type {
 	HandoffExtensionAPI,
@@ -16,10 +17,8 @@ import type {
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/extension-types";
 
-import {
-	createHerdrSidebarControllerWithPiWiring,
-	registerHerdrSidebarCommands,
-} from "./sidebar.ts";
+import { createHerdrSidebarController } from "../core/sidebar.ts";
+import { registerHerdrSidebarCommand } from "./sidebar.ts";
 import { registerHerdrImplPromptBootstrap } from "./impl-prompt-bootstrap.ts";
 import {
 	registerHerdrPromptSpaceImplCommand,
@@ -71,10 +70,15 @@ export async function registerHerdrPiExtension(
 	// the trunk branch from the repository's cached origin/HEAD git fact only after the
 	// local-trunk basis is selected (see core/trunk-branch.ts).
 	const herdr = createCliHerdrGateway(commands);
-	const context: HerdrPiContext = { commands, git, herdr };
-	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
-	registerHerdrSidebarCommands(herdrPi, sidebarController);
-	registerHerdrSpaceGoalCommand(herdrPi);
+	const context: HerdrPiContext = {
+		commands,
+		git,
+		projectConfig: createNodeProjectConfigGateway(),
+		herdr,
+	};
+	const sidebarController = createHerdrSidebarController(commands, herdr);
+	registerHerdrSidebarCommand(herdrPi, sidebarController, context);
+	registerHerdrSpaceGoalCommand(context);
 	registerHerdrPromptSpaceImplCommand(context);
 	registerHerdrPromptTabImplCommand(context);
 	registerHerdrSessionImplCommands(context);
@@ -82,7 +86,7 @@ export async function registerHerdrPiExtension(
 	registerHerdrPlanTabImplCommand(context);
 	registerHerdrNewSpaceCommand(context);
 	registerHerdrNewTabCommand(context);
-	registerHerdrTabGoalCommand(herdrPi);
+	registerHerdrTabGoalCommand(context);
 	registerHerdrImplPromptBootstrap(context);
 
 	if (!("registerTool" in pi) || pi.registerTool === undefined) return;

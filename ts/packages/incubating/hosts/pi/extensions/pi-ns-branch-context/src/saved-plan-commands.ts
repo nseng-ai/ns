@@ -239,6 +239,11 @@ export function buildWriteSavedPlanFileTool(
 	pi: BranchContextPiCommandApi,
 	options: BranchContextExtensionOptions,
 ): ToolDefinition {
+	const contentSlugContext = {
+		commands: pi,
+		git: new RealGitGateway(pi),
+		projectConfig: createNodeProjectConfigGateway(),
+	};
 	return {
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
@@ -298,7 +303,7 @@ export function buildWriteSavedPlanFileTool(
 							}, 5_000);
 				let slugEvidence: SavedPlanContentSlugEvidence;
 				try {
-					slugEvidence = await deriveSavedPlanContentSlug(pi, {
+					slugEvidence = await deriveSavedPlanContentSlug(contentSlugContext, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
 						...optionalEntry("signal", signal),

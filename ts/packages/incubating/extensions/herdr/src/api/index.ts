@@ -50,9 +50,10 @@ export type {
 export {
 	compactSlotSlug,
 	formatHerdrResourceLabel,
-	slotLabelInput,
+	HERDR_RESOURCE_LABEL_POLICY,
+	slotLabelInputFromWorktreeRoot,
 } from "../core/resource-label.ts";
-export type { HerdrResourceLabelInput } from "../core/resource-label.ts";
+export type { HerdrResourceLabelInput, HerdrSlotLabelInput } from "../core/resource-label.ts";
 export {
 	checkoutSlot,
 	createHerdrSlotClient,

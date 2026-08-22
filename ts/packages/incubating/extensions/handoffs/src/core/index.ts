@@ -2,7 +2,6 @@ export type { HandoffCliContext } from "./context.ts";
 export {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
-	deriveSemanticHandoffSlug,
 	handoffKeyFromSlug,
 	handoffKeyToSlug,
 	handoffSlugFromKey,

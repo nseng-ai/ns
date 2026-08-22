@@ -11,8 +11,9 @@ export {
 	type SavedPlanFileEvidence,
 } from "./saved-plan-file.ts";
 export {
-	buildSavedPlanContentSlugPrompt,
+	derivePlanSlugFromContent,
 	deriveSavedPlanContentSlug,
+	type PlanContentSlugPresentation,
 	type SavedPlanContentSlugEvidence,
 } from "./saved-plan-content-slug.ts";
 export {

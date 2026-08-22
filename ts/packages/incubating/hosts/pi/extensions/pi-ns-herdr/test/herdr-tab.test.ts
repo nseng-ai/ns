@@ -2,6 +2,10 @@ import { describe, expect, test } from "vitest";
 
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../src/core/tab.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
+import { registerHerdrTabGoalCommand } from "../src/pi/tab.ts";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
@@ -13,6 +17,20 @@ import {
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
+
+function slugContext(commands: CommandExecApi) {
+	return {
+		commands,
+		git: new RealGitGateway(commands),
+		projectConfig: {
+			readTextFile: () => ({
+				type: "found" as const,
+				text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			}),
+			pathExists: () => ({ type: "missing" as const }),
+		},
+	};
+}
 
 describe("Herdr tab resources", () => {
 	test("tab:new preflights caller workspace then creates an unprefixed focused tab at cwd", async () => {
@@ -129,7 +147,7 @@ describe("Herdr tab resources", () => {
 			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
 		});
 		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(pi),
+			contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 			herdr,
 			args: "ship auth",
 			ctx,
@@ -150,7 +168,7 @@ describe("Herdr tab resources", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext({ inputValues: ["  ship interactively  "] });
 		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(pi),
+			contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 			herdr,
 			args: "",
 			ctx,
@@ -163,7 +181,7 @@ describe("Herdr tab resources", () => {
 		const cancelledHerdr = new FakeHerdrGateway();
 		const cancelledCtx = new FakeCommandContext({ inputValues: [undefined] });
 		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(cancelledPi),
+			contentSlug: slugContext(createHerdrPiCommandApi(cancelledPi)),
 			herdr: cancelledHerdr,
 			args: "",
 			ctx: cancelledCtx,
@@ -181,7 +199,7 @@ describe("Herdr tab resources", () => {
 		const herdr = new FakeHerdrGateway();
 		const ctx = new FakeCommandContext();
 		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(pi),
+			contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 			herdr,
 			args: "ship auth",
 			ctx,
@@ -190,6 +208,38 @@ describe("Herdr tab resources", () => {
 		expect(herdr.renameTabCalls).toEqual([]);
 		expect(notificationMessages(ctx).join("\n")).toContain("model failed");
 		pi.assertDone();
+	});
+
+	test("registered tab:goal uses the injected gateway and keeps the label unprefixed", async () => {
+		const worktreeRoot = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03";
+		const nestedCwd = `${worktreeRoot}/ts/packages/incubating`;
+		const pi = new FakePi({
+			script: [step("pi", undefined, { stdout: "add-auth" })],
+			shouldRequireExpectedArgs: false,
+		});
+		const git = new InMemoryGitGateway({ optionalRepoRoot: worktreeRoot });
+		const herdr = new FakeHerdrGateway({
+			callerPaneResult: resolvedCallerPane("caller-workspace", "t-9"),
+		});
+		registerHerdrTabGoalCommand({
+			commands: createHerdrPiCommandApi(pi),
+			git,
+			projectConfig: {
+				readTextFile: () => ({
+					type: "found" as const,
+					text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+				}),
+				pathExists: () => ({ type: "missing" as const }),
+			},
+			herdr,
+		});
+		const ctx = new FakeCommandContext({ cwd: nestedCwd });
+
+		await pi.commands.get("ns:herdr:tab:goal")?.handler("ship auth", ctx);
+
+		pi.assertDone();
+		expect(herdr.renameTabCalls).toEqual([{ tabId: "t-9", label: "add-auth" }]);
+		expect(herdr.renameCalls).toEqual([]);
 	});
 
 	test("tab:goal reports rename gateway failure", async () => {
@@ -202,7 +252,7 @@ describe("Herdr tab resources", () => {
 		});
 		const ctx = new FakeCommandContext();
 		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(pi),
+			contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 			herdr,
 			args: "ship auth",
 			ctx,
@@ -217,7 +267,7 @@ describe("Herdr tab resources", () => {
 		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane("no caller pane") });
 		const ctx = new FakeCommandContext();
 		await handleHerdrTabGoal({
-			pi: createHerdrPiCommandApi(pi),
+			contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 			herdr,
 			args: "ship auth",
 			ctx,

@@ -48,10 +48,19 @@ export async function preparePlanBranchContext(
 		creation: BranchContextCreationPolicy;
 	},
 ): Promise<PreparedPlanBranchContext> {
-	const slugEvidence = await derivePlanContentSlug(pi, {
-		filePath: options.plan.filePath,
-		cwd: options.checkout.repoRoot,
-	});
+	const slugEvidence = await derivePlanContentSlug(
+		{
+			// Slug generation must use the caller's Pi execution channel; the owner context may
+			// carry a separate Node command adapter for branch-context operations.
+			commands: pi,
+			git: options.context.git,
+			projectConfig: options.context.projectConfig,
+		},
+		{
+			filePath: options.plan.filePath,
+			cwd: options.checkout.repoRoot,
+		},
+	);
 	const initialOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.slug,
 		filePath: options.plan.filePath,

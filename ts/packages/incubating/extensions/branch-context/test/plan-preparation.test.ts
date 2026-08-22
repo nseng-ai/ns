@@ -9,8 +9,6 @@ import {
 	type BranchContextContext,
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
-import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
@@ -41,10 +39,11 @@ class SlugCommands implements CommandExecApi {
 		if (command === "git" && args.join(" ") === "rev-parse --show-toplevel") {
 			return exited(`${ROOT}\n`);
 		}
-		expect({ command, args }).toEqual({
-			command: "pi",
-			args: buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-		});
+		expect(command).toBe("pi");
+		expect(args).toContain(TEST_MODEL_SELECTION.provider);
+		expect(args).toContain(TEST_MODEL_SELECTION.modelId);
+		expect(args.at(-1)).toContain(PLAN_CONTENT.trim());
+		expect(args.at(-1)).toContain("Generate the branch-context slug");
 		return exited("add-dispatch-preparation-tests\n");
 	}
 }
@@ -101,6 +100,13 @@ function context(
 			},
 		},
 		git: options.git ?? new InMemoryGitGateway(),
+		projectConfig: {
+			readTextFile: () => ({
+				type: "found",
+				text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			}),
+			pathExists: () => ({ type: "missing" }),
+		},
 		brmem: options.brmem ?? new InMemoryBranchMemoryGateway(),
 		graphite: options.graphite ?? new InMemoryGraphiteBranchGateway(),
 	};
@@ -115,7 +121,11 @@ afterEach(async () => {
 describe("plan branch-context preparation public API", () => {
 	test("preview derives the Graphite operation without creating or attaching", async () => {
 		const { plan, checkout: checkoutEvidence } = await fixture();
-		const git = new InMemoryGitGateway({ headCommit: START_POINT, currentBranch: SOURCE_BRANCH });
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: "/repo",
+			headCommit: START_POINT,
+			currentBranch: SOURCE_BRANCH,
+		});
 		const brmem = new InMemoryBranchMemoryGateway();
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const commands = new SlugCommands();
@@ -159,7 +169,7 @@ describe("plan branch-context preparation public API", () => {
 	test("create attaches the selected plan through injected owner gateways", async () => {
 		const { plan, checkout: checkoutEvidence } = await fixture();
 		const git = new InMemoryGitGateway({
-			optionalRepoRoot: { type: "missing" },
+			optionalRepoRoot: "/repo",
 			currentBranch: SOURCE_BRANCH,
 			headCommit: START_POINT,
 		});
@@ -200,7 +210,7 @@ describe("plan branch-context preparation public API", () => {
 	test("create preserves owner failure evidence and does not attach after Graphite failure", async () => {
 		const { plan, checkout: checkoutEvidence } = await fixture();
 		const git = new InMemoryGitGateway({
-			optionalRepoRoot: { type: "missing" },
+			optionalRepoRoot: "/repo",
 			currentBranch: SOURCE_BRANCH,
 			headCommit: START_POINT,
 		});

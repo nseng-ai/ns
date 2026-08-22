@@ -93,10 +93,10 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 		};
 	} else {
 		try {
-			const derived = await deriveHandoffContentSlug(
-				{ commands: ctx.commands, git: ctx.git, projectConfig: ctx.projectConfig },
-				{ content: prepared.value.content, cwd: ctx.cwd },
-			);
+			const derived = await deriveHandoffContentSlug(ctx, {
+				content: prepared.value.content,
+				cwd: ctx.cwd,
+			});
 			slugEvidence = {
 				slugSource: "content-derived",
 				slug: derived.slug,

@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
-import {
-	createHerdrSidebarControllerWithPiWiring,
-	registerHerdrSidebarCommands,
-} from "../src/pi/sidebar.ts";
+import { registerHerdrSidebarCommand } from "../src/pi/sidebar.ts";
 import { createHerdrSidebarController } from "../src/core/sidebar.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
@@ -29,6 +27,14 @@ import {
 
 function callerHerdrGateway(workspaceId = "w1"): FakeHerdrGateway {
 	return new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane(workspaceId) });
+}
+
+function registerHerdrSidebarCommands(
+	pi: FakePi,
+	controller: ReturnType<typeof createHerdrSidebarController>,
+	git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } }),
+): void {
+	registerHerdrSidebarCommand(pi, controller, { git });
 }
 
 const NOW = Date.parse("2026-01-15T00:00:00Z");
@@ -71,19 +77,21 @@ describe("herdr Objective sidebar", () => {
 		);
 	});
 
-	test("ns:herdr:space:objective-summary prefixes labels inside a managed slot", async () => {
+	test("ns:herdr:space:objective-summary prefixes labels from a Git-resolved Slot root", async () => {
 		const slug = "areg-lifecycle-ergonomics";
+		const worktreeRoot = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01";
+		const nestedCwd = `${worktreeRoot}/ts/packages/incubating`;
 		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
+		const git = new InMemoryGitGateway({ optionalRepoRoot: worktreeRoot });
 		const herdr = callerHerdrGateway();
 		const controller = createHerdrSidebarController(createHerdrPiCommandApi(pi), herdr);
-		registerHerdrSidebarCommands(pi, controller);
-		const ctx = new FakeCommandContext({
-			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01",
-		});
+		registerHerdrSidebarCommands(pi, controller, git);
+		const ctx = new FakeCommandContext({ cwd: nestedCwd });
 
 		await pi.commands.get("ns:herdr:space:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
+		expect(git.optionalRepoRootCalls).toEqual([{ cwd: nestedCwd }]);
 		expect(herdr.renameCalls).toEqual([
 			{ workspaceId: "w1", label: "s1:obj:areg-lifecycle-ergonomics" },
 		]);
@@ -337,13 +345,6 @@ describe("herdr Objective sidebar", () => {
 		expect(herdr.renameCalls).toEqual([
 			{ workspaceId: "workspace-42", label: "obj:herdr-capability-parity" },
 		]);
-	});
-
-	test("ns:herdr:space:objective-summary uses Pi wiring end-to-end", async () => {
-		const pi = new FakePi();
-		const controller = createHerdrSidebarControllerWithPiWiring(pi);
-		registerHerdrSidebarCommands(pi, controller);
-		expect(pi.commands.has("ns:herdr:space:objective-summary")).toBe(true);
 	});
 });
 

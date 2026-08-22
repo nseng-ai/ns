@@ -1,14 +1,15 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
 
-import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import { HERDR_SPACE_OBJECTIVE_SUMMARY_COMMAND_NAME } from "@nseng-ai/herdr/api";
-import { createHerdrSidebarController, type HerdrSidebarController } from "../core/sidebar.ts";
-import { createHerdrPiCommandApi } from "./pi-command-api.ts";
+import type { HerdrSidebarController } from "../core/sidebar.ts";
+import type { HerdrPiContext } from "./context.ts";
+import { resolveHerdrSlotLabelInput } from "./resource-label.ts";
 
-export function registerHerdrSidebarCommands(
+export function registerHerdrSidebarCommand(
 	pi: ExtensionAPI,
 	controller: HerdrSidebarController,
+	context: Pick<HerdrPiContext, "git">,
 ): void {
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -18,15 +19,11 @@ export function registerHerdrSidebarCommands(
 				"Apply an Objective label to the explicit caller Herdr workspace, prefixed with " +
 				"the compact slot name when running in a managed ns slot.",
 			argumentHint: "<slug or path>",
-			handler: async (args, ctx) => controller.handleObjectiveCommand(args, ctx),
+			handler: async (args, ctx) => {
+				await controller.handleObjectiveCommand(args, ctx, (cwd) =>
+					resolveHerdrSlotLabelInput(context.git, cwd),
+				);
+			},
 		},
 	});
-}
-
-export function createHerdrSidebarControllerWithPiWiring(
-	rawPi: ExtensionAPI,
-): HerdrSidebarController {
-	const pi = createHerdrPiCommandApi(rawPi);
-	const herdr = createCliHerdrGateway(pi);
-	return createHerdrSidebarController(pi, herdr);
 }

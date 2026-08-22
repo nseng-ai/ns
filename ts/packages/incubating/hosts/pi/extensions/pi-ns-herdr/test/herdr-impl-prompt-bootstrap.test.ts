@@ -52,6 +52,10 @@ function bootstrapHarness(options: {
 		{
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: {
+				readTextFile: () => ({ type: "missing" }),
+				pathExists: () => ({ type: "missing" }),
+			},
 			herdr: new FakeHerdrGateway(),
 		},
 		{ env },

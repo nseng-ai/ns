@@ -23,7 +23,7 @@ import {
 } from "@nseng-ai/foundation/branch-slug";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundation/primitives";
-import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
 import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
@@ -73,6 +73,7 @@ export type TrackedBranchPayloadLoadResult =
 export interface ResolvedTrackedBranchCreationContext {
 	pi: CommandExecApi;
 	git: Pick<GitGateway, "repoRoot" | "createBranchAtStartPoint">;
+	projectConfig: ProjectConfigGateway;
 }
 
 export interface TrackedBranchCreationContext extends ResolvedTrackedBranchCreationContext {
@@ -157,6 +158,7 @@ export async function createTrackedBranchFromResolvedParent(
 	const slug = await generateTrackedBranchSlug(
 		context.pi,
 		context.git,
+		context.projectConfig,
 		options.cwd,
 		options.prompt,
 	);
@@ -369,6 +371,7 @@ export function formatTrackedBranchPayloadStorageFailure(
 async function generateTrackedBranchSlug(
 	pi: CommandExecApi,
 	git: Pick<GitGateway, "repoRoot">,
+	projectConfig: ProjectConfigGateway,
 	cwd: string,
 	content: string,
 ): Promise<TextResult> {
@@ -379,10 +382,7 @@ async function generateTrackedBranchSlug(
 			message: `Could not resolve the Git repository root: ${repository.error.message}`,
 		};
 	}
-	const policy = loadModelPolicy({
-		repoRoot: repository.value,
-		gateway: createNodeProjectConfigGateway(),
-	});
+	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: projectConfig });
 	if (!policy.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
@@ -402,7 +402,7 @@ async function generateTrackedBranchSlug(
 		: { ok: false, message: "Could not derive a usable branch slug." };
 }
 
-export function buildTrackedBranchSlugPrompt(input: {
+function buildTrackedBranchSlugPrompt(input: {
 	kind: "task" | "plan";
 	content: string;
 	sourceLabel?: string;

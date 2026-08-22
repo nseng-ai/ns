@@ -3,12 +3,12 @@ import {
 	HERDR_TAB_NEW_COMMAND_NAME,
 	type HerdrGateway,
 } from "@nseng-ai/herdr/api";
+import type { ContentSlugContext } from "@nseng-ai/extension-kit/content-slug";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { HerdrResourceLabelDeriver } from "./new-space.ts";
-import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { generateWorkspaceGoalSlug, resolveHerdrGoal } from "./space-goal.ts";
+import { generateHerdrGoalLabel, resolveHerdrGoal } from "./space-goal.ts";
 
 export interface HandleHerdrNewTabOptions {
 	herdr: Pick<HerdrGateway, "createTab" | "resolveCallerPane">;
@@ -72,7 +72,7 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 }
 
 export interface HandleHerdrTabGoalOptions {
-	pi: HerdrPiCommandApi;
+	contentSlug: ContentSlugContext;
 	herdr: Pick<HerdrGateway, "renameTab" | "resolveCallerPane">;
 	args: string;
 	ctx: CommandContext;
@@ -105,7 +105,7 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
+	const slug = await generateHerdrGoalLabel(options.contentSlug, options.ctx.cwd, goal);
 	if (!slug.ok) {
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
 		return;

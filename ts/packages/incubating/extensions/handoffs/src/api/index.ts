@@ -1,7 +1,6 @@
 export {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
-	deriveSemanticHandoffSlug,
 	handoffKeyFromSlug,
 	handoffKeyToSlug,
 	handoffSlugFromKey,
@@ -15,18 +14,8 @@ export type {
 	HandoffSlugNormalizationResult,
 } from "../core/identity.ts";
 
-export {
-	MAX_HANDOFF_CONTENT_CHARS,
-	buildHandoffContentSlugPrompt,
-	deriveHandoffContentSlug,
-	normalizeHandoffContentSlugOutput,
-	truncateHandoffContentForSlug,
-	validateHandoffContentSlug,
-} from "../core/content-slug.ts";
-export type {
-	HandoffContentSlugContext,
-	HandoffContentSlugEvidence,
-} from "../core/content-slug.ts";
+export { deriveHandoffContentSlug } from "../core/content-slug.ts";
+export type { HandoffContentSlugEvidence } from "../core/content-slug.ts";
 
 export {
 	CREATE_HANDOFF_COMMAND_NAME,

@@ -1,7 +1,6 @@
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
 import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { describe, expect, test } from "vitest";
 
 import { createResultSchema } from "../../src/core/operations/create.ts";
@@ -23,13 +22,9 @@ import {
 	runHandoffCommand,
 } from "./handoff-ns-command-fakes.ts";
 
-const slugProjectConfig: ProjectConfigGateway = {
-	readTextFile: () => ({
-		type: "found",
-		text: '[models.profiles.fast]\nmodel = "openai-codex/test-slug"\nthinking = "minimal"\n',
-	}),
-	pathExists: () => ({ type: "missing" }),
-};
+const MODEL_CONFIG =
+	'[models.profiles.fast]\nmodel = "openai-codex/test-slug"\nthinking = "minimal"\n';
+const SLUG_REPO_ROOT = "/repo";
 
 class FakeSlugCommands implements CommandExecApi {
 	readonly calls: Array<{ command: string; args: string[] }> = [];
@@ -48,6 +43,15 @@ class FakeSlugCommands implements CommandExecApi {
 	}
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
+		if (command === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+			return {
+				type: "exited",
+				stdout: `${SLUG_REPO_ROOT}\n`,
+				stderr: "",
+				code: 0,
+				signal: null,
+			};
+		}
 		this.calls.push({ command, args: [...args] });
 		return this.result;
 	}
@@ -184,7 +188,7 @@ describe("handoff ns command objects", () => {
 					git,
 					sourceReader,
 					commands,
-					projectConfig: slugProjectConfig,
+					projectConfigText: MODEL_CONFIG,
 				}),
 			},
 		);
@@ -230,7 +234,7 @@ describe("handoff ns command objects", () => {
 					git,
 					sourceReader,
 					commands: new FakeSlugCommands(),
-					projectConfig: slugProjectConfig,
+					projectConfigText: MODEL_CONFIG,
 				}),
 			},
 		);
@@ -271,7 +275,7 @@ describe("handoff ns command objects", () => {
 					git,
 					sourceReader,
 					commands,
-					projectConfig: slugProjectConfig,
+					projectConfigText: MODEL_CONFIG,
 				}),
 			},
 		);
@@ -314,7 +318,7 @@ describe("handoff ns command objects", () => {
 					git,
 					sourceReader,
 					commands: new FakeSlugCommands(),
-					projectConfig: slugProjectConfig,
+					projectConfigText: MODEL_CONFIG,
 				}),
 			},
 		);
@@ -343,7 +347,7 @@ describe("handoff ns command objects", () => {
 					brmem,
 					git,
 					commands,
-					projectConfig: slugProjectConfig,
+					projectConfigText: MODEL_CONFIG,
 					sourceReader,
 				}),
 			},

@@ -1,4 +1,4 @@
-import { slotLabelInput, type HerdrGateway } from "@nseng-ai/herdr/api";
+import type { HerdrGateway, HerdrSlotLabelInput } from "@nseng-ai/herdr/api";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import {
 	chooseActiveObjectiveSlug,
@@ -16,6 +16,7 @@ import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-typ
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 
 const PI_SIDEBAR_STATUS_KEY = "pi:herdr-sidebar";
+type SlotLabelInputResolver = (cwd: string) => Promise<HerdrSlotLabelInput>;
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for Herdr sidebar",
@@ -23,7 +24,11 @@ const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 } satisfies ObjectiveSelectionSpec;
 
 export interface HerdrSidebarController {
-	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
+	handleObjectiveCommand(
+		args: string,
+		ctx: CommandContext,
+		resolveSlotLabelInput: SlotLabelInputResolver,
+	): Promise<void>;
 }
 
 export interface HerdrSidebarControllerOptions {
@@ -36,8 +41,15 @@ export function createHerdrSidebarController(
 	options: HerdrSidebarControllerOptions = {},
 ): HerdrSidebarController {
 	return {
-		async handleObjectiveCommand(args, ctx): Promise<void> {
-			await handleDeterministicObjectiveSidebar(pi, herdr, args, ctx, options);
+		async handleObjectiveCommand(args, ctx, resolveSlotLabelInput): Promise<void> {
+			await handleDeterministicObjectiveSidebar(
+				pi,
+				herdr,
+				resolveSlotLabelInput,
+				args,
+				ctx,
+				options,
+			);
 		},
 	};
 }
@@ -45,6 +57,7 @@ export function createHerdrSidebarController(
 async function handleDeterministicObjectiveSidebar(
 	pi: HerdrPiCommandApi,
 	herdr: HerdrGateway,
+	resolveSlotLabelInput: SlotLabelInputResolver,
 	args: string,
 	ctx: CommandContext,
 	options: HerdrSidebarControllerOptions,
@@ -71,10 +84,8 @@ async function handleDeterministicObjectiveSidebar(
 			return;
 		}
 
-		const label = formatObjectiveSidebarLabel({
-			objectiveSlug: slug,
-			...slotLabelInput(ctx.cwd),
-		});
+		const slotLabelInput = await resolveSlotLabelInput(ctx.cwd);
+		const label = formatObjectiveSidebarLabel({ objectiveSlug: slug, ...slotLabelInput });
 		const renameResult = await herdr.renameWorkspace(workspaceId, label);
 		if (renameResult.type === "failed") {
 			notify(ctx, renameResult.message, "error");

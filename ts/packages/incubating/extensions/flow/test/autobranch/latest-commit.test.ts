@@ -17,7 +17,6 @@ import {
 	type LatestCommitAutobranchPlan,
 	type LatestCommitTransactionInput,
 } from "../../src/autobranch/latest-commit.ts";
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 
 interface PreparationHarnessOptions {
 	slug?: string;
@@ -312,9 +311,25 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 			expect(result.plan.branchName).toBe("add-latest-commit-branch");
 		}
 		const prompt = piPrompt(harness.calls);
-		expect(harness.calls.find((call) => call.command === "pi")?.args).toEqual(
-			buildRawTextModelArgs(prompt, { provider: "test", modelId: "model", thinking: "minimal" }),
-		);
+		const piArgs = harness.calls.find((call) => call.command === "pi")?.args;
+		expect(piArgs).toEqual([
+			"--provider",
+			"test",
+			"--model",
+			"model",
+			"--thinking",
+			"minimal",
+			"--no-session",
+			"--no-extensions",
+			"--no-skills",
+			"--no-prompt-templates",
+			"--no-context-files",
+			"--no-tools",
+			"--mode",
+			"text",
+			"--print",
+			prompt,
+		]);
 		expect(prompt).toContain("## commit message\nAdd latest commit support");
 		expect(prompt).toContain("## git diff HEAD^ HEAD\ndiff --git");
 	});

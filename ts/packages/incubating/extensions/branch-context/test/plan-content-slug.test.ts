@@ -3,19 +3,16 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-import {
-	buildPlanContentSlugPrompt,
-	derivePlanContentSlug,
-	type PlanContentSlugEvidence,
-} from "../src/core/index.ts";
+import { derivePlanContentSlug, type PlanContentSlugEvidence } from "../src/core/index.ts";
+import type { ContentSlugContext } from "@nseng-ai/extension-kit/content-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
@@ -105,6 +102,20 @@ async function makePlanFile(
 	return filePath;
 }
 
+function slugContext(commands: CommandExecApi): ContentSlugContext {
+	return {
+		commands,
+		git: new RealGitGateway(commands),
+		projectConfig: {
+			readTextFile: () => ({
+				type: "found",
+				text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			}),
+			pathExists: () => ({ type: "missing" }),
+		},
+	};
+}
+
 function expectNoFallback(error: unknown): void {
 	expect(error).toBeInstanceOf(Error);
 	expect((error as Error).message).toContain(
@@ -118,24 +129,23 @@ function expectNoFallback(error: unknown): void {
 describe("derivePlanContentSlug", () => {
 	test("successful model output becomes a valid slug", async () => {
 		const filePath = await makePlanFile();
-		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site\n" } });
+		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site-plan\n" } });
 
-		const evidence: PlanContentSlugEvidence = await derivePlanContentSlug(pi, {
+		const evidence: PlanContentSlugEvidence = await derivePlanContentSlug(slugContext(pi), {
 			filePath,
 			cwd: CWD,
 		});
 
 		expect(evidence).toEqual({
 			slug: "add-docs-portal-site",
-			rawOutput: "add-docs-portal-site\n",
+			rawOutput: "add-docs-portal-site-plan\n",
 			provider: TEST_MODEL_SELECTION.provider,
 			model: TEST_MODEL_SELECTION.modelId,
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args.slice(0, -1)).toEqual(
-			buildRawTextModelArgs("", TEST_MODEL_SELECTION).slice(0, -1),
-		);
+		expect(pi.calls[0]?.args).toContain(TEST_MODEL_SELECTION.provider);
+		expect(pi.calls[0]?.args).toContain(TEST_MODEL_SELECTION.modelId);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
 	});
 
@@ -144,7 +154,7 @@ describe("derivePlanContentSlug", () => {
 		const readPaths: string[] = [];
 		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site\n" } });
 
-		const evidence = await derivePlanContentSlug(pi, {
+		const evidence = await derivePlanContentSlug(slugContext(pi), {
 			filePath,
 			cwd: CWD,
 			async readTextFile(path) {
@@ -156,9 +166,26 @@ describe("derivePlanContentSlug", () => {
 		expect(evidence.slug).toBe("add-docs-portal-site");
 		expect(readPaths).toEqual([filePath]);
 		const prompt = pi.calls[0]?.args.at(-1) ?? "";
-		expect(prompt).toBe(buildPlanContentSlugPrompt(PLAN_CONTENT));
+		expect(prompt).toContain(PLAN_CONTENT.trim());
+		expect(prompt).toContain("Generate the branch-context slug");
+		expect(prompt).toContain("Use only the plan content.");
+		expect(prompt).toContain("- Use 3–7 words.");
+		expect(prompt).toContain("## Plan content");
 		expect(prompt).not.toContain(filePath);
 		expect(prompt).not.toContain(basename(filePath));
+	});
+
+	test("truncates plan content at 32k characters in the private model prompt", async () => {
+		const omittedTail = "OMITTED_PLAN_TAIL";
+		const filePath = await makePlanFile("large-plan.md", `${"a".repeat(32_100)}${omittedTail}`);
+		const pi = new FakeSlugPi({ result: { stdout: "bounded-plan-content\n" } });
+
+		await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
+
+		const prompt = pi.calls[0]?.args.at(-1) ?? "";
+		expect(prompt).toContain("a".repeat(32_000));
+		expect(prompt).toContain("[Plan content truncated for slug generation]");
+		expect(prompt).not.toContain(omittedTail);
 	});
 
 	test("markdown and code-fenced output is normalized when it yields a valid slug", async () => {
@@ -167,7 +194,7 @@ describe("derivePlanContentSlug", () => {
 			result: { stdout: "```markdown\nAdd Docs Portal Site!!!\n```\n" },
 		});
 
-		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+		const evidence = await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 
 		expect(evidence.slug).toBe("add-docs-portal-site");
 	});
@@ -177,7 +204,7 @@ describe("derivePlanContentSlug", () => {
 		const rawOutput = "sdl portal pages slot page conventions skeleton theme foundation\n";
 		const pi = new FakeSlugPi({ result: { stdout: rawOutput } });
 
-		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+		const evidence = await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 
 		expect(evidence.slug).toBe("sdl-portal-pages-slot-page-conventions-skeleton");
 		expect(evidence.rawOutput).toBe(rawOutput);
@@ -188,7 +215,7 @@ describe("derivePlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { code: 1, stderr: "model unavailable" } });
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -201,7 +228,7 @@ describe("derivePlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "  \n" } });
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -219,7 +246,7 @@ describe("derivePlanContentSlug", () => {
 		});
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -235,7 +262,7 @@ describe("derivePlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -247,10 +274,10 @@ describe("derivePlanContentSlug", () => {
 		const filePath = await makePlanFile("where-would-we-host-mossy-lampson.md", PLAN_CONTENT);
 		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site\n" } });
 
-		await derivePlanContentSlug(pi, { filePath, cwd: CWD });
+		await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 
 		const prompt = pi.calls[0]?.args.at(-1) ?? "";
-		expect(prompt).toBe(buildPlanContentSlugPrompt(PLAN_CONTENT));
+		expect(prompt).toContain("Generate the branch-context slug");
 		expect(prompt).toContain(PLAN_CONTENT.trim());
 		expect(prompt).not.toContain(filePath);
 		expect(prompt).not.toContain(basename(filePath));

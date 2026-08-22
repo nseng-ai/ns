@@ -2,6 +2,10 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
+import { registerHerdrSpaceGoalCommand } from "../src/pi/space-goal.ts";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
@@ -17,6 +21,20 @@ import {
 
 const GOAL = "ship the auth refactor";
 
+function slugContext(commands: CommandExecApi) {
+	return {
+		commands,
+		git: new RealGitGateway(commands),
+		projectConfig: {
+			readTextFile: () => ({
+				type: "found" as const,
+				text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			}),
+			pathExists: () => ({ type: "missing" as const }),
+		},
+	};
+}
+
 function modelStep(stdout: string, code = 0) {
 	return step("pi", undefined, { code, stdout, stderr: code === 0 ? "" : "model failed" });
 }
@@ -28,13 +46,16 @@ async function runGoal(options: {
 	hasUI?: boolean;
 	modelOutput?: string;
 	modelCode?: number;
+	modelError?: Error;
 	herdr?: FakeHerdrGateway;
 }) {
 	const cwd = options.cwd ?? ROOT;
 	const pi = new FakePi({
 		script: [
 			gitRootStep(ROOT),
-			modelStep(options.modelOutput ?? "refactor-auth", options.modelCode),
+			options.modelError === undefined
+				? modelStep(options.modelOutput ?? "refactor-auth", options.modelCode)
+				: { command: "pi", ignoreArgs: true, error: options.modelError },
 		],
 		shouldRequireExpectedArgs: false,
 	});
@@ -47,8 +68,10 @@ async function runGoal(options: {
 	});
 	const progress: string[] = [];
 	await handleHerdrSpaceGoal({
-		pi: createHerdrPiCommandApi(pi),
+		contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 		herdr,
+		resolveSlotLabelInput: async () =>
+			cwd.includes("/worktrees/slot-03/") ? { slotSlug: "slot-03" } : {},
 		args: options.args ?? GOAL,
 		ctx,
 		notifyProgress: (message) => progress.push(message),
@@ -67,11 +90,13 @@ describe("herdr space goal", () => {
 		expect(progress).toEqual(["Interpreting goal…", "Renaming Herdr workspace…"]);
 		expect(notificationMessages(ctx)).toContain("Applied Herdr space goal label: refactor-auth");
 		expect(pi.execCalls[1]).toMatchObject({ command: "pi", options: { cwd: ROOT } });
-		expect(pi.execCalls[1]?.args.at(-1)).toContain("Generate a concise workspace name slug");
+		expect(pi.execCalls[1]?.args.at(-1)).toContain(
+			"Generate a concise semantic label for the Herdr space or tab",
+		);
 	});
 
-	test("prefixes the slug inside a managed slot", async () => {
-		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
+	test("prefixes the slug from a managed Slot root resolved for a nested cwd", async () => {
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03/ts/packages";
 
 		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth" });
 
@@ -85,8 +110,9 @@ describe("herdr space goal", () => {
 		const ctx = new FakeCommandContext();
 
 		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
+			contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 			herdr,
+			resolveSlotLabelInput: async () => ({}),
 			args: GOAL,
 			ctx,
 			notifyProgress: () => {},
@@ -116,8 +142,9 @@ describe("herdr space goal", () => {
 		const ctx = new FakeCommandContext({ inputValues: [undefined] });
 
 		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
+			contentSlug: slugContext(createHerdrPiCommandApi(pi)),
 			herdr,
+			resolveSlotLabelInput: async () => ({}),
 			args: "",
 			ctx,
 			notifyProgress: () => {},
@@ -131,20 +158,45 @@ describe("herdr space goal", () => {
 		});
 	});
 
-	test("falls back to the sanitized goal when model output is unusable", async () => {
-		const { pi, herdr } = await runGoal({ modelOutput: "!!!" });
+	test("unusable model output fails closed without normalizing the original goal", async () => {
+		const { pi, herdr, ctx } = await runGoal({
+			args: "one two three four five six seven workspace",
+			modelOutput: "!!!",
+		});
 
 		pi.assertDone();
-		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "ship-the-auth-refactor" }]);
+		expect(herdr.renameCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)?.level).toBe("error");
+		expect(ctx.notifications.at(-1)?.message).toContain("No deterministic");
 	});
 
-	test("model command failure reports an error without renaming", async () => {
+	test("model command failure reports an error without falling back or renaming", async () => {
 		const { pi, herdr, ctx } = await runGoal({ modelCode: 1, modelOutput: "" });
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain("Pi model command failed");
+		expect(ctx.notifications.at(-1)?.message).toContain("No deterministic");
+	});
+
+	test("thrown model execution does not fall back or rename", async () => {
+		const { pi, herdr, ctx } = await runGoal({ modelError: new Error("spawn failed") });
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toContain("Pi model command failed");
+		expect(ctx.notifications.at(-1)?.message).toContain("spawn failed");
+		expect(ctx.notifications.at(-1)?.message).toContain("No deterministic");
+	});
+
+	test("empty model output does not fall back or rename", async () => {
+		const { pi, herdr, ctx } = await runGoal({ modelOutput: "   \n" });
+
+		pi.assertDone();
+		expect(herdr.renameCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)?.message).toContain("returned empty output");
+		expect(ctx.notifications.at(-1)?.message).toContain("No deterministic");
 	});
 
 	test("unusable model output and goal report an error", async () => {
@@ -154,8 +206,39 @@ describe("herdr space goal", () => {
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain(
-			"could not be normalized into a workspace goal slug",
+			"could not be normalized into a Herdr resource label",
 		);
+		expect(ctx.notifications.at(-1)?.message).toContain("No deterministic");
+	});
+
+	test("registered command uses the injected gateway and Git-resolved Slot root", async () => {
+		const worktreeRoot = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03";
+		const nestedCwd = `${worktreeRoot}/ts/packages/incubating`;
+		const pi = new FakePi({
+			script: [step("pi", undefined, { stdout: "add-auth" })],
+			shouldRequireExpectedArgs: false,
+		});
+		const git = new InMemoryGitGateway({ optionalRepoRoot: worktreeRoot });
+		const herdr = new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w1") });
+		registerHerdrSpaceGoalCommand({
+			commands: createHerdrPiCommandApi(pi),
+			git,
+			projectConfig: {
+				readTextFile: () => ({
+					type: "found" as const,
+					text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+				}),
+				pathExists: () => ({ type: "missing" as const }),
+			},
+			herdr,
+		});
+		const ctx = new FakeCommandContext({ cwd: nestedCwd });
+
+		await pi.commands.get("ns:herdr:space:goal")?.handler(GOAL, ctx);
+
+		pi.assertDone();
+		expect(git.optionalRepoRootCalls).toEqual([{ cwd: nestedCwd }, { cwd: nestedCwd }]);
+		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "s3:add-auth" }]);
 	});
 
 	test("rename failure is reported", async () => {

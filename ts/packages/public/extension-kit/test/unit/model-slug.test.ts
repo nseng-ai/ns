@@ -6,17 +6,29 @@ const TEST_MODEL_SELECTION = {
 	thinking: "minimal" as const,
 };
 import {
-	buildRawTextModelArgs,
 	deriveSlugWithModel,
 	generateRawTextWithModel,
 	type RawTextModelCommandResult,
 	type RawTextModelExecOptions,
 } from "@nseng-ai/extension-kit/model-slug";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 interface ExecCall {
 	command: string;
 	args: string[];
 	options: RawTextModelExecOptions;
+}
+
+function expectModelInvocation(
+	call: ExecCall | undefined,
+	prompt: string,
+	model: ModelSelection,
+): void {
+	expect(call).toMatchObject({ command: "pi" });
+	expect(call?.args).toContain(model.provider);
+	expect(call?.args).toContain(model.modelId);
+	expect(call?.args).toContain(model.thinking);
+	expect(call?.args.at(-1)).toBe(prompt);
 }
 
 function recordingExec(calls: ExecCall[], result: RawTextModelCommandResult) {
@@ -67,7 +79,7 @@ describe("generateRawTextWithModel", () => {
 				model: TEST_MODEL_SELECTION.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("summary prompt", TEST_MODEL_SELECTION));
+		expectModelInvocation(calls[0], "summary prompt", TEST_MODEL_SELECTION);
 	});
 
 	test("resolves an explicit model selection and uses its thinking level", async () => {
@@ -89,14 +101,11 @@ describe("generateRawTextWithModel", () => {
 			ok: true,
 			evidence: { rawOutput: "raw output\n", provider: "acme", model: "fast-1" },
 		});
-		expect(calls[0]?.args).toEqual(
-			buildRawTextModelArgs("summary prompt", {
-				provider: "acme",
-				modelId: "fast-1",
-				thinking: "high" as const,
-			}),
-		);
-		expect(calls[0]?.args).toContain("high");
+		expectModelInvocation(calls[0], "summary prompt", {
+			provider: "acme",
+			modelId: "fast-1",
+			thinking: "high" as const,
+		});
 	});
 
 	test("retries one killed model command result and returns the recovered raw text", async () => {
@@ -160,7 +169,7 @@ describe("deriveSlugWithModel", () => {
 				model: TEST_MODEL_SELECTION.modelId,
 			},
 		});
-		expect(calls[0]?.args).toEqual(buildRawTextModelArgs("slug prompt", TEST_MODEL_SELECTION));
+		expectModelInvocation(calls[0], "slug prompt", TEST_MODEL_SELECTION);
 	});
 
 	test("resolves an explicit model reference and reports it in evidence", async () => {
@@ -183,13 +192,11 @@ describe("deriveSlugWithModel", () => {
 			ok: true,
 			evidence: { slug: "my-slug", rawOutput: "my-slug\n", provider: "acme", model: "fast-1" },
 		});
-		expect(calls[0]?.args).toEqual(
-			buildRawTextModelArgs("slug prompt", {
-				provider: "acme",
-				modelId: "fast-1",
-				thinking: "minimal" as const,
-			}),
-		);
+		expectModelInvocation(calls[0], "slug prompt", {
+			provider: "acme",
+			modelId: "fast-1",
+			thinking: "minimal" as const,
+		});
 	});
 
 	test("retries one killed model command result and returns the recovered slug", async () => {
@@ -223,10 +230,11 @@ describe("deriveSlugWithModel", () => {
 		});
 		expect(calls).toHaveLength(2);
 		expect(calls[0]).toEqual(calls[1]);
-		expect(calls[0]).toEqual({
-			command: "pi",
-			args: buildRawTextModelArgs("slug prompt", TEST_MODEL_SELECTION),
-			options: { cwd: "/repo", timeout: 60_000, signal: controller.signal },
+		expectModelInvocation(calls[0], "slug prompt", TEST_MODEL_SELECTION);
+		expect(calls[0]?.options).toEqual({
+			cwd: "/repo",
+			timeout: 60_000,
+			signal: controller.signal,
 		});
 	});
 

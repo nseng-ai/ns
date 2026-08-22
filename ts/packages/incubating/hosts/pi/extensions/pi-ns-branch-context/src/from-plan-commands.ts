@@ -410,10 +410,20 @@ export async function deriveCreateBranchContextPreview(
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
 	const selectedFile = selectedSavedPlanFileInfo(selected);
-	const slugEvidence = await derivePlanContentSlug(pi, {
-		filePath: selectedFile.filePath,
-		cwd: ctx.cwd,
-	});
+	const branchContext = resolveBranchContextContext(pi, ctx.cwd, options);
+	const slugEvidence = await derivePlanContentSlug(
+		{
+			// Keep model execution on the caller's Pi channel; injected branch-context
+			// operations may intentionally use a different command adapter.
+			commands: pi,
+			git: branchContext.git,
+			projectConfig: branchContext.projectConfig,
+		},
+		{
+			filePath: selectedFile.filePath,
+			cwd: ctx.cwd,
+		},
+	);
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
 	const planKey = buildBranchContextPlanKey(slugEvidence.slug);

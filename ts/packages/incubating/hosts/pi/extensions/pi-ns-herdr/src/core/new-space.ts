@@ -1,11 +1,13 @@
 import {
 	formatHerdrResourceLabel,
 	HERDR_SPACE_NEW_COMMAND_NAME,
-	slotLabelInput,
 	type HerdrGateway,
+	type HerdrSlotLabelInput,
 } from "@nseng-ai/herdr/api";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+
+type SlotLabelInputResolver = (cwd: string) => Promise<HerdrSlotLabelInput>;
 
 export interface HerdrResourceLabelDeriver {
 	deriveLabel(input: { description: string; cwd: string; signal?: AbortSignal }): Promise<string>;
@@ -14,6 +16,7 @@ export interface HerdrResourceLabelDeriver {
 export interface HandleHerdrNewSpaceOptions {
 	herdr: Pick<HerdrGateway, "createWorkspace">;
 	labelDeriver: HerdrResourceLabelDeriver;
+	resolveSlotLabelInput: SlotLabelInputResolver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -29,10 +32,8 @@ export async function handleHerdrNewSpace(options: HandleHerdrNewSpaceOptions): 
 				description,
 				cwd: options.ctx.cwd,
 			});
-			label = formatHerdrResourceLabel({
-				semanticLabel,
-				...slotLabelInput(options.ctx.cwd),
-			});
+			const slotLabelInput = await options.resolveSlotLabelInput(options.ctx.cwd);
+			label = formatHerdrResourceLabel({ semanticLabel, ...slotLabelInput });
 		} catch (error) {
 			options.ctx.ui.notify(formatLabelError(error), "error");
 			return;

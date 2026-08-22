@@ -1,15 +1,12 @@
-import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
 import {
 	makeCommandProgressNotifier,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi-runtime/commands/ack";
 
-import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import { HERDR_TAB_GOAL_COMMAND_NAME, HERDR_TAB_NEW_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { handleHerdrNewTab, handleHerdrTabGoal } from "../core/tab.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrResourceLabelDeriver } from "./resource-label.ts";
-import { createHerdrPiCommandApi } from "./pi-command-api.ts";
 
 export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 	const { commands, herdr } = context;
@@ -30,9 +27,8 @@ export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 	});
 }
 
-export function registerHerdrTabGoalCommand(rawPi: ExtensionAPI): void {
-	const pi = createHerdrPiCommandApi(rawPi);
-	const herdr = createCliHerdrGateway(pi);
+export function registerHerdrTabGoalCommand(context: HerdrPiContext): void {
+	const pi = context.commands;
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: HERDR_TAB_GOAL_COMMAND_NAME,
@@ -41,7 +37,13 @@ export function registerHerdrTabGoalCommand(rawPi: ExtensionAPI): void {
 			argumentHint: "<goal>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
-				await handleHerdrTabGoal({ pi, herdr, args, ctx, notifyProgress });
+				await handleHerdrTabGoal({
+					contentSlug: context,
+					herdr: context.herdr,
+					args,
+					ctx,
+					notifyProgress,
+				});
 			},
 		},
 		options: { delivery: "message" },

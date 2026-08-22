@@ -22,6 +22,10 @@ function registrationContext(pi: FakePi) {
 	return {
 		commands: createHerdrPiCommandApi(pi),
 		git: new InMemoryGitGateway(),
+		projectConfig: {
+			readTextFile: () => ({ type: "missing" as const }),
+			pathExists: () => ({ type: "missing" as const }),
+		},
 		trunkBranch: "master",
 		herdr: new FakeHerdrGateway(),
 	};

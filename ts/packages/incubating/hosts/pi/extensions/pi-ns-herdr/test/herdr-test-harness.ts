@@ -28,7 +28,6 @@ import type {
 	WidgetContentFactoryLike,
 } from "@nseng-ai/extension-kit/pi-types";
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
-import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	parseObjectiveListData,
@@ -61,6 +60,8 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args?: string[];
+	ignoreArgs?: true;
+	assertArgs?: (args: string[]) => void;
 	result?: RawPiExecResultFixture;
 	error?: unknown;
 }
@@ -104,7 +105,7 @@ writeFileSync(
 	join(ROOT, "ns.toml"),
 	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
 );
-export const WORKTREE = "/state/slots/repos/ns/worktrees/slot-1";
+export const WORKTREE = "/state/slots/repos/ns/worktrees/slot-01";
 export const BRANCH = "herdr-launch-feature";
 export const PLAN_SLUG = "herdr-launch-feature";
 export const PLAN_KEY = `${PLAN_SLUG}.md`;
@@ -559,12 +560,18 @@ export function runScriptedExec(options: RunScriptedExecOptions): RunScriptedExe
 	}
 	if (
 		expected.command !== command ||
-		expectedArgsMismatch(expected.args, args, shouldRequireExpectedArgs)
+		expectedArgsMismatch(
+			expected.args,
+			args,
+			shouldRequireExpectedArgs,
+			expected.ignoreArgs === true,
+		)
 	) {
 		const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
 		const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
 		return { result: execResult({ code: 99, stderr: message }), errorMessage: message };
 	}
+	expected.assertArgs?.(args);
 	if (expected.error) {
 		throw expected.error;
 	}
@@ -575,10 +582,10 @@ function expectedArgsMismatch(
 	expectedArgs: string[] | undefined,
 	actualArgs: string[],
 	shouldRequireExpectedArgs: boolean,
+	ignoreArgs: boolean,
 ): boolean {
-	if (expectedArgs === undefined) {
-		return shouldRequireExpectedArgs;
-	}
+	if (ignoreArgs) return false;
+	if (expectedArgs === undefined) return shouldRequireExpectedArgs;
 	return !sameArgs(expectedArgs, actualArgs);
 }
 
@@ -598,8 +605,71 @@ export function step(
 ): ScriptedExec {
 	return {
 		command,
-		...optionalEntries({ args, result }),
+		...(args === undefined ? {} : { args }),
+		...(result === undefined ? {} : { result }),
 	};
+}
+
+export function focusedModelStep(
+	content: string,
+	kind: "tracked-branch" | "branch-context-plan",
+	result?: RawPiExecResultFixture,
+): ScriptedExec {
+	return {
+		command: "pi",
+		ignoreArgs: true,
+		assertArgs: (args) => {
+			assertFocusedModelArgs(args);
+			const prompt = args.at(-1) ?? "";
+			expectPromptContent(prompt, content);
+			if (kind === "tracked-branch") {
+				assertIncludes(prompt, "Generate a concise git branch slug");
+				assertIncludes(prompt, "user task prompt that will run in a new branch workspace");
+				assertExcludes(prompt, "Generate the branch-context slug");
+				return;
+			}
+			assertIncludes(prompt, "Generate the branch-context slug");
+			assertIncludes(prompt, "Do not use any saved-plan filename or path");
+			assertExcludes(prompt, "user task prompt that will run in a new branch workspace");
+		},
+		...(result === undefined ? {} : { result }),
+	};
+}
+
+function assertFocusedModelArgs(args: string[]): void {
+	const required = [
+		"--provider",
+		"openai-codex",
+		"--model",
+		"gpt-5.6-luna",
+		"--thinking",
+		"minimal",
+		"--no-session",
+		"--no-extensions",
+		"--no-skills",
+		"--no-prompt-templates",
+		"--no-context-files",
+		"--no-tools",
+		"--mode",
+		"text",
+		"--print",
+	];
+	for (const value of required) {
+		if (!args.includes(value)) throw new Error(`Focused model args omitted ${value}`);
+	}
+}
+
+function expectPromptContent(prompt: string, content: string): void {
+	if (!prompt.includes(content.trim()))
+		throw new Error("Focused model prompt omitted selected content");
+}
+
+function assertIncludes(value: string, marker: string): void {
+	if (!value.includes(marker)) throw new Error(`Focused model prompt omitted marker: ${marker}`);
+}
+
+function assertExcludes(value: string, marker: string): void {
+	if (value.includes(marker)) throw new Error(`Focused model prompt leaked marker: ${marker}`);
 }
 
 // ---------------------------------------------------------------------------

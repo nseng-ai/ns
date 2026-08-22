@@ -1,9 +1,8 @@
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
 	modelId: "gpt-5.6-luna",
-	thinking: "minimal" as const,
 };
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
+
 import { brmemCheckJson } from "@nseng-ai/extension-kit/brmem-cli/testing";
 import { afterEach, expect } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -15,7 +14,6 @@ import { fileURLToPath } from "node:url";
 import {
 	BRANCH_CONTEXT_NAMESPACE,
 	buildBranchContextPlanKey,
-	buildPlanContentSlugPrompt,
 	createBranchContextContext,
 	type BranchContextEvidence,
 	type LoadedAttachedPlan,
@@ -28,7 +26,6 @@ type ExecResultFixture = Partial<RawPiExecResult>;
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
-	buildSavedPlanContentSlugPrompt,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
 	type SavedPlanFileEvidence,
@@ -78,12 +75,14 @@ export interface ExecCall {
 export type ScriptedExec =
 	| {
 			command: string;
-			args: string[];
+			args?: string[];
+			assertArgs?: (args: string[]) => void;
 			result: ExecResultFixture;
 	  }
 	| {
 			command: string;
-			args: string[];
+			args?: string[];
+			assertArgs?: (args: string[]) => void;
 			error: Error;
 	  };
 
@@ -143,7 +142,12 @@ export class FakePi implements ExtensionAPI {
 		}
 		if (command === "git" && sameArgs(args, ["rev-parse", "--show-toplevel"])) {
 			const next = this.script.peek();
-			if (next === undefined || next.command !== "git" || !sameArgs(next.args, args)) {
+			if (
+				next === undefined ||
+				next.command !== "git" ||
+				next.args === undefined ||
+				!sameArgs(next.args, args)
+			) {
 				return execResult({ stdout: `${MODEL_ROOT}\n` });
 			}
 		}
@@ -154,11 +158,15 @@ export class FakePi implements ExtensionAPI {
 			return execResult({ code: 99, stderr: missingStepMessage });
 		}
 
-		if (expected.command !== command || !sameArgs(expected.args, args)) {
-			const message = `expected ${expected.command} ${expected.args.join(" ")}, got ${command} ${args.join(" ")}`;
+		if (
+			expected.command !== command ||
+			(expected.args !== undefined && !sameArgs(expected.args, args))
+		) {
+			const message = `expected ${expected.command} ${expected.args?.join(" ") ?? "<focused args>"}, got ${command} ${args.join(" ")}`;
 			this.script.recordError(message);
 			return execResult({ code: 99, stderr: message });
 		}
+		expected.assertArgs?.(args);
 
 		if ("error" in expected) {
 			throw expected.error;
@@ -446,14 +454,10 @@ function defaultBranchAvailabilityResult(
 
 export function step(
 	command: string,
-	args: string[],
+	args: string[] | undefined,
 	result: ExecResultFixture = {},
 ): ScriptedExec {
-	return { command, args, result };
-}
-
-export function planSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
+	return { command, ...(args === undefined ? {} : { args }), result };
 }
 
 export function planSlugStep(
@@ -461,15 +465,24 @@ export function planSlugStep(
 	slug: string = PLAN_SLUG,
 	result: ExecResultFixture = { stdout: `${slug}\n` },
 ): ScriptedExec {
-	return step("pi", planSlugArgs(content), result);
+	return {
+		command: "pi",
+		assertArgs: (args) => assertSlugModelArgs(args, content, "branch-context"),
+		result,
+	};
 }
 
-export function planSlugExecCall(content: string): { command: string; args: string[] } {
-	return { command: "pi", args: planSlugArgs(content) };
-}
-
-export function savedPlanSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
+export function planSlugExecCall(content: string): { command: string; args: unknown } {
+	return {
+		command: "pi",
+		args: {
+			asymmetricMatch(value: unknown): boolean {
+				if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) return false;
+				assertSlugModelArgs(value, content, "branch-context");
+				return true;
+			},
+		},
+	};
 }
 
 export interface SavedPlanSlugStepOptions {
@@ -483,7 +496,51 @@ export function savedPlanSlugStep(
 ): ScriptedExec {
 	const slug = options.slug ?? PLAN_SLUG;
 	const result = options.result ?? { stdout: `${slug}\n` };
-	return step("pi", savedPlanSlugArgs(content), result);
+	return {
+		command: "pi",
+		assertArgs: (args) => assertSlugModelArgs(args, content, "saved-plan"),
+		result,
+	};
+}
+
+function assertSlugModelArgs(
+	args: string[],
+	content: string,
+	variant: "branch-context" | "saved-plan",
+): void {
+	expect(args).toEqual(
+		expect.arrayContaining([
+			"--provider",
+			TEST_MODEL_SELECTION.provider,
+			"--model",
+			TEST_MODEL_SELECTION.modelId,
+			"--thinking",
+			"minimal",
+			"--no-session",
+			"--no-extensions",
+			"--no-skills",
+			"--no-prompt-templates",
+			"--no-context-files",
+			"--no-tools",
+			"--mode",
+			"text",
+			"--print",
+		]),
+	);
+	const prompt = args.at(-1) ?? "";
+	expect(prompt).toContain(content.trim());
+	expect(prompt.endsWith(content.trim())).toBe(true);
+	expect(prompt).not.toContain(MODEL_ROOT);
+	expect(prompt).not.toContain("/tmp/");
+	if (variant === "branch-context") {
+		expect(prompt).toContain("Generate the branch-context slug");
+		expect(prompt).toContain("Do not use any saved-plan filename or path");
+		expect(prompt).not.toContain("Generate the saved-plan filename slug");
+		return;
+	}
+	expect(prompt).toContain("Generate the saved-plan filename slug");
+	expect(prompt).toContain("filename, or path");
+	expect(prompt).not.toContain("Generate the branch-context slug");
 }
 
 export function contentSlugEvidence(slug: string = PLAN_SLUG): {

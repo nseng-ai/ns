@@ -54,11 +54,7 @@ export {
 	type PreviewPreparedPlanBranchContext,
 	type ReadyPreparedPlanBranchContext,
 } from "../core/plan-preparation.ts";
-export {
-	buildPlanContentSlugPrompt,
-	derivePlanContentSlug,
-	type PlanContentSlugEvidence,
-} from "../core/plan-content-slug.ts";
+export { derivePlanContentSlug, type PlanContentSlugEvidence } from "../core/plan-content-slug.ts";
 export {
 	buildBranchContextOutputMessage,
 	findLatestBranchContextEvidence,

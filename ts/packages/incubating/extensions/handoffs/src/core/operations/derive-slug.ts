@@ -32,10 +32,10 @@ export async function runDeriveSlug(ctx: HandoffCliContext, request: DeriveSlugR
 	if (prepared.type === "error") return failure(prepared.error.code, prepared.error.message);
 
 	try {
-		const evidence = await deriveHandoffContentSlug(
-			{ commands: ctx.commands, git: ctx.git, projectConfig: ctx.projectConfig },
-			{ content: prepared.value.content, cwd: ctx.cwd },
-		);
+		const evidence = await deriveHandoffContentSlug(ctx, {
+			content: prepared.value.content,
+			cwd: ctx.cwd,
+		});
 		return ok({
 			slug: evidence.slug,
 			key: handoffSlugToKey(evidence.slug),

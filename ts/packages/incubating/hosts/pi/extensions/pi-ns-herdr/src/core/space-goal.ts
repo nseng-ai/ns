@@ -1,86 +1,41 @@
+import { deriveContentSlug, type ContentSlugContext } from "@nseng-ai/extension-kit/content-slug";
+import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
 import {
 	formatHerdrResourceLabel,
+	HERDR_RESOURCE_LABEL_POLICY,
 	HERDR_SPACE_GOAL_COMMAND_NAME,
-	slotLabelInput,
 	type HerdrGateway,
+	type HerdrSlotLabelInput,
 } from "@nseng-ai/herdr/api";
-import { deriveSlugWithModel, formatRawTextModelFailure } from "@nseng-ai/extension-kit/model-slug";
-import {
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "@nseng-ai/extension-kit/model-policy";
-import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
-import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
-import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
-
-import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 
 const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
+type SlotLabelInputResolver = (cwd: string) => Promise<HerdrSlotLabelInput>;
 
 export interface HandleHerdrSpaceGoalOptions {
-	pi: HerdrPiCommandApi;
+	contentSlug: ContentSlugContext;
 	herdr: HerdrGateway;
+	resolveSlotLabelInput: SlotLabelInputResolver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
 }
 
-export function buildWorkspaceGoalSlugPrompt(goal: string): string {
-	return [
-		"Generate a concise workspace name slug for this stated goal.",
-		"Infer the concrete deliverable or outcome the workspace is intended to accomplish.",
-		"Rules:",
-		"- Return only the slug, with no quotes, markdown, or explanation.",
-		"- Use kebab-case: lowercase ASCII words separated by hyphens.",
-		`- Keep it at or under ${MAX_BRANCH_SLUG_LENGTH} characters.`,
-		"- Lead with a verb when natural, such as add-, fix-, refactor-, migrate-, rename-, remove-, or update-.",
-		"- Do not use spaces, underscores, slashes, punctuation, or special characters.",
-		"- Prefer concrete deliverables and specific nouns over broad words like changes, cleanup, or improvements.",
-		"",
-		"Goal:",
-		goal,
-	].join("\n");
-}
-
-export async function generateWorkspaceGoalSlug(
-	pi: HerdrPiCommandApi,
+export async function generateHerdrGoalLabel(
+	context: ContentSlugContext,
 	cwd: string,
 	goal: string,
 ): Promise<TextResult> {
-	const repository = await new RealGitGateway(pi).repoRoot({ cwd });
-	if (!repository.ok) {
-		return {
-			ok: false,
-			message: `Could not resolve the Git repository root: ${repository.error.message}`,
-		};
+	try {
+		const evidence = await deriveContentSlug(
+			context,
+			{ content: goal, cwd },
+			HERDR_RESOURCE_LABEL_POLICY,
+		);
+		return { ok: true, text: evidence.slug };
+	} catch (error) {
+		return { ok: false, message: error instanceof Error ? error.message : String(error) };
 	}
-
-	const policy = loadModelPolicy({
-		repoRoot: repository.value,
-		gateway: createNodeProjectConfigGateway(),
-	});
-	if (!policy.ok) {
-		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	}
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
-	if (!model.ok) {
-		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
-	}
-
-	const fallbackSlug = sanitizeBranchName(goal);
-	const result = await deriveSlugWithModel({
-		cwd,
-		prompt: buildWorkspaceGoalSlugPrompt(goal),
-		modelSelection: model.value.selection,
-		exec: (command, args, options) => pi.exec(command, args, options),
-		slugKind: "workspace goal slug",
-		normalizeOutput: (raw) => sanitizeBranchName(raw.trim()) ?? fallbackSlug,
-	});
-	if (!result.ok) return { ok: false, message: formatRawTextModelFailure(result.failure) };
-	return { ok: true, text: result.evidence.slug };
 }
 
 export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions): Promise<void> {
@@ -109,16 +64,14 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
+	const slug = await generateHerdrGoalLabel(options.contentSlug, options.ctx.cwd, goal);
 	if (!slug.ok) {
 		notify(options.ctx, slug.message, "error");
 		return;
 	}
 
-	const label = formatHerdrResourceLabel({
-		semanticLabel: slug.text,
-		...slotLabelInput(options.ctx.cwd),
-	});
+	const slotLabelInput = await options.resolveSlotLabelInput(options.ctx.cwd);
+	const label = formatHerdrResourceLabel({ semanticLabel: slug.text, ...slotLabelInput });
 	options.notifyProgress("Renaming Herdr workspace…");
 	const renameResult = await options.herdr.renameWorkspace(workspaceId, label);
 	if (renameResult.type === "failed") {

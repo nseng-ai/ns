@@ -18,6 +18,7 @@ import {
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import { getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
@@ -49,6 +50,7 @@ export interface HerdrImplPromptContext {
 	commands: ImplPromptRuntime;
 	pi: CommandContext;
 	git: ImplPromptGitGateway;
+	projectConfig: ProjectConfigGateway;
 	herdr: HerdrGateway;
 }
 
@@ -124,7 +126,7 @@ async function createCurrentPromptBranch(
 	}
 	options.notifyProgress("Generating branch name…");
 	return createTrackedBranchForPrompt(
-		{ pi: context.commands, git: context.git },
+		{ pi: context.commands, git: context.git, projectConfig: context.projectConfig },
 		{ cwd: context.pi.cwd, prompt },
 	);
 }
@@ -137,7 +139,12 @@ async function createTrunkPromptBranch(
 	const resolution = await resolveRepoTrunkBranch(context.git, { cwd: context.pi.cwd });
 	if (resolution.type === "failed") return { error: resolution.message };
 	return createTrackedBranchFromLocalTrunkForPrompt(
-		{ pi: context.commands, trunkBranch: resolution.branch, git: context.git },
+		{
+			pi: context.commands,
+			trunkBranch: resolution.branch,
+			git: context.git,
+			projectConfig: context.projectConfig,
+		},
 		{
 			cwd: context.pi.cwd,
 			prompt,

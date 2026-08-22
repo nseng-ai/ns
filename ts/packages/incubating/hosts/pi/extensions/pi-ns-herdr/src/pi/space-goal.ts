@@ -2,16 +2,13 @@ import {
 	makeCommandProgressNotifier,
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi-runtime/commands/ack";
-import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
-
-import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import { HERDR_SPACE_GOAL_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { handleHerdrSpaceGoal } from "../core/space-goal.ts";
-import { createHerdrPiCommandApi } from "./pi-command-api.ts";
+import type { HerdrPiContext } from "./context.ts";
+import { resolveHerdrSlotLabelInput } from "./resource-label.ts";
 
-export function registerHerdrSpaceGoalCommand(rawPi: ExtensionAPI): void {
-	const pi = createHerdrPiCommandApi(rawPi);
-	const herdr = createCliHerdrGateway(pi);
+export function registerHerdrSpaceGoalCommand(context: HerdrPiContext): void {
+	const pi = context.commands;
 	registerCommandWithImmediateAck({
 		host: pi,
 		commandName: HERDR_SPACE_GOAL_COMMAND_NAME,
@@ -21,7 +18,14 @@ export function registerHerdrSpaceGoalCommand(rawPi: ExtensionAPI): void {
 			argumentHint: "<goal>",
 			handler: async (args, ctx) => {
 				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
-				await handleHerdrSpaceGoal({ pi, herdr, args, ctx, notifyProgress });
+				await handleHerdrSpaceGoal({
+					contentSlug: context,
+					herdr: context.herdr,
+					resolveSlotLabelInput: (cwd) => resolveHerdrSlotLabelInput(context.git, cwd),
+					args,
+					ctx,
+					notifyProgress,
+				});
 			},
 		},
 	});

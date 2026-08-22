@@ -1,19 +1,10 @@
 import {
-	buildKitContentSlugPrompt,
-	deriveKitContentSlug,
-	normalizeContentSlugOutput,
-	truncateContentForSlug,
-	type ContentSlugDerivationVariant,
+	deriveContentSlug,
 	type ContentSlugEvidence,
+	type ContentSlugPolicy,
+	type ContentSlugContext,
+	type DeriveContentSlugInput,
 } from "@nseng-ai/extension-kit/content-slug";
-import {
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "@nseng-ai/extension-kit/model-policy";
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/foundation/git";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { parseFlatHandoffSlug } from "./identity.ts";
 
@@ -29,16 +20,10 @@ const GENERIC_ONLY_WORDS = new Set([
 	"task",
 ]);
 
-export const MAX_HANDOFF_CONTENT_CHARS = 32_000;
+const MAX_HANDOFF_CONTENT_CHARS = 32_000;
 export type HandoffContentSlugEvidence = ContentSlugEvidence;
 
-export interface HandoffContentSlugContext {
-	commands: CommandExecApi;
-	git: Pick<GitGateway, "optionalRepoRoot">;
-	projectConfig: ProjectConfigGateway;
-}
-
-const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
+const HANDOFF_CONTENT_SLUG_POLICY = {
 	slugKind: "handoff artifact slug",
 	promptIntroLines: [
 		"Generate the handoff artifact entry slug for the final Markdown handoff content below.",
@@ -64,39 +49,16 @@ const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 		stripSuffixes: ["-handoff-artifact", "-handoff", "-session"],
 	},
 	validateSlug: validateHandoffContentSlug,
-};
+} satisfies ContentSlugPolicy;
 
 export async function deriveHandoffContentSlug(
-	context: HandoffContentSlugContext,
-	input: { content: string; cwd: string; signal?: AbortSignal },
+	context: ContentSlugContext,
+	input: DeriveContentSlugInput,
 ): Promise<HandoffContentSlugEvidence> {
-	const repository = await context.git.optionalRepoRoot({ cwd: input.cwd });
-	if (repository.type !== "found")
-		throw new Error("Could not determine the repository root for ns.toml.");
-	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: context.projectConfig });
-	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
-	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
-	return deriveKitContentSlug(
-		context.commands,
-		{ ...input, modelSelection: model.value.selection },
-		HANDOFF_CONTENT_SLUG_VARIANT,
-	);
+	return deriveContentSlug(context, input, HANDOFF_CONTENT_SLUG_POLICY);
 }
 
-export function buildHandoffContentSlugPrompt(content: string): string {
-	return buildKitContentSlugPrompt(content, HANDOFF_CONTENT_SLUG_VARIANT);
-}
-
-export function normalizeHandoffContentSlugOutput(value: string): string | undefined {
-	return normalizeContentSlugOutput(value, HANDOFF_CONTENT_SLUG_VARIANT.normalization);
-}
-
-export function truncateHandoffContentForSlug(content: string): string {
-	return truncateContentForSlug(content, HANDOFF_CONTENT_SLUG_VARIANT);
-}
-
-export function validateHandoffContentSlug(slug: string): string | undefined {
+function validateHandoffContentSlug(slug: string): string | undefined {
 	const parsedSlug = parseFlatHandoffSlug(slug, "handoff artifact slug");
 	if (parsedSlug.type === "invalid") return parsedSlug.message;
 
