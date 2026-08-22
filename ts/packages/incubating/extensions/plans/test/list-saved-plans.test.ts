@@ -36,16 +36,16 @@ describe("listSavedPlans", () => {
 		const fixture = await makeFixture();
 		const featureBranchKey = encodeBranchForPlanPath("feature/source-plan");
 		const otherBranchKey = encodeBranchForPlanPath("bugfix/other-plan");
-		const olderPath = await writePlanFile({
+		const legacyPath = await writePlanFile({
 			fixture,
 			branchKey: featureBranchKey,
 			fileName: "first-useful-saved-plan.md",
-			modifiedTimeMs: 1_700_000_000_000,
+			modifiedTimeMs: 1_900_000_000_000,
 		});
-		const newerPath = await writePlanFile({
+		const timestampedPath = await writePlanFile({
 			fixture,
 			branchKey: otherBranchKey,
-			fileName: "second-useful-saved-plan.md",
+			fileName: "second-useful-saved-plan--26-03-19T12-00-00--1.md",
 			modifiedTimeMs: 1_800_000_000_000,
 		});
 		await writePlanFile({
@@ -67,16 +67,18 @@ describe("listSavedPlans", () => {
 
 		expect(plans).toMatchObject([
 			{
+				format: "timestamped",
 				slug: "second-useful-saved-plan",
 				branchKey: otherBranchKey,
-				fileName: "second-useful-saved-plan.md",
-				filePath: newerPath,
+				fileName: "second-useful-saved-plan--26-03-19T12-00-00--1.md",
+				filePath: timestampedPath,
 			},
 			{
+				format: "legacy",
 				slug: "first-useful-saved-plan",
 				branchKey: featureBranchKey,
 				fileName: "first-useful-saved-plan.md",
-				filePath: olderPath,
+				filePath: legacyPath,
 			},
 		]);
 	});
@@ -229,6 +231,7 @@ describe("plans list CLI", () => {
 			data: {
 				plans: [
 					{
+						format: "legacy",
 						slug: "first-useful-saved-plan",
 						branchKey: branchKey,
 						path: filePath,

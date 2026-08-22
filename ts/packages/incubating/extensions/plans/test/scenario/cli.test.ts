@@ -54,8 +54,25 @@ const EXEC_HELP = [
 	"  -h, --help                display help for command",
 	"",
 	"Commands:",
+	"  save [options]            Save Markdown bytes as a timestamped source-branch",
+	"                            plan.",
 	"  resolve [options] [path]  Resolve an explicit or latest source-branch plan",
 	"                            file.",
+	"",
+].join("\n");
+const SAVE_HELP = [
+	"Usage: enriched-plan exec save [options]",
+	"",
+	"Save Markdown bytes as a timestamped source-branch plan.",
+	"",
+	"Options:",
+	"  --content-file <value>  Markdown content file path (relative paths resolve",
+	"                          against cwd).",
+	'  --format <format>       Output format. (choices: "human", "json", "markdown",',
+	'                          "md", default: "human")',
+	"  --json-schema           Print the JSON Schema for this command's input/output",
+	"                          and exit.",
+	"  -h, --help              display help for command",
 	"",
 ].join("\n");
 const RESOLVE_HELP = [
@@ -95,6 +112,8 @@ interface RunWithFakesOptions {
 	planStoreRoot?: string;
 	git?: GitGateway;
 	planStoreGateway?: InMemoryPlanStoreGateway;
+	clock?: { nowMs(): number };
+	localTimestamp?: string;
 }
 
 async function runWithFakes(
@@ -117,6 +136,8 @@ async function runWithFakes(
 			stderr: (text) => stderr.push(text),
 			planStoreGateway: options.planStoreGateway ?? new InMemoryPlanStoreGateway(),
 			...optionalEntry("planStoreRoot", options.planStoreRoot),
+			...optionalEntry("clock", options.clock),
+			...optionalEntry("localTimestamp", options.localTimestamp),
 		}),
 	};
 }
@@ -232,6 +253,8 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		[["exec"], EXEC_HELP],
 		[["exec", "--help"], EXEC_HELP],
 		[["exec", "-h"], EXEC_HELP],
+		[["exec", "save", "--help"], SAVE_HELP],
+		[["exec", "save", "-h"], SAVE_HELP],
 		[["exec", "resolve", "--help"], RESOLVE_HELP],
 		[["exec", "resolve", "-h"], RESOLVE_HELP],
 	])("prints exact help for %j", async (args, help) => {
@@ -240,6 +263,20 @@ describe("plans CLI help, version, and dispatch pins", () => {
 		expect(await run.exit).toBe(0);
 		expect(run.stdout.join("")).toBe(help);
 		expect(run.stderr.join("")).toBe("");
+	});
+
+	test("publishes typed list and save result schemas", async () => {
+		for (const args of [
+			["list", "--json-schema"],
+			["exec", "save", "--json-schema"],
+		]) {
+			const run = await runWithFakes(args);
+			expect(await run.exit).toBe(0);
+			const schema = parseJson(run);
+			expect(schema).toHaveProperty("outputJsonSchema");
+			expect(JSON.stringify(schema.outputJsonSchema)).toContain('"format"');
+			expect(run.stderr.join("")).toBe("");
+		}
 	});
 
 	test("pins bare exec exit 0 and unknown exec operation stderr", async () => {
@@ -314,6 +351,7 @@ describe("plans list CLI pins", () => {
 			jsonSuccess({
 				plans: [
 					{
+						format: "legacy",
 						slug: "first-useful-saved-plan",
 						branchKey: fixture.branchKey,
 						modifiedTimeMs: MODIFIED_TIME_MS,
@@ -340,6 +378,7 @@ describe("plans list CLI pins", () => {
 			[
 				"Saved plans:",
 				"- first-useful-saved-plan",
+				"  Format: legacy",
 				`  Branch key: ${fixture.branchKey}`,
 				"  Modified: 2023-11-14T22:13:20.000Z",
 				`  Path: ${filePath}`,
@@ -369,6 +408,7 @@ describe("plans list CLI pins", () => {
 			data: {
 				plans: [
 					{
+						format: "legacy",
 						slug: "relative-root-plan-file",
 						branchKey: fixture.branchKey,
 						modifiedTimeMs: MODIFIED_TIME_MS,
@@ -384,6 +424,115 @@ describe("plans list CLI pins", () => {
 				],
 			},
 		});
+	});
+});
+
+describe("plans exec save", () => {
+	test("publishes an outside regular content file byte-for-byte with a typed JSON result", async () => {
+		const fixture = await makeFixture();
+		const inputPath = join(makeTempDir(), "plan-input.md");
+		const content = new Uint8Array([
+			0xef, 0xbb, 0xbf, 0x23, 0x20, 0x53, 0x68, 0x69, 0x70, 0x20, 0x50, 0x6c, 0x61, 0x6e, 0x20,
+			0x53, 0x74, 0x6f, 0x72, 0x65, 0x0d, 0x0a,
+		]);
+		fixture.planStoreGateway.writeBytes(inputPath, content);
+		const run = await runWithFakes(
+			["exec", "save", "--content-file", inputPath, "--format", "json"],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+				localTimestamp: "26-01-02T03-04-05",
+			},
+		);
+		expect(await run.exit).toBe(0);
+		const envelope = parseJson(run);
+		expect(envelope).toMatchObject({
+			status: "ok",
+			data: {
+				format: "timestamped",
+				slug: "ship-plan-store",
+				fileName: "ship-plan-store--26-01-02T03-04-05--1.md",
+				sequence: 1,
+			},
+		});
+		const data = envelope.data;
+		if (!isRecord(data) || typeof data.filePath !== "string") throw new Error("missing path");
+		expect(fixture.planStoreGateway.readBytes(data.filePath)).toEqual(content);
+	});
+
+	test.each([
+		["invalid UTF-8", new Uint8Array([0xff]), "Saved plan content must be valid UTF-8."],
+		[
+			"whitespace-only content",
+			new TextEncoder().encode(" \t\r\n"),
+			"Saved plan content must contain non-whitespace text.",
+		],
+	])("rejects %s", async (_name, content, message) => {
+		const fixture = await makeFixture();
+		const inputPath = join(makeTempDir(), "invalid-plan.md");
+		fixture.planStoreGateway.writeBytes(inputPath, content);
+		const run = await runWithFakes(
+			["exec", "save", "--content-file", inputPath, "--format", "json"],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+				localTimestamp: "26-01-02T03-04-05",
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe(jsonFailure(message, "saved-plan-write-failed"));
+	});
+
+	test("rejects missing and non-regular content paths", async () => {
+		const fixture = await makeFixture();
+		const outsideDirectory = makeTempDir();
+		fixture.planStoreGateway.mkdir(outsideDirectory);
+		for (const [contentPath, message] of [
+			[join(makeTempDir(), "missing.md"), "Plan file does not exist or is not accessible"],
+			[outsideDirectory, "Plan file must be a regular file"],
+		] as const) {
+			const run = await runWithFakes(
+				["exec", "save", "--content-file", contentPath, "--format", "json"],
+				{
+					cwd: fixture.repoRoot,
+					git: fixture.git,
+					planStoreRoot: fixture.planStoreRoot,
+					planStoreGateway: fixture.planStoreGateway,
+				},
+			);
+			expect(await run.exit).toBe(2);
+			expect(parseJson(run)).toMatchObject({
+				status: "failure",
+				errorType: "saved-plan-write-failed",
+				message: expect.stringContaining(message),
+			});
+		}
+	});
+
+	test("rejects repository-internal content", async () => {
+		const fixture = await makeFixture();
+		const inputPath = join(fixture.repoRoot, "plan-input.md");
+		fixture.planStoreGateway.writeFile(inputPath, "# Internal Saved Plan\n");
+		const run = await runWithFakes(
+			["exec", "save", "--content-file", "plan-input.md", "--format", "json"],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+			},
+		);
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe(
+			jsonFailure(
+				`Plan file must be outside the repository; got ${inputPath} inside ${fixture.repoRoot}.`,
+				"saved-plan-write-failed",
+			),
+		);
 	});
 });
 

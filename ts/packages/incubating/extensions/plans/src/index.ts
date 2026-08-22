@@ -12,11 +12,14 @@ export {
 export {
 	createRealPlanStoreGateway,
 	RealPlanStoreGateway,
+	type AtomicPlanPublication,
+	type AtomicPlanPublicationOptions,
 	type PlanStoreDirectoryEntry,
 	type PlanStoreDirectoryRead,
 	type PlanStoreGateway,
 	type PlanStorePathStat,
 	type PlanStorePathType,
+	type RealPlanStoreGatewayOptions,
 } from "./plan-store-gateway.ts";
 export {
 	isPathInside,
@@ -41,8 +44,11 @@ export {
 	resolvePlanStoreDirectory,
 	resolvePlanStoreRepoDirectory,
 	sanitizePlanPathSegment,
+	savePlanContentBytes,
 	writeSavedPlanFile,
+	type DurableSavedPlan,
 	type LatestSavedPlanFileEvidence,
+	type LegacyDurableSavedPlan,
 	type NoSavedPlanAvailableReason,
 	type PlanStoreDirectoryEvidence,
 	type PlanStoreOptions,
@@ -51,6 +57,7 @@ export {
 	type SavedPlanFileEvidence,
 	type SavedPlanFileParams,
 	type SavedPlanListItem,
+	type TimestampedDurableSavedPlan,
 } from "./saved-plan-file.ts";
 export {
 	buildSavedPlanContentSlugPrompt,
