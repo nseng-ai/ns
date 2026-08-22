@@ -16,7 +16,9 @@ import {
 	createContext,
 	gitCheckoutStep,
 	gitCurrentBranchStep,
+	gitOriginStep,
 	makeNamedPlanFile,
+	makeStoredPlanFile,
 	planSlugExecCall,
 	planSlugStep,
 	branchContextEvidence,
@@ -526,11 +528,16 @@ describe("branch-context-upstack-impl-session", () => {
 	});
 
 	test("ns:branch-context:upstack-impl-from-plan dry-run defaults to Graphite even when the extension option says plain Git", async () => {
-		const filePath = await makeNamedPlanFile();
-		const pi = new FakePi([planSlugStep(DEFAULT_PLAN_CONTENT)]);
+		const { filePath, planStoreRoot } = await makeStoredPlanFile();
+		const pi = new FakePi([
+			gitCurrentBranchStep(),
+			gitOriginStep(),
+			planSlugStep(DEFAULT_PLAN_CONTENT),
+		]);
 		registerBranchContextExtension(pi, {
 			branchContextDefaultCreation: "plain-git",
 			shouldResolveTargetBranchInPreview: false,
+			planStoreRoot,
 		});
 		const command = pi.commands.get("ns:branch-context:upstack-impl-from-plan");
 		const context = createContext();
@@ -543,7 +550,11 @@ describe("branch-context-upstack-impl-session", () => {
 				command: call.command,
 				args: call.args,
 			})),
-		).toEqual([planSlugExecCall(DEFAULT_PLAN_CONTENT)]);
+		).toEqual([
+			{ command: "git", args: ["branch", "--show-current"] },
+			{ command: "git", args: ["config", "--get", "remote.origin.url"] },
+			planSlugExecCall(DEFAULT_PLAN_CONTENT),
+		]);
 		expect(pi.sentMessages[0]?.content).toContain("Dry run: no branch would be created");
 		expect(pi.sentMessages[0]?.content).toContain("Branch creation: graphite");
 		expect(pi.sentMessages[0]?.content).toContain(`git checkout ${PLAN_SLUG}`);

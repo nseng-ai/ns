@@ -30,7 +30,6 @@ import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
-	type SavedPlanFileEvidence,
 	type SelectedSavedPlanFile,
 } from "@nseng-ai/plans/api";
 import {
@@ -328,15 +327,47 @@ export function branchContextEvidenceFromParams(rawParams: unknown): BranchConte
 }
 
 export function explicitSelectedPlanFile(
-	filePath = "/tmp/branch-scoped-plan-extension.md",
-	fileName = PLAN_KEY,
+	filePath = "/tmp/branch-scoped-plan-extension--26-03-19T12-00-00--1.md",
+	fileName = "branch-scoped-plan-extension--26-03-19T12-00-00--1.md",
 ): SelectedSavedPlanFile {
-	return { type: "explicit", filePath, fileName, savedPlanFileStem: fileName.replace(/\.md$/, "") };
+	const sourceBranch = SOURCE_BRANCH;
+	const branchKey = encodeBranchForPlanPath(sourceBranch);
+	return {
+		type: "explicit",
+		plan: {
+			directory: {
+				repoRoot: ROOT,
+				repoKey: "gh--owner--repo",
+				repoIdentitySource: "origin-url",
+				repoDirectoryPath: "/plans/gh--owner--repo",
+				sourceBranch,
+				branchKey,
+				directoryPath: `/plans/gh--owner--repo/${branchKey}`,
+			},
+			format: "timestamped",
+			slug: "branch-scoped-plan-extension",
+			filePath,
+			fileName,
+			fileStem: fileName.replace(/\.md$/, ""),
+			timestamp: "26-03-19T12-00-00",
+			timestampNumber: 260319120000,
+			sequence: 1,
+			content: DEFAULT_PLAN_CONTENT,
+		},
+	};
 }
 
 export function savedPlanEvidence(
-	input: Partial<SavedPlanFileEvidence> = {},
-): SavedPlanFileEvidence {
+	input: Partial<{
+		slug: string;
+		repoRoot: string;
+		repoKey: string;
+		repoIdentitySource: "origin-url" | "repo-root";
+		sourceBranch: string;
+		branchKey: string;
+		filePath: string;
+	}> = {},
+) {
 	const sourceBranch = input.sourceBranch ?? SOURCE_BRANCH;
 	const slug = input.slug ?? PLAN_SLUG;
 	return {
@@ -534,6 +565,16 @@ export async function makeNamedPlanFile(
 	return filePath;
 }
 
+export async function makeStoredPlanFile(
+	fileName = `${PLAN_SLUG}--26-03-19T12-00-00--1.md`,
+	content = DEFAULT_PLAN_CONTENT,
+): Promise<{ filePath: string; planStoreRoot: string }> {
+	const planStoreRoot = await makeTempDir("source-plan-store-");
+	const directoryPath = planStoreDirectory(planStoreRoot, SOURCE_BRANCH);
+	const filePath = await writePlanStoreFile(directoryPath, fileName, 1_800_000_000_000, content);
+	return { filePath, planStoreRoot };
+}
+
 export async function makeRepoPrompt(content = DEFAULT_WRITE_PLAN_PROMPT_BODY): Promise<string> {
 	const dir = await makeTempDir();
 	const promptDir = join(dir, ".ns", "prompts");
@@ -610,44 +651,6 @@ export async function writePlanStoreFile(
 	const modified = new Date(modifiedTimeMs);
 	await utimes(filePath, modified, modified);
 	return filePath;
-}
-
-export function sourcePlanEvidence(input: {
-	slug: string;
-	filePath: string;
-	sourceBranch: string;
-	origin?: string;
-}): SavedPlanFileEvidence {
-	const origin = input.origin ?? "git@github.com:owner/repo.git";
-	return {
-		slug: input.slug,
-		repoRoot: ROOT,
-		repoKey: buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin)),
-		repoIdentitySource: "origin-url",
-		sourceBranch: input.sourceBranch,
-		branchKey: encodeBranchForPlanPath(input.sourceBranch),
-		filePath: input.filePath,
-	};
-}
-
-export function sourcePlanToolResultEntry(evidence: SavedPlanFileEvidence): unknown {
-	return sourcePlanToolResultEntryForTool(evidence, "write_saved_plan_file");
-}
-
-export function sourcePlanToolResultEntryForTool(
-	evidence: SavedPlanFileEvidence,
-	toolName: string,
-): unknown {
-	return {
-		type: "message",
-		message: {
-			role: "toolResult",
-			toolName,
-			isError: false,
-			content: [],
-			details: evidence,
-		},
-	};
 }
 
 export function branchContextOutputMessageEntry(content: string, details?: unknown): unknown {

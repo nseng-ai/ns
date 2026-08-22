@@ -14,7 +14,7 @@ import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
+import type { DurableSavedPlan, PlanStoreDirectoryEvidence } from "@nseng-ai/plans/api";
 import { afterEach, describe, expect, test } from "vitest";
 
 const TEST_MODEL_SELECTION = {
@@ -66,23 +66,27 @@ function checkout(directoryPath: string): PlanStoreDirectoryEvidence {
 }
 
 async function fixture(): Promise<{
-	plan: ValidatedSessionSavedPlan;
+	plan: DurableSavedPlan;
 	checkout: PlanStoreDirectoryEvidence;
 }> {
 	const directoryPath = await mkdtemp(join(tmpdir(), "branch-context-preparation-"));
 	directories.push(directoryPath);
-	const filePath = join(directoryPath, "saved-plan.md");
+	const fileName = "saved-plan--26-03-19T12-00-00--1.md";
+	const filePath = join(directoryPath, fileName);
 	await writeFile(filePath, PLAN_CONTENT, "utf8");
 	const evidence = checkout(directoryPath);
 	return {
 		checkout: evidence,
 		plan: {
 			directory: evidence,
+			format: "timestamped",
+			timestamp: "26-03-19T12-00-00",
+			timestampNumber: 260319120000,
+			sequence: 1,
 			slug: "saved-plan",
 			filePath,
-			fileName: "saved-plan.md",
-			modifiedTimeMs: 1,
-			summary: "Implement the owner APIs.",
+			fileName,
+			fileStem: fileName.slice(0, -3),
 		},
 	};
 }
@@ -132,7 +136,6 @@ describe("plan branch-context preparation public API", () => {
 			slug: "add-dispatch-preparation-tests",
 			branch: "add-dispatch-preparation-tests",
 			key: "add-dispatch-preparation-tests.md",
-			summary: "Implement the owner APIs.",
 		});
 		if (prepared.type !== "preview") throw new Error("Expected the preview variant.");
 		expect(prepared.preview).toContain(`Start point: ${START_POINT}`);

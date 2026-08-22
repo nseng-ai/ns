@@ -7,7 +7,7 @@ import type { GraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/bra
 import { type CommandExecApi, formatCommand } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
-import { normalizeSummary, resolvePlanSourceFile } from "@nseng-ai/plans";
+import { resolvePlanSourceFile } from "@nseng-ai/plans";
 import type { BranchContextContext } from "./context.ts";
 
 export { BRANCH_CONTEXT_NAMESPACE, buildBranchContextPlanKey } from "./constants.ts";
@@ -253,6 +253,11 @@ export async function createBranchContextFromResolvedSource(
 		branchSelection: options.operation.branchSelection,
 		summary: options.operation.summary,
 	});
+}
+
+function normalizeSummary(summary: string | undefined): string | undefined {
+	const normalized = summary?.trim();
+	return normalized === undefined || normalized.length === 0 ? undefined : normalized;
 }
 
 export function buildBranchContextCreateOperation(

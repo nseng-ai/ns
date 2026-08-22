@@ -1,6 +1,7 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import { readFileSync } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
+
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
@@ -25,6 +26,7 @@ export {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
 } from "@nseng-ai/branch-context/api";
+
 const WRITE_PLAN_POINT_ID = "branch-context.plans-write";
 
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = readFileSync(
@@ -78,7 +80,8 @@ Final plan requirements:
 - Review the final Markdown for completeness before saving it.
 - Create a temporary file with exactly \`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"\` and retain the exact path returned by \`mktemp\`.
 - Use the generic write tool to write the exact final Markdown content to that returned path.
-- Safely shell-quote the exact path and invoke \`enriched-plan exec save --content-file '<exact path>' --format json\`.
+- Generate a specific 3–7 token lowercase kebab-case slug for the final plan. It must include at least one non-generic token and no date-like year token.
+- Safely shell-quote the slug and exact path, then invoke \`enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json\`.
 - Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with \`status: "ok"\` and complete saved-plan evidence in its \`data\` object: format, slug, filePath, fileName, fileStem, timestamp, timestampNumber, sequence, repoRoot, repoKey, repoIdentitySource, sourceBranch, branchKey, and directoryPath.
 - Only after successful save evidence, run \`rm -- '<exact path>'\` for that exact temporary path. If cleanup fails, warn about cleanup and report the retained path, but do not invalidate the successful save.
 - If any step before confirmed save success fails, do not remove the temporary file; retain and report its exact path, report the failure evidence, and stop. If \`mktemp\` failed before returning a path, report that no temporary path was allocated.

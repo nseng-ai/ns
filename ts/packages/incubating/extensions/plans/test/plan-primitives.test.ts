@@ -8,7 +8,6 @@ import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
 	findLatestSavedPlanFile,
-	formatSavedPlanFileEvidence,
 	isPathInside,
 	normalizePlanFilePath,
 	normalizeRepoOriginUrl,
@@ -17,7 +16,6 @@ import {
 import { InMemoryPlanStoreGateway } from "../src/testing.ts";
 
 const ROOT = "/repo";
-const PLAN_SLUG = "branch-scoped-plan-extension";
 describe("validatePlanSlug", () => {
 	test("accepts specific 3-7 word kebab slugs", () => {
 		for (const slug of [
@@ -100,7 +98,7 @@ describe("source branch plan path helpers", () => {
 		expect(buildRepoPlanStoreKey("/repo", "/repo")).toBe("repo");
 	});
 
-	test("finds the newest timestamped Saved Plan file", async () => {
+	test("finds the newest saved Markdown plan file", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
@@ -108,13 +106,13 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"older-source-plan--26-03-18T12-00-00--1.md",
+			"older-source-plan--26-01-01T00-00-00--1.md",
 			1_700_000_000_000,
 		);
 		const newestPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"newer-source-plan--26-03-19T12-00-00--1.md",
+			"newer-source-plan--26-01-02T00-00-00--1.md",
 			1_800_000_000_000,
 		);
 		await writePlanStoreFile(
@@ -145,20 +143,20 @@ describe("source branch plan path helpers", () => {
 			},
 			slug: "newer-source-plan",
 			filePath: newestPath,
-			fileName: "newer-source-plan--26-03-19T12-00-00--1.md",
+			fileName: "newer-source-plan--26-01-02T00-00-00--1.md",
 		});
 	});
 
-	test("ignores the old .ns plan store when the XDG store is absent", async () => {
+	test("ignores obsolete pre-XDG files when the XDG store is absent", async () => {
 		const tempHome = makeTempDir("source-plan-home-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
-		const oldStoreRoot = join(tempHome, ".ns", "enriched-plan");
-		const oldStoreDirectory = planStoreDirectory(oldStoreRoot, sourceBranch);
+		const obsoleteRoot = join(tempHome, ".ns", "enriched-plan");
+		const obsoleteDirectory = planStoreDirectory(obsoleteRoot, sourceBranch);
 		await writePlanStoreFile(
 			planStoreGateway,
-			oldStoreDirectory,
-			"source-plan--26-03-19T12-00-00--1.md",
+			obsoleteDirectory,
+			"obsolete-source-plan.md",
 			1_800_000_000_000,
 		);
 		const git = new InMemoryGitGateway({
@@ -200,12 +198,12 @@ describe("source branch plan path helpers", () => {
 		await expect(promise).rejects.toMatchObject({ reason: "missing-directory" });
 	});
 
-	test("reports a typed error when no timestamped Saved Plan files exist", async () => {
+	test("reports a typed error when no Markdown saved plans exist", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		planStoreGateway.writeFile(join(directoryPath, "plain-plan.md"), "not a durable Saved Plan");
+		planStoreGateway.writeFile(join(directoryPath, "notes.txt"), "not a plan");
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
 			originUrl: "git@github.com:owner/repo.git",
@@ -219,34 +217,28 @@ describe("source branch plan path helpers", () => {
 			planStoreGateway,
 		});
 		await expect(promise).rejects.toThrow(
-			/No timestamped Saved Plan files exist[\s\S]*Create a saved plan first/,
+			/No Markdown saved plan files exist[\s\S]*Create a saved plan first/,
 		);
 		await expect(promise).rejects.toBeInstanceOf(NoSavedPlanAvailableError);
 		await expect(promise).rejects.toMatchObject({ reason: "no-plan-files" });
 	});
 
-	test("ignores plain and malformed Markdown filenames", async () => {
+	test("treats the latest filename stem as a locator even when it is not a valid branch slug", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "main";
 		const directoryPath = planStoreDirectory(planStoreRoot, sourceBranch);
-		const expectedPath = await writePlanStoreFile(
+		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"valid-source-plan--26-03-19T12-00-00--1.md",
+			"valid-source-plan--26-01-01T00-00-00--1.md",
 			1_700_000_000_000,
 		);
-		await writePlanStoreFile(
+		const latestPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"unsupported-plain-plan.md",
-			1_900_000_000_000,
-		);
-		await writePlanStoreFile(
-			planStoreGateway,
-			directoryPath,
-			"malformed--26-99-99T99-99-99--1.md",
-			2_000_000_000_000,
+			"bad-plan-name--26-01-02T00-00-00--1.md",
+			1_800_000_000_000,
 		);
 		const git = new InMemoryGitGateway({
 			currentBranch: sourceBranch,
@@ -261,8 +253,8 @@ describe("source branch plan path helpers", () => {
 			planStoreGateway,
 		});
 
-		expect(evidence.slug).toBe("valid-source-plan");
-		expect(evidence.filePath).toBe(expectedPath);
+		expect(evidence.slug).toBe("bad-plan-name");
+		expect(evidence.filePath).toBe(latestPath);
 	});
 
 	test("tie-breaks exact matching mtimes by filename path", async () => {
@@ -273,13 +265,13 @@ describe("source branch plan path helpers", () => {
 		await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"alpha-source-plan--26-03-19T12-00-00--1.md",
+			"alpha-source-plan--26-01-01T00-00-00--1.md",
 			1_800_000_000_000,
 		);
 		const expectedPath = await writePlanStoreFile(
 			planStoreGateway,
 			directoryPath,
-			"zeta-source-plan--26-03-19T12-00-00--1.md",
+			"zeta-source-plan--26-01-01T00-00-00--2.md",
 			1_800_000_000_000,
 		);
 		const git = new InMemoryGitGateway({
@@ -297,34 +289,6 @@ describe("source branch plan path helpers", () => {
 
 		expect(evidence.slug).toBe("zeta-source-plan");
 		expect(evidence.filePath).toBe(expectedPath);
-	});
-});
-
-describe("formatSavedPlanFileEvidence", () => {
-	test("reports all local plan store evidence", () => {
-		const text = formatSavedPlanFileEvidence({
-			slug: PLAN_SLUG,
-			repoRoot: ROOT,
-			repoKey: "gh--owner--repo",
-			repoIdentitySource: "origin-url",
-			sourceBranch: "branch-contexts/add-widget",
-			branchKey: "branch-contexts---add-widget",
-			filePath:
-				"/plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
-			summary: "Plan the local plan store file.",
-		});
-
-		expect(text).toContain("Saved plan file in local plan store.");
-		expect(text).toContain(
-			"Path: /plans/gh--owner--repo/branch-contexts---add-widget/branch-scoped-plan-extension.md",
-		);
-		expect(text).toContain("Repo key: gh--owner--repo");
-		expect(text).toContain(`Repo root: ${ROOT}`);
-		expect(text).toContain("Repo identity source: origin-url");
-		expect(text).toContain("Source branch: branch-contexts/add-widget");
-		expect(text).toContain("Branch path segment: branch-contexts---add-widget");
-		expect(text).toContain(`Slug: ${PLAN_SLUG}`);
-		expect(text).toContain("Summary: Plan the local plan store file.");
 	});
 });
 

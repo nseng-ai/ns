@@ -88,7 +88,8 @@ export async function writeSavedPlan(
 	const branch = params.branch ?? SOURCE_BRANCH;
 	const planDirectory = join(planStoreRoot, PLAN_STORE_REPO_KEY, encodeBranchForPlanPath(branch));
 	await mkdir(planDirectory, { recursive: true });
-	const filePath = join(planDirectory, `${slug}--26-01-02T03-04-05--1.md`);
+	const fileName = `${slug}--26-03-19T12-00-00--1.md`;
+	const filePath = join(planDirectory, fileName);
 	await writeFile(filePath, params.content ?? "# Saved Plan\n", "utf8");
 	return filePath;
 }

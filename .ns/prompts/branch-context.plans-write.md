@@ -112,14 +112,15 @@ Exact save procedure:
 2. Produce launch-ready, self-contained final Markdown and review the exact final content for hermeticity, proportionality, and completeness.
 3. Run exactly `mktemp "${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"` and retain the exact path returned by `mktemp`.
 4. Use the generic write tool to write the exact final Markdown content to that returned path. Do not transform, summarize, or reconstruct the content through shell interpolation.
-5. Safely shell-quote the exact path and invoke `enriched-plan exec save --content-file '<exact path>' --format json`.
-6. Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object: `format`, `slug`, `filePath`, `fileName`, `fileStem`, `timestamp`, `timestampNumber`, `sequence`, `repoRoot`, `repoKey`, `repoIdentitySource`, `sourceBranch`, `branchKey`, and `directoryPath`.
-7. Only after successful save evidence, run `rm -- '<exact path>'` for that exact temporary path. If cleanup fails, warn about cleanup and report the retained path, but do not invalidate the successful save.
-8. If any step before confirmed save success fails, do not remove the temporary file. Retain and report its exact path, report the command exit and parse/failure evidence, and stop. If `mktemp` failed before returning a path, report that no temporary path was allocated.
-9. Report the complete parsed saved-plan evidence and stop. Do not create Branch Context, start implementation, or write Branch Memory.
+5. Generate a specific 3–7 token lowercase kebab-case slug for the final plan. It must include at least one non-generic token and no date-like year token.
+6. Safely shell-quote the slug and exact path, then invoke `enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json`.
+7. Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object: `format`, `slug`, `filePath`, `fileName`, `fileStem`, `timestamp`, `timestampNumber`, `sequence`, `repoRoot`, `repoKey`, `repoIdentitySource`, `sourceBranch`, `branchKey`, and `directoryPath`.
+8. Only after successful save evidence, run `rm -- '<exact path>'` for that exact temporary path. If cleanup fails, warn about cleanup and report the retained path, but do not invalidate the successful save.
+9. If any step before confirmed save success fails, do not remove the temporary file. Retain and report its exact path, report the command exit and parse/failure evidence, and stop. If `mktemp` failed before returning a path, report that no temporary path was allocated.
+10. Report the complete parsed saved-plan evidence and stop. Do not create Branch Context, start implementation, or write Branch Memory.
 
 Local plan store contract:
 
-- The `enriched-plan exec save` command derives the timestamped filename slug, repository identity, source branch, and destination in the XDG local plan store from the final content and current repository.
+- The language model supplies the explicit slug. The `enriched-plan exec save` command validates it and derives the timestamp, sequence, repository identity, source branch, and destination in the XDG local plan store.
 - The temporary file is only transport for exact plan bytes. It is not the Saved Plan and must not be used as implementation input after a successful save.
 - Working-tree behavior: no checked-in plan file is created.

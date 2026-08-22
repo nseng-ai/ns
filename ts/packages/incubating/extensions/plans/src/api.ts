@@ -2,15 +2,14 @@ export {
 	NoSavedPlanAvailableError,
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
-	formatSavedPlanFileEvidence,
 	normalizeRepoOriginUrl,
 	resolvePlanStoreDirectory,
 	savePlanContentBytes,
-	writeSavedPlanFile,
-	type PlanStoreDirectoryEvidence,
+	type DurableSavedPlan,
+	type LatestSavedPlanFileEvidence,
 	type TimestampedDurableSavedPlan,
+	type PlanStoreDirectoryEvidence,
 	type RepoIdentitySource,
-	type SavedPlanFileEvidence,
 } from "./saved-plan-file.ts";
 export {
 	buildSavedPlanContentSlugPrompt,
@@ -25,16 +24,11 @@ export {
 	type SavedPlanFormat,
 } from "./saved-plan-format.ts";
 export {
-	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
-	findLatestSessionSavedPlanFile,
-	prepareLatestSessionSavedPlan,
 	resolveExplicitSavedPlanFile,
 	resolveSelectedSavedPlanFile,
 	type ExplicitSavedPlanFileResolution,
-	type PreparedSessionSavedPlanResult,
 	type ResolveExplicitSavedPlanFileOptions,
 	type ResolvedExplicitSavedPlanFile,
+	type ResolveSelectedSavedPlanFileOptions,
 	type SelectedSavedPlanFile,
-	type ValidateSessionSavedPlanCandidateOptions,
-	type ValidatedSessionSavedPlan,
 } from "./saved-plan-selection.ts";

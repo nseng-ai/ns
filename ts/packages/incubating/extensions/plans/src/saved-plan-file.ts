@@ -3,14 +3,14 @@ import { basename, join, resolve } from "node:path";
 
 import type { Clock } from "@nseng-ai/foundation/clock";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { systemClock } from "@nseng-ai/foundation/time";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
 	githubRepositoryIdentityFromNormalizedRemoteUrl,
 	normalizeGitRemoteUrl,
 } from "@nseng-ai/extension-kit/github/identity";
-import { normalizeSummary, validatePlanSlug } from "./plan-persistence.ts";
+import { validatePlanSlug } from "./plan-persistence.ts";
 import {
 	buildTimestampedSavedPlanFileName,
 	formatLocalSavedPlanTimestamp,
@@ -21,7 +21,6 @@ import {
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import { requireXdgPath, resolveNsXdgPath } from "@nseng-ai/extension-kit/xdg";
 import {
-	isRecord,
 	optionalEntries,
 	optionalEntry,
 	type ExplicitUndefined,
@@ -29,15 +28,9 @@ import {
 
 const MAX_SEGMENT_LENGTH = 120;
 const PLAN_FILE_SUFFIX = ".md";
-const PLAN_FILE_DISPLAY_NAME = "timestamped Saved Plan";
+const PLAN_FILE_DISPLAY_NAME = "Markdown saved plan";
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
-
-export interface SavedPlanFileParams {
-	slug: string;
-	content: string;
-	summary?: string;
-}
 
 export interface PlanStoreOptions {
 	cwd: string;
@@ -102,28 +95,9 @@ export interface SavedPlanListItem {
 	modifiedTimeMs: number;
 }
 
-export interface LatestSavedPlanFileEvidence {
-	directory: PlanStoreDirectoryEvidence;
-	format: "timestamped";
-	slug: string;
-	timestamp: string;
-	timestampNumber: number;
-	sequence: number;
-	filePath: string;
-	fileName: string;
+export type LatestSavedPlanFileEvidence = TimestampedDurableSavedPlan & {
 	modifiedTimeMs: number;
-}
-
-export interface SavedPlanFileEvidence {
-	slug: string;
-	repoRoot: string;
-	repoKey: string;
-	repoIdentitySource: RepoIdentitySource;
-	sourceBranch: string;
-	branchKey: string;
-	filePath: string;
-	summary?: string;
-}
+};
 
 export interface TimestampedDurableSavedPlan {
 	directory: PlanStoreDirectoryEvidence;
@@ -136,6 +110,8 @@ export interface TimestampedDurableSavedPlan {
 	timestampNumber: number;
 	sequence: number;
 }
+
+export type DurableSavedPlan = TimestampedDurableSavedPlan;
 
 interface RepoIdentity {
 	source: RepoIdentitySource;
@@ -215,32 +191,11 @@ export function sanitizePlanPathSegment(value: string, fallback: string): string
 	return sanitized;
 }
 
-export function buildPlanFileName(slug: string): string {
-	return `${slug}${PLAN_FILE_SUFFIX}`;
-}
-
 export function buildPlanStoreBranchDirectoryPath(params: {
 	repoDirectoryPath: string;
 	branchKey: string;
 }): string {
 	return join(params.repoDirectoryPath, params.branchKey);
-}
-
-export function formatSavedPlanFileEvidence(evidence: SavedPlanFileEvidence): string {
-	const lines = [
-		"Saved plan file in local plan store.",
-		`Path: ${evidence.filePath}`,
-		`Repo key: ${evidence.repoKey}`,
-		`Repo root: ${evidence.repoRoot}`,
-		`Repo identity source: ${evidence.repoIdentitySource}`,
-		`Source branch: ${evidence.sourceBranch}`,
-		`Branch path segment: ${evidence.branchKey}`,
-		`Slug: ${evidence.slug}`,
-	];
-	if (evidence.summary !== undefined) {
-		lines.push(`Summary: ${evidence.summary}`);
-	}
-	return lines.join("\n");
 }
 
 export async function resolvePlanStoreRepoDirectory(
@@ -334,6 +289,10 @@ export async function findLatestSavedPlanFile(
 		parsedName: ParsedSavedPlanName;
 		filePath: string;
 		modifiedTimeMs: number;
+		slug: string;
+		timestamp: string;
+		timestampNumber: number;
+		sequence: number;
 	}> = [];
 	const directoryRead = await planStoreGateway.listDirectory(directory.directoryPath);
 	const entries = directoryRead.type === "present" ? directoryRead.entries : [];
@@ -352,6 +311,10 @@ export async function findLatestSavedPlanFile(
 			parsedName,
 			filePath,
 			modifiedTimeMs: fileStat.mtimeMs,
+			slug: parsedName.slug,
+			timestamp: parsedName.timestamp,
+			timestampNumber: parsedName.timestampNumber,
+			sequence: parsedName.sequence,
 		});
 	}
 
@@ -398,6 +361,7 @@ export async function findLatestSavedPlanFile(
 		sequence: latest.parsedName.sequence,
 		filePath: latest.filePath,
 		fileName: latest.parsedName.fileName,
+		fileStem: latest.parsedName.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
 		modifiedTimeMs: latest.modifiedTimeMs,
 	};
 }
@@ -411,7 +375,7 @@ export async function savePlanContentBytes(
 	const normalizedSlug = slug.trim();
 	const slugError = validatePlanSlug(normalizedSlug);
 	if (slugError !== undefined) {
-		throw new Error(`Invalid saved plan slug: ${slugError}`);
+		throw new Error(`Invalid Saved Plan slug: ${slugError}`);
 	}
 
 	const decodedContent = decodeSavedPlanContent(content);
@@ -454,44 +418,10 @@ async function nextSavedPlanSequence(
 	for (const entry of directory.entries) {
 		if (entry.type !== "file") continue;
 		const parsed = parseSavedPlanFileName(entry.name);
-		if (parsed?.format !== "timestamped" || parsed.timestamp !== timestamp) continue;
+		if (parsed === undefined || parsed.timestamp !== timestamp) continue;
 		greatest = Math.max(greatest, parsed.sequence);
 	}
 	return greatest + 1;
-}
-
-export async function writeSavedPlanFile(
-	pi: CommandExecApi,
-	rawParams: unknown,
-	options: PlanStoreOptions,
-): Promise<SavedPlanFileEvidence> {
-	const params = parseSavedPlanFileParams(rawParams);
-	const slug = params.slug.trim();
-	const slugError = validatePlanSlug(slug);
-	if (slugError !== undefined) {
-		throw new Error(`Invalid saved plan slug: ${slugError}`);
-	}
-
-	const savedPlan = await savePlanContentBytes(
-		pi,
-		slug,
-		new TextEncoder().encode(params.content),
-		options,
-	);
-	const evidence = {
-		slug,
-		repoRoot: savedPlan.directory.repoRoot,
-		repoKey: savedPlan.directory.repoKey,
-		repoIdentitySource: savedPlan.directory.repoIdentitySource,
-		sourceBranch: savedPlan.directory.sourceBranch,
-		branchKey: savedPlan.directory.branchKey,
-		filePath: savedPlan.filePath,
-	};
-	const summary = normalizeSummary(params.summary);
-	if (summary === undefined) {
-		return evidence;
-	}
-	return { ...evidence, summary };
 }
 
 function resolvePrimaryPlanStoreRoot(options: PlanStoreOptions): string {
@@ -500,30 +430,6 @@ function resolvePrimaryPlanStoreRoot(options: PlanStoreOptions): string {
 
 function resolvePlanStoreGateway(options: PlanStoreOptions): PlanStoreGateway {
 	return options.planStoreGateway ?? createRealPlanStoreGateway();
-}
-
-function parseSavedPlanFileParams(params: unknown): SavedPlanFileParams {
-	if (!isRecord(params)) {
-		throw new Error("writeSavedPlanFile parameters must be an object.");
-	}
-
-	const slug = params.slug;
-	const content = params.content;
-	const summary = params.summary;
-	if (typeof slug !== "string") {
-		throw new Error("writeSavedPlanFile requires string parameter `slug`.");
-	}
-	if (typeof content !== "string") {
-		throw new Error("writeSavedPlanFile requires string parameter `content`.");
-	}
-	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error("writeSavedPlanFile parameter `summary` must be a string when provided.");
-	}
-
-	if (summary === undefined) {
-		return { slug, content };
-	}
-	return { slug, content, summary };
 }
 
 async function resolveRequiredGitRepoRoot(

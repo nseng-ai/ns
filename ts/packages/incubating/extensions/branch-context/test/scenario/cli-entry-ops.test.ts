@@ -443,8 +443,8 @@ describe("branch-context exec", () => {
 			encodeBranchForPlanPath(SOURCE_BRANCH),
 		);
 		await mkdir(planDirectory, { recursive: true });
-		const savedPlanKey = `${PLAN_SLUG}--26-01-02T03-04-05--1.md`;
-		const planFile = join(planDirectory, savedPlanKey);
+		const timestampedFileName = `${PLAN_SLUG}--26-03-19T12-00-00--1.md`;
+		const planFile = join(planDirectory, timestampedFileName);
 		const content = "# Saved Plan\n\n- Implement directly from the saved plan.\n";
 		await writeFile(planFile, content, "utf8");
 		const run = runWithFakes(["exec", "load", "--format", "json"], {
@@ -460,7 +460,7 @@ describe("branch-context exec", () => {
 			data: {
 				branch: SOURCE_BRANCH,
 				namespace: "local-plan-store",
-				selectedKey: savedPlanKey,
+				selectedKey: timestampedFileName,
 				refName: planFile,
 				byteCount: content.length,
 				source: "saved",
@@ -646,7 +646,7 @@ describe("branch-context exec", () => {
 	test("attach --plan reports missing slugs with available slugs", async () => {
 		const repoRoot = await makeTempDir();
 		const planStoreRoot = await makeTempDir();
-		await writeSavedPlan(planStoreRoot, { slug: "available-useful-plan" });
+		await writeSavedPlan(planStoreRoot, { slug: "available-plan-fixture" });
 		const run = runWithFakes(["exec", "attach", "--plan", "missing-plan", "--format", "json"], {
 			cwd: repoRoot,
 			planStoreRoot,
@@ -664,7 +664,7 @@ describe("branch-context exec", () => {
 		const message = String(payload.message);
 		expect(message).toContain("No saved plan found for slug `missing-plan`.");
 		expect(message).toContain("Available slugs:");
-		expect(message).toContain("- available-useful-plan");
+		expect(message).toContain("- available-plan-fixture");
 		expect(run.brmem.attachmentPresenceCalls).toEqual([]);
 		expect(run.brmem.attachPlanCalls).toEqual([]);
 	});

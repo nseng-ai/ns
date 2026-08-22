@@ -1,16 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	createRealPlanStoreGateway,
-	encodeBranchForPlanPath,
-	findLatestSavedPlanFile,
 	resolvePlanSourceFile,
 	savePlanContentBytes,
-	writeSavedPlanFile,
 } from "../../src/index.ts";
 
 const unusedPi = {
@@ -18,69 +15,6 @@ const unusedPi = {
 };
 
 describe("RealPlanStoreGateway", () => {
-	test("writes saved plans exclusively and latest selection reads real mtimes", async () => {
-		const root = await mkdtemp(join(tmpdir(), "plans-real-gateway-"));
-		try {
-			const repoRoot = join(root, "repo");
-			await mkdir(repoRoot, { recursive: true });
-			const planStoreRoot = join(root, "store");
-			const sourceBranch = "feature/source-plan";
-			const git = new InMemoryGitGateway({
-				repoRoot,
-				originUrl: "git@github.com:owner/repo.git",
-				currentBranch: sourceBranch,
-				cachedOriginHeadBranch: { type: "missing" },
-			});
-			const planStoreGateway = createRealPlanStoreGateway();
-
-			const evidence = await writeSavedPlanFile(
-				unusedPi,
-				{ slug: "real-gateway-saved-plan", content: "# Real\n" },
-				{
-					cwd: repoRoot,
-					planStoreRoot,
-					git,
-					planStoreGateway,
-					localTimestamp: "26-01-02T03-04-05",
-				},
-			);
-
-			const secondEvidence = await writeSavedPlanFile(
-				unusedPi,
-				{ slug: "real-gateway-saved-plan", content: "# Again\n" },
-				{
-					cwd: repoRoot,
-					planStoreRoot,
-					git,
-					planStoreGateway,
-					localTimestamp: "26-01-02T03-04-05",
-				},
-			);
-
-			const branchDirectory = join(
-				planStoreRoot,
-				"gh--owner--repo",
-				encodeBranchForPlanPath(sourceBranch),
-			);
-			const newerPath = join(branchDirectory, "newer-real-saved-plan--26-01-02T03-04-05--1.md");
-			await writeFile(newerPath, "# Newer\n", "utf8");
-			const newerDate = new Date(4_102_444_800_000);
-			await utimes(newerPath, newerDate, newerDate);
-
-			const latest = await findLatestSavedPlanFile(unusedPi, {
-				cwd: repoRoot,
-				planStoreRoot,
-				git,
-				planStoreGateway,
-			});
-			expect(evidence.filePath).toContain("real-gateway-saved-plan--26-01-02T03-04-05--1.md");
-			expect(secondEvidence.filePath).toContain("real-gateway-saved-plan--26-01-02T03-04-05--2.md");
-			expect(latest).toMatchObject({ slug: "newer-real-saved-plan", filePath: newerPath });
-		} finally {
-			await rm(root, { recursive: true, force: true });
-		}
-	});
-
 	test("writes complete bytes with the next canonical sequence", async () => {
 		const root = await mkdtemp(join(tmpdir(), "plans-real-publication-"));
 		try {

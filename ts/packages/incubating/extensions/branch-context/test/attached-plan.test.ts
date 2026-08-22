@@ -167,7 +167,7 @@ describe("loadAttachedPlan", () => {
 		const planStoreRoot = await mkdtemp(join(tmpdir(), "branch-context-fallback-"));
 		tempDirs.push(planStoreRoot);
 		const savedSlug = "saved-plan-fallback-content";
-		const fileName = buildTimestampedSavedPlanFileName(savedSlug, "26-01-02T03-04-05", 1);
+		const fileName = buildTimestampedSavedPlanFileName(savedSlug, "26-03-19T12-00-00", 1);
 		const directory = join(
 			planStoreRoot,
 			buildRepoPlanStoreKey(ROOT, "git@github.com:sdl/sdl-tools.git"),
@@ -215,14 +215,13 @@ describe("loadAttachedPlan", () => {
 		});
 	});
 
-	test("loads session saved-plan fallback from the planning source branch on an implementation branch", async () => {
+	test("loads latest durable saved-plan fallback for the implementation branch", async () => {
 		const planStoreRoot = await mkdtemp(join(tmpdir(), "branch-context-fallback-source-"));
 		tempDirs.push(planStoreRoot);
-		const sourceBranch = "feature/planning-source";
 		const implementationBranch = "feature/implementation-upstack";
 		const repoKey = buildRepoPlanStoreKey(ROOT, "git@github.com:sdl/sdl-tools.git");
-		const branchKey = encodeBranchForPlanPath(sourceBranch);
-		const fileName = buildTimestampedSavedPlanFileName(PLAN_SLUG, "26-01-02T03-04-05", 1);
+		const branchKey = encodeBranchForPlanPath(implementationBranch);
+		const fileName = buildTimestampedSavedPlanFileName(PLAN_SLUG, "26-03-19T12-00-00", 1);
 		const directory = join(planStoreRoot, repoKey, branchKey);
 		const filePath = join(directory, fileName);
 		await mkdir(directory, { recursive: true });
@@ -243,25 +242,6 @@ describe("loadAttachedPlan", () => {
 					brmem: new InMemoryBranchMemoryGateway(),
 				}),
 				planStoreRoot,
-				sessionEntries: [
-					{
-						type: "message",
-						message: {
-							role: "toolResult",
-							toolName: "write_saved_plan_file",
-							isError: false,
-							details: {
-								slug: PLAN_SLUG,
-								repoRoot: ROOT,
-								repoKey,
-								repoIdentitySource: "origin-url",
-								sourceBranch,
-								branchKey,
-								filePath,
-							},
-						},
-					},
-				],
 			},
 		);
 

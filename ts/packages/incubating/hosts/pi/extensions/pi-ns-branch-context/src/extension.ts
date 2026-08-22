@@ -72,7 +72,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		kind: "command",
 		surface: IMPL_SAVED_PLAN_COMMAND_NAME,
 		workflow:
-			"Launch a fresh current-branch implementation session from a session-selected, latest fallback, or explicit Saved Plan",
+			"Launch a fresh current-branch implementation session from the latest timestamped or an explicit validated Saved Plan",
 		parity: "WAIVED",
 		fallback:
 			"Manually open /new on the current branch and paste/use the saved plan content, or pass an explicit saved plan path to the Pi command when available.",

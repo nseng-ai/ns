@@ -164,7 +164,9 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("/ns:plan:save request");
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
-		expect(prompt).toContain("enriched-plan exec save --content-file '<exact path>' --format json");
+		expect(prompt).toContain(
+			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
+		);
 		expect(prompt).toContain("Clinkr success envelope");
 		expect(prompt).toContain("completely fresh downstream implementation session");
 		expect(prompt).toContain("self-contained");
@@ -216,7 +218,7 @@ describe("buildWritePlanPrompt", () => {
 			expect(content).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
 			expect(content).toContain("generic write tool to write the exact final Markdown content");
 			expect(content).toContain(
-				"enriched-plan exec save --content-file '<exact path>' --format json",
+				"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
 			);
 			expect(content).toContain(
 				'Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object',
@@ -293,7 +295,7 @@ describe("buildWriteGrilledPlanPrompt", () => {
 
 		expect(prompt).toContain("/ns:plan:grill-and-save");
 		expect(prompt).toContain("plan the grilled command variant");
-		expect(prompt).toContain("enriched-plan exec save --content-file");
+		expect(prompt).toContain("enriched-plan exec save --slug");
 		expect(prompt).toContain("grill_ask");
 		expect(prompt).toContain("up to 12");
 		expect(prompt).toContain("may not require any user-facing questions");
@@ -354,31 +356,5 @@ describe("formatCreateBranchContextPreview", () => {
 		expect(text).toContain(`Branch: ${TARGET_BRANCH}`);
 		expect(text).toContain("Branch creation: graphite");
 		expect(text).toContain(`Branch Memory key: ${PLAN_KEY}`);
-	});
-
-	test("reports session-derived latest saved plan", () => {
-		const text = formatCreateBranchContextPreview({
-			mode: "session",
-			slug: PLAN_SLUG,
-			savedPlanFileStem: "session-file-plan",
-			filePath: `/plans/gh--owner--repo/main/session-file-plan.md`,
-			fileName: "session-file-plan.md",
-			planKey: PLAN_KEY,
-			targetBranch: TARGET_BRANCH,
-			branchCreation: "plain-git",
-			isExplicitTargetBranch: false,
-			slugEvidence: contentSlugEvidence(),
-			repoRoot: ROOT,
-			repoKey: "gh--owner--repo",
-			repoIdentitySource: "origin-url",
-			sourceBranch: "main",
-			branchKey: "main",
-			modifiedTimeMs: 1_800_000_000_000,
-		});
-
-		expect(text).toContain("Saved plan from current session:");
-		expect(text).toContain("Repo key: gh--owner--repo");
-		expect(text).toContain("Source branch: main");
-		expect(text).toContain("Modified: 2027-01-15T08:00:00.000Z");
 	});
 });
