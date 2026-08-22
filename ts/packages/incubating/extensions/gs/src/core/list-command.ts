@@ -1,4 +1,5 @@
 import { renderTextTable } from "@nseng-ai/foundation/text-table";
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 import { failure, ok, usageError, z } from "@nseng-ai/sdk";
 
 import type {
@@ -94,7 +95,11 @@ export function renderGsListHuman(inventory: GsLocalInventory, verbose: boolean)
 }
 
 function localInventoryFailure(error: GsLocalInventoryFailure) {
-	const detail = error.message.slice(0, DETAIL_MAX_CHARS);
+	const detail = truncateTextHead({
+		value: error.message,
+		maxChars: DETAIL_MAX_CHARS,
+		buildMarker: (omittedChars) => `… [omitted ${omittedChars} chars]`,
+	});
 	switch (error.type) {
 		case "git-repository-unavailable":
 			return failure(error.type, "Could not inspect the local Git repository.", {

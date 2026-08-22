@@ -56,7 +56,26 @@ describe("gh-stack list command", () => {
 			data: { code: type },
 		});
 		if (outcome.status !== "failure") throw new Error("Expected failure.");
-		expect((outcome.data as { detail: string }).detail).toHaveLength(500);
+		const detail = (outcome.data as { detail: string }).detail;
+		expect(detail).toHaveLength(500);
+		expect(detail).toMatch(/… \[omitted \d+ chars\]$/);
+	});
+
+	it("preserves short failure details", async () => {
+		const outcome = await runGsList(
+			{
+				async readLocalInventory() {
+					return {
+						ok: false,
+						error: { type: "gh-stack-state-read-failed" as const, message: "read failed" },
+					};
+				},
+			},
+			{ cwd: "/repo", outputFormat: "human" },
+			{ verbose: false },
+		);
+		if (outcome.status !== "failure") throw new Error("Expected failure.");
+		expect((outcome.data as { detail: string }).detail).toBe("read failed");
 	});
 });
 
