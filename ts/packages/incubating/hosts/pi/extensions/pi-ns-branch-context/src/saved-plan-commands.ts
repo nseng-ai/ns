@@ -1,15 +1,9 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import { readFileSync } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
-import { Text } from "@earendil-works/pi-tui";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import {
-	formatErrorMessage,
-	optionalEntries,
-	optionalEntry,
-} from "@nseng-ai/foundation/primitives";
-import type { ScheduledTimer } from "@nseng-ai/foundation/timers";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	loadPointCatalog,
 	createNodeProjectConfigGateway,
@@ -18,55 +12,19 @@ import {
 	resolvePromptPointContent,
 	type PromptPointContentReader,
 } from "@nseng-ai/sdk/project-config/prompt-content";
-import { systemTimerScheduler } from "@nseng-ai/foundation/time";
 import {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
 } from "@nseng-ai/branch-context/api";
 import { sendCommandProgressOrNotify } from "@nseng-ai/pi-runtime/commands/ack";
-import {
-	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
-	deriveSavedPlanContentSlug,
-	formatSavedPlanFileEvidence,
-	type SavedPlanContentSlugEvidence,
-	type SavedPlanFileEvidence,
-} from "@nseng-ai/plans/api";
-import { isRecord } from "@nseng-ai/pi-runtime/runtime/primitives";
 import { GRILL_ASK_TOOL_NAME, activateGrillAskTool } from "@nseng-ai/pi-runtime/grill/surfaces";
-import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
-import type {
-	BranchContextExtensionOptions,
-	CommandContext,
-	ToolContext,
-	ToolDefinition,
-	ToolResult,
-	ToolUpdateHandler,
-} from "./host-types.ts";
+import type { CommandContext } from "./host-types.ts";
 import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
 export {
 	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
 } from "@nseng-ai/branch-context/api";
-const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
-
-interface WriteSavedPlanFileToolParams {
-	content: string;
-	summary?: string;
-}
-
-interface WriteSavedPlanFileToolDetails extends SavedPlanFileEvidence {
-	slugEvidence: SavedPlanContentSlugEvidence;
-}
-
-type WriteSavedPlanFilePhase = "validating" | "deriving-slug" | "writing-file";
-
-interface WriteSavedPlanFileProgressDetails {
-	phase: WriteSavedPlanFilePhase;
-	slug?: string;
-	elapsedSeconds?: number;
-}
-
 const WRITE_PLAN_POINT_ID = "branch-context.plans-write";
 
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = readFileSync(
@@ -240,237 +198,6 @@ export async function handleWriteGrilledPlanCommand(
 	// additive) so the first model request for this message sees the tool.
 	activateGrillAskTool(pi);
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
-}
-
-export function buildWriteSavedPlanFileTool(
-	pi: BranchContextPiCommandApi,
-	options: BranchContextExtensionOptions,
-): ToolDefinition {
-	return {
-		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
-		label: "Write Saved Plan File",
-		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md` (default `$HOME/.local/state/ns/enriched-plan/...`). The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, allocates the next sequence without overwriting an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
-		promptSnippet:
-			"Create a reviewed, self-contained Markdown implementation plan file in the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md` (default `$HOME/.local/state/ns/enriched-plan/...`).",
-		promptGuidelines: [
-			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` and \`/${WRITE_GRILLED_PLAN_COMMAND_NAME}\` after producing a reviewed final Markdown plan.`,
-			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
-			"write_saved_plan_file writes the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md` (default `$HOME/.local/state/ns/enriched-plan/...`); it does not create branches or write Branch Memory.",
-			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
-			"If planning used external/off-repo research, write_saved_plan_file content should include the concrete findings and provenance inline instead of relying on links or hidden conversation context.",
-			"If write_saved_plan_file reports an exclusive-write collision, stop and report it; never overwrite the existing file.",
-		],
-		parameters: {
-			type: "object",
-			additionalProperties: false,
-			properties: {
-				content: {
-					type: "string",
-					description:
-						"Complete reviewed, self-contained Markdown plan content to write, including relevant planning context and external research findings.",
-				},
-				summary: {
-					type: "string",
-					description: "Optional one-sentence summary of the plan.",
-				},
-			},
-			required: ["content"],
-		},
-		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			const operations = resolveBranchContextOperations(options);
-			try {
-				emitWriteSavedPlanProgress(onUpdate, ctx, "Validating saved plan input…", {
-					phase: "validating",
-				});
-				const toolParams = parseWriteSavedPlanFileToolParams(params);
-				emitWriteSavedPlanProgress(onUpdate, ctx, "Deriving saved-plan filename slug with Codex…", {
-					phase: "deriving-slug",
-				});
-				const slugStartedAt = Date.now();
-				const slugProgressInterval: ScheduledTimer | undefined =
-					onUpdate === undefined && !canSetWriteSavedPlanStatus(ctx)
-						? undefined
-						: systemTimerScheduler.setInterval(() => {
-								const elapsedSeconds = Math.round((Date.now() - slugStartedAt) / 1_000);
-								emitWriteSavedPlanProgress(
-									onUpdate,
-									ctx,
-									`Deriving saved-plan filename slug with Codex… ${elapsedSeconds}s elapsed`,
-									{
-										phase: "deriving-slug",
-										elapsedSeconds,
-									},
-								);
-							}, 5_000);
-				let slugEvidence: SavedPlanContentSlugEvidence;
-				try {
-					slugEvidence = await deriveSavedPlanContentSlug(pi, {
-						content: toolParams.content,
-						cwd: ctx.cwd,
-						...optionalEntry("signal", signal),
-					});
-				} finally {
-					if (slugProgressInterval !== undefined) {
-						slugProgressInterval.cancel();
-					}
-				}
-				emitWriteSavedPlanProgress(
-					onUpdate,
-					ctx,
-					`Derived slug ${slugEvidence.slug}; resolving repo/branch and writing plan file…`,
-					{ phase: "writing-file", slug: slugEvidence.slug },
-				);
-				emitWriteSavedPlanProgress(onUpdate, ctx, "Writing plan file…", {
-					phase: "writing-file",
-					slug: slugEvidence.slug,
-				});
-				const planStoreRoot = resolvePlanStoreRootOption(options);
-				const evidence = await operations.writeSavedPlanFile(
-					pi,
-					buildSavedPlanFileParams(toolParams, slugEvidence.slug),
-					{
-						cwd: ctx.cwd,
-						...optionalEntries({ signal, planStoreRoot }),
-					},
-				);
-				const details: WriteSavedPlanFileToolDetails = { ...evidence, slugEvidence };
-				return {
-					content: [
-						{
-							type: "text",
-							text: formatSavedPlanFileEvidenceWithSlugModel(evidence, slugEvidence),
-						},
-					],
-					details,
-				};
-			} finally {
-				setWriteSavedPlanStatus(ctx, undefined);
-			}
-		},
-		renderCall(args, _theme, context) {
-			return new Text(formatWriteSavedPlanFileCall(args, context), 0, 0);
-		},
-		renderResult(result, { isPartial }) {
-			const text = formatToolResultText(result);
-			if (isPartial) {
-				return new Text(`Saving branch-context plan…\n${text}`, 0, 0);
-			}
-			return new Text(text, 0, 0);
-		},
-	};
-}
-
-function emitWriteSavedPlanProgress(
-	onUpdate: ToolUpdateHandler | undefined,
-	ctx: ToolContext,
-	text: string,
-	details: WriteSavedPlanFileProgressDetails,
-): void {
-	onUpdate?.({ content: [{ type: "text", text }], details });
-	setWriteSavedPlanStatus(ctx, text);
-}
-
-function setWriteSavedPlanStatus(ctx: ToolContext, value: string | undefined): void {
-	if (ctx.hasUI === false) {
-		return;
-	}
-	ctx.ui?.setStatus?.(WRITE_PLAN_TOOL_STATUS_KEY, value);
-}
-
-function canSetWriteSavedPlanStatus(ctx: ToolContext): boolean {
-	if (ctx.hasUI === false) {
-		return false;
-	}
-	return ctx.ui?.setStatus !== undefined;
-}
-
-function formatToolResultText(result: ToolResult): string {
-	return result.content.map((item) => item.text).join("\n");
-}
-
-function formatWriteSavedPlanFileCall(args: unknown, context: unknown): string {
-	const content = isRecord(args) && typeof args.content === "string" ? args.content : undefined;
-	const tokenEstimate = content === undefined ? "" : ` ${formatEstimatedTokenCount(content)}`;
-	if (isToolExecutionStarted(context)) {
-		return `${WRITE_SAVED_PLAN_FILE_TOOL_NAME} — saving reviewed plan…${tokenEstimate}`;
-	}
-
-	return `${WRITE_SAVED_PLAN_FILE_TOOL_NAME} — receiving saved-plan content from model…${tokenEstimate}`;
-}
-
-function isToolExecutionStarted(context: unknown): boolean {
-	return isRecord(context) && context.executionStarted === true;
-}
-
-const ESTIMATED_CHARS_PER_TOKEN = 4;
-
-function formatEstimatedTokenCount(text: string): string {
-	return `${formatCount(Math.ceil(text.length / ESTIMATED_CHARS_PER_TOKEN))} tokens (est.)`;
-}
-
-function formatCount(count: number): string {
-	if (count < 1_000) {
-		return `${count}`;
-	}
-	if (count < 1_000_000) {
-		return `${formatCompactNumber(count / 1_000)}k`;
-	}
-	return `${formatCompactNumber(count / 1_000_000)}m`;
-}
-
-function formatCompactNumber(value: number): string {
-	const formatted = value >= 10 ? value.toFixed(0) : value.toFixed(1);
-	return formatted.replace(/\.0$/, "");
-}
-
-function parseWriteSavedPlanFileToolParams(params: unknown): WriteSavedPlanFileToolParams {
-	return parseWriteSavedPlanFileToolParamsForName(params, WRITE_SAVED_PLAN_FILE_TOOL_NAME);
-}
-
-function parseWriteSavedPlanFileToolParamsForName(
-	params: unknown,
-	toolName: string,
-): WriteSavedPlanFileToolParams {
-	if (!isRecord(params)) {
-		throw new Error(`${toolName} parameters must be an object.`);
-	}
-	if ("slug" in params) {
-		throw new Error(
-			`${toolName} derives \`slug\` from content through Codex; do not pass \`slug\`.`,
-		);
-	}
-
-	const content = params.content;
-	const summary = params.summary;
-	if (typeof content !== "string") {
-		throw new Error(`${toolName} requires string parameter \`content\`.`);
-	}
-	if (summary !== undefined && typeof summary !== "string") {
-		throw new Error(`${toolName} parameter \`summary\` must be a string when provided.`);
-	}
-
-	if (summary === undefined) {
-		return { content };
-	}
-	return { content, summary };
-}
-
-function buildSavedPlanFileParams(
-	params: WriteSavedPlanFileToolParams,
-	slug: string,
-): { slug: string; content: string; summary?: string } {
-	if (params.summary === undefined) {
-		return { slug, content: params.content };
-	}
-	return { slug, content: params.content, summary: params.summary };
-}
-
-function formatSavedPlanFileEvidenceWithSlugModel(
-	evidence: SavedPlanFileEvidence,
-	slugEvidence: SavedPlanContentSlugEvidence,
-): string {
-	return `${formatSavedPlanFileEvidence(evidence)}\nSlug model: ${slugEvidence.provider}/${slugEvidence.model}`;
 }
 
 function formatSteeringBlock(steering: string): string {

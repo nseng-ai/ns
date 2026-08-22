@@ -103,7 +103,6 @@ export {
 	WRITE_PLAN_COMMAND_NAME,
 	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
-	buildWriteSavedPlanFileTool,
 	handleWriteGrilledPlanCommand,
 	handleWritePlanCommand,
 } from "./saved-plan-commands.ts";
@@ -139,11 +138,6 @@ export type {
 	CustomMessage,
 	ExtensionAPI,
 	NotifyLevel,
-	ToolContext,
-	ToolDefinition,
-	ToolRenderResultOptions,
-	ToolResult,
-	ToolUpdateHandler,
 } from "./host-types.ts";
 
 export default function registerBranchContextExtension(

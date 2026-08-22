@@ -392,9 +392,6 @@ importers:
 
   packages/incubating/hosts/pi/extensions/pi-ns-branch-context:
     dependencies:
-      '@earendil-works/pi-tui':
-        specifier: 'catalog:'
-        version: 0.80.5
       '@nseng-ai/branch-context':
         specifier: workspace:*
         version: link:../../../../extensions/branch-context
