@@ -17,7 +17,7 @@ import {
 	execResult,
 	type RegisteredCommand,
 } from "../../branch-context-extension-support.ts";
-import type { CustomMessage, ExtensionAPI, ToolDefinition } from "../../../src/host-types.ts";
+import type { CustomMessage, ExtensionAPI } from "../../../src/host-types.ts";
 
 const tempDirs = createTempDirTracker();
 
@@ -64,7 +64,6 @@ describe("branch-context extension with real Branch Memory", () => {
 
 class StdinDroppingPi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
-	readonly tools = new Map<string, ToolDefinition>();
 	readonly sentMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
 	readonly delegate = new NodeCommandExecApi();
@@ -72,10 +71,6 @@ class StdinDroppingPi implements ExtensionAPI {
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
-	}
-
-	registerTool(definition: ToolDefinition): void {
-		this.tools.set(definition.name, definition);
 	}
 
 	getActiveTools(): string[] {

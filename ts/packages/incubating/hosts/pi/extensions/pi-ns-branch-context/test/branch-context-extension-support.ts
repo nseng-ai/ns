@@ -5,7 +5,7 @@ const TEST_MODEL_SELECTION = {
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { brmemCheckJson } from "@nseng-ai/extension-kit/brmem-cli/testing";
-import { afterEach, expect } from "vitest";
+import { afterEach } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -28,7 +28,6 @@ type ExecResultFixture = Partial<RawPiExecResult>;
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	buildRepoPlanStoreKey,
-	buildSavedPlanContentSlugPrompt,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
 	type SavedPlanFileEvidence,
@@ -40,8 +39,6 @@ import {
 	type BranchContextOperations,
 	type CommandContext,
 	type ExtensionAPI,
-	type ToolContext,
-	type ToolDefinition,
 } from "../src/extension.ts";
 
 export { brmemCheckJson as brmemCheckEnvelope } from "@nseng-ai/extension-kit/brmem-cli/testing";
@@ -67,7 +64,6 @@ export const IMPL_PLAN_CONTENT = "# Impl Plan\n\n- Load the attached plan.\n- Im
 export type RegisteredCommand = Parameters<ExtensionAPI["registerCommand"]>[1];
 export type SendMessage = NonNullable<ExtensionAPI["sendMessage"]>;
 export type SentMessage = Parameters<SendMessage>[0] & { options?: Parameters<SendMessage>[1] };
-export type ToolUpdate = Parameters<NonNullable<Parameters<ToolDefinition["execute"]>[3]>>[0];
 
 export interface ExecCall {
 	command: string;
@@ -94,7 +90,6 @@ export interface Notification {
 
 export class FakePi implements ExtensionAPI {
 	readonly commands = new Map<string, RegisteredCommand>();
-	readonly tools = new Map<string, ToolDefinition>();
 	readonly execCalls: ExecCall[] = [];
 	readonly defaultBranchAvailabilityProbeCalls: ExecCall[] = [];
 	readonly sentMessages: SentMessage[] = [];
@@ -112,10 +107,6 @@ export class FakePi implements ExtensionAPI {
 
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
-	}
-
-	registerTool(definition: ToolDefinition): void {
-		this.tools.set(definition.name, definition);
 	}
 
 	seedActiveTools(names: string[]): void {
@@ -222,7 +213,6 @@ export interface BranchContextOperationFakes {
 	operations: BranchContextOperations;
 	loadPlanCalls: Array<Parameters<BranchContextOperations["loadBranchContextPlan"]>>;
 	createBranchCalls: Array<Parameters<BranchContextOperations["createBranchContextFromFile"]>>;
-	writePlanCalls: Array<Parameters<BranchContextOperations["writeSavedPlanFile"]>>;
 	selectPlanCalls: Array<Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>>;
 }
 
@@ -233,14 +223,12 @@ export function createBranchContextOperationFakes(
 	const createBranchCalls: Array<
 		Parameters<BranchContextOperations["createBranchContextFromFile"]>
 	> = [];
-	const writePlanCalls: Array<Parameters<BranchContextOperations["writeSavedPlanFile"]>> = [];
 	const selectPlanCalls: Array<
 		Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>
 	> = [];
 	return {
 		loadPlanCalls,
 		createBranchCalls,
-		writePlanCalls,
 		selectPlanCalls,
 		operations: {
 			async loadBranchContextPlan(...args) {
@@ -256,13 +244,6 @@ export function createBranchContextOperationFakes(
 					return overrides.createBranchContextFromFile(...args);
 				}
 				return branchContextEvidenceFromParams(args[1]);
-			},
-			async writeSavedPlanFile(...args) {
-				writePlanCalls.push(args);
-				if (overrides.writeSavedPlanFile !== undefined) {
-					return overrides.writeSavedPlanFile(...args);
-				}
-				return savedPlanEvidence({ slug: paramsSlug(args[1]) });
 			},
 			async resolveSelectedSavedPlanFile(...args) {
 				selectPlanCalls.push(args);
@@ -371,18 +352,6 @@ export function savedPlanEvidence(
 	};
 }
 
-export function paramsSlug(rawParams: unknown): string {
-	if (
-		typeof rawParams === "object" &&
-		rawParams !== null &&
-		"slug" in rawParams &&
-		typeof rawParams.slug === "string"
-	) {
-		return rawParams.slug;
-	}
-	return PLAN_SLUG;
-}
-
 export const tempDirs: string[] = [];
 
 afterEach(async () => {
@@ -466,24 +435,6 @@ export function planSlugStep(
 
 export function planSlugExecCall(content: string): { command: string; args: string[] } {
 	return { command: "pi", args: planSlugArgs(content) };
-}
-
-export function savedPlanSlugArgs(content: string): string[] {
-	return buildRawTextModelArgs(buildSavedPlanContentSlugPrompt(content), TEST_MODEL_SELECTION);
-}
-
-export interface SavedPlanSlugStepOptions {
-	slug?: string;
-	result?: ExecResultFixture;
-}
-
-export function savedPlanSlugStep(
-	content: string,
-	options: SavedPlanSlugStepOptions = {},
-): ScriptedExec {
-	const slug = options.slug ?? PLAN_SLUG;
-	const result = options.result ?? { stdout: `${slug}\n` };
-	return step("pi", savedPlanSlugArgs(content), result);
 }
 
 export function contentSlugEvidence(slug: string = PLAN_SLUG): {
@@ -837,32 +788,4 @@ export function createContext(
 		wasSessionReplaced: () => isSessionReplaced,
 		waits: () => waitCount,
 	};
-}
-
-export function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
-	ctx: ToolContext;
-	statuses: Array<{ key: string; value: string | undefined }>;
-} {
-	const statuses: Array<{ key: string; value: string | undefined }> = [];
-	return {
-		ctx: {
-			cwd: options.cwd ?? ROOT,
-			hasUI: options.hasUI ?? true,
-			ui: {
-				setStatus(key, value): void {
-					statuses.push({ key, value });
-				},
-			},
-		},
-		statuses,
-	};
-}
-
-export function registeredTool(pi: FakePi, name = "write_saved_plan_file"): ToolDefinition {
-	const tool = pi.tools.get(name);
-	expect(tool).toBeDefined();
-	if (!tool) {
-		throw new Error(`${name} was not registered`);
-	}
-	return tool;
 }

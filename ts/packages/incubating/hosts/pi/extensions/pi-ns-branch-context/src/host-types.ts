@@ -1,4 +1,3 @@
-import type { Component } from "@earendil-works/pi-tui";
 import type {
 	BranchContextContextFactory,
 	BranchCreationMethod,
@@ -10,7 +9,7 @@ import type {
 	SessionReplacementOptions,
 	SessionReplacementResult,
 } from "@nseng-ai/pi-runtime/sessions/replacement";
-import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
+import type { resolveSelectedSavedPlanFile } from "@nseng-ai/plans/api";
 import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type { SendMessageOptions } from "@nseng-ai/pi-runtime/shared/message-delivery";
 
@@ -31,13 +30,6 @@ export interface CustomMessage {
 	display: boolean;
 	details?: unknown;
 }
-
-export interface ToolResult {
-	content: TextContent[];
-	details?: unknown;
-}
-
-export type ToolUpdateHandler = (update: Partial<ToolResult>) => void;
 
 export type SessionHistoryEntry = unknown;
 
@@ -62,7 +54,6 @@ export type NewSessionOptions = SessionReplacementOptions<
 export interface BranchContextOperations {
 	loadBranchContextPlan: typeof loadBranchContextPlan;
 	createBranchContextFromFile: typeof createBranchContextFromFile;
-	writeSavedPlanFile: typeof writeSavedPlanFile;
 	resolveSelectedSavedPlanFile: typeof resolveSelectedSavedPlanFile;
 }
 
@@ -73,41 +64,6 @@ export interface BranchContextExtensionOptions {
 	branchContextOperations?: BranchContextOperations;
 	shouldResolveTargetBranchInPreview?: boolean;
 	createBranchContextContext?: BranchContextContextFactory<[pi: ExtensionAPI, cwd: string]>;
-}
-
-export interface ToolContext {
-	cwd: string;
-	hasUI?: boolean;
-	ui?: {
-		setStatus?(key: string, value: string | undefined): void;
-	};
-}
-
-export interface ToolRenderResultOptions {
-	isPartial: boolean;
-}
-
-export interface ToolDefinition {
-	name: string;
-	label?: string;
-	description: string;
-	promptSnippet?: string;
-	promptGuidelines?: string[];
-	parameters: Record<string, unknown>;
-	execute(
-		toolCallId: string,
-		params: unknown,
-		signal: AbortSignal | undefined,
-		onUpdate: ToolUpdateHandler | undefined,
-		ctx: ToolContext,
-	): Promise<ToolResult> | ToolResult;
-	renderCall?(args: unknown, theme: unknown, context: unknown): Component;
-	renderResult?(
-		result: ToolResult,
-		options: ToolRenderResultOptions,
-		theme: unknown,
-		context: unknown,
-	): Component;
 }
 
 export interface CommandContext {
@@ -131,7 +87,6 @@ export interface ExtensionAPI {
 			handler(args: string, ctx: CommandContext): Promise<void> | void;
 		},
 	): void;
-	registerTool(definition: ToolDefinition): void;
 	getActiveTools(): string[];
 	setActiveTools(names: string[]): void;
 	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;

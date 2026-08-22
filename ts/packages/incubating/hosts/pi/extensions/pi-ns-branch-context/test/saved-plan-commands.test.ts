@@ -36,7 +36,6 @@ describe("enriched-plan-commands", () => {
 		expect(pi.commands.has("ns:plan:impl-current")).toBe(false);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("enriched-plan:"))).toBe(false);
 		expect([...pi.commands.keys()].some((name) => name.startsWith("branch-context:"))).toBe(false);
-		expect([...pi.tools.keys()]).toEqual([]);
 	});
 
 	test("ns:plan:grill-and-save waits for idle and dispatches embedded prompt without prompt resolution", async () => {

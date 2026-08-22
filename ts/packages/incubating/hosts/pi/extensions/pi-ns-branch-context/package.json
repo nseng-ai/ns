@@ -11,7 +11,6 @@
 		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-branch-context/test"
 	},
 	"dependencies": {
-		"@earendil-works/pi-tui": "catalog:",
 		"@nseng-ai/branch-context": "workspace:*",
 		"@nseng-ai/extension-kit": "workspace:*",
 		"@nseng-ai/foundation": "workspace:*",
