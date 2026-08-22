@@ -5,8 +5,8 @@ This context captures domain language for saved implementation plans and their l
 ## Language
 
 **Saved Plan**:
-A Markdown implementation plan saved in the machine-local XDG enriched-plan store for later implementation or branch-context attachment.
-*Avoid*: hidden task, handoff artifact, Branch Memory entry
+A Markdown implementation plan saved byte-for-byte in the machine-local XDG enriched-plan store for later implementation or branch-context attachment. New durable files use `<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md`; the sequence increases across all files with the same timestamp in one source-branch directory. Older `<slug>.md` files remain supported while the legacy Pi write and selection flow is live.
+*Avoid*: hidden task, handoff artifact, Branch Memory entry, session artifact
 
 **Local Plan Store**:
 The XDG state tree under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/` (default `$HOME/.local/state/ns/enriched-plan/...`) that stores **Saved Plan** files by repository identity and source branch.
@@ -23,6 +23,8 @@ The workflow that chooses an explicit, session-evidence, or latest **Saved Plan*
 **Plan Store Directory Evidence**:
 The repository identity, source branch, encoded path keys, and directory path facts used to validate **Saved Plan** evidence before selecting a file.
 *Avoid*: untrusted session metadata, branch context, attachment evidence
+
+The Local Plan Store may contain internal lock and temporary publication metadata. These entries are not Saved Plans and never participate in list or resolution operations.
 
 The package's command surface (the CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at the edge, writes/lists/selects plans, and presents user-facing output) and its domain logic (saved-plan path, evidence, and selection functions that take resolved evidence or injected **Gateways** rather than raw host context, and may perform filesystem I/O through an explicit gateway or already-resolved path evidence) are ordinary architectural layers, not defined terms.
 
