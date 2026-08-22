@@ -1,4 +1,4 @@
-import { zDecl } from "@nseng-ai/foundation/primitives";
+import { zDecl } from "@nseng-ai/foundation/zdecl";
 import { z } from "zod";
 
 import type { GsLocalInventory, GsLocalStack } from "./local-inventory.ts";

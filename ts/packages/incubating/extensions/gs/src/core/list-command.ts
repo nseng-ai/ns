@@ -1,4 +1,4 @@
-import { zDecl } from "@nseng-ai/foundation/primitives";
+import { zDecl } from "@nseng-ai/foundation/zdecl";
 import { failure, ok, usageError, type NsCommand, type NsExtensionApi, z } from "@nseng-ai/sdk";
 import { defineCommand } from "@nseng-ai/sdk";
 

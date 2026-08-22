@@ -11,8 +11,8 @@ import {
 	sha256Digest,
 	stringArrayField,
 	truncatedSha256Digest,
-	zDecl,
 } from "../src/primitives/primitives.ts";
+import { zDecl } from "../src/primitives/zdecl.ts";
 
 describe("zDecl", () => {
 	test("constructs one stable schema lazily for every access path", () => {

@@ -1,11 +1,11 @@
 # Lazy Zod declarations
 
-Module-scope Zod schemas perform project-owned schema construction as soon as their module is evaluated. Use `zDecl` from `@nseng-ai/foundation/primitives` for production schemas that should instead be constructed on first use and then shared.
+Module-scope Zod schemas perform project-owned schema construction as soon as their module is evaluated. Use `zDecl` from `@nseng-ai/foundation/zdecl` for production schemas that should instead be constructed on first use and then shared.
 
 ## Declare and use a schema
 
 ```ts
-import { zDecl } from "@nseng-ai/foundation/primitives";
+import { zDecl } from "@nseng-ai/foundation/zdecl";
 import { z } from "zod";
 
 export const widgetDecl = zDecl(() =>

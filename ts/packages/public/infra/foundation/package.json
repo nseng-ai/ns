@@ -12,6 +12,7 @@
 		"./markdown-frontmatter": "./src/primitives/markdown-frontmatter.ts",
 		"./model-slug": "./src/primitives/model-slug.ts",
 		"./primitives": "./src/primitives/primitives.ts",
+		"./zdecl": "./src/primitives/zdecl.ts",
 		"./result": "./src/primitives/result.ts",
 		"./runner-usage": "./src/terminal/runner-usage.ts",
 		"./skill-lookup": "./src/primitives/skill-lookup.ts",
