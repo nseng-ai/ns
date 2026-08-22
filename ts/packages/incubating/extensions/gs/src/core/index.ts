@@ -11,8 +11,8 @@ export type {
 } from "./local-inventory.ts";
 export {
 	createGsListCommand,
-	gsListRequestSchema,
-	gsListResultSchema,
+	gsListRequestDecl,
+	gsListResultDecl,
 	renderGsListHuman,
 } from "./list-command.ts";
 export type { GsListCommandDependencies, GsListResult } from "./list-command.ts";

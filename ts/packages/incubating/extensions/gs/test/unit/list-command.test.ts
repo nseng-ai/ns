@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { GsLocalInventoryGateway } from "../../src/core/local-inventory.ts";
-import { createGsListCommand, renderGsListHuman } from "../../src/core/list-command.ts";
+import {
+	createGsListCommand,
+	gsListRequestDecl,
+	gsListResultDecl,
+	renderGsListHuman,
+} from "../../src/core/list-command.ts";
 import { createFakeApi } from "../support/fake-api.ts";
 
 const INVENTORY = {
@@ -19,6 +24,13 @@ const INVENTORY = {
 };
 
 describe("gs list command", () => {
+	it("supplies concrete memoized schemas to the SDK boundary", () => {
+		const command = createGsListCommand({ createGateway: () => gatewayFor(INVENTORY) });
+
+		expect(command.schema).toBe(gsListRequestDecl.schema);
+		expect(command.resultSchema).toBe(gsListResultDecl.schema);
+	});
+
 	it("returns the complete inventory without changing branch order", async () => {
 		const command = createGsListCommand({ createGateway: () => gatewayFor(INVENTORY) });
 

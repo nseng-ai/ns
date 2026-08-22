@@ -7,6 +7,7 @@ Rules for working under `ts/`, the pnpm workspace holding the ns first-party Typ
 - Before TypeScript work, read the flat Harness Overlays `.agents/skills/typescript-style/SKILL.md` and `.agents/skills/ns-typescript/SKILL.md`. `../skills/README.md` defines their nested canonical-source topology.
 - Typecheck with the native TypeScript 7 `tsc`: `just ts-check` or `pnpm --dir ts run check`.
 - `ts/` package tests are Vitest-backed; default to the full TS validation suite rather than asking to narrow scope.
+- Before adding a module-scope production Zod schema, read `../docs/conventions/lazy-zod-declarations.md` and use its lazy declaration convention where import-time schema construction should be deferred.
 - Do not add Bun-runner package tests. Only standalone Bun templates/projects may use Bun tests, and then run `bun test --sequential`.
 
 ## Test isolation hard gates

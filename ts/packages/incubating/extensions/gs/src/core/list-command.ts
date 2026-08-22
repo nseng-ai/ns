@@ -1,3 +1,4 @@
+import { zDecl } from "@nseng-ai/foundation/primitives";
 import { failure, ok, usageError, type NsCommand, type NsExtensionApi, z } from "@nseng-ai/sdk";
 import { defineCommand } from "@nseng-ai/sdk";
 
@@ -11,25 +12,33 @@ import { gsLocalStackSummary } from "./local-state.ts";
 const DETAIL_MAX_CHARS = 500;
 const EMPTY_MESSAGE = "No local gh-stack stacks found.";
 
-export const gsListRequestSchema = z.strictObject({
-	verbose: z.boolean().default(false),
-});
+export const gsListRequestDecl = zDecl(() =>
+	z.strictObject({
+		verbose: z.boolean().default(false),
+	}),
+);
 
-const pullRequestSchema = z.strictObject({
-	number: z.number().int().positive(),
-	recordedMerged: z.boolean(),
-});
-const branchSchema = z.strictObject({
-	name: z.string().min(1),
-	pullRequest: pullRequestSchema.nullable(),
-});
-const stackSchema = z.strictObject({
-	number: z.number().int().positive().nullable(),
-	base: z.string().min(1),
-	branches: z.array(branchSchema).min(1),
-});
-export const gsListResultSchema = z.strictObject({ stacks: z.array(stackSchema) });
-export type GsListResult = z.infer<typeof gsListResultSchema>;
+const pullRequestDecl = zDecl(() =>
+	z.strictObject({
+		number: z.number().int().positive(),
+		recordedMerged: z.boolean(),
+	}),
+);
+const branchDecl = zDecl(() =>
+	z.strictObject({
+		name: z.string().min(1),
+		pullRequest: pullRequestDecl.schema.nullable(),
+	}),
+);
+const stackDecl = zDecl(() =>
+	z.strictObject({
+		number: z.number().int().positive().nullable(),
+		base: z.string().min(1),
+		branches: z.array(branchDecl.schema).min(1),
+	}),
+);
+export const gsListResultDecl = zDecl(() => z.strictObject({ stacks: z.array(stackDecl.schema) }));
+export type GsListResult = z.output<typeof gsListResultDecl.schema>;
 
 export interface GsListCommandDependencies {
 	readonly createGateway: (ctx: NsExtensionApi) => GsLocalInventoryGateway;
@@ -37,11 +46,11 @@ export interface GsListCommandDependencies {
 
 export function createGsListCommand(
 	dependencies: GsListCommandDependencies,
-): NsCommand<typeof gsListRequestSchema, GsListResult> {
+): NsCommand<typeof gsListRequestDecl.schema, GsListResult> {
 	let verbose = false;
 	return defineCommand({
-		schema: gsListRequestSchema,
-		resultSchema: gsListResultSchema,
+		schema: gsListRequestDecl.schema,
+		resultSchema: gsListResultDecl.schema,
 		options: { verbose: { short: "-v" } },
 		renderHuman: (result) => renderGsListHuman(result, verbose),
 		handler: async (ctx, request) => {

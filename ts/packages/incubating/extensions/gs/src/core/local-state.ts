@@ -1,45 +1,54 @@
+import { zDecl } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
 import type { GsLocalInventory, GsLocalStack } from "./local-inventory.ts";
 
-const localPullRequestSchema = z
-	.object({
-		number: z.number().int().positive(),
-		merged: z.boolean().optional(),
-	})
-	.passthrough();
+const localPullRequestDecl = zDecl(() =>
+	z
+		.object({
+			number: z.number().int().positive(),
+			merged: z.boolean().optional(),
+		})
+		.passthrough(),
+);
 
-const nonemptyStringSchema = z.string().trim().min(1);
+const nonemptyStringDecl = zDecl(() => z.string().trim().min(1));
 
-const localBranchSchema = z
-	.object({
-		branch: nonemptyStringSchema,
-		pullRequest: localPullRequestSchema.optional(),
-	})
-	.passthrough();
+const localBranchDecl = zDecl(() =>
+	z
+		.object({
+			branch: nonemptyStringDecl.schema,
+			pullRequest: localPullRequestDecl.schema.optional(),
+		})
+		.passthrough(),
+);
 
-const localStackSchema = z
-	.object({
-		number: z.number().int().positive().optional(),
-		id: nonemptyStringSchema.optional(),
-		trunk: z.object({ branch: nonemptyStringSchema }).passthrough(),
-		branches: z.array(localBranchSchema).min(1),
-	})
-	.passthrough();
+const localStackDecl = zDecl(() =>
+	z
+		.object({
+			number: z.number().int().positive().optional(),
+			id: nonemptyStringDecl.schema.optional(),
+			trunk: z.object({ branch: nonemptyStringDecl.schema }).passthrough(),
+			branches: z.array(localBranchDecl.schema).min(1),
+		})
+		.passthrough(),
+);
 
-const localStateSchema = z
-	.object({
-		schemaVersion: z.number().int(),
-		stacks: z.array(localStackSchema),
-	})
-	.passthrough();
+const localStateDecl = zDecl(() =>
+	z
+		.object({
+			schemaVersion: z.number().int(),
+			stacks: z.array(localStackDecl.schema),
+		})
+		.passthrough(),
+);
 
 export type GsLocalStateParseResult =
 	| { readonly ok: true; readonly value: GsLocalInventory }
 	| { readonly ok: false; readonly message: string };
 
 export function parseGsLocalState(input: unknown): GsLocalStateParseResult {
-	const parsed = localStateSchema.safeParse(input);
+	const parsed = localStateDecl.safeParse(input);
 	if (!parsed.success) {
 		return {
 			ok: false,

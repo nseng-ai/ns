@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, expectTypeOf, test } from "vitest";
+import { z } from "zod";
 
 import {
 	buildFencedTextBlock,
@@ -10,7 +11,48 @@ import {
 	sha256Digest,
 	stringArrayField,
 	truncatedSha256Digest,
+	zDecl,
 } from "../src/primitives/primitives.ts";
+
+describe("zDecl", () => {
+	test("constructs one stable schema lazily for every access path", () => {
+		let initializationCount = 0;
+		const declaration = zDecl(() => {
+			initializationCount += 1;
+			return z.string().min(2);
+		});
+
+		expect(initializationCount).toBe(0);
+		const schema = declaration.schema;
+		expect(initializationCount).toBe(1);
+		expect(declaration.schema).toBe(schema);
+		expect(declaration.parse("valid")).toBe("valid");
+		expect(declaration.safeParse("x").success).toBe(false);
+		expect(initializationCount).toBe(1);
+	});
+
+	test("shares parse methods through the declaration prototype", () => {
+		const first = zDecl(() => z.string());
+		const second = zDecl(() => z.number());
+
+		expect(first.parse).toBe(second.parse);
+		expect(first.safeParse).toBe(second.safeParse);
+		expect(Object.hasOwn(first, "parse")).toBe(false);
+		expect(Object.hasOwn(first, "safeParse")).toBe(false);
+	});
+
+	test("preserves concrete schema and transformed output types", () => {
+		const schema = z.string().transform((value) => value.length);
+		const declaration = zDecl(() => schema);
+		const parsed = declaration.parse("value");
+		const safeParsed = declaration.safeParse("value");
+
+		expectTypeOf(declaration.schema).toEqualTypeOf<typeof schema>();
+		expectTypeOf(parsed).toEqualTypeOf<number>();
+		expectTypeOf(safeParsed).toEqualTypeOf<z.ZodSafeParseResult<number>>();
+		expect(parsed).toBe(5);
+	});
+});
 
 describe("isRecord", () => {
 	test("accepts plain objects", () => {
