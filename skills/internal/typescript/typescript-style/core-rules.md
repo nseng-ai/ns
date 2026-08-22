@@ -91,8 +91,20 @@ Full reasoning: `references/type-system.md`.
   the exact boundary that needs modeling. Build a complete value, derive the type from the source of
   truth, add a narrow runtime assertion, or isolate a single justified library seam instead.
 - **Use Zod-first validation at external boundaries.** External, HTTP, model, tool, and config input
-  should be parsed by a Zod schema. Derive static types from schemas with `z.infer`; do not hand-write
-  duplicate mirror types for values that already have a schema.
+  should be parsed by a Zod schema. Declare schemas with `z.lazy(() => ...)` so importing a module does
+  not eagerly construct its schema graph. For object schemas that preserve unknown keys, use
+  `z.looseObject({...})`; do not use `z.object({...}).passthrough()`. Derive static types directly from
+  the lazy schema with `z.infer<typeof schema>`; the type alias is erased and adds no runtime cost. Do
+  not hand-write duplicate mirror types for values that already have a schema.
+  ```ts
+  const localPullRequestSchema = z.lazy(() =>
+    z.looseObject({
+      number: z.number().int().positive(),
+      merged: z.boolean().optional(),
+    }),
+  );
+  type LocalPullRequest = z.infer<typeof localPullRequestSchema>;
+  ```
 - **Encode contracts; do not rely on ambient bags.** Prefer typed fields, parameters, gateway methods,
   discriminated unions, or curated APIs over implicit contracts carried through `Record<string, unknown>`,
   magic string keys, convention-only object shapes, hidden globals, or casts. Dynamic records are

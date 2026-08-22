@@ -306,10 +306,12 @@ declare module "../core/events.ts" {
 ```ts
 import { z } from "zod";
 
-const readSchema = z.object({
-  path: z.string().describe("Path to read"),
-  lineRange: z.string().optional().describe("Optional line range"),
-});
+const readSchema = z.lazy(() =>
+  z.object({
+    path: z.string().describe("Path to read"),
+    lineRange: z.string().optional().describe("Optional line range"),
+  }),
+);
 type ReadInput = z.infer<typeof readSchema>;
 
 const readTool = defineTool({
