@@ -12,14 +12,11 @@ export {
 export {
 	createRealPlanStoreGateway,
 	RealPlanStoreGateway,
-	type AtomicPlanPublication,
-	type AtomicPlanPublicationOptions,
 	type PlanStoreDirectoryEntry,
 	type PlanStoreDirectoryRead,
 	type PlanStoreGateway,
 	type PlanStorePathStat,
 	type PlanStorePathType,
-	type RealPlanStoreGatewayOptions,
 } from "./plan-store-gateway.ts";
 export {
 	isPathInside,

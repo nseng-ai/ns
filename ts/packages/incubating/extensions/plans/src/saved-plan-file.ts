@@ -407,29 +407,43 @@ export async function savePlanContentBytes(
 	const directory = await resolvePlanStoreDirectory(pi, options);
 	const timestamp =
 		options.localTimestamp ?? formatLocalSavedPlanTimestamp((options.clock ?? systemClock).nowMs());
-	const publication = await resolvePlanStoreGateway(options).publishBytesAtomic({
-		directoryPath: directory.directoryPath,
-		fileNameForSequence: (sequence) => buildTimestampedSavedPlanFileName(slug, timestamp, sequence),
-		sequenceFromFileName: (fileName) => {
-			const parsed = parseSavedPlanFileName(fileName);
-			return parsed?.format === "timestamped" && parsed.timestamp === timestamp
-				? parsed.sequence
-				: undefined;
-		},
-		content,
-		...optionalEntry("signal", options.signal),
-	});
+	const planStoreGateway = resolvePlanStoreGateway(options);
+	const sequence = await nextSavedPlanSequence(
+		planStoreGateway,
+		directory.directoryPath,
+		timestamp,
+	);
+	const fileName = buildTimestampedSavedPlanFileName(slug, timestamp, sequence);
+	const filePath = join(directory.directoryPath, fileName);
+	await planStoreGateway.writeBytesExclusive(filePath, content);
 	return {
 		...directory,
 		format: "timestamped",
 		slug,
-		filePath: publication.filePath,
-		fileName: publication.fileName,
-		fileStem: publication.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
+		filePath,
+		fileName,
+		fileStem: fileName.slice(0, -PLAN_FILE_SUFFIX.length),
 		timestamp,
 		timestampNumber: Number(timestamp.replace(/\D/g, "")),
-		sequence: publication.sequence,
+		sequence,
 	};
+}
+
+async function nextSavedPlanSequence(
+	planStoreGateway: PlanStoreGateway,
+	directoryPath: string,
+	timestamp: string,
+): Promise<number> {
+	const directory = await planStoreGateway.listDirectory(directoryPath);
+	if (directory.type === "missing") return 1;
+	let greatest = 0;
+	for (const entry of directory.entries) {
+		if (entry.type !== "file") continue;
+		const parsed = parseSavedPlanFileName(entry.name);
+		if (parsed?.format !== "timestamped" || parsed.timestamp !== timestamp) continue;
+		greatest = Math.max(greatest, parsed.sequence);
+	}
+	return greatest + 1;
 }
 
 export async function writeSavedPlanFile(

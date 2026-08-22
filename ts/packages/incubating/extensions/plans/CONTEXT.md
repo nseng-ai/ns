@@ -24,8 +24,6 @@ The workflow that chooses an explicit, session-evidence, or latest **Saved Plan*
 The repository identity, source branch, encoded path keys, and directory path facts used to validate **Saved Plan** evidence before selecting a file.
 *Avoid*: untrusted session metadata, branch context, attachment evidence
 
-The Local Plan Store may contain internal lock and temporary publication metadata. These entries are not Saved Plans and never participate in list or resolution operations.
-
 The package's command surface (the CLI/Pi-facing shell that parses user intent, constructs real **Gateways** at the edge, writes/lists/selects plans, and presents user-facing output) and its domain logic (saved-plan path, evidence, and selection functions that take resolved evidence or injected **Gateways** rather than raw host context, and may perform filesystem I/O through an explicit gateway or already-resolved path evidence) are ordinary architectural layers, not defined terms.
 
 **Plans extension package API**:
