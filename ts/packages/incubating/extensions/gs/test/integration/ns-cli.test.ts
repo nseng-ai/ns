@@ -90,7 +90,7 @@ describe("ns gs list public route", () => {
 	});
 
 	test("renders empty state and a representative typed failure", async () => {
-		const empty = await createFixture({ state: undefined });
+		const empty = await createFixture({ withoutState: true });
 		const emptyRun = runScenario(["gs", "list", "--verbose"], empty);
 		expect(await emptyRun.exit).toBe(0);
 		expect(emptyRun.stdout.join("")).toBe("No local gh-stack stacks found.\n");
@@ -114,28 +114,33 @@ interface Fixture {
 }
 
 async function createFixture(
-	options: { state?: unknown; gitFailure?: string } = {},
+	options: { state?: unknown; withoutState?: boolean; gitFailure?: string } = {},
 ): Promise<Fixture> {
+	if (options.withoutState === true && "state" in options) {
+		throw new Error("Fixture cannot define state when withoutState is true.");
+	}
 	const cwd = await mkdtemp(join(tmpdir(), "gh-stack-ns-scenario-"));
 	tempDirectories.push(cwd);
 	const commonDir = join(cwd, ".git-common");
 	await mkdir(commonDir);
 	const state =
-		"state" in options
-			? options.state
-			: {
-					schemaVersion: 1,
-					stacks: [
-						{
-							number: 8,
-							trunk: { branch: "main" },
-							branches: [
-								{ branch: "bottom", pullRequest: { number: 30, merged: true } },
-								{ branch: "top" },
-							],
-						},
-					],
-				};
+		options.withoutState === true
+			? undefined
+			: "state" in options
+				? options.state
+				: {
+						schemaVersion: 1,
+						stacks: [
+							{
+								number: 8,
+								trunk: { branch: "main" },
+								branches: [
+									{ branch: "bottom", pullRequest: { number: 30, merged: true } },
+									{ branch: "top" },
+								],
+							},
+						],
+					};
 	if (state !== undefined) await writeFile(join(commonDir, "gh-stack"), JSON.stringify(state));
 	await writeFile(join(cwd, "ns.toml"), `extensions = [${JSON.stringify(packageRoot)}]\n`);
 	return { cwd, context: new ScenarioContext(cwd, commonDir, options.gitFailure) };

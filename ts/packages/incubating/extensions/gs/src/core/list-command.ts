@@ -1,3 +1,4 @@
+import { renderTextTable } from "@nseng-ai/foundation/text-table";
 import { failure, ok, usageError, type NsCommand, type NsExtensionApi, z } from "@nseng-ai/sdk";
 import { defineCommand } from "@nseng-ai/sdk";
 
@@ -89,21 +90,14 @@ export function renderGsListHuman(inventory: GsLocalInventory, verbose: boolean)
 			.join("\n\n");
 	}
 
-	const rows = inventory.stacks.map((stack) => [
-		stack.number === null ? "—" : String(stack.number),
-		gsLocalStackSummary(stack),
-		stack.base,
-	]);
-	const widths = ["NUMBER", "STACK", "BASE"].map((header, index) =>
-		Math.max(header.length, ...rows.map((row) => row[index]?.length ?? 0)),
-	);
-	const renderRow = (row: readonly string[]) =>
-		row
-			.map((value, index) =>
-				index === row.length - 1 ? value : value.padEnd(widths[index] ?? value.length),
-			)
-			.join("  ");
-	return [renderRow(["NUMBER", "STACK", "BASE"]), ...rows.map(renderRow)].join("\n");
+	return renderTextTable({
+		columns: [{ header: "NUMBER" }, { header: "STACK" }, { header: "BASE" }],
+		rows: inventory.stacks.map((stack) => [
+			stack.number === null ? "—" : String(stack.number),
+			gsLocalStackSummary(stack),
+			stack.base,
+		]),
+	});
 }
 
 function localInventoryFailure(error: GsLocalInventoryFailure) {
