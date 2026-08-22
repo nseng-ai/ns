@@ -13,6 +13,7 @@ import {
 	defaultPlanStoreRoot,
 	encodeBranchForPlanPath,
 	normalizeRepoOriginUrl,
+	savePlanContentBytes,
 	writeSavedPlanFile,
 } from "../src/index.ts";
 import { InMemoryPlanStoreGateway } from "../src/testing.ts";
@@ -29,6 +30,24 @@ describe("defaultPlanStoreRoot", () => {
 		expect(defaultPlanStoreRoot({ HOME: "/home/tester", XDG_STATE_HOME: "relative" })).toBe(
 			"/home/tester/.local/state/ns/enriched-plan",
 		);
+	});
+});
+
+describe("savePlanContentBytes", () => {
+	test("rejects an invalid caller-supplied slug before content, git, or store work", async () => {
+		const planStoreRoot = makeTempDir("source-plan-store-");
+		const planStoreGateway = new InMemoryPlanStoreGateway();
+		const git = new FakeGitGateway();
+
+		await expect(
+			savePlanContentBytes(unusedPi, {
+				slug: "Bad Slug",
+				content: new Uint8Array([0xff]),
+				store: { cwd: ROOT, planStoreRoot, git, planStoreGateway },
+			}),
+		).rejects.toThrow("Invalid saved plan slug");
+		expect(git.calls).toEqual([]);
+		expect(await planStoreGateway.listDirectory(planStoreRoot)).toEqual({ type: "missing" });
 	});
 });
 

@@ -21,6 +21,7 @@ import {
 	normalizePlanFilePath,
 	resolvePlanContentFile,
 	resolvePlanSourceFile,
+	validatePlanSlug,
 } from "./plan-persistence.ts";
 import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-gateway.ts";
 import {
@@ -64,7 +65,7 @@ const listResultSchema = z.object({
 });
 
 const saveRequestSchema = z.object({
-	slug: z.string().describe("Meaningful lowercase kebab-case slug derived from the plan content."),
+	slug: z.string().describe("Saved Plan filename slug (3-7 words in lowercase kebab-case)."),
 	contentFile: z
 		.string()
 		.describe("Markdown content file path (relative paths resolve against cwd)."),
@@ -220,18 +221,22 @@ async function handleSave(
 	return await runOperationCommand({
 		operation: "save",
 		action: async () => {
+			const slugError = validatePlanSlug(request.slug);
+			if (slugError !== undefined) {
+				throw new Error(`Invalid saved plan slug: ${slugError}`);
+			}
+
 			const contentPath = resolve(ctx.cwd, normalizePlanFilePath(request.contentFile));
 			const safeContentPath = await resolvePlanContentFile({
 				rawFilePath: contentPath,
 				planStoreGateway: ctx.planStoreGateway,
 			});
 			const content = await ctx.planStoreGateway.readRegularFileBytes(safeContentPath);
-			const plan = await savePlanContentBytes(
-				ctx.commands,
-				request.slug,
+			const plan = await savePlanContentBytes(ctx.commands, {
+				slug: request.slug,
 				content,
-				planStoreOptions(ctx),
-			);
+				store: planStoreOptions(ctx),
+			});
 			return ok(savedPlanJson(plan));
 		},
 		failureFromError: plansFailureFromError,
