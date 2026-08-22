@@ -116,7 +116,8 @@ export interface SavedPlanFileEvidence {
 	summary?: string;
 }
 
-interface DurableSavedPlanBase extends PlanStoreDirectoryEvidence {
+interface DurableSavedPlanBase {
+	directory: PlanStoreDirectoryEvidence;
 	slug: string;
 	filePath: string;
 	fileName: string;
@@ -417,7 +418,7 @@ export async function savePlanContentBytes(
 	const filePath = join(directory.directoryPath, fileName);
 	await planStoreGateway.writeBytesExclusive(filePath, content);
 	return {
-		...directory,
+		directory,
 		format: "timestamped",
 		slug,
 		filePath,

@@ -101,10 +101,8 @@ export class RealPlanStoreGateway implements PlanStoreGateway {
 		write: (file: Awaited<ReturnType<typeof open>>) => Promise<void>,
 	): Promise<void> {
 		await ensurePrivateParentDirectory(path);
-		let file: Awaited<ReturnType<typeof open>> | undefined;
 		try {
-			file = await open(path, "wx", 0o600);
-			await write(file);
+			await writeAndClose();
 		} catch (error) {
 			if (isNodeError(error) && error.code === "EEXIST") {
 				throw new Error(
@@ -112,8 +110,15 @@ export class RealPlanStoreGateway implements PlanStoreGateway {
 				);
 			}
 			throw error;
-		} finally {
-			await file?.close();
+		}
+
+		async function writeAndClose(): Promise<void> {
+			const file = await open(path, "wx", 0o600);
+			try {
+				await write(file);
+			} finally {
+				await file.close();
+			}
 		}
 	}
 }
