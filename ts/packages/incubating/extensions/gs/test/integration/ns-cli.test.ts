@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
+import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
 import { noopNsCommandIo, noopNsProgress, type ExecResult } from "@nseng-ai/sdk";
 import { runCli, type NsCliBaseContext } from "@nseng-ai/sdk/cli";
 
@@ -200,12 +201,26 @@ class ScenarioContext implements NsCliBaseContext {
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
 		this.execCalls.push({ command, args: [...args] });
-		if (command !== "git" || args.join(" ") !== "rev-parse --git-common-dir") {
+		if (command !== "git") {
 			return exited(99, "", `unexpected command: ${command} ${args.join(" ")}`);
 		}
-		if (this.gitFailure !== undefined) return exited(128, "", this.gitFailure);
-		return exited(0, `${this.commonDir}\n`, "");
+		if (args.join(" ") === "rev-parse --git-common-dir") {
+			if (this.gitFailure !== undefined) return exited(128, "", this.gitFailure);
+			return exited(0, `${this.commonDir}\n`, "");
+		}
+		if (sameArgs(args, GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS)) {
+			return exited(
+				0,
+				"bottom\tabc123\t2026-08-22T00:00:00Z\ntop\tdef456\t2026-08-22T00:00:00Z\n",
+				"",
+			);
+		}
+		return exited(99, "", `unexpected command: ${command} ${args.join(" ")}`);
 	}
+}
+
+function sameArgs(actual: readonly string[], expected: readonly string[]): boolean {
+	return actual.length === expected.length && actual.every((arg, index) => arg === expected[index]);
 }
 
 function exited(code: number, stdout: string, stderr: string): ExecResult {

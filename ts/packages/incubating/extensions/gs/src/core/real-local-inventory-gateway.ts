@@ -10,7 +10,7 @@ import type {
 } from "./local-inventory.ts";
 import { parseGsLocalState } from "./local-state.ts";
 
-export type GsLocalInventoryGitGateway = Pick<GitGateway, "gitCommonDir">;
+export type GsLocalInventoryGitGateway = Pick<GitGateway, "gitCommonDir" | "listLocalBranchTips">;
 
 export type GsStateReadResult =
 	| { readonly type: "found"; readonly contents: string }
@@ -64,7 +64,23 @@ export class RealGsLocalInventoryGateway implements GsLocalInventoryGateway {
 
 		const parsed = parseGsLocalState(rawState);
 		if (!parsed.ok) return stateUnsupported(parsed.message);
-		return { ok: true, value: parsed.value };
+
+		let localBranchTipsResult;
+		try {
+			localBranchTipsResult = await this.git.listLocalBranchTips({ cwd: options.cwd });
+		} catch (error) {
+			return gitUnavailable(messageFromUnknown(error));
+		}
+		if (!localBranchTipsResult.ok) return gitUnavailable(localBranchTipsResult.error.message);
+		const localBranches = new Set(localBranchTipsResult.value.map((branch) => branch.name));
+		return {
+			ok: true,
+			value: {
+				stacks: parsed.value.stacks.filter((stack) =>
+					stack.branches.some((branch) => localBranches.has(branch.name)),
+				),
+			},
+		};
 	}
 }
 
