@@ -52,10 +52,13 @@ const adaptedCommand = defineCommand({
 	name: "hello",
 	summary: "Say hello.",
 	description: "Say hello.",
-	schema: z.object({ name: z.string() }),
+	schema: z.lazy(() => z.object({ name: z.string() })),
 	positionals: { name: { position: 0 } },
 	resultSchema: z.object({ greeting: z.string() }),
 	async handler(_ctx, request) {
+		type Request = typeof request;
+		const checks: [Assert<IsAny<Request> extends false ? true : false>] = [true];
+		void checks;
 		return ok({ greeting: request.name });
 	},
 });

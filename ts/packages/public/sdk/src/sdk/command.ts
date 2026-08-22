@@ -5,6 +5,7 @@ import {
 	type CliPositionalOptions,
 	type ClinkrCompletionCandidate,
 	type ClinkrCompletionProviderRequest,
+	type CommandOutcome,
 	type ContextfulCommandDefinition,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr/app";
@@ -22,7 +23,8 @@ export type { ClinkrCompletionCandidate, ClinkrCompletionProviderRequest, Render
 export type { CliOptionOptions as OptionSpec, CliPositionalOptions as PositionalSpec };
 
 export type NsCommandSchema = z.ZodObject;
-export type NsCommandRequest<S extends NsCommandSchema> = z.output<S>;
+export type NsCommandInputSchema = NsCommandSchema | z.ZodLazy<NsCommandSchema>;
+export type NsCommandRequest<S extends NsCommandInputSchema> = z.output<S>;
 export type NsCommandCompletionRequest = ClinkrCompletionProviderRequest;
 export type NsCommandCompletionCandidate = ClinkrCompletionCandidate;
 export type NsCommandCompletionResult = readonly ClinkrCompletionCandidate[];
@@ -31,14 +33,17 @@ export type NsCommandCompletionProvider = (
 	request: NsCommandCompletionRequest,
 ) => Promise<NsCommandCompletionResult> | NsCommandCompletionResult;
 
-export interface DefineCommandSpec<S extends NsCommandSchema, T = unknown> {
+export interface DefineCommandSpec<S extends NsCommandInputSchema, T = unknown> {
 	/** Transitional compile-only fields consumed by the public Extension Kit; not retained in definitions. */
 	readonly name?: string;
 	readonly summary?: string;
 	readonly description?: string;
 	readonly schema: S;
 	readonly resultSchema?: z.ZodType<T>;
-	readonly handler: ContextfulCommandDefinition<NsExtensionApi, S, z.ZodType<T>>["handler"];
+	readonly handler: (
+		context: NsExtensionApi,
+		request: z.output<S>,
+	) => CommandOutcome<T> | Promise<CommandOutcome<T>>;
 	readonly renderHuman?: (result: T, capabilities: RenderCapabilities) => string;
 	readonly renderMarkdown?: (result: T, capabilities: RenderCapabilities) => string;
 	readonly completionProvider?: NsCommandCompletionProvider;
@@ -53,25 +58,30 @@ export type NsCommand<
 
 export function defineCommand<S extends NsCommandSchema, T = unknown>(
 	spec: DefineCommandSpec<S, T>,
-): NsCommand<S, T> {
+): NsCommand<S, T>;
+export function defineCommand<S extends NsCommandSchema, T = unknown>(
+	spec: DefineCommandSpec<z.ZodLazy<S>, T>,
+): NsCommand<S, T>;
+export function defineCommand(spec: DefineCommandSpec<NsCommandInputSchema, unknown>): NsCommand {
+	const commandSchema = spec.schema instanceof z.ZodLazy ? spec.schema.unwrap() : spec.schema;
 	for (const [field, options] of Object.entries(spec.options ?? {})) {
-		const schema = spec.schema.shape[field] as z.ZodType | undefined;
+		const schema = commandSchema.shape[field] as z.ZodType | undefined;
 		if (schema !== undefined && options !== undefined) cliOption(schema, options);
 	}
 	for (const [field, options] of Object.entries(spec.positionals ?? {})) {
-		const schema = spec.schema.shape[field] as z.ZodType | undefined;
+		const schema = commandSchema.shape[field] as z.ZodType | undefined;
 		if (schema !== undefined && options !== undefined) cliPositional(schema, options);
 	}
 	return createContextfulCommand({
 		requiresContext: true,
-		schema: spec.schema,
+		schema: commandSchema,
 		...(spec.resultSchema === undefined ? {} : { resultSchema: spec.resultSchema }),
 		...(spec.renderHuman === undefined ? {} : { renderHuman: spec.renderHuman }),
 		...(spec.renderMarkdown === undefined ? {} : { renderMarkdown: spec.renderMarkdown }),
 		...(spec.completionProvider === undefined
 			? {}
 			: { completionProvider: spec.completionProvider }),
-		handler: spec.handler,
+		handler: (context, request) => spec.handler(context, request),
 	});
 }
 

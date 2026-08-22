@@ -11,7 +11,7 @@ import { createNsGsLocalInventoryGateway } from "../../../local-inventory.ts";
 export async function command() {
 	let verbose = false;
 	return defineCommand({
-		schema: gsListRequestSchema.unwrap(),
+		schema: gsListRequestSchema,
 		resultSchema: gsListResultSchema,
 		options: { verbose: { short: "-v" } },
 		renderHuman: (result) => renderGsListHuman(result, verbose),
