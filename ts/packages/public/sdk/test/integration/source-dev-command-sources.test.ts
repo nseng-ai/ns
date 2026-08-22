@@ -18,7 +18,12 @@ describe("source-dev command source discovery in the ns checkout", () => {
 				diagnostic.sourceLabel?.startsWith("source-dev:"),
 			),
 		).toEqual([]);
-		for (const packageName of ["@nseng-ai/objectives", "@nseng-ai/reviews", "@nseng-ai/flow"]) {
+		for (const packageName of [
+			"@nseng-ai/objectives",
+			"@nseng-ai/reviews",
+			"@nseng-ai/flow",
+			"@nseng-ai/gs",
+		]) {
 			const source = inventory.sources.find((candidate) => candidate.package?.name === packageName);
 			expect(source, packageName).toMatchObject({
 				kind: "preinstalled",
