@@ -28,6 +28,7 @@ function registrationContext(pi: FakePi) {
 		},
 		trunkBranch: "master",
 		herdr: new FakeHerdrGateway(),
+		resolveSlotLabelInput: async () => ({}),
 	};
 }
 

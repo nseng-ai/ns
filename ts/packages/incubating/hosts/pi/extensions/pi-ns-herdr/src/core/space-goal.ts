@@ -5,17 +5,16 @@ import {
 	HERDR_RESOURCE_LABEL_POLICY,
 	HERDR_SPACE_GOAL_COMMAND_NAME,
 	type HerdrGateway,
-	type HerdrSlotLabelInput,
 } from "@nseng-ai/herdr/api";
-import type { TextResult } from "@nseng-ai/foundation/primitives";
+
+import type { HerdrSlotLabelInputResolver } from "./resource-label.ts";
 
 const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
-type SlotLabelInputResolver = (cwd: string) => Promise<HerdrSlotLabelInput>;
 
 export interface HandleHerdrSpaceGoalOptions {
 	contentSlug: ContentSlugContext;
 	herdr: HerdrGateway;
-	resolveSlotLabelInput: SlotLabelInputResolver;
+	resolveSlotLabelInput: HerdrSlotLabelInputResolver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -25,17 +24,8 @@ export async function generateHerdrGoalLabel(
 	context: ContentSlugContext,
 	cwd: string,
 	goal: string,
-): Promise<TextResult> {
-	try {
-		const evidence = await deriveContentSlug(
-			context,
-			{ content: goal, cwd },
-			HERDR_RESOURCE_LABEL_POLICY,
-		);
-		return { ok: true, text: evidence.slug };
-	} catch (error) {
-		return { ok: false, message: error instanceof Error ? error.message : String(error) };
-	}
+) {
+	return deriveContentSlug(context, { content: goal, cwd }, HERDR_RESOURCE_LABEL_POLICY);
 }
 
 export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions): Promise<void> {
@@ -66,12 +56,15 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 	options.notifyProgress("Interpreting goal…");
 	const slug = await generateHerdrGoalLabel(options.contentSlug, options.ctx.cwd, goal);
 	if (!slug.ok) {
-		notify(options.ctx, slug.message, "error");
+		notify(options.ctx, slug.error.message, "error");
 		return;
 	}
 
 	const slotLabelInput = await options.resolveSlotLabelInput(options.ctx.cwd);
-	const label = formatHerdrResourceLabel({ semanticLabel: slug.text, ...slotLabelInput });
+	const label = formatHerdrResourceLabel({
+		semanticLabel: slug.value.slug,
+		...slotLabelInput,
+	});
 	options.notifyProgress("Renaming Herdr workspace…");
 	const renameResult = await options.herdr.renameWorkspace(workspaceId, label);
 	if (renameResult.type === "failed") {

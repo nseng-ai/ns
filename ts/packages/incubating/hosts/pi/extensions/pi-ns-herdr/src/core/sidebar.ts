@@ -1,4 +1,4 @@
-import type { HerdrGateway, HerdrSlotLabelInput } from "@nseng-ai/herdr/api";
+import type { HerdrGateway } from "@nseng-ai/herdr/api";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import {
 	chooseActiveObjectiveSlug,
@@ -14,9 +14,9 @@ import {
 } from "./objective-sidebar.ts";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
+import type { HerdrSlotLabelInputResolver } from "./resource-label.ts";
 
 const PI_SIDEBAR_STATUS_KEY = "pi:herdr-sidebar";
-type SlotLabelInputResolver = (cwd: string) => Promise<HerdrSlotLabelInput>;
 const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 	statusKey: PI_SIDEBAR_STATUS_KEY,
 	selectionTitle: "Select an active Objective for Herdr sidebar",
@@ -24,11 +24,7 @@ const OBJECTIVE_SIDEBAR_SELECTION_SPEC = {
 } satisfies ObjectiveSelectionSpec;
 
 export interface HerdrSidebarController {
-	handleObjectiveCommand(
-		args: string,
-		ctx: CommandContext,
-		resolveSlotLabelInput: SlotLabelInputResolver,
-	): Promise<void>;
+	handleObjectiveCommand(args: string, ctx: CommandContext): Promise<void>;
 }
 
 export interface HerdrSidebarControllerOptions {
@@ -38,10 +34,11 @@ export interface HerdrSidebarControllerOptions {
 export function createHerdrSidebarController(
 	pi: HerdrPiCommandApi,
 	herdr: HerdrGateway,
+	resolveSlotLabelInput: HerdrSlotLabelInputResolver,
 	options: HerdrSidebarControllerOptions = {},
 ): HerdrSidebarController {
 	return {
-		async handleObjectiveCommand(args, ctx, resolveSlotLabelInput): Promise<void> {
+		async handleObjectiveCommand(args, ctx): Promise<void> {
 			await handleDeterministicObjectiveSidebar(
 				pi,
 				herdr,
@@ -57,7 +54,7 @@ export function createHerdrSidebarController(
 async function handleDeterministicObjectiveSidebar(
 	pi: HerdrPiCommandApi,
 	herdr: HerdrGateway,
-	resolveSlotLabelInput: SlotLabelInputResolver,
+	resolveSlotLabelInput: HerdrSlotLabelInputResolver,
 	args: string,
 	ctx: CommandContext,
 	options: HerdrSidebarControllerOptions,

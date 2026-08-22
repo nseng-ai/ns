@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { assertFocusedRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug/testing";
 import {
 	buildTrackedBranchImplPrompt,
 	loadTrackedBranchPayload,
@@ -72,26 +73,11 @@ function expectFocusedSlugCall(
 	expect(calls).toHaveLength(1);
 	const call = calls[0];
 	expect(call?.options?.cwd).toBe(REPO_ROOT);
-	expect(call?.args).toEqual(
-		expect.arrayContaining([
-			"--provider",
-			"openai-codex",
-			"--model",
-			"gpt-5.6-luna",
-			"--thinking",
-			"minimal",
-			"--no-session",
-			"--no-extensions",
-			"--no-skills",
-			"--no-prompt-templates",
-			"--no-context-files",
-			"--no-tools",
-			"--mode",
-			"text",
-			"--print",
-		]),
-	);
-	const modelPrompt = call?.args.at(-1) ?? "";
+	const modelPrompt = assertFocusedRawTextModelArgs(call?.args ?? [], {
+		provider: "openai-codex",
+		modelId: "gpt-5.6-luna",
+		thinking: "minimal",
+	});
 	expect(modelPrompt).toContain("Generate a concise git branch slug");
 	expect(modelPrompt).toContain("user task prompt that will run in a new branch workspace");
 	expect(modelPrompt).toContain("Content:");

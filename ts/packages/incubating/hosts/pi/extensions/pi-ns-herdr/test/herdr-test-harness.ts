@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { assertFocusedRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug/testing";
 import {
 	buildRepoPlanStoreKey,
 	encodeBranchForPlanPath,
@@ -619,8 +620,11 @@ export function focusedModelStep(
 		command: "pi",
 		ignoreArgs: true,
 		assertArgs: (args) => {
-			assertFocusedModelArgs(args);
-			const prompt = args.at(-1) ?? "";
+			const prompt = assertFocusedRawTextModelArgs(args, {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal",
+			});
 			expectPromptContent(prompt, content);
 			if (kind === "tracked-branch") {
 				assertIncludes(prompt, "Generate a concise git branch slug");
@@ -634,29 +638,6 @@ export function focusedModelStep(
 		},
 		...(result === undefined ? {} : { result }),
 	};
-}
-
-function assertFocusedModelArgs(args: string[]): void {
-	const required = [
-		"--provider",
-		"openai-codex",
-		"--model",
-		"gpt-5.6-luna",
-		"--thinking",
-		"minimal",
-		"--no-session",
-		"--no-extensions",
-		"--no-skills",
-		"--no-prompt-templates",
-		"--no-context-files",
-		"--no-tools",
-		"--mode",
-		"text",
-		"--print",
-	];
-	for (const value of required) {
-		if (!args.includes(value)) throw new Error(`Focused model args omitted ${value}`);
-	}
 }
 
 function expectPromptContent(prompt: string, content: string): void {

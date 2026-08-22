@@ -26,7 +26,7 @@ import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundat
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
-import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
+import { MODEL_OPERATION_IDS, resolveProjectModelOperation } from "./model-policy.ts";
 import { runJsonExecCommand } from "./machine-envelope-exec.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-impl";
@@ -382,10 +382,11 @@ async function generateTrackedBranchSlug(
 			message: `Could not resolve the Git repository root: ${repository.error.message}`,
 		};
 	}
-	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: projectConfig });
-	if (!policy.ok)
-		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	const model = resolveProjectModelOperation({
+		repoRoot: repository.value,
+		gateway: projectConfig,
+		operationId: MODEL_OPERATION_IDS.slug,
+	});
 	if (!model.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
 	const prompt = buildTrackedBranchSlugPrompt({ kind: "task", content });

@@ -5,6 +5,7 @@ const TEST_MODEL_SELECTION = {
 };
 import { describe, expect, test } from "vitest";
 import type { ContentSlugContext } from "@nseng-ai/extension-kit/content-slug";
+import { assertFocusedRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug/testing";
 import { deriveHandoffContentSlug } from "@nseng-ai/handoffs/api";
 import type { CommandExecApi, ExecResult } from "@nseng-ai/foundation/command";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -90,14 +91,22 @@ function slugContext(commands: CommandExecApi): ContentSlugContext {
 	};
 }
 
-function expectNoFallback(error: unknown): void {
-	expect(error).toBeInstanceOf(Error);
-	expect((error as Error).message).toContain(
+function expectNoFallback(result: Awaited<ReturnType<typeof deriveHandoffContentSlug>>): string {
+	expect(result.ok).toBe(false);
+	if (result.ok) throw new Error("expected slug derivation to fail");
+	expect(result.error.message).toContain(
 		"Failed to derive handoff slug from final artifact content.",
 	);
-	expect((error as Error).message).toContain(
+	expect(result.error.message).toContain(
 		"No continuation-focus or deterministic fallback was attempted.",
 	);
+	return result.error.message;
+}
+
+function expectEvidence(result: Awaited<ReturnType<typeof deriveHandoffContentSlug>>) {
+	expect(result.ok).toBe(true);
+	if (!result.ok) throw new Error(result.error.message);
+	return result.value;
 }
 
 describe("deriveHandoffContentSlug", () => {
@@ -109,7 +118,7 @@ describe("deriveHandoffContentSlug", () => {
 			cwd: CWD,
 		});
 
-		expect(evidence).toEqual({
+		expect(expectEvidence(evidence)).toEqual({
 			slug: "associate-sessions-with-branches",
 			rawOutput: "associate-sessions-with-branches\n",
 			provider: TEST_MODEL_SELECTION.provider,
@@ -117,24 +126,7 @@ describe("deriveHandoffContentSlug", () => {
 		});
 		expect(pi.calls).toHaveLength(1);
 		expect(pi.calls[0]?.command).toBe("pi");
-		expect(pi.calls[0]?.args.slice(0, -1)).toEqual([
-			"--provider",
-			TEST_MODEL_SELECTION.provider,
-			"--model",
-			TEST_MODEL_SELECTION.modelId,
-			"--thinking",
-			TEST_MODEL_SELECTION.thinking,
-			"--no-session",
-			"--no-extensions",
-			"--no-skills",
-			"--no-prompt-templates",
-			"--no-context-files",
-			"--no-tools",
-			"--mode",
-			"text",
-			"--print",
-		]);
-		const prompt = pi.calls[0]?.args.at(-1) ?? "";
+		const prompt = assertFocusedRawTextModelArgs(pi.calls[0]?.args ?? [], TEST_MODEL_SELECTION);
 		expect(prompt).toContain(HANDOFF_CONTENT.trim());
 		expect(prompt).toContain(
 			"Do not use the original request/focus, current branch, filename, path",
@@ -155,7 +147,7 @@ describe("deriveHandoffContentSlug", () => {
 			cwd: CWD,
 		});
 
-		expect(evidence.slug).toBe("branch-session-association");
+		expect(expectEvidence(evidence).slug).toBe("branch-session-association");
 	});
 
 	test("overlong output is repaired to at most eight words", async () => {
@@ -170,7 +162,7 @@ describe("deriveHandoffContentSlug", () => {
 			cwd: CWD,
 		});
 
-		expect(evidence.slug).toBe(
+		expect(expectEvidence(evidence).slug).toBe(
 			"session-branch-association-model-metadata-lookup-persistence-design",
 		);
 	});
@@ -185,7 +177,7 @@ describe("deriveHandoffContentSlug", () => {
 			cwd: CWD,
 		});
 
-		expect(evidence.slug).toBe("associate-sessions-with-branches");
+		expect(expectEvidence(evidence).slug).toBe("associate-sessions-with-branches");
 	});
 
 	test("prompt truncates final content at 32k characters and marks the truncation", async () => {
@@ -206,25 +198,25 @@ describe("deriveHandoffContentSlug", () => {
 	test("nonzero model command fails with no fallback", async () => {
 		const pi = new FakeSlugPi({ result: { code: 1, stderr: "model unavailable" } });
 
-		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("model unavailable");
-		}
+		const message = expectNoFallback(
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+			}),
+		);
+		expect(message).toContain("model unavailable");
 	});
 
 	test("empty model output fails with no fallback", async () => {
 		const pi = new FakeSlugPi({ result: { stdout: "  \n" } });
 
-		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("empty output");
-		}
+		const message = expectNoFallback(
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+			}),
+		);
+		expect(message).toContain("empty output");
 	});
 
 	test("a timeout retries once and succeeds with model evidence", async () => {
@@ -240,7 +232,7 @@ describe("deriveHandoffContentSlug", () => {
 			cwd: CWD,
 		});
 
-		expect(evidence.slug).toBe("associate-sessions-with-branches");
+		expect(expectEvidence(evidence).slug).toBe("associate-sessions-with-branches");
 		expect(pi.calls).toHaveLength(2);
 		expect(pi.calls.every((call) => call.options?.timeout === 60_000)).toBe(true);
 	});
@@ -255,38 +247,38 @@ describe("deriveHandoffContentSlug", () => {
 		};
 		const pi = new FakeSlugPi([{ result: timedOut }, { result: timedOut }]);
 
-		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("Retried once after a killed/timeout result.");
-			expect(pi.calls).toHaveLength(2);
-		}
+		const message = expectNoFallback(
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+			}),
+		);
+		expect(message).toContain("Retried once after a killed/timeout result.");
+		expect(pi.calls).toHaveLength(2);
 	});
 
 	test("malformed model output fails with no fallback", async () => {
 		const pi = new FakeSlugPi({ result: { stdout: "!!!\n" } });
 
-		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("could not be normalized");
-		}
+		const message = expectNoFallback(
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+			}),
+		);
+		expect(message).toContain("could not be normalized");
 	});
 
 	test("generic-only normalized output fails", async () => {
 		const pi = new FakeSlugPi({ result: { stdout: "handoff session continue\n" } });
 
-		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("Normalized slug: handoff-session-continue");
-			expect((error as Error).message).toContain("generic handoff words");
-		}
+		const message = expectNoFallback(
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+			}),
+		);
+		expect(message).toContain("Normalized slug: handoff-session-continue");
+		expect(message).toContain("generic handoff words");
 	});
 });

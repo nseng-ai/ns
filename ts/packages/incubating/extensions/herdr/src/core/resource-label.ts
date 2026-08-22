@@ -1,7 +1,5 @@
-import { basename, dirname, resolve } from "node:path";
-
 import type { ContentSlugPolicy } from "@nseng-ai/extension-kit/content-slug";
-import { extractSlotNumber, generateSlotName } from "@nseng-ai/slots";
+import { parseManagedSlotWorktreeRoot } from "@nseng-ai/slots/api";
 
 const MAX_HERDR_RESOURCE_LABEL_WORDS = 6;
 
@@ -60,14 +58,6 @@ export function formatHerdrResourceLabel(input: HerdrResourceLabelInput): string
 }
 
 export function slotLabelInputFromWorktreeRoot(worktreeRoot: string): HerdrSlotLabelInput {
-	const normalizedWorktreeRoot = resolve(worktreeRoot);
-	const worktreesDir = dirname(normalizedWorktreeRoot);
-	const repoDir = dirname(worktreesDir);
-	const reposDir = dirname(repoDir);
-	const slotsDir = dirname(reposDir);
-	if (basename(worktreesDir) !== "worktrees") return {};
-	if (basename(reposDir) !== "repos" || basename(slotsDir) !== "slots") return {};
-	const slotNumber = extractSlotNumber(basename(normalizedWorktreeRoot));
-	if (slotNumber === null) return {};
-	return { slotSlug: generateSlotName(Number(slotNumber)) };
+	const slotSlug = parseManagedSlotWorktreeRoot(worktreeRoot);
+	return slotSlug === undefined ? {} : { slotSlug };
 }

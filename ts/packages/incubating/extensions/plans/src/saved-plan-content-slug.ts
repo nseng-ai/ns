@@ -3,6 +3,7 @@ import {
 	type ContentSlugContext,
 	type ContentSlugEvidence,
 	type ContentSlugPolicy,
+	type ContentSlugResult,
 	type DeriveContentSlugInput,
 } from "@nseng-ai/extension-kit/content-slug";
 import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
@@ -10,6 +11,7 @@ import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./pl
 const MAX_PLAN_CONTENT_CHARS = 32_000;
 
 export type SavedPlanContentSlugEvidence = ContentSlugEvidence;
+export type SavedPlanContentSlugResult = ContentSlugResult;
 
 export interface PlanContentSlugPresentation {
 	slugKind: string;
@@ -34,7 +36,7 @@ export async function derivePlanSlugFromContent(
 	context: ContentSlugContext,
 	input: DeriveContentSlugInput,
 	presentation: PlanContentSlugPresentation,
-): Promise<SavedPlanContentSlugEvidence> {
+): Promise<SavedPlanContentSlugResult> {
 	const policy = {
 		...presentation,
 		promptRuleLines: [
@@ -60,6 +62,6 @@ export async function derivePlanSlugFromContent(
 export async function deriveSavedPlanContentSlug(
 	context: ContentSlugContext,
 	input: DeriveContentSlugInput,
-): Promise<SavedPlanContentSlugEvidence> {
+): Promise<SavedPlanContentSlugResult> {
 	return derivePlanSlugFromContent(context, input, SAVED_PLAN_PRESENTATION);
 }

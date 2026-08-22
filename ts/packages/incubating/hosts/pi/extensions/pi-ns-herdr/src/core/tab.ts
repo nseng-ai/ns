@@ -33,19 +33,18 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 	let label: string | undefined;
 	if (description.length > 0) {
 		options.notifyProgress("Deriving a semantic label for the new Herdr tab…");
-		try {
-			label = await options.labelDeriver.deriveLabel({
-				description,
-				cwd: options.ctx.cwd,
-			});
-		} catch (error) {
-			const detail = error instanceof Error ? error.message : String(error);
+		const labelResult = await options.labelDeriver.deriveLabel({
+			description,
+			cwd: options.ctx.cwd,
+		});
+		if (!labelResult.ok) {
 			options.ctx.ui.notify(
-				`Could not derive a label for the new Herdr tab. No tab was created.\n${detail}`,
+				`Could not derive a label for the new Herdr tab. No tab was created.\n${labelResult.error.message}`,
 				"error",
 			);
 			return;
 		}
+		label = labelResult.value.slug;
 	}
 
 	options.ctx.ui.setStatus?.(HERDR_TAB_NEW_COMMAND_NAME, "opening Herdr tab…");
@@ -107,10 +106,10 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 	options.notifyProgress("Interpreting goal…");
 	const slug = await generateHerdrGoalLabel(options.contentSlug, options.ctx.cwd, goal);
 	if (!slug.ok) {
-		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
+		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.error.message, "error");
 		return;
 	}
-	const label = slug.text;
+	const label = slug.value.slug;
 	options.notifyProgress("Renaming Herdr tab…");
 	const result = await options.herdr.renameTab(tabId, label);
 	if (result.type === "failed") {

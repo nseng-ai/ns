@@ -32,6 +32,7 @@ import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 import { registerHerdrNewTabCommand, registerHerdrTabGoalCommand } from "./tab.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
+import { resolveHerdrSlotLabelInput } from "./resource-label.ts";
 
 export const herdrParity = definePiSurfaceParity(
 	HERDR_COMMAND_NAMES.map((surface) => ({
@@ -70,14 +71,16 @@ export async function registerHerdrPiExtension(
 	// the trunk branch from the repository's cached origin/HEAD git fact only after the
 	// local-trunk basis is selected (see core/trunk-branch.ts).
 	const herdr = createCliHerdrGateway(commands);
+	const resolveSlotLabelInput = resolveHerdrSlotLabelInput.bind(undefined, git);
 	const context: HerdrPiContext = {
 		commands,
 		git,
 		projectConfig: createNodeProjectConfigGateway(),
 		herdr,
+		resolveSlotLabelInput,
 	};
-	const sidebarController = createHerdrSidebarController(commands, herdr);
-	registerHerdrSidebarCommand(herdrPi, sidebarController, context);
+	const sidebarController = createHerdrSidebarController(commands, herdr, resolveSlotLabelInput);
+	registerHerdrSidebarCommand(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(context);
 	registerHerdrPromptSpaceImplCommand(context);
 	registerHerdrPromptTabImplCommand(context);

@@ -40,7 +40,12 @@ describe("Herdr tab resources", () => {
 		});
 		await handleHerdrNewTab({
 			herdr,
-			labelDeriver: { deriveLabel: async () => "review-api" },
+			labelDeriver: {
+				deriveLabel: async () => ({
+					ok: true,
+					value: { slug: "review-api", rawOutput: "review-api", provider: "test", model: "test" },
+				}),
+			},
 			args: "review the API",
 			ctx,
 			notifyProgress: () => {},
@@ -67,7 +72,10 @@ describe("Herdr tab resources", () => {
 			labelDeriver: {
 				deriveLabel: async () => {
 					derivations += 1;
-					return "unused";
+					return {
+						ok: true,
+						value: { slug: "unused", rawOutput: "unused", provider: "test", model: "test" },
+					};
 				},
 			},
 			args: "  ",
@@ -86,7 +94,10 @@ describe("Herdr tab resources", () => {
 		await handleHerdrNewTab({
 			herdr,
 			labelDeriver: {
-				deriveLabel: async () => Promise.reject(new Error("model unavailable")),
+				deriveLabel: async () => ({
+					ok: false,
+					error: { code: "content-slug-failed", message: "model unavailable" },
+				}),
 			},
 			args: "description",
 			ctx,
@@ -104,7 +115,12 @@ describe("Herdr tab resources", () => {
 		const ctx = new FakeCommandContext();
 		await handleHerdrNewTab({
 			herdr,
-			labelDeriver: { deriveLabel: async () => "unused" },
+			labelDeriver: {
+				deriveLabel: async () => ({
+					ok: true,
+					value: { slug: "unused", rawOutput: "unused", provider: "test", model: "test" },
+				}),
+			},
 			args: "",
 			ctx,
 			notifyProgress: () => {},
@@ -121,7 +137,10 @@ describe("Herdr tab resources", () => {
 			labelDeriver: {
 				deriveLabel: async () => {
 					derivations += 1;
-					return "unused";
+					return {
+						ok: true,
+						value: { slug: "unused", rawOutput: "unused", provider: "test", model: "test" },
+					};
 				},
 			},
 			args: "description",
@@ -232,6 +251,7 @@ describe("Herdr tab resources", () => {
 				pathExists: () => ({ type: "missing" as const }),
 			},
 			herdr,
+			resolveSlotLabelInput: async () => ({}),
 		});
 		const ctx = new FakeCommandContext({ cwd: nestedCwd });
 

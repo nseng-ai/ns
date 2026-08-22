@@ -1,9 +1,14 @@
 import { readFile } from "node:fs/promises";
 
-import type { ContentSlugContext, ContentSlugEvidence } from "@nseng-ai/extension-kit/content-slug";
+import type {
+	ContentSlugContext,
+	ContentSlugEvidence,
+	ContentSlugResult,
+} from "@nseng-ai/extension-kit/content-slug";
 import { derivePlanSlugFromContent } from "@nseng-ai/plans/api";
 
 export type PlanContentSlugEvidence = ContentSlugEvidence;
+export type PlanContentSlugResult = ContentSlugResult;
 
 export interface DerivePlanContentSlugInput {
 	filePath: string;
@@ -26,7 +31,7 @@ const BRANCH_CONTEXT_PLAN_PRESENTATION = {
 export async function derivePlanContentSlug(
 	context: ContentSlugContext,
 	input: DerivePlanContentSlugInput,
-): Promise<PlanContentSlugEvidence> {
+): Promise<PlanContentSlugResult> {
 	const readTextFile = input.readTextFile ?? defaultReadTextFile;
 	const content = await readTextFile(input.filePath);
 	return derivePlanSlugFromContent(

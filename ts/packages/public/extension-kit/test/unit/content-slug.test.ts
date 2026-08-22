@@ -5,7 +5,9 @@ import { join } from "node:path";
 import {
 	deriveContentSlug,
 	type ContentSlugContext,
+	type ContentSlugEvidence,
 	type ContentSlugPolicy,
+	type ContentSlugResult,
 } from "@nseng-ai/extension-kit/content-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -131,18 +133,21 @@ function piCalls(commands: FakeCommands): readonly ExecCall[] {
 }
 
 async function expectNoFallback(
-	run: () => Promise<unknown>,
+	run: () => Promise<ContentSlugResult>,
 	expectedMessage: string,
 ): Promise<void> {
-	try {
-		await run();
-		throw new Error("expected slug derivation to fail");
-	} catch (error) {
-		expect(error).toBeInstanceOf(Error);
-		expect((error as Error).message).toContain(TEST_POLICY.failureHeader);
-		expect((error as Error).message).toContain(expectedMessage);
-		expect((error as Error).message).toContain(TEST_POLICY.noFallbackLine);
-	}
+	const result = await run();
+	expect(result.ok).toBe(false);
+	if (result.ok) return;
+	expect(result.error.message).toContain(TEST_POLICY.failureHeader);
+	expect(result.error.message).toContain(expectedMessage);
+	expect(result.error.message).toContain(TEST_POLICY.noFallbackLine);
+}
+
+function expectEvidence(result: ContentSlugResult): ContentSlugEvidence {
+	expect(result.ok).toBe(true);
+	if (!result.ok) throw new Error(result.error.message);
+	return result.value;
 }
 
 describe("deriveContentSlug", () => {
@@ -159,7 +164,7 @@ describe("deriveContentSlug", () => {
 				TEST_POLICY,
 			);
 
-			expect(evidence).toEqual({
+			expect(expectEvidence(evidence)).toEqual({
 				slug: "content-slug-kit",
 				rawOutput: "Content Slug Kit Artifact\n",
 				provider: "openai-codex",
@@ -221,32 +226,26 @@ describe("deriveContentSlug", () => {
 			});
 
 			expect(
-				(
-					await deriveContentSlug(
-						slugContext(commands),
-						{ content: CONTENT, cwd: repoRoot },
-						TEST_POLICY,
-					)
-				).slug,
-			).toBe("shared-content-slug");
+				await deriveContentSlug(
+					slugContext(commands),
+					{ content: CONTENT, cwd: repoRoot },
+					TEST_POLICY,
+				),
+			).toMatchObject({ ok: true, value: { slug: "shared-content-slug" } });
 			expect(
-				(
-					await deriveContentSlug(
-						slugContext(commands),
-						{ content: CONTENT, cwd: repoRoot },
-						TEST_POLICY,
-					)
-				).slug,
-			).toBe("one-two-three-four-five-six");
+				await deriveContentSlug(
+					slugContext(commands),
+					{ content: CONTENT, cwd: repoRoot },
+					TEST_POLICY,
+				),
+			).toMatchObject({ ok: true, value: { slug: "one-two-three-four-five-six" } });
 			expect(
-				(
-					await deriveContentSlug(
-						slugContext(commands),
-						{ content: CONTENT, cwd: repoRoot },
-						TEST_POLICY,
-					)
-				).slug,
-			).toBe("session");
+				await deriveContentSlug(
+					slugContext(commands),
+					{ content: CONTENT, cwd: repoRoot },
+					TEST_POLICY,
+				),
+			).toMatchObject({ ok: true, value: { slug: "session" } });
 		});
 	});
 
@@ -284,7 +283,7 @@ describe("deriveContentSlug", () => {
 				TEST_POLICY,
 			);
 
-			expect(evidence.slug).toBe("retried-slug");
+			expect(evidence).toMatchObject({ ok: true, value: { slug: "retried-slug" } });
 			expect(piCalls(commands)).toHaveLength(2);
 		});
 	});
@@ -321,16 +320,46 @@ describe("deriveContentSlug", () => {
 				repoRoot,
 				gitResult: exited({ code: 128, stderr: "fatal: not a git repository" }),
 			});
-			await expect(
-				deriveContentSlug(slugContext(commands), { content: CONTENT, cwd: repoRoot }, TEST_POLICY),
-			).rejects.toThrow("Could not determine the repository root for ns.toml.");
+			expect(
+				await deriveContentSlug(
+					slugContext(commands),
+					{ content: CONTENT, cwd: repoRoot },
+					TEST_POLICY,
+				),
+			).toEqual({
+				ok: false,
+				error: {
+					code: "content-slug-failed",
+					message: "Could not determine the repository root for ns.toml.",
+				},
+			});
 		});
 
 		await withRepo(async (repoRoot) => {
 			const commands = new FakeCommands({ repoRoot });
-			await expect(
-				deriveContentSlug(slugContext(commands), { content: CONTENT, cwd: repoRoot }, TEST_POLICY),
-			).rejects.toThrow("Invalid model policy in ns.toml: ns.toml:");
+			const result = await deriveContentSlug(
+				slugContext(commands),
+				{ content: CONTENT, cwd: repoRoot },
+				TEST_POLICY,
+			);
+			expect(result).toMatchObject({
+				ok: false,
+				error: { message: expect.stringContaining("Invalid model policy in ns.toml: ns.toml:") },
+			});
 		}, "[models.profiles.fast\n");
+	});
+
+	test("does not convert an unexpected dependency exception into a content-slug failure", async () => {
+		const context: ContentSlugContext = {
+			commands: new FakeCommands({ repoRoot: "/repo" }),
+			git: {
+				optionalRepoRoot: () => Promise.reject(new Error("broken git dependency")),
+			},
+			projectConfig: createNodeProjectConfigGateway(),
+		};
+
+		await expect(
+			deriveContentSlug(context, { content: CONTENT, cwd: "/repo" }, TEST_POLICY),
+		).rejects.toThrow("broken git dependency");
 	});
 });

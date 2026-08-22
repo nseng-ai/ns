@@ -31,6 +31,15 @@ const START_POINT = "0123456789abcdef0123456789abcdef01234567";
 const PLAN_CONTENT = "# Add dispatch preparation tests\n";
 const directories: string[] = [];
 
+class FailedSlugCommands implements CommandExecApi {
+	async exec(command: string, args: string[]): Promise<ExecResult> {
+		if (command === "git" && args.join(" ") === "rev-parse --show-toplevel") {
+			return exited(`${ROOT}\n`);
+		}
+		return { type: "exited", stdout: "", stderr: "model unavailable", code: 1, signal: null };
+	}
+}
+
 class SlugCommands implements CommandExecApi {
 	readonly calls: Array<{ command: string; args: string[]; options?: ExecOptions }> = [];
 
@@ -138,6 +147,7 @@ describe("plan branch-context preparation public API", () => {
 			shouldBuildPreview: true,
 		});
 
+		if (prepared.type === "failed") throw new Error(prepared.message);
 		expect(prepared.operation).toMatchObject({
 			slug: "add-dispatch-preparation-tests",
 			branch: "add-dispatch-preparation-tests",
@@ -147,6 +157,28 @@ describe("plan branch-context preparation public API", () => {
 		if (prepared.type !== "preview") throw new Error("Expected the preview variant.");
 		expect(prepared.preview).toContain(`Start point: ${START_POINT}`);
 		expect(prepared.preview).toContain("gt info '<current-graphite-parent>' --no-interactive");
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
+	test("slug failure returns before branch or attachment mutation", async () => {
+		const { plan, checkout: checkoutEvidence } = await fixture();
+		const git = new InMemoryGitGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+
+		const prepared = await preparePlanBranchContext(new FailedSlugCommands(), {
+			plan,
+			checkout: checkoutEvidence,
+			context: context({ git, brmem, graphite }),
+			creation: { type: "graphite-current-parent-current-head" },
+		});
+
+		expect(prepared).toMatchObject({
+			type: "failed",
+			message: expect.stringContaining("model unavailable"),
+		});
 		expect(git.createBranchAtHeadCalls).toEqual([]);
 		expect(graphite.trackBranchCalls).toEqual([]);
 		expect(brmem.attachPlanCalls).toEqual([]);
@@ -183,6 +215,7 @@ describe("plan branch-context preparation public API", () => {
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
+		if (prepared.type === "failed") throw new Error(prepared.message);
 		const evidence = await createPreparedPlanBranchContext(
 			{
 				async exec() {
@@ -226,6 +259,7 @@ describe("plan branch-context preparation public API", () => {
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
+		if (prepared.type === "failed") throw new Error(prepared.message);
 		await expect(
 			createPreparedPlanBranchContext(
 				{

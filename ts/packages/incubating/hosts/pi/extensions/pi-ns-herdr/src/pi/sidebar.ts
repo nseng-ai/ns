@@ -3,13 +3,10 @@ import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
 
 import { HERDR_SPACE_OBJECTIVE_SUMMARY_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import type { HerdrSidebarController } from "../core/sidebar.ts";
-import type { HerdrPiContext } from "./context.ts";
-import { resolveHerdrSlotLabelInput } from "./resource-label.ts";
 
 export function registerHerdrSidebarCommand(
 	pi: ExtensionAPI,
 	controller: HerdrSidebarController,
-	context: Pick<HerdrPiContext, "git">,
 ): void {
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -20,9 +17,7 @@ export function registerHerdrSidebarCommand(
 				"the compact slot name when running in a managed ns slot.",
 			argumentHint: "<slug or path>",
 			handler: async (args, ctx) => {
-				await controller.handleObjectiveCommand(args, ctx, (cwd) =>
-					resolveHerdrSlotLabelInput(context.git, cwd),
-				);
+				await controller.handleObjectiveCommand(args, ctx);
 			},
 		},
 	});

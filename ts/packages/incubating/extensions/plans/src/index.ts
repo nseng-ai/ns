@@ -47,6 +47,7 @@ export {
 	deriveSavedPlanContentSlug,
 	type PlanContentSlugPresentation,
 	type SavedPlanContentSlugEvidence,
+	type SavedPlanContentSlugResult,
 } from "./saved-plan-content-slug.ts";
 export {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,

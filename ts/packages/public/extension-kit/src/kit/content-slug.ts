@@ -3,14 +3,22 @@ import { formatOutputSection } from "@nseng-ai/foundation/command";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { Result } from "@nseng-ai/foundation/result";
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { deriveSlugWithModel, type SlugModelEvidence } from "./model-slug.ts";
-import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
+import { MODEL_OPERATION_IDS, resolveProjectModelOperation } from "./model-policy.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 
 export type ContentSlugEvidence = SlugModelEvidence;
+
+export interface ContentSlugFailure {
+	readonly code: "content-slug-failed";
+	readonly message: string;
+}
+
+export type ContentSlugResult = Result<ContentSlugEvidence, ContentSlugFailure>;
 
 export type ContentSlugGitGateway = Pick<GitGateway, "optionalRepoRoot">;
 
@@ -48,25 +56,22 @@ export async function deriveContentSlug(
 	context: ContentSlugContext,
 	input: DeriveContentSlugInput,
 	policy: ContentSlugPolicy,
-): Promise<ContentSlugEvidence> {
+): Promise<ContentSlugResult> {
 	const repository = await context.git.optionalRepoRoot({
 		cwd: input.cwd,
 		...optionalEntry("signal", input.signal),
 	});
 	if (repository.type !== "found") {
-		throw new Error("Could not determine the repository root for ns.toml.");
+		return contentSlugFailure("Could not determine the repository root for ns.toml.");
 	}
 
-	const modelPolicy = loadModelPolicy({
+	const model = resolveProjectModelOperation({
 		repoRoot: repository.value,
 		gateway: context.projectConfig,
+		operationId: MODEL_OPERATION_IDS.slug,
 	});
-	if (!modelPolicy.ok) {
-		throw new Error(`Invalid model policy in ns.toml: ${modelPolicy.error.message}`);
-	}
-	const model = resolveModelOperation(modelPolicy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) {
-		throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
+		return contentSlugFailure(`Invalid model policy in ns.toml: ${model.error.message}`);
 	}
 
 	const result = await deriveSlugWithModel({
@@ -79,13 +84,13 @@ export async function deriveContentSlug(
 		exec: (command, args, options) => context.commands.exec(command, args, options),
 	});
 	if (!result.ok) {
-		throw contentSlugDerivationFailed(policy, result.failure.lines);
+		return contentSlugDerivationFailed(policy, result.failure.lines);
 	}
 
 	const { slug, rawOutput } = result.evidence;
 	const slugError = policy.validateSlug(slug);
 	if (slugError !== undefined) {
-		throw contentSlugDerivationFailed(policy, [
+		return contentSlugDerivationFailed(policy, [
 			policy.invalidSlugMessage,
 			`Normalized slug: ${slug}`,
 			`Reason: ${slugError}`,
@@ -93,7 +98,7 @@ export async function deriveContentSlug(
 		]);
 	}
 
-	return result.evidence;
+	return { ok: true, value: result.evidence };
 }
 
 function buildContentSlugPrompt(content: string, policy: ContentSlugPolicy): string {
@@ -162,6 +167,13 @@ function removeSuffixes(slug: string, suffixes: readonly string[]): string {
 	return current;
 }
 
-function contentSlugDerivationFailed(policy: ContentSlugPolicy, lines: readonly string[]): Error {
-	return new Error([policy.failureHeader, ...lines, policy.noFallbackLine].join("\n"));
+function contentSlugDerivationFailed(
+	policy: ContentSlugPolicy,
+	lines: readonly string[],
+): ContentSlugResult {
+	return contentSlugFailure([policy.failureHeader, ...lines, policy.noFallbackLine].join("\n"));
+}
+
+function contentSlugFailure(message: string): ContentSlugResult {
+	return { ok: false, error: { code: "content-slug-failed", message } };
 }

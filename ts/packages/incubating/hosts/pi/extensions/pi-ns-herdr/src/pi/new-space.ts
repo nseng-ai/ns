@@ -6,10 +6,10 @@ import {
 import { HERDR_SPACE_NEW_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { handleHerdrNewSpace } from "../core/new-space.ts";
 import type { HerdrPiContext } from "./context.ts";
-import { createHerdrResourceLabelDeriver, resolveHerdrSlotLabelInput } from "./resource-label.ts";
+import { createHerdrResourceLabelDeriver } from "./resource-label.ts";
 
 export function registerHerdrNewSpaceCommand(context: HerdrPiContext): void {
-	const { commands, herdr } = context;
+	const { commands, herdr, resolveSlotLabelInput } = context;
 	const labelDeriver = createHerdrResourceLabelDeriver(context);
 
 	registerCommandWithImmediateAck({
@@ -24,7 +24,7 @@ export function registerHerdrNewSpaceCommand(context: HerdrPiContext): void {
 				await handleHerdrNewSpace({
 					herdr,
 					labelDeriver,
-					resolveSlotLabelInput: (cwd) => resolveHerdrSlotLabelInput(context.git, cwd),
+					resolveSlotLabelInput,
 					args,
 					ctx,
 					notifyProgress,

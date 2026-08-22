@@ -5,7 +5,6 @@ import {
 import { HERDR_SPACE_GOAL_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import { handleHerdrSpaceGoal } from "../core/space-goal.ts";
 import type { HerdrPiContext } from "./context.ts";
-import { resolveHerdrSlotLabelInput } from "./resource-label.ts";
 
 export function registerHerdrSpaceGoalCommand(context: HerdrPiContext): void {
 	const pi = context.commands;
@@ -21,7 +20,7 @@ export function registerHerdrSpaceGoalCommand(context: HerdrPiContext): void {
 				await handleHerdrSpaceGoal({
 					contentSlug: context,
 					herdr: context.herdr,
-					resolveSlotLabelInput: (cwd) => resolveHerdrSlotLabelInput(context.git, cwd),
+					resolveSlotLabelInput: context.resolveSlotLabelInput,
 					args,
 					ctx,
 					notifyProgress,

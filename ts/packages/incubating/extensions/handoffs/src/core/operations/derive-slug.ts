@@ -31,23 +31,18 @@ export async function runDeriveSlug(ctx: HandoffCliContext, request: DeriveSlugR
 	});
 	if (prepared.type === "error") return failure(prepared.error.code, prepared.error.message);
 
-	try {
-		const evidence = await deriveHandoffContentSlug(ctx, {
-			content: prepared.value.content,
-			cwd: ctx.cwd,
-		});
-		return ok({
-			slug: evidence.slug,
-			key: handoffSlugToKey(evidence.slug),
-			provider: evidence.provider,
-			model: evidence.model,
-		} satisfies DeriveSlugResult);
-	} catch (error) {
-		return failure(
-			"handoff-slug-derivation-failed",
-			error instanceof Error ? error.message : String(error),
-		);
-	}
+	const result = await deriveHandoffContentSlug(ctx, {
+		content: prepared.value.content,
+		cwd: ctx.cwd,
+	});
+	if (!result.ok) return failure("handoff-slug-derivation-failed", result.error.message);
+	const evidence = result.value;
+	return ok({
+		slug: evidence.slug,
+		key: handoffSlugToKey(evidence.slug),
+		provider: evidence.provider,
+		model: evidence.model,
+	} satisfies DeriveSlugResult);
 }
 
 export function renderDeriveSlug(result: DeriveSlugResult): string {

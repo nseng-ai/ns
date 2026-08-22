@@ -19,7 +19,12 @@ import {
 } from "./herdr-test-harness.ts";
 
 function labelDeriver(label = "review-brmem-contract"): HerdrResourceLabelDeriver {
-	return { deriveLabel: async () => label };
+	return {
+		deriveLabel: async () => ({
+			ok: true,
+			value: { slug: label, rawOutput: label, provider: "test", model: "test" },
+		}),
+	};
 }
 
 describe("Herdr new space", () => {
@@ -54,7 +59,15 @@ describe("Herdr new space", () => {
 			labelDeriver: {
 				async deriveLabel(input) {
 					derivations.push(input);
-					return "review-brmem-contract";
+					return {
+						ok: true,
+						value: {
+							slug: "review-brmem-contract",
+							rawOutput: "review-brmem-contract",
+							provider: "test",
+							model: "test",
+						},
+					};
 				},
 			},
 			resolveSlotLabelInput: async () => ({ slotSlug: "slot-04" }),
@@ -101,7 +114,7 @@ describe("Herdr new space", () => {
 
 		await expect(
 			deriver.deriveLabel({ description: "review the public brmem API tab", cwd: ROOT }),
-		).resolves.toBe("review-public-brmem-api");
+		).resolves.toMatchObject({ ok: true, value: { slug: "review-public-brmem-api" } });
 		expect(pi.execCalls[0]?.args.at(-1)).toContain("description or goal");
 		pi.assertDone();
 	});
@@ -114,7 +127,10 @@ describe("Herdr new space", () => {
 			herdr,
 			labelDeriver: {
 				async deriveLabel() {
-					throw new Error("model unavailable");
+					return {
+						ok: false,
+						error: { code: "content-slug-failed", message: "model unavailable" },
+					};
 				},
 			},
 			resolveSlotLabelInput: async () => ({}),
@@ -148,6 +164,7 @@ describe("Herdr new space", () => {
 				pathExists: () => ({ type: "missing" as const }),
 			},
 			herdr,
+			resolveSlotLabelInput: resolveHerdrSlotLabelInput.bind(undefined, git),
 		});
 		const ctx = new FakeCommandContext({ cwd: nestedCwd });
 
@@ -208,6 +225,7 @@ describe("Herdr new space", () => {
 				pathExists: () => ({ type: "missing" as const }),
 			},
 			herdr,
+			resolveSlotLabelInput: async () => ({}),
 		};
 		registerHerdrNewSpaceCommand(dependencies);
 		const command = pi.commands.get("ns:herdr:space:new");

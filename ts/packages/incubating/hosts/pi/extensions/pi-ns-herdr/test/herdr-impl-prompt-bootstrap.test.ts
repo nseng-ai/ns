@@ -57,6 +57,7 @@ function bootstrapHarness(options: {
 				pathExists: () => ({ type: "missing" }),
 			},
 			herdr: new FakeHerdrGateway(),
+			resolveSlotLabelInput: async () => ({}),
 		},
 		{ env },
 	);

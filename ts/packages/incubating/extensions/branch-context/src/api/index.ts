@@ -50,11 +50,17 @@ export {
 export {
 	createPreparedPlanBranchContext,
 	preparePlanBranchContext,
+	type FailedPreparedPlanBranchContext,
 	type PreparedPlanBranchContext,
 	type PreviewPreparedPlanBranchContext,
 	type ReadyPreparedPlanBranchContext,
+	type SuccessfulPreparedPlanBranchContext,
 } from "../core/plan-preparation.ts";
-export { derivePlanContentSlug, type PlanContentSlugEvidence } from "../core/plan-content-slug.ts";
+export {
+	derivePlanContentSlug,
+	type PlanContentSlugEvidence,
+	type PlanContentSlugResult,
+} from "../core/plan-content-slug.ts";
 export {
 	buildBranchContextOutputMessage,
 	findLatestBranchContextEvidence,

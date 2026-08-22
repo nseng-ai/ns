@@ -1,3 +1,4 @@
+import { assertFocusedRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug/testing";
 import { describe, expect, test } from "vitest";
 import {
 	eventIndex,
@@ -127,13 +128,6 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 		git: createTestAutobranchGitGateway("/repo", exec),
 	};
 	return { input, calls };
-}
-
-function piPrompt(calls: Array<{ command: string; args: string[] }>): string {
-	const call = calls.find((candidate) => candidate.command === "pi");
-	expect(call).toBeDefined();
-	expect(call?.args).toContain("--print");
-	return call?.args.at(-1) ?? "";
 }
 
 function basePlan(overrides: Partial<LatestCommitAutobranchPlan> = {}): LatestCommitAutobranchPlan {
@@ -310,26 +304,13 @@ describe("prepareLatestCommitAutobranchPlan", () => {
 		if (result.ok) {
 			expect(result.plan.branchName).toBe("add-latest-commit-branch");
 		}
-		const prompt = piPrompt(harness.calls);
 		const piArgs = harness.calls.find((call) => call.command === "pi")?.args;
-		expect(piArgs).toEqual([
-			"--provider",
-			"test",
-			"--model",
-			"model",
-			"--thinking",
-			"minimal",
-			"--no-session",
-			"--no-extensions",
-			"--no-skills",
-			"--no-prompt-templates",
-			"--no-context-files",
-			"--no-tools",
-			"--mode",
-			"text",
-			"--print",
-			prompt,
-		]);
+		expect(piArgs).toBeDefined();
+		const prompt = assertFocusedRawTextModelArgs(piArgs ?? [], {
+			provider: "test",
+			modelId: "model",
+			thinking: "minimal",
+		});
 		expect(prompt).toContain("## commit message\nAdd latest commit support");
 		expect(prompt).toContain("## git diff HEAD^ HEAD\ndiff --git");
 	});

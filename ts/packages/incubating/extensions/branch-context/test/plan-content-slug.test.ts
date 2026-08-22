@@ -116,14 +116,18 @@ function slugContext(commands: CommandExecApi): ContentSlugContext {
 	};
 }
 
-function expectNoFallback(error: unknown): void {
-	expect(error).toBeInstanceOf(Error);
-	expect((error as Error).message).toContain(
-		"Failed to derive branch-context slug from plan content.",
-	);
-	expect((error as Error).message).toContain(
-		"No filename or deterministic fallback was attempted.",
-	);
+function expectNoFallback(result: Awaited<ReturnType<typeof derivePlanContentSlug>>): string {
+	expect(result.ok).toBe(false);
+	if (result.ok) throw new Error("expected slug derivation to fail");
+	expect(result.error.message).toContain("Failed to derive branch-context slug from plan content.");
+	expect(result.error.message).toContain("No filename or deterministic fallback was attempted.");
+	return result.error.message;
+}
+
+function expectEvidence(result: Awaited<ReturnType<typeof derivePlanContentSlug>>) {
+	expect(result.ok).toBe(true);
+	if (!result.ok) throw new Error(result.error.message);
+	return result.value;
 }
 
 describe("derivePlanContentSlug", () => {
@@ -131,10 +135,11 @@ describe("derivePlanContentSlug", () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site-plan\n" } });
 
-		const evidence: PlanContentSlugEvidence = await derivePlanContentSlug(slugContext(pi), {
+		const result = await derivePlanContentSlug(slugContext(pi), {
 			filePath,
 			cwd: CWD,
 		});
+		const evidence: PlanContentSlugEvidence = expectEvidence(result);
 
 		expect(evidence).toEqual({
 			slug: "add-docs-portal-site",
@@ -163,7 +168,7 @@ describe("derivePlanContentSlug", () => {
 			},
 		});
 
-		expect(evidence.slug).toBe("add-docs-portal-site");
+		expect(expectEvidence(evidence).slug).toBe("add-docs-portal-site");
 		expect(readPaths).toEqual([filePath]);
 		const prompt = pi.calls[0]?.args.at(-1) ?? "";
 		expect(prompt).toContain(PLAN_CONTENT.trim());
@@ -196,7 +201,7 @@ describe("derivePlanContentSlug", () => {
 
 		const evidence = await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 
-		expect(evidence.slug).toBe("add-docs-portal-site");
+		expect(expectEvidence(evidence).slug).toBe("add-docs-portal-site");
 	});
 
 	test("overlong model output is repaired to seven complete slug words", async () => {
@@ -206,34 +211,28 @@ describe("derivePlanContentSlug", () => {
 
 		const evidence = await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
 
-		expect(evidence.slug).toBe("sdl-portal-pages-slot-page-conventions-skeleton");
-		expect(evidence.rawOutput).toBe(rawOutput);
+		expect(expectEvidence(evidence).slug).toBe("sdl-portal-pages-slot-page-conventions-skeleton");
+		expect(expectEvidence(evidence).rawOutput).toBe(rawOutput);
 	});
 
 	test("nonzero Pi model command fails with no fallback", async () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { code: 1, stderr: "model unavailable" } });
 
-		try {
-			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("model unavailable");
-		}
+		const message = expectNoFallback(
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD }),
+		);
+		expect(message).toContain("model unavailable");
 	});
 
 	test("empty model output fails with no fallback", async () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { stdout: "  \n" } });
 
-		try {
-			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("empty output");
-		}
+		const message = expectNoFallback(
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD }),
+		);
+		expect(message).toContain("empty output");
 	});
 
 	test("repeated timed-out Pi model command fails with no fallback after one retry", async () => {
@@ -245,15 +244,10 @@ describe("derivePlanContentSlug", () => {
 			],
 		});
 
-		try {
-			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain(
-				"Pi model command failed (timed out; signal SIGTERM).",
-			);
-		}
+		const message = expectNoFallback(
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD }),
+		);
+		expect(message).toContain("Pi model command failed (timed out; signal SIGTERM).");
 		expect(pi.calls).toHaveLength(2);
 	});
 
@@ -261,13 +255,10 @@ describe("derivePlanContentSlug", () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
 
-		try {
-			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectNoFallback(error);
-			expect((error as Error).message).toContain("Normalized slug: work-plan-task");
-		}
+		const message = expectNoFallback(
+			await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD }),
+		);
+		expect(message).toContain("Normalized slug: work-plan-task");
 	});
 
 	test("prompt does not include the source file path or filename", async () => {

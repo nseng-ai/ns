@@ -66,14 +66,18 @@ function slugContext(commands: CommandExecApi): ContentSlugContext {
 	};
 }
 
-function expectSavedPlanNoFallback(error: unknown): void {
-	expect(error).toBeInstanceOf(Error);
-	expect((error as Error).message).toContain(
+function expectSavedPlanNoFallback(
+	result: Awaited<ReturnType<typeof deriveSavedPlanContentSlug>>,
+): string {
+	expect(result.ok).toBe(false);
+	if (result.ok) throw new Error("expected slug derivation to fail");
+	expect(result.error.message).toContain(
 		"Failed to derive saved-plan filename slug from plan content.",
 	);
-	expect((error as Error).message).toContain(
+	expect(result.error.message).toContain(
 		"No assistant-generated slug or deterministic fallback was attempted.",
 	);
+	return result.error.message;
 }
 
 describe("deriveSavedPlanContentSlug", () => {
@@ -86,10 +90,13 @@ describe("deriveSavedPlanContentSlug", () => {
 		});
 
 		expect(evidence).toEqual({
-			slug: "branch-scoped-plan-extension",
-			rawOutput: "branch-scoped-plan-extension-plan\n",
-			provider: TEST_MODEL_SELECTION.provider,
-			model: TEST_MODEL_SELECTION.modelId,
+			ok: true,
+			value: {
+				slug: "branch-scoped-plan-extension",
+				rawOutput: "branch-scoped-plan-extension-plan\n",
+				provider: TEST_MODEL_SELECTION.provider,
+				model: TEST_MODEL_SELECTION.modelId,
+			},
 		});
 		expect(pi.calls).toHaveLength(2);
 		expect(pi.calls[0]?.command).toBe("git");
@@ -128,15 +135,15 @@ describe("deriveSavedPlanContentSlug", () => {
 	test("invalid normalized slug output fails with saved-plan-specific failure text", async () => {
 		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
 
-		try {
-			await deriveSavedPlanContentSlug(slugContext(pi), { content: SAVED_PLAN_CONTENT, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectSavedPlanNoFallback(error);
-			expect((error as Error).message).toContain(
-				"Pi slug model output normalized to an invalid saved-plan filename slug.",
-			);
-			expect((error as Error).message).toContain("Normalized slug: work-plan-task");
-		}
+		const message = expectSavedPlanNoFallback(
+			await deriveSavedPlanContentSlug(slugContext(pi), {
+				content: SAVED_PLAN_CONTENT,
+				cwd: CWD,
+			}),
+		);
+		expect(message).toContain(
+			"Pi slug model output normalized to an invalid saved-plan filename slug.",
+		);
+		expect(message).toContain("Normalized slug: work-plan-task");
 	});
 });

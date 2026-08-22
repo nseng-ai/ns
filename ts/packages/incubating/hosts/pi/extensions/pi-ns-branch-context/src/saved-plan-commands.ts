@@ -303,11 +303,13 @@ export function buildWriteSavedPlanFileTool(
 							}, 5_000);
 				let slugEvidence: SavedPlanContentSlugEvidence;
 				try {
-					slugEvidence = await deriveSavedPlanContentSlug(contentSlugContext, {
+					const slugResult = await deriveSavedPlanContentSlug(contentSlugContext, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
 						...optionalEntry("signal", signal),
 					});
+					if (!slugResult.ok) throw new Error(slugResult.error.message);
+					slugEvidence = slugResult.value;
 				} finally {
 					if (slugProgressInterval !== undefined) {
 						slugProgressInterval.cancel();

@@ -32,7 +32,7 @@ export function createHerdrResourceLabelDeriver(
 				},
 				HERDR_RESOURCE_LABEL_POLICY,
 			);
-			return evidence.slug;
+			return evidence;
 		},
 	};
 }

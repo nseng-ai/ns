@@ -15,7 +15,7 @@ export type {
 } from "../core/identity.ts";
 
 export { deriveHandoffContentSlug } from "../core/content-slug.ts";
-export type { HandoffContentSlugEvidence } from "../core/content-slug.ts";
+export type { HandoffContentSlugResult } from "../core/content-slug.ts";
 
 export {
 	CREATE_HANDOFF_COMMAND_NAME,

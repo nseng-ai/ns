@@ -4,6 +4,7 @@ const TEST_MODEL_SELECTION = {
 };
 
 import { brmemCheckJson } from "@nseng-ai/extension-kit/brmem-cli/testing";
+import { assertFocusedRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug/testing";
 import { afterEach, expect } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, realpath, rm, symlink, utimes, writeFile } from "node:fs/promises";
@@ -508,26 +509,10 @@ function assertSlugModelArgs(
 	content: string,
 	variant: "branch-context" | "saved-plan",
 ): void {
-	expect(args).toEqual(
-		expect.arrayContaining([
-			"--provider",
-			TEST_MODEL_SELECTION.provider,
-			"--model",
-			TEST_MODEL_SELECTION.modelId,
-			"--thinking",
-			"minimal",
-			"--no-session",
-			"--no-extensions",
-			"--no-skills",
-			"--no-prompt-templates",
-			"--no-context-files",
-			"--no-tools",
-			"--mode",
-			"text",
-			"--print",
-		]),
-	);
-	const prompt = args.at(-1) ?? "";
+	const prompt = assertFocusedRawTextModelArgs(args, {
+		...TEST_MODEL_SELECTION,
+		thinking: "minimal",
+	});
 	expect(prompt).toContain(content.trim());
 	expect(prompt.endsWith(content.trim())).toBe(true);
 	expect(prompt).not.toContain(MODEL_ROOT);

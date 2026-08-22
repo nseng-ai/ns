@@ -4,6 +4,7 @@ import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { HerdrGateway } from "@nseng-ai/herdr/api";
 import type { HerdrPiCommandApi } from "../core/pi-command-api.ts";
+import type { HerdrSlotLabelInputResolver } from "../core/resource-label.ts";
 
 export type HerdrGitGateway = Pick<
 	GitGateway,
@@ -20,6 +21,7 @@ export interface HerdrPiContext {
 	readonly git: HerdrGitGateway;
 	readonly projectConfig: ProjectConfigGateway;
 	readonly herdr: HerdrGateway;
+	readonly resolveSlotLabelInput: HerdrSlotLabelInputResolver;
 }
 
 export interface HerdrPiCommandContext extends HerdrPiContext {

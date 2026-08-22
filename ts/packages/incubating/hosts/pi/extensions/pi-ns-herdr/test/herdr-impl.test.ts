@@ -110,6 +110,7 @@ function herdrPiTestContext(
 		git,
 		projectConfig: TEST_PROJECT_CONFIG,
 		herdr,
+		resolveSlotLabelInput: async () => ({}),
 	};
 }
 
@@ -226,6 +227,7 @@ describe("herdr Pi extension — full suite", () => {
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
 			projectConfig: TEST_PROJECT_CONFIG,
 			herdr: new FakeHerdrGateway(),
+			resolveSlotLabelInput: async () => ({}),
 		});
 
 		await pi.commands.get(scenario.commandName)?.handler(scenario.args, ctx);
@@ -395,6 +397,7 @@ describe("Herdr prompt implementation", () => {
 				}),
 				projectConfig: TEST_PROJECT_CONFIG,
 				herdr,
+				resolveSlotLabelInput: async () => ({}),
 			},
 			{
 				stagingDir,
@@ -439,6 +442,7 @@ describe("Herdr prompt implementation", () => {
 				git,
 				projectConfig: TEST_PROJECT_CONFIG,
 				herdr,
+				resolveSlotLabelInput: async () => ({}),
 			},
 			{
 				slotClient: {

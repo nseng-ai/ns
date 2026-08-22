@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import { registerHerdrSpaceGoalCommand } from "../src/pi/space-goal.ts";
+import { resolveHerdrSlotLabelInput } from "../src/pi/resource-label.ts";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
@@ -231,6 +232,7 @@ describe("herdr space goal", () => {
 				pathExists: () => ({ type: "missing" as const }),
 			},
 			herdr,
+			resolveSlotLabelInput: resolveHerdrSlotLabelInput.bind(undefined, git),
 		});
 		const ctx = new FakeCommandContext({ cwd: nestedCwd });
 

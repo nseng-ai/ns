@@ -186,6 +186,10 @@ export async function handleHerdrSlotImplPlan(
 							parentBranch: basis.preparation.trunkBranch,
 						},
 		});
+		if (prepared.type === "failed") {
+			present(ctx, prepared.message, "error");
+			return;
+		}
 		const operation = prepared.operation;
 
 		if (prepared.type === "preview") {

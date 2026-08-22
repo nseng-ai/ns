@@ -95,6 +95,16 @@ export function loadModelPolicy(request: {
 	return parseModelPolicyToml(readResult.text, "ns.toml");
 }
 
+export function resolveProjectModelOperation(request: {
+	repoRoot: string;
+	gateway: ProjectConfigGateway;
+	operationId: ModelOperationId;
+}): ModelPolicyResult<ResolvedModelOperation> {
+	const policy = loadModelPolicy({ repoRoot: request.repoRoot, gateway: request.gateway });
+	if (!policy.ok) return policy;
+	return resolveModelOperation(policy.value, request.operationId);
+}
+
 export function resolveModelOperation(
 	policy: ModelPolicy,
 	operationId: ModelOperationId,
