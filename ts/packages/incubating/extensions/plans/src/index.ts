@@ -59,7 +59,6 @@ export {
 } from "./saved-plan-content-slug.ts";
 export {
 	buildTimestampedSavedPlanFileName,
-	deriveDeterministicSavedPlanSlug,
 	formatLocalSavedPlanTimestamp,
 	parseSavedPlanFileName,
 	type ParsedSavedPlanName,
