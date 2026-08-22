@@ -165,7 +165,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain("write_saved_plan_file");
 		expect(prompt).toContain(
-			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md",
 		);
 		expect(prompt).toContain("No fallback path is read or written");
 		expect(prompt).toContain("completely fresh downstream implementation session");

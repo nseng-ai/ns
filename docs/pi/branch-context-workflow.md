@@ -6,7 +6,7 @@ The branch-context workflow turns a reviewed Saved plan into an implementation b
 
 The workflow has two storage layers:
 
-- **Local plan store**: `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`), owned by `@nseng-ai/plans` and the `enriched-plan` CLI.
+- **Local plan store**: `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md` (default `$HOME/.local/state/ns/enriched-plan/...`), owned by `@nseng-ai/plans` and the `enriched-plan` CLI.
 - **Attached plan**: Branch Memory namespace `branch-context`, named Markdown key, on the implementation branch, owned by `@nseng-ai/branch-context` and the `branch-context` CLI. From-plan attachments use `<branch-context-slug>.md`; the legacy `plan.md` key is not a supported attached-plan key.
 
 Branch Memory is the lower storage adapter for attached branch context entries. It stores text under explicit namespace/key contracts, but branch-context policy belongs to the planning layer. Branch context is standing context on a branch, not a special branch type; a plan can be the founding entry where one exists.
@@ -35,7 +35,7 @@ The structured grilling variant is `/ns:plan:grill-and-save`. It uses Pi's struc
 Saved plans are written to:
 
 ```text
-$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md
+$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md
 ```
 
 When `XDG_STATE_HOME` is unset, the default is `$HOME/.local/state/ns/enriched-plan/...`. Legacy `~/.ns/enriched-plan/...` files are not read, migrated, or dual-written.

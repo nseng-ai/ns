@@ -59,7 +59,7 @@ async function writeSavedPlan(
 	const branch = params.branch ?? SOURCE_BRANCH;
 	const planDirectory = join(planStoreRoot, REPO_KEY, encodeBranchForPlanPath(branch));
 	await mkdir(planDirectory, { recursive: true });
-	const filePath = join(planDirectory, `${slug}.md`);
+	const filePath = join(planDirectory, `${slug}--26-01-02T03-04-05--1.md`);
 	await writeFile(filePath, params.content ?? "# Saved Plan\n", "utf8");
 	return filePath;
 }
@@ -97,7 +97,7 @@ describe("attachBranchContextEntry", () => {
 
 	test("rejects a missing saved-plan slug with available slugs from one store listing", async () => {
 		const planStoreRoot = await makePlanStore();
-		await writeSavedPlan(planStoreRoot, { slug: "available-plan" });
+		await writeSavedPlan(planStoreRoot, { slug: "available-useful-plan" });
 		const git = new InMemoryGitGateway({ repoRoot: ROOT, currentBranch: TARGET_BRANCH });
 		const brmem = new InMemoryBranchMemoryGateway();
 
@@ -108,7 +108,7 @@ describe("attachBranchContextEntry", () => {
 				{ cwd: ROOT, context: branchContext({ git, brmem }), planStoreRoot },
 			),
 		).rejects.toThrow(
-			/No saved plan found for slug `missing-plan`\.[\s\S]*Available slugs:[\s\S]*- available-plan/,
+			/No saved plan found for slug `missing-plan`\.[\s\S]*Available slugs:[\s\S]*- available-useful-plan/,
 		);
 		expect(git.repoRootCalls).toEqual([{ cwd: ROOT }]);
 		expect(git.originUrlCalls).toEqual([{ cwd: ROOT }]);

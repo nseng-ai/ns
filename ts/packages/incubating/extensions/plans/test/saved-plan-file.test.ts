@@ -18,6 +18,8 @@ import {
 import { InMemoryPlanStoreGateway } from "../src/testing.ts";
 
 const PLAN_SLUG = "branch-scoped-plan-extension";
+const LOCAL_TIMESTAMP = "26-01-02T03-04-05";
+const PLAN_FILE_NAME = `${PLAN_SLUG}--${LOCAL_TIMESTAMP}--1.md`;
 const ROOT = "/repo";
 describe("defaultPlanStoreRoot", () => {
 	test("uses XDG state root and ignores relative XDG values", () => {
@@ -48,12 +50,12 @@ describe("writeSavedPlanFile", () => {
 				content: "# Test Plan\n\nDo the work.\n",
 				summary: "Plan the local plan store file.",
 			},
-			{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
+			{ cwd: ROOT, planStoreRoot, git, planStoreGateway, localTimestamp: LOCAL_TIMESTAMP },
 		);
 
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
-		const expectedPath = join(planStoreRoot, repoKey, branchKey, `${PLAN_SLUG}.md`);
+		const expectedPath = join(planStoreRoot, repoKey, branchKey, PLAN_FILE_NAME);
 
 		expect(git.calls).toEqual(["repoRoot", "currentBranch", "originUrl"]);
 		expect(evidence).toEqual({
@@ -81,7 +83,7 @@ describe("writeSavedPlanFile", () => {
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
 			{ slug: PLAN_SLUG, content: "# Test Plan\n" },
-			{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
+			{ cwd: ROOT, planStoreRoot, git, planStoreGateway, localTimestamp: LOCAL_TIMESTAMP },
 		);
 
 		expect(evidence.repoIdentitySource).toBe("repo-root");
@@ -89,29 +91,31 @@ describe("writeSavedPlanFile", () => {
 		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# Test Plan\n");
 	});
 
-	test("refuses to overwrite an existing local plan store file", async () => {
+	test("publishes a new sequence instead of overwriting an existing saved plan", async () => {
 		const planStoreRoot = makeTempDir("source-plan-store-");
 		const planStoreGateway = new InMemoryPlanStoreGateway();
 		const sourceBranch = "branch-contexts/add-widget";
 		const origin = "git@github.com:owner/repo.git";
 		const repoKey = buildRepoPlanStoreKey(ROOT, normalizeRepoOriginUrl(origin));
 		const branchKey = encodeBranchForPlanPath(sourceBranch);
-		const filePath = join(planStoreRoot, repoKey, branchKey, `${PLAN_SLUG}.md`);
+		const filePath = join(planStoreRoot, repoKey, branchKey, PLAN_FILE_NAME);
 		planStoreGateway.writeFile(filePath, "# Existing Plan\n");
 		const git = new FakeGitGateway({
 			currentBranch: fakeCurrentBranch(sourceBranch),
 			origin: fakeOriginUrl(origin),
 		});
 
-		await expect(
-			writeSavedPlanFile(
-				unusedPi,
-				{ slug: PLAN_SLUG, content: "# New Plan\n" },
-				{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
-			),
-		).rejects.toThrow("refusing to overwrite");
+		const evidence = await writeSavedPlanFile(
+			unusedPi,
+			{ slug: PLAN_SLUG, content: "# New Plan\n" },
+			{ cwd: ROOT, planStoreRoot, git, planStoreGateway, localTimestamp: LOCAL_TIMESTAMP },
+		);
 
+		expect(evidence.filePath).toBe(
+			join(planStoreRoot, repoKey, branchKey, `${PLAN_SLUG}--${LOCAL_TIMESTAMP}--2.md`),
+		);
 		expect(planStoreGateway.readFile(filePath)).toBe("# Existing Plan\n");
+		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# New Plan\n");
 	});
 
 	test("uses the XDG state root by default", async () => {
@@ -127,7 +131,13 @@ describe("writeSavedPlanFile", () => {
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
 			{ slug: PLAN_SLUG, content: "# Test Plan\n" },
-			{ cwd: ROOT, env: { HOME: tempHome }, git, planStoreGateway },
+			{
+				cwd: ROOT,
+				env: { HOME: tempHome },
+				git,
+				planStoreGateway,
+				localTimestamp: LOCAL_TIMESTAMP,
+			},
 		);
 
 		expect(evidence.filePath).toBe(
@@ -139,7 +149,7 @@ describe("writeSavedPlanFile", () => {
 				"enriched-plan",
 				"gh--owner--repo",
 				encodeBranchForPlanPath(sourceBranch),
-				`${PLAN_SLUG}.md`,
+				PLAN_FILE_NAME,
 			),
 		);
 		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# Test Plan\n");
@@ -156,7 +166,7 @@ describe("writeSavedPlanFile", () => {
 			"enriched-plan",
 			"gh--owner--repo",
 			branchKey,
-			`${PLAN_SLUG}.md`,
+			PLAN_FILE_NAME,
 		);
 		planStoreGateway.writeFile(legacyPath, "# Legacy Plan\n");
 		const git = new FakeGitGateway({
@@ -167,7 +177,13 @@ describe("writeSavedPlanFile", () => {
 		const evidence = await writeSavedPlanFile(
 			unusedPi,
 			{ slug: PLAN_SLUG, content: "# New Plan\n" },
-			{ cwd: ROOT, env: { HOME: tempHome }, git, planStoreGateway },
+			{
+				cwd: ROOT,
+				env: { HOME: tempHome },
+				git,
+				planStoreGateway,
+				localTimestamp: LOCAL_TIMESTAMP,
+			},
 		);
 
 		expect(evidence.filePath).toBe(
@@ -179,7 +195,7 @@ describe("writeSavedPlanFile", () => {
 				"enriched-plan",
 				"gh--owner--repo",
 				branchKey,
-				`${PLAN_SLUG}.md`,
+				PLAN_FILE_NAME,
 			),
 		);
 		expect(planStoreGateway.readFile(evidence.filePath)).toBe("# New Plan\n");
@@ -195,7 +211,7 @@ describe("writeSavedPlanFile", () => {
 			writeSavedPlanFile(
 				unusedPi,
 				{ slug: "Bad Slug", content: "# Test Plan\n" },
-				{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
+				{ cwd: ROOT, planStoreRoot, git, planStoreGateway, localTimestamp: LOCAL_TIMESTAMP },
 			),
 		).rejects.toThrow("Invalid saved plan slug");
 		expect(git.calls).toEqual([]);
@@ -210,7 +226,7 @@ describe("writeSavedPlanFile", () => {
 			writeSavedPlanFile(
 				unusedPi,
 				{ slug: PLAN_SLUG, content: "# Test Plan\n" },
-				{ cwd: ROOT, planStoreRoot, git, planStoreGateway },
+				{ cwd: ROOT, planStoreRoot, git, planStoreGateway, localTimestamp: LOCAL_TIMESTAMP },
 			),
 		).rejects.toThrow("check out a named branch");
 

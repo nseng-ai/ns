@@ -36,16 +36,26 @@ describe("RealPlanStoreGateway", () => {
 			const evidence = await writeSavedPlanFile(
 				unusedPi,
 				{ slug: "real-gateway-saved-plan", content: "# Real\n" },
-				{ cwd: repoRoot, planStoreRoot, git, planStoreGateway },
+				{
+					cwd: repoRoot,
+					planStoreRoot,
+					git,
+					planStoreGateway,
+					localTimestamp: "26-01-02T03-04-05",
+				},
 			);
 
-			await expect(
-				writeSavedPlanFile(
-					unusedPi,
-					{ slug: "real-gateway-saved-plan", content: "# Again\n" },
-					{ cwd: repoRoot, planStoreRoot, git, planStoreGateway },
-				),
-			).rejects.toThrow("refusing to overwrite");
+			const secondEvidence = await writeSavedPlanFile(
+				unusedPi,
+				{ slug: "real-gateway-saved-plan", content: "# Again\n" },
+				{
+					cwd: repoRoot,
+					planStoreRoot,
+					git,
+					planStoreGateway,
+					localTimestamp: "26-01-02T03-04-05",
+				},
+			);
 
 			const branchDirectory = join(
 				planStoreRoot,
@@ -63,7 +73,8 @@ describe("RealPlanStoreGateway", () => {
 				git,
 				planStoreGateway,
 			});
-			expect(evidence.filePath).toContain("real-gateway-saved-plan.md");
+			expect(evidence.filePath).toContain("real-gateway-saved-plan--26-01-02T03-04-05--1.md");
+			expect(secondEvidence.filePath).toContain("real-gateway-saved-plan--26-01-02T03-04-05--2.md");
 			expect(latest).toMatchObject({ slug: "newer-real-saved-plan", filePath: newerPath });
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -83,7 +94,7 @@ describe("RealPlanStoreGateway", () => {
 			});
 			const gateway = createRealPlanStoreGateway();
 			const firstContent = new TextEncoder().encode("# First Useful Plan\r\n");
-			const first = await savePlanContentBytes(unusedPi, firstContent, {
+			const first = await savePlanContentBytes(unusedPi, "first-useful-plan", firstContent, {
 				cwd: repoRoot,
 				planStoreRoot,
 				git,
@@ -91,7 +102,7 @@ describe("RealPlanStoreGateway", () => {
 				localTimestamp: "26-01-02T03-04-05",
 			});
 			const secondContent = new TextEncoder().encode("# Second Useful Plan\n");
-			const second = await savePlanContentBytes(unusedPi, secondContent, {
+			const second = await savePlanContentBytes(unusedPi, "second-useful-plan", secondContent, {
 				cwd: repoRoot,
 				planStoreRoot,
 				git,

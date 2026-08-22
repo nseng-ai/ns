@@ -59,16 +59,6 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 		return this.readBytes(path);
 	}
 
-	async writeTextFileExclusive(path: string, content: string): Promise<void> {
-		const normalizedPath = normalize(path);
-		if (this.nodes.has(normalizedPath)) {
-			throw new Error(
-				`Saved plan file already exists in the local plan store; refusing to overwrite.\nPath: ${normalizedPath}`,
-			);
-		}
-		this.writeFile(normalizedPath, content);
-	}
-
 	async writeBytesExclusive(path: string, content: Uint8Array): Promise<void> {
 		const normalizedPath = normalize(path);
 		if (this.nodes.has(normalizedPath)) {

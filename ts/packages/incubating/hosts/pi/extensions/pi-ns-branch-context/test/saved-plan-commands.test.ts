@@ -161,7 +161,7 @@ describe("enriched-plan-commands", () => {
 		);
 		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(pi.sentUserMessages[0]).toContain(
-			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md",
+			"$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>--YY-MM-DDTHH-mm-ss--<sequence>.md",
 		);
 		expect(pi.sentUserMessages[0]).toContain("No fallback path is read or written");
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");

@@ -1158,11 +1158,11 @@ function selectedSavedPlanEvidence(selected: SelectedSavedPlanFile): SelectedSav
 	}
 	return {
 		mode: selected.type,
-		repoRoot: selected.plan.repoRoot,
-		repoKey: selected.plan.repoKey,
-		repoIdentitySource: selected.plan.repoIdentitySource,
-		sourceBranch: selected.plan.sourceBranch,
-		branchKey: selected.plan.branchKey,
+		repoRoot: selected.plan.directory.repoRoot,
+		repoKey: selected.plan.directory.repoKey,
+		repoIdentitySource: selected.plan.directory.repoIdentitySource,
+		sourceBranch: selected.plan.directory.sourceBranch,
+		branchKey: selected.plan.directory.branchKey,
 		modifiedTimeMs: selected.plan.modifiedTimeMs,
 		...(selected.type === "session" && selected.plan.summary !== undefined
 			? { summary: selected.plan.summary }
