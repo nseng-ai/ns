@@ -10,6 +10,7 @@ export {
 	type PlanStoreDirectoryEvidence,
 	type TimestampedDurableSavedPlan,
 	type RepoIdentitySource,
+	type SavePlanContentBytesOptions,
 	type SavedPlanFileEvidence,
 } from "./saved-plan-file.ts";
 export {

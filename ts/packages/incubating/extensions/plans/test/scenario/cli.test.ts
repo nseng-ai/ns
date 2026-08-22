@@ -66,8 +66,8 @@ const SAVE_HELP = [
 	"Save Markdown bytes as a timestamped source-branch plan.",
 	"",
 	"Options:",
-	"  --slug <value>          Meaningful lowercase kebab-case slug derived from the",
-	"                          plan content.",
+	"  --slug <value>          Saved Plan filename slug (3-7 words in lowercase",
+	"                          kebab-case).",
 	"  --content-file <value>  Markdown content file path (relative paths resolve",
 	"                          against cwd).",
 	'  --format <format>       Output format. (choices: "human", "json", "markdown",',
@@ -279,6 +279,13 @@ describe("plans CLI help, version, and dispatch pins", () => {
 			expect(JSON.stringify(schema.outputJsonSchema)).toContain('"format"');
 			expect(run.stderr.join("")).toBe("");
 		}
+
+		const save = await runWithFakes(["exec", "save", "--json-schema"]);
+		const schema = parseJson(save);
+		expect(schema.inputJsonSchema).toMatchObject({
+			required: expect.arrayContaining(["slug", "contentFile"]),
+			properties: { slug: { type: "string" } },
+		});
 	});
 
 	test("pins bare exec exit 0 and unknown exec operation stderr", async () => {
@@ -430,6 +437,48 @@ describe("plans list CLI pins", () => {
 });
 
 describe("plans exec save", () => {
+	test("requires --slug", async () => {
+		const run = await runWithFakes(["exec", "save", "--content-file", "/tmp/plan.md"]);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe("");
+		expect(run.stderr.join("")).toBe(
+			"error: --slug: Invalid input: expected string, received undefined\n",
+		);
+	});
+
+	test("rejects an invalid slug before content, git, or store work", async () => {
+		const fixture = await makeFixture();
+		const inputPath = join(makeTempDir(), "plan-input.md");
+		fixture.planStoreGateway.writeFile(inputPath, "# Valid Content\n");
+		const git = fixture.git;
+		if (!(git instanceof InMemoryGitGateway)) throw new Error("Expected in-memory git gateway.");
+
+		const run = await runWithFakes(
+			["exec", "save", "--slug", "Bad Slug", "--content-file", inputPath, "--format", "json"],
+			{
+				cwd: fixture.repoRoot,
+				git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+			},
+		);
+
+		expect(await run.exit).toBe(2);
+		expect(parseJson(run)).toMatchObject({
+			status: "failure",
+			errorType: "saved-plan-write-failed",
+			message: expect.stringContaining("Invalid saved plan slug"),
+		});
+		expect(git.optionalRepoRootCalls).toEqual([]);
+		expect(git.repoRootCalls).toEqual([]);
+		expect(git.currentBranchCalls).toEqual([]);
+		expect(git.originUrlCalls).toEqual([]);
+		expect(await fixture.planStoreGateway.listDirectory(fixture.planStoreRoot)).toEqual({
+			type: "missing",
+		});
+	});
+
 	test("publishes an outside regular content file byte-for-byte with a typed JSON result", async () => {
 		const fixture = await makeFixture();
 		const inputPath = join(makeTempDir(), "plan-input.md");
@@ -443,7 +492,7 @@ describe("plans exec save", () => {
 				"exec",
 				"save",
 				"--slug",
-				"ship-plan-store",
+				"caller-supplied-plan-slug",
 				"--content-file",
 				inputPath,
 				"--format",
@@ -463,8 +512,8 @@ describe("plans exec save", () => {
 			status: "ok",
 			data: {
 				format: "timestamped",
-				slug: "ship-plan-store",
-				fileName: "ship-plan-store--26-01-02T03-04-05--1.md",
+				slug: "caller-supplied-plan-slug",
+				fileName: "caller-supplied-plan-slug--26-01-02T03-04-05--1.md",
 				sequence: 1,
 			},
 		});
@@ -512,7 +561,7 @@ describe("plans exec save", () => {
 				"exec",
 				"save",
 				"--slug",
-				"invalid-content-plan",
+				"valid-input-plan-slug",
 				"--content-file",
 				inputPath,
 				"--format",
@@ -543,7 +592,7 @@ describe("plans exec save", () => {
 					"exec",
 					"save",
 					"--slug",
-					"outside-content-plan",
+					"valid-input-plan-slug",
 					"--content-file",
 					contentPath,
 					"--format",
