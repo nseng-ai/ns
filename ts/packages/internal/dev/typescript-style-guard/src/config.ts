@@ -72,6 +72,7 @@ export interface ConcreteExtensionCommandSurface {
 }
 
 export const concreteExtensionCommandSurfaces = [
+	{ packageName: "@nseng-ai/gs", cliPrefixes: ["gs"], slashPrefixes: [] },
 	{ packageName: "@nseng-ai/pr-feedback", cliPrefixes: ["address"], slashPrefixes: ["address"] },
 	{
 		packageName: "@nseng-ai/pi-ns-branch-context",
