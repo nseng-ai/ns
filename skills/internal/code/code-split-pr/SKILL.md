@@ -15,9 +15,16 @@ Turn one oversized diff — the **donor** — into a plan for a stack of PRs whe
 ## Two PR classes
 
 - **Decision PR** — asks the reviewer exactly one question about product or architecture. Its diff is that decision's consequences and nothing else. Tests, docs, type adjustments, and local cleanup travel with the decision they prove.
-- **Mechanical PR** — removes review noise while preserving behavior exactly. It earns its place only by demonstrably shrinking a later decision PR's reviewable diff. A "mechanical" change that alters behavior is a decision PR wearing a costume; reclassify it.
+- **Mechanical PR** — isolates high-volume code motion while preserving behavior exactly. It earns its place by making behavioral review, merge-conflict resolution, or reversion safer: reviewers can ignore the motion while judging decisions, conflict resolvers know that any semantic change is accidental, and the whole PR can be reverted without undoing intended behavior. A "mechanical" change that alters behavior is a decision PR wearing a costume; reclassify it.
 
-Mechanical taxonomy (reference): new package creation; file moves; behavior-preserving refactors (renames, function extraction, shape normalization); test-fixture modernization ahead of a behavioral change; dead-code deletion after a behavioral switch.
+Mechanical taxonomy (reference): new package creation without wiring; file moves; mass renames; behavior-preserving refactors (function extraction, shape normalization); test-fixture modernization ahead of a behavioral change; pure dead-code deletion after a behavioral switch.
+
+Actively look for mechanical isolation on both sides of a decision:
+
+- **Before:** moves, renames, fixtures, or shape changes that make the later behavioral diff smaller and clearer.
+- **After:** implementation, tests, fixtures, types, and exports made unreachable or obsolete by the preceding cutover. Prefer a pure deletion PR over folding substantial dead-code removal into the decision PR, even when the deletion is an obvious consequence of that decision.
+
+A post-cutover deletion PR must delete only code already proved unreachable or obsolete by its parent. Its parent must remain green while retaining that residue. The deletion PR must preserve runtime and public behavior, must not opportunistically refactor live code, and must be independently revertible.
 
 ## Steps
 
@@ -37,7 +44,9 @@ Done when every donor test is accounted for by name or glob and every learning c
 
 ### 3. Batch
 
-Attempt few batches first; one decision PR is the default opening bid, and splitting must be argued. For each decision batch, write its **reviewer question** — the single question the PR asks. For each mechanical batch, name the later decision PR it de-noises. Assign every changed donor file to exactly one batch: this is the **coverage map**, and it is the step's required artifact. Split a batch only when the reviewer questions are genuinely distinct or the combined diff is unreviewably large; for every boundary, answer why the adjacent batches cannot combine. Done when the coverage map is total and every boundary carries its non-combination answer.
+Attempt few decision batches first; one decision PR is the default opening bid, and additional reviewer questions must be argued. Then inspect every decision boundary for substantial pure code motion that deserves mechanical isolation, especially dead-code deletion after a cutover. For each decision batch, write its **reviewer question** — the single question the PR asks. For each mechanical batch, name the adjacent decision PR whose review, conflict resolution, or reversion it makes safer, and state the proof that behavior is unchanged. Do not reject a pure deletion PR merely because it de-noises a preceding rather than later decision PR.
+
+Assign every changed donor file to exactly one batch: this is the **coverage map**, and it is the step's required artifact. Split decision work only when reviewer questions are genuinely distinct or the combined diff is unreviewably large. Split mechanical work when isolating high-volume motion gives reviewers and conflict resolvers a trustworthy semantic-free unit. For every boundary, answer why the adjacent batches should not combine. Done when the coverage map is total and every boundary carries its non-combination answer.
 
 ### 4. Order
 
@@ -53,7 +62,7 @@ Emit the plan in the shape below and invite iteration. Revise until the user acc
 
 ## Plan shape
 
-1. **Ordered batches**, each with: slug suggestion; class; reviewer question (decision) or de-noised target PR (mechanical); contents and areas; dependencies; why it cannot combine with an adjacent batch; learnings carried.
+1. **Ordered batches**, each with: slug suggestion; class; reviewer question (decision) or adjacent decision plus behavior-preservation proof (mechanical); contents and areas; dependencies; why it should not combine with an adjacent batch; learnings carried.
 2. **Coverage map**: donor file → batch.
 3. **Rebuild-strategy recommendation** with its rationale for this donor.
 4. **Executor handoff**: per-branch expectation that each intermediate branch passes the repository's validation and stays honest; the donor diff-to-zero verification (stack tip vs donor empty except deliberate improvements); and a description skeleton per decision batch from the rubric below.
