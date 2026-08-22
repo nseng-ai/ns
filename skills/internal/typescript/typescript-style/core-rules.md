@@ -251,6 +251,37 @@ Full reasoning: `references/error-handling.md`.
   and tested.
 - **Keep lifecycle state coherent.** Prefer one source of truth over parallel flags, duplicated caches,
   or shadow state that must be manually synchronized.
+- **Scope resource ownership after acquisition.** Bind an acquired resource as `const` inside the
+  lexical scope that guarantees its cleanup. Prefer an immediate `try`/`finally` around
+  resource-dependent work over declaring mutable optional state before acquisition solely so an outer
+  `finally` can conditionally release it. The latter invents a “not acquired yet” state and spreads
+  ownership across a larger scope. Acquisition errors may be translated outside the owner scope, but
+  once acquisition succeeds, keep use and guaranteed cleanup together. Mutable optional lifecycle
+  state remains appropriate when a resource genuinely spans branches, retries, callbacks, or multiple
+  lifecycle methods. This is **scoped resource ownership**: explicit `try`/`finally` cleanup, not
+  destructor-driven RAII.
+  ```ts
+  // Avoid: mutable optional state exists only to enable cleanup.
+  let file: FileHandle | undefined;
+  try {
+    file = await open(path);
+    await write(file);
+  } finally {
+    await file?.close();
+  }
+
+  // Prefer: successful acquisition establishes the cleanup-owning scope.
+  await writeAndClose();
+
+  async function writeAndClose(): Promise<void> {
+    const file = await open(path);
+    try {
+      await write(file);
+    } finally {
+      await file.close();
+    }
+  }
+  ```
 
 Full reasoning: `references/philosophy.md` plus the case studies.
 

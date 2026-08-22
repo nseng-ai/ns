@@ -80,6 +80,8 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] No tiny new module exists only to host one trivial helper.
 - [ ] Inputs, returned values, and shared/public state are not mutated in place; public contracts use
       `readonly` / `Readonly*` where the callee must not mutate.
+- [ ] Acquired resources are bound as `const` in the scope that guarantees cleanup, rather than modeled
+      as mutable optional state solely for an outer `finally`.
 - [ ] Names follow role conventions: `create*`, `build*`, `prepare*`, `execute*`, `finalize*`,
       `normalize*`, `is*`.
 - [ ] Type guards are named `isX`.
