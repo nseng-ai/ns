@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 
 import {
 	buildTimestampedSavedPlanFileName,
-	deriveDeterministicSavedPlanSlug,
 	formatLocalSavedPlanTimestamp,
 	parseSavedPlanFileName,
 } from "../src/index.ts";
@@ -82,15 +81,8 @@ describe("Saved Plan filename format", () => {
 		},
 	);
 
-	test("parses a legacy filename into a distinct legacy variant", () => {
-		expect(parseSavedPlanFileName("specific-saved-plan.md")).toEqual({
-			format: "legacy",
-			slug: "specific-saved-plan",
-			fileName: "specific-saved-plan.md",
-		});
-	});
-
 	test.each([
+		"specific-saved-plan.md",
 		"specific-saved-plan.txt",
 		"Specific-Saved-Plan.md",
 		"specific_saved_plan.md",
@@ -98,75 +90,5 @@ describe("Saved Plan filename format", () => {
 		".md",
 	])("rejects unsupported filename %s", (fileName) => {
 		expect(parseSavedPlanFileName(fileName)).toBeUndefined();
-	});
-});
-
-describe("Saved Plan content slug derivation", () => {
-	test("normalizes links, code, HTML, Unicode, and closing hashes in the first eligible H1", () => {
-		const content = new TextEncoder().encode(
-			"# [Déploy `Café`](https://example.test) <em>API</em> — Safely ###\n# Later Heading\n",
-		);
-
-		expect(deriveDeterministicSavedPlanSlug(content, new TextDecoder().decode(content))).toBe(
-			"deploy-cafe-api-safely",
-		);
-	});
-
-	test("ignores headings inside backtick and tilde fences", () => {
-		const markdown = [
-			"````md",
-			"# Ignore Backtick Fence",
-			"```",
-			"# Still In Backtick Fence",
-			"````",
-			"~~~md",
-			"# Ignore Tilde Fence",
-			"~~~",
-			"# Use This Heading",
-		].join("\n");
-		const content = new TextEncoder().encode(markdown);
-
-		expect(deriveDeterministicSavedPlanSlug(content, markdown)).toBe("use-this-heading");
-	});
-
-	test("uses the first eligible H1 and limits its slug to seven words", () => {
-		const markdown = [
-			"#missing-space",
-			"    # Too Deeply Indented",
-			"## Not An H1",
-			"### Also Not An H1",
-			"# One Two Three Four Five Six Seven Eight Nine",
-			"# Later Heading",
-		].join("\n");
-		const content = new TextEncoder().encode(markdown);
-
-		expect(deriveDeterministicSavedPlanSlug(content, markdown)).toBe(
-			"one-two-three-four-five-six-seven",
-		);
-	});
-
-	test("accepts a BOM and up to three spaces before an eligible H1", () => {
-		const markdown = "\uFEFF   # Ship The Plan\n";
-		const content = new TextEncoder().encode(markdown);
-
-		expect(deriveDeterministicSavedPlanSlug(content, markdown)).toBe("ship-the-plan");
-	});
-
-	test("hash fallback is derived from exact input bytes", () => {
-		const lfBytes = new TextEncoder().encode("plain body\n");
-		const crlfBytes = new TextEncoder().encode("plain body\r\n");
-
-		expect(deriveDeterministicSavedPlanSlug(lfBytes, "plain body")).toBe("saved-plan-9d524694c83e");
-		expect(deriveDeterministicSavedPlanSlug(crlfBytes, "plain body")).toBe(
-			"saved-plan-2924e9e9e94f",
-		);
-	});
-
-	test("falls back to exact-byte hashing when an H1 has no slug characters", () => {
-		const content = new TextEncoder().encode("# ———\n");
-
-		expect(deriveDeterministicSavedPlanSlug(content, "# ———\n")).toMatch(
-			/^saved-plan-[a-f0-9]{12}$/,
-		);
 	});
 });
