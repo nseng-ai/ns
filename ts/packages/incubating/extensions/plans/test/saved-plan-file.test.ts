@@ -40,10 +40,11 @@ describe("savePlanContentBytes", () => {
 		const git = new FakeGitGateway();
 
 		await expect(
-			savePlanContentBytes(unusedPi, {
-				slug: "Bad Slug",
-				content: new Uint8Array([0xff]),
-				store: { cwd: ROOT, planStoreRoot, git, planStoreGateway },
+			savePlanContentBytes(unusedPi, "Bad Slug", new Uint8Array([0xff]), {
+				cwd: ROOT,
+				planStoreRoot,
+				git,
+				planStoreGateway,
 			}),
 		).rejects.toThrow("Invalid saved plan slug");
 		expect(git.calls).toEqual([]);

@@ -402,31 +402,26 @@ export async function findLatestSavedPlanFile(
 	};
 }
 
-export interface SavePlanContentBytesOptions {
-	slug: string;
-	content: Uint8Array;
-	store: PlanStoreOptions;
-}
-
 export async function savePlanContentBytes(
 	pi: CommandExecApi,
-	options: SavePlanContentBytesOptions,
+	slug: string,
+	content: Uint8Array,
+	options: PlanStoreOptions,
 ): Promise<TimestampedDurableSavedPlan> {
-	const normalizedSlug = options.slug.trim();
+	const normalizedSlug = slug.trim();
 	const slugError = validatePlanSlug(normalizedSlug);
 	if (slugError !== undefined) {
 		throw new Error(`Invalid saved plan slug: ${slugError}`);
 	}
 
-	const decodedContent = decodeSavedPlanContent(options.content);
+	const decodedContent = decodeSavedPlanContent(content);
 	if (decodedContent.trim().length === 0) {
 		throw new Error("Saved plan content must contain non-whitespace text.");
 	}
-	const directory = await resolvePlanStoreDirectory(pi, options.store);
+	const directory = await resolvePlanStoreDirectory(pi, options);
 	const timestamp =
-		options.store.localTimestamp ??
-		formatLocalSavedPlanTimestamp((options.store.clock ?? systemClock).nowMs());
-	const planStoreGateway = resolvePlanStoreGateway(options.store);
+		options.localTimestamp ?? formatLocalSavedPlanTimestamp((options.clock ?? systemClock).nowMs());
+	const planStoreGateway = resolvePlanStoreGateway(options);
 	const sequence = await nextSavedPlanSequence(
 		planStoreGateway,
 		directory.directoryPath,
@@ -434,7 +429,7 @@ export async function savePlanContentBytes(
 	);
 	const fileName = buildTimestampedSavedPlanFileName(normalizedSlug, timestamp, sequence);
 	const filePath = join(directory.directoryPath, fileName);
-	await planStoreGateway.writeBytesExclusive(filePath, options.content);
+	await planStoreGateway.writeBytesExclusive(filePath, content);
 	return {
 		directory,
 		format: "timestamped",
@@ -477,11 +472,12 @@ export async function writeSavedPlanFile(
 		throw new Error(`Invalid saved plan slug: ${slugError}`);
 	}
 
-	const savedPlan = await savePlanContentBytes(pi, {
+	const savedPlan = await savePlanContentBytes(
+		pi,
 		slug,
-		content: new TextEncoder().encode(params.content),
-		store: options,
-	});
+		new TextEncoder().encode(params.content),
+		options,
+	);
 	const evidence = {
 		slug,
 		repoRoot: savedPlan.directory.repoRoot,
