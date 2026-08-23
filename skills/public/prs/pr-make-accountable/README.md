@@ -35,7 +35,11 @@ improves the conceptual coherence of each change.
 2. The agent interviews the author about those gaps, politely challenging
    unclear reasoning, misunderstandings, and decisions that may need changes.
 3. The author can amend the PR before continuing. Once author and agent share
-   an accurate understanding, they co-author a complete PR description.
+   an accurate understanding, they co-author a complete PR description. When
+   the final net diff changes externally visible behavior, the body includes at
+   least one evidence-backed representative user action and result. Additional
+   examples can clarify materially different user experiences; internal-only
+   changes omit examples without a placeholder.
 4. The agent writes the co-authored description to the PR, then the author
    reads every claim and requests any further edits (in chat or directly in
    the GitHub UI). The agent then reports any remaining reviewability concerns,
