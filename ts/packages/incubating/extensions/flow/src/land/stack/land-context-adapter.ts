@@ -1,4 +1,5 @@
 import { commandSucceeded, formatCommand } from "@nseng-ai/foundation/command";
+import { parseManagedSlotWorktreeRoot } from "@nseng-ai/slots/api";
 import type { GitGateway, GitWorktreeStateFs } from "@nseng-ai/foundation/git";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { isLikelyInProgressGitOperationFailure } from "../../submit/cli-prose-heuristics.ts";
@@ -53,7 +54,7 @@ import {
 } from "./stack-facts.ts";
 import type { LandExecutionApi } from "./types.ts";
 import { loadWorktrees, normalizeExistingPath } from "./worktrees.ts";
-import { isManagedSlotPath, slotFreeArgs, slotNameFromPath } from "../worktree-paths.ts";
+import { slotFreeArgs } from "../worktree-paths.ts";
 
 type LandingFailureSource = Extract<LandingFailure, { readonly type: "boundary" }>["source"];
 
@@ -431,7 +432,7 @@ function copyManagedSlotWorktree(slot: ManagedSlotWorktree): ManagedSlotWorktree
 		type: "managed-slot",
 		branch: slot.branch,
 		path: slot.path,
-		...(slot.slotName === undefined ? {} : { slotName: slot.slotName }),
+		slotName: slot.slotName,
 	};
 }
 
@@ -544,12 +545,9 @@ function classifyWorktree(
 	if (normalizedPath === normalizedRepoRoot) {
 		return Promise.resolve(landSuccess({ type: "current" }));
 	}
-	if (isManagedSlotPath(path)) {
-		return Promise.resolve(
-			landSuccess({ type: "managed-slot", slotName: slotNameFromPath(path) ?? "slot" }),
-		);
-	}
-	return Promise.resolve(landSuccess({ type: "manual-worktree" }));
+	const slotName = parseManagedSlotWorktreeRoot(path);
+	if (!slotName.ok) return Promise.resolve(landSuccess({ type: "manual-worktree" }));
+	return Promise.resolve(landSuccess({ type: "managed-slot", slotName: slotName.value }));
 }
 
 function normalizeAdapterResult<T>(

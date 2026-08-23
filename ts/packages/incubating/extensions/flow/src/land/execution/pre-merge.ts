@@ -34,12 +34,7 @@ import type {
 	RestackRequirement,
 	WorktreeConflict,
 } from "../types.ts";
-import {
-	formatConflict,
-	formatSlotConflict,
-	slotFreeArgs,
-	slotNameFromPath,
-} from "../worktree-paths.ts";
+import { formatConflict, formatSlotConflict, slotFreeArgs } from "../worktree-paths.ts";
 import type { LandConfirmationGateway, LandExecutionProgress } from "./host-seams.ts";
 
 export interface PreMergeExecutionHost {
@@ -212,14 +207,12 @@ export async function assertCleanRepoForExecution(
 	return landCompleted();
 }
 
-function toManagedSlotWorktree(conflict: WorktreeConflict): ManagedSlotWorktree {
-	const slotName =
-		conflict.type === "managed-slot" ? conflict.slotName : slotNameFromPath(conflict.path);
+function toManagedSlotWorktree(conflict: ManagedSlotWorktree): ManagedSlotWorktree {
 	return {
 		type: "managed-slot",
 		branch: conflict.branch,
 		path: conflict.path,
-		...(slotName === undefined ? {} : { slotName }),
+		slotName: conflict.slotName,
 	};
 }
 

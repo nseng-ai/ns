@@ -321,7 +321,7 @@ export interface ManagedSlotWorktree {
 	readonly type: "managed-slot";
 	readonly branch: string;
 	readonly path: string;
-	readonly slotName?: string;
+	readonly slotName: string;
 }
 
 export interface ManualWorktreeConflict {

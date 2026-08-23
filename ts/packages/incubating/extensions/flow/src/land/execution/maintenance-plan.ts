@@ -2,7 +2,7 @@ import { LAND_BACKUP_RECOVERY_HINT } from "../graphite-operations.ts";
 import type { DescendantMaintenancePlan, LandingExecutionFailure, LandingPlan } from "../types.ts";
 import { landingExecutionFailure } from "../results.ts";
 import type { CheckedOutElsewhere } from "../graphite-operations.ts";
-import { formatConflict, slotNameFromPath } from "../worktree-paths.ts";
+import { formatConflict } from "../worktree-paths.ts";
 
 export type MaintenanceMode =
 	| "required-next-landing"
@@ -190,8 +190,7 @@ export function blockedDescendantRepairAction(
 	}
 
 	if (conflict.type === "managed-slot") {
-		const slot = slotNameFromPath(conflict.path) ?? conflict.path;
-		return `Free ${slot} for ${conflict.branch}; then restack/update ${branches}.`;
+		return `Free ${conflict.slotName} for ${conflict.branch}; then restack/update ${branches}.`;
 	}
 
 	return `Detach ${conflict.path} for ${conflict.branch}; then restack/update ${branches}.`;

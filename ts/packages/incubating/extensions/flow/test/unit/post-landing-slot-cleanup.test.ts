@@ -68,11 +68,15 @@ function createCleanupContext(options: {
 }
 
 function managedShape(
-	overrides: { readonly current?: string; readonly landingBranches?: string[] } = {},
+	overrides: {
+		readonly current?: string;
+		readonly landingBranches?: string[];
+		readonly repoRoot?: string;
+	} = {},
 ): LandingShape {
 	const current = overrides.current ?? BRANCH;
 	return {
-		repoRoot: SLOT_ROOT,
+		repoRoot: overrides.repoRoot ?? SLOT_ROOT,
 		current,
 		trunk: "main",
 		metadataDbPath: "/repo/.git/.graphite/metadata.db",
@@ -136,6 +140,57 @@ describe("post-landing slot cleanup defaults", () => {
 		expect(graphite.deleteLocalBranchCalls).toEqual([
 			{ repoRoot: SLOT_ROOT, branch: BRANCH, checkedOutConflictHandling: "fail" },
 		]);
+	});
+
+	test("recognizes a Windows managed Slot root for cleanup", async () => {
+		const windowsSlotRoot =
+			"C:\\Users\\me\\AppData\\Local\\ns\\slots\\repos\\repo\\worktrees\\slot-02";
+		const { context, worktrees } = createInMemoryLandContext();
+		const fixture = createCleanupContext({ hasUI: true });
+
+		const outcome = await runPostLandingSlotCleanup({
+			landContext: context,
+			ctx: fixture.ctx,
+			args: expectParsed("--free"),
+			shape: managedShape({ repoRoot: windowsSlotRoot }),
+		});
+
+		expect(outcome.type).toBe("completed");
+		expect(worktrees.freeSlotsCalls).toEqual([
+			{
+				repoRoot: windowsSlotRoot,
+				slots: [
+					{
+						type: "managed-slot",
+						branch: BRANCH,
+						path: windowsSlotRoot,
+						slotName: "slot-02",
+					},
+				],
+			},
+		]);
+	});
+
+	test.each([
+		["malformed Slot name", "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-2"],
+		[
+			"nested Slot path",
+			"/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-02/ts/packages",
+		],
+	])("fails closed for a %s", async (_case, repoRoot) => {
+		const { context, worktrees, graphite } = createInMemoryLandContext();
+		const fixture = createCleanupContext({ hasUI: true });
+
+		const outcome = await runPostLandingSlotCleanup({
+			landContext: context,
+			ctx: fixture.ctx,
+			args: expectParsed("--free"),
+			shape: managedShape({ repoRoot }),
+		});
+
+		expect(outcome.type).toBe("completed");
+		expect(worktrees.freeSlotsCalls).toEqual([]);
+		expect(graphite.deleteLocalBranchCalls).toEqual([]);
 	});
 
 	test("plans managed-slot cleanup only under the explicit free policy", () => {
