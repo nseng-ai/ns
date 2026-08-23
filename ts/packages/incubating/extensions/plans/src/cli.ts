@@ -4,13 +4,16 @@ import { resolve } from "node:path";
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
 import { failure, negative, ok, type ClinkrExit } from "@nseng-ai/clinkr/legacy";
-import type { Clock } from "@nseng-ai/foundation/clock";
 import {
 	defineCli,
 	runOperationCommand,
 	type CliEntrypointDeps,
 } from "@nseng-ai/foundation/cli-runtime";
-import { formatErrorMessage, optionalEntries } from "@nseng-ai/foundation/primitives";
+import {
+	formatErrorMessage,
+	optionalEntries,
+	optionalEntry,
+} from "@nseng-ai/foundation/primitives";
 import { NodeCommandExecApi } from "@nseng-ai/foundation/exec";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -72,24 +75,10 @@ const saveRequestSchema = z.lazy(() =>
 		contentFile: z
 			.string()
 			.describe("Markdown content file path (relative paths resolve against cwd)."),
-	}),
-);
-const saveResultSchema = z.lazy(() =>
-	z.object({
-		format: z.literal("timestamped"),
-		slug: z.string(),
-		filePath: z.string(),
-		fileName: z.string(),
-		fileStem: z.string(),
-		timestamp: z.string(),
-		timestampNumber: z.number().int(),
-		sequence: z.number().int().positive(),
-		repoRoot: z.string(),
-		repoKey: z.string(),
-		repoIdentitySource: z.enum(["origin-url", "repo-root"]),
-		sourceBranch: z.string(),
-		branchKey: z.string(),
-		directoryPath: z.string(),
+		removeContentFile: z
+			.boolean()
+			.optional()
+			.describe("Remove the content file after a successful save (transport cleanup)."),
 	}),
 );
 
@@ -113,6 +102,9 @@ const timestampedPlanResultSchema = durablePlanResultBaseSchema.extend({
 	timestamp: z.string(),
 	timestampNumber: z.number().int(),
 	sequence: z.number().int().positive(),
+});
+const saveResultSchema = timestampedPlanResultSchema.extend({
+	contentFileRemoved: z.boolean().optional(),
 });
 const resolveResultSchema = z.union([
 	timestampedPlanResultSchema.extend({ source: z.literal("explicit") }),
@@ -155,7 +147,6 @@ export interface CliDeps extends Pick<CliEntrypointDeps, "cwd" | "stdout" | "std
 	git?: GitGateway;
 	planStoreRoot?: string;
 	planStoreGateway?: PlanStoreGateway;
-	clock?: Clock;
 	localTimestamp?: string;
 }
 
@@ -163,9 +154,9 @@ export interface PlansCliContext {
 	commands: CommandExecApi;
 	git: GitGateway;
 	cwd: string;
+	stderr: (text: string) => void;
 	planStoreRoot?: string;
 	planStoreGateway: PlanStoreGateway;
-	clock?: Clock;
 	localTimestamp?: string;
 }
 
@@ -173,15 +164,15 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
 	description: "Enriched-plan operations. An enriched plan is any plan saved into ns.",
-	prepareRun: ({ deps, cwd }) => {
+	prepareRun: ({ deps, cwd, stderr }) => {
 		const commands = deps.commands ?? new NodeCommandExecApi();
 		const context: PlansCliContext = {
 			commands,
 			git: deps.git ?? new RealGitGateway(commands),
 			cwd,
+			stderr,
 			planStoreGateway: deps.planStoreGateway ?? createRealPlanStoreGateway(),
 			...optionalEntries({
-				clock: deps.clock,
 				localTimestamp: deps.localTimestamp,
 				planStoreRoot: deps.planStoreRoot,
 			}),
@@ -271,13 +262,15 @@ async function handleSave(
 				planStoreGateway: ctx.planStoreGateway,
 			});
 			const content = await ctx.planStoreGateway.readRegularFileBytes(safeContentPath);
-			const plan = await savePlanContentBytes(
-				ctx.commands,
-				request.slug,
-				content,
-				planStoreOptions(ctx),
-			);
-			return ok(savedPlanJson(plan));
+			const plan = await savePlanContentBytes(ctx.commands, request.slug, content, {
+				...planStoreOptions(ctx),
+				...optionalEntry("localTimestamp", ctx.localTimestamp),
+			});
+			const contentFileRemoved =
+				request.removeContentFile === true
+					? await removeSavedPlanContentFile(ctx, safeContentPath)
+					: undefined;
+			return ok(savedPlanJson(plan, contentFileRemoved));
 		},
 		failureFromError: plansFailureFromError,
 	});
@@ -328,8 +321,22 @@ function planStoreOptions(
 		git: ctx.git,
 		planStoreGateway: ctx.planStoreGateway,
 		planStoreRoot,
-		...optionalEntries({ clock: ctx.clock, localTimestamp: ctx.localTimestamp }),
 	});
+}
+
+async function removeSavedPlanContentFile(
+	ctx: PlansCliContext,
+	contentPath: string,
+): Promise<boolean> {
+	try {
+		await ctx.planStoreGateway.removeFile(contentPath);
+		return true;
+	} catch (error) {
+		ctx.stderr(
+			`warning: saved plan content file cleanup failed: ${formatErrorMessage(error)}\nRetained content file: ${contentPath}\n`,
+		);
+		return false;
+	}
 }
 
 function plansErrorType(operation: PlansOperation): string {
@@ -427,7 +434,9 @@ function renderSavedPlan(data: z.infer<typeof saveResultSchema>): string {
 	].join("\n");
 }
 
-function savedPlanJson(plan: TimestampedDurableSavedPlan): z.infer<typeof saveResultSchema> {
+function durablePlanJson(
+	plan: TimestampedDurableSavedPlan,
+): z.infer<typeof timestampedPlanResultSchema> {
 	return {
 		format: plan.format,
 		slug: plan.slug,
@@ -443,6 +452,16 @@ function savedPlanJson(plan: TimestampedDurableSavedPlan): z.infer<typeof saveRe
 		sourceBranch: plan.directory.sourceBranch,
 		branchKey: plan.directory.branchKey,
 		directoryPath: plan.directory.directoryPath,
+	};
+}
+
+function savedPlanJson(
+	plan: TimestampedDurableSavedPlan,
+	contentFileRemoved: boolean | undefined,
+): z.infer<typeof saveResultSchema> {
+	return {
+		...durablePlanJson(plan),
+		...optionalEntry("contentFileRemoved", contentFileRemoved),
 	};
 }
 
@@ -481,37 +500,14 @@ function savedPlanListItemJson(plan: SavedPlanListItem): {
 }
 
 function resolvePlanJson(evidence: ResolvePlanEvidence): z.infer<typeof resolveResultSchema> {
-	const common = {
-		filePath: evidence.filePath,
-		fileName: evidence.fileName,
-		fileStem: evidence.fileStem,
-		slug: evidence.slug,
-		repoRoot: evidence.directory.repoRoot,
-		repoKey: evidence.directory.repoKey,
-		repoIdentitySource: evidence.directory.repoIdentitySource,
-		sourceBranch: evidence.directory.sourceBranch,
-		branchKey: evidence.directory.branchKey,
-		directoryPath: evidence.directory.directoryPath,
-	};
 	if (evidence.source === "latest") {
 		return {
-			...common,
+			...durablePlanJson(evidence),
 			source: evidence.source,
-			format: evidence.format,
-			timestamp: evidence.timestamp,
-			timestampNumber: evidence.timestampNumber,
-			sequence: evidence.sequence,
 			modifiedTimeMs: evidence.modifiedTimeMs,
 		};
 	}
-	return {
-		...common,
-		source: evidence.source,
-		format: evidence.format,
-		timestamp: evidence.timestamp,
-		timestampNumber: evidence.timestampNumber,
-		sequence: evidence.sequence,
-	};
+	return { ...durablePlanJson(evidence), source: evidence.source };
 }
 
 await entry.runIfMain({ isImportMetaMain: import.meta.main });

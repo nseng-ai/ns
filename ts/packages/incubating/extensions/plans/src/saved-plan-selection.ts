@@ -10,6 +10,7 @@ import {
 	resolvePlanStoreDirectory,
 	type DurableSavedPlan,
 	type LatestSavedPlanFileEvidence,
+	type PlanStoreDirectoryEvidence,
 	type PlanStoreOptions,
 } from "./saved-plan-file.ts";
 import { parseSavedPlanFileName } from "./saved-plan-format.ts";
@@ -38,7 +39,7 @@ export async function resolveExplicitSavedPlanFile(
 	commands: CommandExecApi,
 	options: ResolveExplicitSavedPlanFileOptions,
 ): Promise<ExplicitSavedPlanFileResolution> {
-	let directory;
+	let directory: PlanStoreDirectoryEvidence;
 	try {
 		directory = await resolvePlanStoreDirectory(commands, options);
 	} catch (error) {
@@ -89,15 +90,9 @@ export async function resolveExplicitSavedPlanFile(
 
 		const plan: ResolvedExplicitSavedPlanFile = {
 			directory,
-			slug: parsedName.slug,
 			filePath,
-			fileName: parsedName.fileName,
-			fileStem: parsedName.fileName.slice(0, -".md".length),
-			format: parsedName.format,
-			timestamp: parsedName.timestamp,
-			timestampNumber: parsedName.timestampNumber,
-			sequence: parsedName.sequence,
 			content: await gateway.readTextFile(filePath),
+			...parsedName,
 		};
 		return { type: "resolved", plan };
 	} catch (error) {

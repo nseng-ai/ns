@@ -257,30 +257,23 @@ async function loadSavedPlanFallback(
 		git: options.context.git,
 		...optionalEntries({ planStoreRoot: options.planStoreRoot }),
 	});
-	const fileInfo = selectedSavedPlanFileInfo(selected);
 	const readTextFile = options.readTextFile ?? defaultReadTextFile;
-	const content = await readTextFile(fileInfo.filePath);
+	const content = await readTextFile(selected.plan.filePath);
 	return {
 		branch,
 		namespace: "local-plan-store",
-		selectedKey: fileInfo.fileName,
-		refName: fileInfo.filePath,
+		selectedKey: selected.plan.fileName,
+		refName: selected.plan.filePath,
 		content,
 		byteCount: new TextEncoder().encode(content).length,
-		availableKeys: [fileInfo.fileName],
+		availableKeys: [selected.plan.fileName],
 		source: "saved",
-		sourceFile: fileInfo.filePath,
+		sourceFile: selected.plan.filePath,
 	};
 }
 
 function defaultReadTextFile(path: string): Promise<string> {
 	return readFile(path, "utf8");
-}
-
-function selectedSavedPlanFileInfo(
-	selected: Awaited<ReturnType<typeof resolveSelectedSavedPlanFile>>,
-): { filePath: string; fileName: string } {
-	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 }
 
 export function normalizeRequestedBranchContextKey(requestedKey: string): string {

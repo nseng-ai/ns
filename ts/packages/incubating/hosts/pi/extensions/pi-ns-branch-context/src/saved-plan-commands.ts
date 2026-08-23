@@ -81,10 +81,9 @@ Final plan requirements:
 - Create a temporary file with exactly \`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"\` and retain the exact path returned by \`mktemp\`.
 - Use the generic write tool to write the exact final Markdown content to that returned path.
 - Generate a specific 3–7 token lowercase kebab-case slug for the final plan. It must include at least one non-generic token and no date-like year token.
-- Safely shell-quote the slug and exact path, then invoke \`enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json\`.
-- Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with \`status: "ok"\` and complete saved-plan evidence in its \`data\` object: format, slug, filePath, fileName, fileStem, timestamp, timestampNumber, sequence, repoRoot, repoKey, repoIdentitySource, sourceBranch, branchKey, and directoryPath.
-- Only after successful save evidence, run \`rm -- '<exact path>'\` for that exact temporary path. If cleanup fails, warn about cleanup and report the retained path, but do not invalidate the successful save.
-- If any step before confirmed save success fails, do not remove the temporary file; retain and report its exact path, report the failure evidence, and stop. If \`mktemp\` failed before returning a path, report that no temporary path was allocated.
+- Safely shell-quote the slug and exact path, then invoke \`enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --remove-content-file --format json\`.
+- Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with \`status: "ok"\` and complete saved-plan evidence in its \`data\` object: format, slug, filePath, fileName, fileStem, timestamp, timestampNumber, sequence, repoRoot, repoKey, repoIdentitySource, sourceBranch, branchKey, and directoryPath, plus optional contentFileRemoved cleanup evidence. The CLI removes the temporary file after a successful save; do not run manual cleanup.
+- If the save did not succeed, the temporary file is retained; report its exact path along with the failure evidence and stop. If \`mktemp\` failed before returning a path, report that no temporary path was allocated.
 - Report the complete parsed saved-plan evidence and stop. Do not create Branch Context, start implementation, or write Branch Memory.`;
 }
 

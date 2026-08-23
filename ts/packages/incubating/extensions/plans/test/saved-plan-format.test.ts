@@ -33,6 +33,7 @@ describe("Saved Plan filename format", () => {
 			format: "timestamped",
 			slug: "specific-saved-plan",
 			fileName,
+			fileStem: "specific-saved-plan--26-01-02T03-04-05--10",
 			timestamp: "26-01-02T03-04-05",
 			timestampNumber: 260102030405,
 			sequence: 10,
@@ -119,14 +120,19 @@ describe("timestamped durable Saved Plans", () => {
 			planStoreRoot: "/plans",
 			git,
 			planStoreGateway: store,
-			clock: { nowMs: () => new Date(2026, 0, 2, 3, 4, 5).getTime() },
 		};
-		const first = await savePlanContentBytes(commands, "ship-plan-store", content, options);
+		const first = await savePlanContentBytes(commands, "ship-plan-store", content, {
+			...options,
+			localTimestamp: "26-01-02T03-04-05",
+		});
 		store.writeFile(
 			"/plans/gh--owner--repo/feature---plans/other-valid-plan--26-01-02T03-04-05--10.md",
 			"# Existing\n",
 		);
-		const second = await savePlanContentBytes(commands, "ship-plan-store", content, options);
+		const second = await savePlanContentBytes(commands, "ship-plan-store", content, {
+			...options,
+			localTimestamp: "26-01-02T03-04-05",
+		});
 
 		expect(first.fileName).toBe("ship-plan-store--26-01-02T03-04-05--1.md");
 		expect(second.fileName).toBe("ship-plan-store--26-01-02T03-04-05--11.md");

@@ -406,7 +406,7 @@ export async function deriveCreateBranchContextPreview(
 	selected: SelectedSavedPlanFile,
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
-	const selectedFile = selectedSavedPlanFileInfo(selected);
+	const selectedFile = { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 	const slugEvidence = await derivePlanContentSlug(pi, {
 		filePath: selectedFile.filePath,
 		cwd: ctx.cwd,
@@ -493,7 +493,7 @@ export function formatCreateBranchContextPreview(preview: CreateBranchContextPre
 export async function deriveImplSavedPlanPreview(
 	selected: SelectedSavedPlanFile,
 ): Promise<ImplSavedPlanPreview> {
-	const selectedFile = selectedSavedPlanFileInfo(selected);
+	const selectedFile = { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 	const planContent = await readFile(selectedFile.filePath, "utf8");
 	const base = {
 		savedPlanFileStem: selected.plan.fileStem,
@@ -1122,13 +1122,6 @@ async function resolveSelectedSavedPlanFile(
 		cwd: ctx.cwd,
 		...optionalEntries({ planStoreRoot, explicitPath: args.filePath }),
 	});
-}
-
-function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): {
-	filePath: string;
-	fileName: string;
-} {
-	return { filePath: selected.plan.filePath, fileName: selected.plan.fileName };
 }
 
 function selectedSavedPlanEvidence(selected: SelectedSavedPlanFile): SelectedSavedPlanEvidence {

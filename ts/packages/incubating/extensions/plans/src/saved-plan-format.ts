@@ -11,6 +11,7 @@ export interface TimestampedSavedPlanName {
 	format: "timestamped";
 	slug: string;
 	fileName: string;
+	fileStem: string;
 	timestamp: string;
 	timestampNumber: number;
 	sequence: number;
@@ -67,7 +68,16 @@ export function parseSavedPlanFileName(fileName: string): ParsedSavedPlanName | 
 		) {
 			return undefined;
 		}
-		return { format: "timestamped", slug, fileName, timestamp, timestampNumber, sequence };
+		const fileStem = fileName.slice(0, -".md".length);
+		return {
+			format: "timestamped",
+			slug,
+			fileName,
+			fileStem,
+			timestamp,
+			timestampNumber,
+			sequence,
+		};
 	}
 	return undefined;
 }

@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { lstat, open, readFile, readdir, realpath } from "node:fs/promises";
+import { lstat, open, readFile, readdir, realpath, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { ensurePrivateParentDirectory } from "@nseng-ai/extension-kit/xdg";
@@ -10,6 +10,7 @@ export interface PlanStoreGateway {
 	readTextFile(path: string): Promise<string>;
 	readRegularFileBytes(path: string): Promise<Uint8Array>;
 	writeBytesExclusive(path: string, content: Uint8Array): Promise<void>;
+	removeFile(path: string): Promise<void>;
 	realpathOrResolve(path: string): Promise<string>;
 }
 
@@ -85,6 +86,10 @@ export class RealPlanStoreGateway implements PlanStoreGateway {
 
 	async writeBytesExclusive(path: string, content: Uint8Array): Promise<void> {
 		await this.writeFileExclusive(path, async (file) => await file.writeFile(content));
+	}
+
+	async removeFile(path: string): Promise<void> {
+		await unlink(path);
 	}
 
 	async realpathOrResolve(path: string): Promise<string> {

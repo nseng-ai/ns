@@ -1,7 +1,6 @@
 import process from "node:process";
 import { basename, join, resolve } from "node:path";
 
-import type { Clock } from "@nseng-ai/foundation/clock";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { systemClock } from "@nseng-ai/foundation/time";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
@@ -27,7 +26,6 @@ import {
 } from "@nseng-ai/foundation/primitives";
 
 const MAX_SEGMENT_LENGTH = 120;
-const PLAN_FILE_SUFFIX = ".md";
 const PLAN_FILE_DISPLAY_NAME = "Markdown saved plan";
 
 export type RepoIdentitySource = "origin-url" | "repo-root";
@@ -39,8 +37,6 @@ export interface PlanStoreOptions {
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: GitGateway;
 	planStoreGateway?: PlanStoreGateway;
-	clock?: Clock;
-	localTimestamp?: string;
 }
 
 interface BuildPlanStoreOptionsInput {
@@ -50,8 +46,6 @@ interface BuildPlanStoreOptionsInput {
 	env?: ExplicitUndefined<"env-map", Record<string, string | undefined>>;
 	git?: ExplicitUndefined<"di-seam", GitGateway>;
 	planStoreGateway?: ExplicitUndefined<"di-seam", PlanStoreGateway>;
-	clock?: ExplicitUndefined<"di-seam", Clock>;
-	localTimestamp?: ExplicitUndefined<"di-seam", string>;
 }
 
 export function buildPlanStoreOptions(options: BuildPlanStoreOptionsInput): PlanStoreOptions {
@@ -63,8 +57,6 @@ export function buildPlanStoreOptions(options: BuildPlanStoreOptionsInput): Plan
 			env: options.env,
 			git: options.git,
 			planStoreGateway: options.planStoreGateway,
-			clock: options.clock,
-			localTimestamp: options.localTimestamp,
 		}),
 	};
 }
@@ -289,10 +281,6 @@ export async function findLatestSavedPlanFile(
 		parsedName: ParsedSavedPlanName;
 		filePath: string;
 		modifiedTimeMs: number;
-		slug: string;
-		timestamp: string;
-		timestampNumber: number;
-		sequence: number;
 	}> = [];
 	const directoryRead = await planStoreGateway.listDirectory(directory.directoryPath);
 	const entries = directoryRead.type === "present" ? directoryRead.entries : [];
@@ -311,10 +299,6 @@ export async function findLatestSavedPlanFile(
 			parsedName,
 			filePath,
 			modifiedTimeMs: fileStat.mtimeMs,
-			slug: parsedName.slug,
-			timestamp: parsedName.timestamp,
-			timestampNumber: parsedName.timestampNumber,
-			sequence: parsedName.sequence,
 		});
 	}
 
@@ -354,23 +338,21 @@ export async function findLatestSavedPlanFile(
 
 	return {
 		directory: latest.directory,
-		format: latest.parsedName.format,
-		slug: latest.parsedName.slug,
-		timestamp: latest.parsedName.timestamp,
-		timestampNumber: latest.parsedName.timestampNumber,
-		sequence: latest.parsedName.sequence,
 		filePath: latest.filePath,
-		fileName: latest.parsedName.fileName,
-		fileStem: latest.parsedName.fileName.slice(0, -PLAN_FILE_SUFFIX.length),
 		modifiedTimeMs: latest.modifiedTimeMs,
+		...latest.parsedName,
 	};
+}
+
+export interface SavePlanContentBytesOptions extends PlanStoreOptions {
+	localTimestamp?: string;
 }
 
 export async function savePlanContentBytes(
 	pi: CommandExecApi,
 	slug: string,
 	content: Uint8Array,
-	options: PlanStoreOptions,
+	options: SavePlanContentBytesOptions,
 ): Promise<TimestampedDurableSavedPlan> {
 	const normalizedSlug = slug.trim();
 	const slugError = validatePlanSlug(normalizedSlug);
@@ -383,8 +365,7 @@ export async function savePlanContentBytes(
 		throw new Error("Saved plan content must contain non-whitespace text.");
 	}
 	const directory = await resolvePlanStoreDirectory(pi, options);
-	const timestamp =
-		options.localTimestamp ?? formatLocalSavedPlanTimestamp((options.clock ?? systemClock).nowMs());
+	const timestamp = options.localTimestamp ?? formatLocalSavedPlanTimestamp(systemClock.nowMs());
 	const planStoreGateway = resolvePlanStoreGateway(options);
 	const sequence = await nextSavedPlanSequence(
 		planStoreGateway,
@@ -394,17 +375,11 @@ export async function savePlanContentBytes(
 	const fileName = buildTimestampedSavedPlanFileName(normalizedSlug, timestamp, sequence);
 	const filePath = join(directory.directoryPath, fileName);
 	await planStoreGateway.writeBytesExclusive(filePath, content);
-	return {
-		directory,
-		format: "timestamped",
-		slug: normalizedSlug,
-		filePath,
-		fileName,
-		fileStem: fileName.slice(0, -PLAN_FILE_SUFFIX.length),
-		timestamp,
-		timestampNumber: Number(timestamp.replace(/\D/g, "")),
-		sequence,
-	};
+	const parsed = parseSavedPlanFileName(fileName);
+	if (parsed === undefined) {
+		throw new Error(`Saved Plan filename failed to round-trip parse: ${fileName}`);
+	}
+	return { directory, filePath, ...parsed };
 }
 
 async function nextSavedPlanSequence(

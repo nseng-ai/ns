@@ -35,7 +35,7 @@ The structured grilling variant is `/ns:plan:grill-and-save`. It uses Pi's struc
 Both commands save exact bytes through a temporary regular file and the hidden, deterministic file-input operation:
 
 ```text
-enriched-plan exec save --slug <lm-generated-slug> --content-file <temporary-path> --format json
+enriched-plan exec save --slug <lm-generated-slug> --content-file <temporary-path> --remove-content-file --format json
 ```
 
 The language model supplies the explicit slug, and the CLI validates it before writing:

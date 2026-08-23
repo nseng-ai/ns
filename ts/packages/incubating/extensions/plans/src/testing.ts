@@ -69,6 +69,15 @@ export class InMemoryPlanStoreGateway implements PlanStoreGateway {
 		this.writeBytes(normalizedPath, content);
 	}
 
+	async removeFile(path: string): Promise<void> {
+		const normalizedPath = normalize(path);
+		const node = this.nodes.get(normalizedPath);
+		if (node?.type !== "file") {
+			throw new Error(`In-memory plan store file does not exist: ${normalizedPath}`);
+		}
+		this.nodes.delete(normalizedPath);
+	}
+
 	async realpathOrResolve(path: string): Promise<string> {
 		return normalize(path);
 	}

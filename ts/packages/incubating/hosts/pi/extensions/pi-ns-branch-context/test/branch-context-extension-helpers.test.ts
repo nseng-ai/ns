@@ -165,7 +165,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
 		expect(prompt).toContain(
-			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
+			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --remove-content-file --format json",
 		);
 		expect(prompt).toContain("Clinkr success envelope");
 		expect(prompt).toContain("completely fresh downstream implementation session");
@@ -185,9 +185,9 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain(
 			"Use the generic write tool to write the exact final Markdown content",
 		);
-		expect(prompt).toContain("Only after successful save evidence");
-		expect(prompt).toContain("rm -- '<exact path>'");
-		expect(prompt).toContain("do not remove the temporary file");
+		expect(prompt).toContain("The CLI removes the temporary file after a successful save");
+		expect(prompt).not.toContain("rm -- '<exact path>'");
+		expect(prompt).toContain("the temporary file is retained");
 		expect(prompt).toContain(
 			"Do not create Branch Context, start implementation, or write Branch Memory",
 		);
@@ -218,15 +218,14 @@ describe("buildWritePlanPrompt", () => {
 			expect(content).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
 			expect(content).toContain("generic write tool to write the exact final Markdown content");
 			expect(content).toContain(
-				"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
+				"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --remove-content-file --format json",
 			);
 			expect(content).toContain(
 				'Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object',
 			);
-			expect(content).toContain("Only after successful save evidence");
-			expect(content).toContain("rm -- '<exact path>'");
-			expect(content).toContain("do not invalidate the successful save");
-			expect(content).toContain("do not remove the temporary file");
+			expect(content).toContain("The CLI removes the temporary file after a successful save");
+			expect(content).not.toContain("rm -- '<exact path>'");
+			expect(content).toContain("the temporary file is retained");
 			expect(content).toContain(
 				"Do not create Branch Context, start implementation, or write Branch Memory",
 			);

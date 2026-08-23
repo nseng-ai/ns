@@ -55,6 +55,20 @@ describe("RealPlanStoreGateway", () => {
 		}
 	});
 
+	test("removes an existing regular file and propagates missing-path errors", async () => {
+		const root = await mkdtemp(join(tmpdir(), "plans-real-remove-"));
+		try {
+			const gateway = createRealPlanStoreGateway();
+			const filePath = join(root, "content.md");
+			await writeFile(filePath, "# Content\n", "utf8");
+			await gateway.removeFile(filePath);
+			await expect(gateway.statPath(filePath)).resolves.toBeUndefined();
+			await expect(gateway.removeFile(filePath)).rejects.toMatchObject({ code: "ENOENT" });
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
 	test("realpath fallback is limited to missing paths", async () => {
 		const root = await mkdtemp(join(tmpdir(), "plans-real-realpath-errors-"));
 		try {

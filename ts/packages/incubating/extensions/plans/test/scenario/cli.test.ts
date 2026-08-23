@@ -68,6 +68,8 @@ const SAVE_HELP = [
 	"  --slug <value>          LM-generated lowercase kebab-case Saved Plan slug.",
 	"  --content-file <value>  Markdown content file path (relative paths resolve",
 	"                          against cwd).",
+	"  --remove-content-file   Remove the content file after a successful save",
+	"                          (transport cleanup).",
 	'  --format <format>       Output format. (choices: "human", "json", "markdown",',
 	'                          "md", default: "human")',
 	"  --json-schema           Print the JSON Schema for this command's input/output",
@@ -109,7 +111,6 @@ interface Fixture {
 
 interface RunWithFakesOptions {
 	cwd?: string;
-	clock?: { nowMs(): number };
 	localTimestamp?: string;
 	planStoreRoot?: string;
 	git?: GitGateway;
@@ -136,7 +137,6 @@ async function runWithFakes(
 			stderr: (text) => stderr.push(text),
 			planStoreGateway: options.planStoreGateway ?? new InMemoryPlanStoreGateway(),
 			...optionalEntry("planStoreRoot", options.planStoreRoot),
-			...optionalEntry("clock", options.clock),
 			...optionalEntry("localTimestamp", options.localTimestamp),
 		}),
 	};
@@ -520,6 +520,123 @@ describe("plans exec save", () => {
 		const data = envelope.data;
 		if (!isRecord(data) || typeof data.filePath !== "string") throw new Error("missing path");
 		expect(fixture.planStoreGateway.readBytes(data.filePath)).toEqual(content);
+		expect(data).not.toHaveProperty("contentFileRemoved");
+		expect(fixture.planStoreGateway.hasFile(inputPath)).toBe(true);
+	});
+
+	test("--remove-content-file unlinks the content file only after a successful save", async () => {
+		const fixture = await makeFixture();
+		const inputPath = join(makeTempDir(), "plan-input.md");
+		fixture.planStoreGateway.writeFile(inputPath, "# Transported Saved Plan\n");
+		const run = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"transport-cleanup-plan-slug",
+				"--content-file",
+				inputPath,
+				"--remove-content-file",
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+				localTimestamp: "26-01-02T03-04-05",
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			status: "ok",
+			data: {
+				slug: "transport-cleanup-plan-slug",
+				fileName: "transport-cleanup-plan-slug--26-01-02T03-04-05--1.md",
+				contentFileRemoved: true,
+			},
+		});
+		expect(run.stderr.join("")).toBe("");
+		expect(fixture.planStoreGateway.hasFile(inputPath)).toBe(false);
+	});
+
+	test("--remove-content-file retains the content file when the save fails", async () => {
+		const fixture = await makeFixture();
+		const inputPath = join(makeTempDir(), "plan-input.md");
+		fixture.planStoreGateway.writeBytes(inputPath, new Uint8Array([0xff]));
+		const run = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"retained-transport-plan-slug",
+				"--content-file",
+				inputPath,
+				"--remove-content-file",
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway: fixture.planStoreGateway,
+				localTimestamp: "26-01-02T03-04-05",
+			},
+		);
+
+		expect(await run.exit).toBe(2);
+		expect(run.stdout.join("")).toBe(
+			jsonFailure("Saved plan content must be valid UTF-8.", "saved-plan-write-failed"),
+		);
+		expect(fixture.planStoreGateway.hasFile(inputPath)).toBe(true);
+	});
+
+	test("--remove-content-file cleanup failure warns on stderr without failing the save", async () => {
+		const fixture = await makeFixture();
+		const inputPath = join(makeTempDir(), "plan-input.md");
+		fixture.planStoreGateway.writeFile(inputPath, "# Vanishing Saved Plan\n");
+		const originalWriteBytesExclusive = fixture.planStoreGateway.writeBytesExclusive.bind(
+			fixture.planStoreGateway,
+		);
+		const planStoreGateway = fixture.planStoreGateway;
+		planStoreGateway.writeBytesExclusive = async (path, content) => {
+			await originalWriteBytesExclusive(path, content);
+			await planStoreGateway.removeFile(inputPath);
+		};
+		const run = await runWithFakes(
+			[
+				"exec",
+				"save",
+				"--slug",
+				"vanishing-transport-plan-slug",
+				"--content-file",
+				inputPath,
+				"--remove-content-file",
+				"--format",
+				"json",
+			],
+			{
+				cwd: fixture.repoRoot,
+				git: fixture.git,
+				planStoreRoot: fixture.planStoreRoot,
+				planStoreGateway,
+				localTimestamp: "26-01-02T03-04-05",
+			},
+		);
+
+		expect(await run.exit).toBe(0);
+		expect(parseJson(run)).toMatchObject({
+			status: "ok",
+			data: {
+				slug: "vanishing-transport-plan-slug",
+				contentFileRemoved: false,
+			},
+		});
+		expect(run.stderr.join("")).toContain("saved plan content file cleanup failed");
+		expect(run.stderr.join("")).toContain(inputPath);
 	});
 
 	test("rejects an invalid caller-provided slug", async () => {
