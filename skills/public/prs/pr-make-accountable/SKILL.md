@@ -19,6 +19,8 @@ A one or two sentence summary of what this change is.
 
 Why is this change needed? What problem does it solve?
 
+<!-- When the final net diff changes externally visible behavior, insert at least one concise, representative example here. Show the user's action and resulting behavior as an invocation/output block, before/after pair, request/response pair, or short workflow. Add more examples only when they clarify materially different user experiences and remain proportional to the change. Omit this instruction and all example content when the change is internal-only. -->
+
 ## Changes
 
 Opening orientation bullets — scaled to the scope of the change — naming the
@@ -92,10 +94,20 @@ Inventory:
 - visible design decisions and tradeoffs;
 - apparent limitations and reviewer-risky or subtle areas;
 - material intent, constraints, and rejected alternatives unknowable from the
-  evidence.
+  evidence;
+- whether the final net diff changes anything from a user's viewpoint, including
+  CLI syntax or output, UI behavior, API request or response behavior,
+  configuration behavior, diagnostics, workflows, or another user-facing
+  contract; and
+- for an externally visible change, evidence for at least one candidate
+  representative example: the user's action, the resulting behavior, and any
+  exact text or values that the implementation supports. For an internal-only
+  change, record that classification without manufacturing a candidate.
 
 Completion criterion: every material area is either understood from evidence or
-listed as an interview gap.
+listed as an interview gap. The inventory is not complete until it includes the
+externally visible or internal-only classification and, for an externally visible
+change, candidate evidence for at least one representative example.
 
 Present a condensed inventory summary: what the PR appears to do, where it
 lives, and notable decisions. Invite correction. Then ask: **“Why is this
@@ -127,6 +139,14 @@ Apply these rules:
 - If an answer conflicts with evidence, cite the file/line and investigate until
   either your reading or the author's model is corrected. Accept
   incomplete-but-correct answers without adding inventory detail.
+- For an externally visible change, resolve material uncertainty about each
+  candidate example's values, behavior, or context. Do not ask for facts that
+  repository or PR evidence already establishes; ask only for missing rationale
+  or confirmation needed for accuracy. Each representative user action and
+  result must enter the shared, evidence-consistent interview record before
+  drafting. If no accurate representative example is yet supportable, keep this
+  drafting prerequisite open and continue the interview or follow the approved
+  PR-change path instead of inventing content.
 - If the interview exposes an undefended decision, unintended behavior, or
   scope that should change, record it and ask whether the author wants to amend
   the PR first. If yes, offer to make the change in the checked-out branch;
@@ -165,12 +185,28 @@ only when the draft or final report states them honestly.
 
 ## 3. Co-author the body
 
-Draft only from the shared interview record. Include intent, accepted risks, and
-judgment calls that the diff cannot communicate. Keep length proportional to the
-decision surface, not line count. End the description with
-`**PR:** [#<number>](<url>)`, replacing the placeholders with the PR number and
-canonical URL from the inventory. Put this link immediately before the horizontal
-rule and provenance footer.
+Draft only from final-net-diff evidence and the shared interview record. Include
+intent, accepted risks, and judgment calls that the diff cannot communicate. Keep
+length proportional to the decision surface, not line count. End the description
+with `**PR:** [#<number>](<url>)`, replacing the placeholders with the PR number
+and canonical URL from the inventory. Put this link immediately before the
+horizontal rule and provenance footer.
+
+When the final net diff changes externally visible behavior, insert at least one
+concise, representative example after the motivation in `## Why` and before
+`## Changes`. Choose the clearest suitable form: an invocation and its output, a
+before/after behavior pair, a request and response, or a short user workflow.
+Show both the user's action and the resulting behavior; an abstract statement
+that behavior changed is not an example. Use only implementation-supported
+commands, output, errors, paths, API fields, behavior, and values confirmed by
+the shared interview record. Never invent sample values, output, or behavior.
+Preserve exact technical text, Markdown, and code-block formatting. The live
+draft for an externally visible PR is not complete until at least one example is
+present. Add more examples only when they clarify materially different user
+experiences and remain proportional to the change; they must not become an
+exhaustive tutorial or replace `## Changes`. Omit examples and every placeholder
+or empty example section only when the final net diff has no externally visible
+effect.
 
 In `## Changes`:
 
@@ -214,8 +250,9 @@ complete draft:
   rationale, constraints, qualifications, causal relationships, tradeoffs,
   limitations, and distinctions between ideas. Concision must not change or
   weaken the intended meaning.
-- Preserve exact technical terms, code, paths, CLI commands, quoted errors,
-  links, and technical spellings.
+- Preserve exact technical terms, code, paths, CLI commands, output, quoted
+  errors, API fields, links, technical spellings, and code-block formatting,
+  including those in the representative example.
 - Keep the existing sections, Markdown structure, bullets, footer, and
   proportionality rules intact.
 - After the pass, compare the edited draft with the source draft. Restore any
@@ -250,10 +287,11 @@ gh pr edit <n> --body-file <tmpfile> --title "[accountable] <honest title>"
 
 Then show the complete body and title as written, and say explicitly that they
 are now live on the PR but not final: the author's name goes on them, so they
-must read every claim and change anything false or unlike their voice. Prompt
-for further edits: the author can request changes in chat (apply them with
-another `gh pr edit`) or edit directly in the GitHub UI; if they are satisfied
-as-is, no further step is needed.
+must read every claim, including each representative example's action and
+resulting output or behavior, and change anything false or unlike their voice.
+Prompt for further edits: the author can request changes in chat (apply them
+with another `gh pr edit`) or edit directly in the GitHub UI; if they are
+satisfied as-is, no further step is needed.
 
 The author's wording wins. If a requested edit restores a claim disproved
 during the interview, push back once with evidence before accepting their
