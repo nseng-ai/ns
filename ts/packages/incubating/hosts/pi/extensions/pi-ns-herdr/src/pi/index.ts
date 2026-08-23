@@ -17,7 +17,4 @@ export {
 	HERDR_TAB_NEW_COMMAND_NAME,
 } from "@nseng-ai/herdr/api";
 export { registerHerdrNewSpaceCommand } from "./new-space.ts";
-export {
-	registerHerdrSidebarCommands,
-	createHerdrSidebarControllerWithPiWiring,
-} from "./sidebar.ts";
+export { registerHerdrSidebarCommand } from "./sidebar.ts";

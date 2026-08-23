@@ -1,19 +1,26 @@
 import {
 	formatHerdrResourceLabel,
 	HERDR_SPACE_NEW_COMMAND_NAME,
-	slotLabelInput,
 	type HerdrGateway,
 } from "@nseng-ai/herdr/api";
+import type { ContentSlugResult } from "@nseng-ai/extension-kit/content-slug";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
+import type { HerdrSlotLabelInputResolver } from "./resource-label.ts";
+
 export interface HerdrResourceLabelDeriver {
-	deriveLabel(input: { description: string; cwd: string; signal?: AbortSignal }): Promise<string>;
+	deriveLabel(input: {
+		description: string;
+		cwd: string;
+		signal?: AbortSignal;
+	}): Promise<ContentSlugResult | string>;
 }
 
 export interface HandleHerdrNewSpaceOptions {
 	herdr: Pick<HerdrGateway, "createWorkspace">;
 	labelDeriver?: HerdrResourceLabelDeriver;
+	resolveSlotLabelInput?: HerdrSlotLabelInputResolver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -32,12 +39,18 @@ export async function handleHerdrNewSpace(options: HandleHerdrNewSpaceOptions): 
 				description,
 				cwd: options.ctx.cwd,
 			});
+			if (typeof semanticLabel !== "string" && !semanticLabel.ok) {
+				options.ctx.ui.notify(formatLabelError(semanticLabel.error.message), "error");
+				return;
+			}
+			const slotLabelInput = await options.resolveSlotLabelInput?.(options.ctx.cwd);
 			label = formatHerdrResourceLabel({
-				semanticLabel,
-				...slotLabelInput(options.ctx.cwd),
+				semanticLabel: typeof semanticLabel === "string" ? semanticLabel : semanticLabel.value.slug,
+				...(slotLabelInput ?? {}),
 			});
 		} catch (error) {
-			options.ctx.ui.notify(formatLabelError(error), "error");
+			const detail = error instanceof Error ? error.message : String(error);
+			options.ctx.ui.notify(formatLabelError(detail), "error");
 			return;
 		}
 	}
@@ -64,7 +77,6 @@ export async function handleHerdrNewSpace(options: HandleHerdrNewSpaceOptions): 
 	}
 }
 
-function formatLabelError(error: unknown): string {
-	const detail = error instanceof Error ? error.message : String(error);
+function formatLabelError(detail: string): string {
 	return `Could not derive a label for the new Herdr space. No space was created.\n${detail}`;
 }

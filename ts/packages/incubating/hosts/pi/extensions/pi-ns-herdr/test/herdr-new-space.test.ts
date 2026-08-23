@@ -35,7 +35,7 @@ describe("Herdr new space", () => {
 
 	test("derives a slot-prefixed semantic label from an optional description", async () => {
 		const ctx = new FakeCommandContext({
-			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-4",
+			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-04",
 		});
 		const herdr = new FakeHerdrGateway();
 		const derivations: Array<{ description: string; cwd: string }> = [];
@@ -49,6 +49,7 @@ describe("Herdr new space", () => {
 					return "review-brmem-contract";
 				},
 			},
+			resolveSlotLabelInput: async () => ({ slotSlug: "slot-04" }),
 			args: "  review the public brmem API  ",
 			ctx,
 			notifyProgress: (message) => progress.push(message),
@@ -57,14 +58,14 @@ describe("Herdr new space", () => {
 		expect(derivations).toEqual([
 			{
 				description: "review the public brmem API",
-				cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-4",
+				cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-04",
 			},
 		]);
 		expect(progress).toEqual(["Deriving a semantic label for the new Herdr space…"]);
 		expect(herdr.createWorkspaceCalls).toEqual([
 			{
 				options: {
-					cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-4",
+					cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-04",
 					shouldFocus: true,
 					label: "s4:review-brmem-contract",
 				},

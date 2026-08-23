@@ -1,38 +1,24 @@
-import { deriveContentSlug, type ContentSlugPolicy } from "@nseng-ai/extension-kit/content-slug";
+import { deriveContentSlug } from "@nseng-ai/extension-kit/content-slug";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import {
+	HERDR_RESOURCE_LABEL_POLICY,
+	slotLabelInputFromWorktreeRoot,
+	type HerdrSlotLabelInput,
+} from "@nseng-ai/herdr/api";
 
 import type { HerdrResourceLabelDeriver } from "../core/new-space.ts";
+import type { HerdrGitGateway } from "./context.ts";
 
-const MAX_RESOURCE_LABEL_WORDS = 6;
-const MAX_RESOURCE_DESCRIPTION_CHARS = 8_000;
-
-const RESOURCE_LABEL_VARIANT: ContentSlugPolicy = {
-	slugKind: "Herdr resource label",
-	promptIntroLines: [
-		"Generate a concise semantic label for a new Herdr space or tab from the user's description below.",
-		"Name the work or subject the resource is for, not the act of creating it.",
-	],
-	promptRuleLines: [
-		"- Use lowercase ASCII kebab-case words separated by single hyphens.",
-		"- Prefer a concise 2–6 word label.",
-		"- Use concrete actions and subjects from the description.",
-		"- Do not include dates, random IDs, paths, or generic prefixes such as new-space or new-tab.",
-	],
-	contentHeading: "## Resource description",
-	emptyContentPlaceholder: "(empty resource description)",
-	maxContentChars: MAX_RESOURCE_DESCRIPTION_CHARS,
-	truncationMessage: "[Resource description truncated for label generation]",
-	invalidSlugMessage: "Pi slug model output normalized to an invalid Herdr resource label.",
-	failureHeader: "Failed to derive a Herdr resource label.",
-	noFallbackLine: "No deterministic or assistant-generated fallback label was attempted.",
-	normalization: {
-		maxWords: MAX_RESOURCE_LABEL_WORDS,
-		stripSuffixes: ["-space", "-workspace", "-tab"],
-	},
-	validateSlug: validateResourceLabel,
-};
+export async function resolveHerdrSlotLabelInput(
+	git: Pick<HerdrGitGateway, "optionalRepoRoot">,
+	cwd: string,
+): Promise<HerdrSlotLabelInput> {
+	const repoRoot = await git.optionalRepoRoot({ cwd });
+	if (repoRoot.type !== "found") return {};
+	return slotLabelInputFromWorktreeRoot(repoRoot.value);
+}
 
 export function createHerdrResourceLabelDeriver(
 	commands: CommandExecApi,
@@ -40,7 +26,7 @@ export function createHerdrResourceLabelDeriver(
 ): HerdrResourceLabelDeriver {
 	return {
 		async deriveLabel(input) {
-			const evidence = await deriveContentSlug(
+			return deriveContentSlug(
 				commands,
 				{
 					content: input.description,
@@ -48,17 +34,8 @@ export function createHerdrResourceLabelDeriver(
 					modelSelection,
 					...optionalEntry("signal", input.signal),
 				},
-				RESOURCE_LABEL_VARIANT,
+				HERDR_RESOURCE_LABEL_POLICY,
 			);
-			if (!evidence.ok) throw new Error(evidence.error.message);
-			return evidence.value.slug;
 		},
 	};
-}
-
-function validateResourceLabel(label: string): string | undefined {
-	if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(label)) {
-		return "resource label must be flat lowercase ASCII kebab-case";
-	}
-	return undefined;
 }

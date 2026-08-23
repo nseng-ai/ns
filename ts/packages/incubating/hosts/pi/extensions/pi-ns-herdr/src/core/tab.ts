@@ -23,10 +23,18 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 		}
 		options.notifyProgress("Deriving a semantic label for the new Herdr tab…");
 		try {
-			label = await options.labelDeriver.deriveLabel({
+			const labelResult = await options.labelDeriver.deriveLabel({
 				description,
 				cwd: options.ctx.cwd,
 			});
+			if (typeof labelResult !== "string" && !labelResult.ok) {
+				options.ctx.ui.notify(
+					`Could not derive a label for the new Herdr tab. No tab was created.\n${labelResult.error.message}`,
+					"error",
+				);
+				return;
+			}
+			label = typeof labelResult === "string" ? labelResult : labelResult.value.slug;
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
 			options.ctx.ui.notify(

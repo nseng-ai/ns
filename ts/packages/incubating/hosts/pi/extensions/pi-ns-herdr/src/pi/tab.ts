@@ -5,11 +5,11 @@ import {
 
 import { HERDR_TAB_GOAL_COMMAND_NAME, HERDR_TAB_NEW_COMMAND_NAME } from "@nseng-ai/herdr/api";
 import type { HerdrResourceLabelDeriver } from "../core/new-space.ts";
-import { handleHerdrNewTab, handleHerdrTabGoal } from "../core/tab.ts";
+import { resolveHerdrSlugModelSelection } from "../core/model-policy.ts";
 import { generateWorkspaceGoalSlug } from "../core/space-goal.ts";
+import { handleHerdrNewTab, handleHerdrTabGoal } from "../core/tab.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrResourceLabelDeriver } from "./resource-label.ts";
-import { resolveHerdrSlugModelSelection } from "../core/model-policy.ts";
 
 export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 	const { commands, herdr } = context;
@@ -29,7 +29,6 @@ export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 					);
 					return;
 				}
-				const workspaceId = callerWorkspace.workspaceId;
 				await ctx.waitForIdle();
 				let labelDeriver: HerdrResourceLabelDeriver | undefined;
 				if (args.trim().length > 0) {
@@ -49,7 +48,7 @@ export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 				}
 				await handleHerdrNewTab({
 					herdr,
-					workspaceId,
+					workspaceId: callerWorkspace.workspaceId,
 					args,
 					ctx,
 					notifyProgress,
@@ -62,10 +61,9 @@ export function registerHerdrNewTabCommand(context: HerdrPiContext): void {
 }
 
 export function registerHerdrTabGoalCommand(context: HerdrPiContext): void {
-	const pi = context.commands;
-	const herdr = context.herdr;
+	const { commands, herdr } = context;
 	registerCommandWithImmediateAck({
-		host: pi,
+		host: commands,
 		commandName: HERDR_TAB_GOAL_COMMAND_NAME,
 		commandDefinition: {
 			description: "Assign a goal-derived label to the exact caller Herdr tab.",
@@ -81,24 +79,23 @@ export function registerHerdrTabGoalCommand(context: HerdrPiContext): void {
 					}
 					return;
 				}
-				const notifyProgress = makeCommandProgressNotifier({ host: pi, ctx });
+				let modelSelection;
+				try {
+					modelSelection = await resolveHerdrSlugModelSelection(
+						context.createProjectConfig({ cwd: ctx.cwd }),
+					);
+				} catch (error) {
+					if (ctx.hasUI !== false)
+						ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+					return;
+				}
+				const notifyProgress = makeCommandProgressNotifier({ host: commands, ctx });
 				await handleHerdrTabGoal({
 					herdr,
 					tabId: callerTab.tabId,
 					labelDeriver: {
-						async deriveSlug({ cwd, goal }) {
-							try {
-								const modelSelection = await resolveHerdrSlugModelSelection(
-									context.createProjectConfig({ cwd }),
-								);
-								return generateWorkspaceGoalSlug(pi, cwd, goal, modelSelection);
-							} catch (error) {
-								return {
-									ok: false,
-									message: error instanceof Error ? error.message : String(error),
-								};
-							}
-						},
+						deriveSlug: ({ cwd, goal }) =>
+							generateWorkspaceGoalSlug(commands, cwd, goal, modelSelection),
 					},
 					args,
 					ctx,

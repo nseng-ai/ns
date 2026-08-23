@@ -35,7 +35,7 @@ describe("Herdr tab resources", () => {
 	test("tab:new creates an unprefixed focused tab in the captured caller workspace", async () => {
 		const herdr = new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w-1") });
 		const ctx = new FakeCommandContext({
-			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
+			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03",
 		});
 		await handleHerdrNewTab({
 			herdr,
@@ -50,7 +50,7 @@ describe("Herdr tab resources", () => {
 			{
 				options: {
 					workspaceId: "w-1",
-					cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
+					cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03",
 					shouldFocus: true,
 					label: "review-api",
 				},
@@ -183,7 +183,7 @@ describe("Herdr tab resources", () => {
 			callerPaneResult: resolvedCallerPane("caller-workspace", "t-9"),
 		});
 		const ctx = new FakeCommandContext({
-			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3",
+			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03",
 		});
 		await handleHerdrTabGoal({
 			herdr,

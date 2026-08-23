@@ -17,10 +17,8 @@ import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 import type { CommandContext } from "@nseng-ai/pi-runtime/runtime/extension-types";
 import { createNodeEffectiveProjectConfig } from "@nseng-ai/sdk/project-config";
 
-import {
-	createHerdrSidebarControllerWithPiWiring,
-	registerHerdrSidebarCommands,
-} from "./sidebar.ts";
+import { createHerdrSidebarController } from "../core/sidebar.ts";
+import { registerHerdrSidebarCommand } from "./sidebar.ts";
 import { registerHerdrImplPromptBootstrap } from "./impl-prompt-bootstrap.ts";
 import {
 	registerHerdrPromptSpaceImplCommand,
@@ -34,6 +32,7 @@ import { registerHerdrSpaceGoalCommand } from "./space-goal.ts";
 import { registerHerdrNewTabCommand, registerHerdrTabGoalCommand } from "./tab.ts";
 import type { HerdrPiContext } from "./context.ts";
 import { createHerdrPiCommandApi } from "./pi-command-api.ts";
+import { resolveHerdrSlotLabelInput } from "./resource-label.ts";
 
 export const herdrParity = definePiSurfaceParity(
 	HERDR_COMMAND_NAMES.map((surface) => ({
@@ -73,6 +72,7 @@ export async function registerHerdrPiExtension(
 	// the trunk branch from the repository's cached origin/HEAD git fact only after the
 	// local-trunk basis is selected (see core/trunk-branch.ts).
 	const herdr = createCliHerdrGateway(commands);
+	const resolveSlotLabelInput = resolveHerdrSlotLabelInput.bind(undefined, git);
 	const context: HerdrPiContext = {
 		commands,
 		git,
@@ -84,9 +84,10 @@ export async function registerHerdrPiExtension(
 				commands,
 				...optionalEntry("signal", signal),
 			}),
+		resolveSlotLabelInput,
 	};
-	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
-	registerHerdrSidebarCommands(herdrPi, sidebarController);
+	const sidebarController = createHerdrSidebarController(commands, herdr, resolveSlotLabelInput);
+	registerHerdrSidebarCommand(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(context);
 	registerHerdrPromptSpaceImplCommand(context);
 	registerHerdrPromptTabImplCommand(context);

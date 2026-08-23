@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, test } from "vitest";
 
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
+import { registerHerdrSidebarCommand } from "../src/pi/sidebar.ts";
 import {
-	createHerdrSidebarControllerWithPiWiring,
-	registerHerdrSidebarCommands,
-} from "../src/pi/sidebar.ts";
-import { createHerdrSidebarController } from "../src/core/sidebar.ts";
+	createHerdrSidebarController,
+	type HerdrSidebarControllerOptions,
+} from "../src/core/sidebar.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
+import { resolveHerdrSlotLabelInput } from "../src/pi/resource-label.ts";
 import {
 	formatObjectiveSidebarLabel,
 	resolveObjectiveSelector,
@@ -31,6 +33,21 @@ function callerHerdrGateway(workspaceId = "w1"): FakeHerdrGateway {
 	return new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane(workspaceId) });
 }
 
+function createTestSidebarController(
+	pi: ReturnType<typeof createHerdrPiCommandApi>,
+	herdr: FakeHerdrGateway,
+	options: HerdrSidebarControllerOptions = {},
+): ReturnType<typeof createHerdrSidebarController> {
+	return createHerdrSidebarController(pi, herdr, async () => ({}), options);
+}
+
+function registerHerdrSidebarCommands(
+	pi: FakePi,
+	controller: ReturnType<typeof createHerdrSidebarController>,
+): void {
+	registerHerdrSidebarCommand(pi, controller);
+}
+
 const NOW = Date.parse("2026-01-15T00:00:00Z");
 
 afterEach(resetHerdrTestEnvironment);
@@ -45,7 +62,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createTestSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -71,19 +88,25 @@ describe("herdr Objective sidebar", () => {
 		);
 	});
 
-	test("ns:herdr:space:objective-summary prefixes labels inside a managed slot", async () => {
+	test("ns:herdr:space:objective-summary prefixes labels from a Git-resolved Slot root", async () => {
 		const slug = "areg-lifecycle-ergonomics";
+		const worktreeRoot = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01";
+		const nestedCwd = `${worktreeRoot}/ts/packages/incubating`;
 		const pi = new FakePi({ script: [objectiveReadStep(slug)] });
+		const git = new InMemoryGitGateway({ optionalRepoRoot: worktreeRoot });
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(createHerdrPiCommandApi(pi), herdr);
+		const controller = createHerdrSidebarController(
+			createHerdrPiCommandApi(pi),
+			herdr,
+			resolveHerdrSlotLabelInput.bind(undefined, git),
+		);
 		registerHerdrSidebarCommands(pi, controller);
-		const ctx = new FakeCommandContext({
-			cwd: "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-01",
-		});
+		const ctx = new FakeCommandContext({ cwd: nestedCwd });
 
 		await pi.commands.get("ns:herdr:space:objective-summary")?.handler(slug, ctx);
 
 		pi.assertDone();
+		expect(git.optionalRepoRootCalls).toEqual([{ cwd: nestedCwd }]);
 		expect(herdr.renameCalls).toEqual([
 			{ workspaceId: "w1", label: "s1:obj:areg-lifecycle-ergonomics" },
 		]);
@@ -97,7 +120,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createTestSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -129,7 +152,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+		const controller = createTestSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
 		registerHerdrSidebarCommands(pi, controller);
@@ -168,7 +191,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+		const controller = createTestSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
 		registerHerdrSidebarCommands(pi, controller);
@@ -200,7 +223,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+		const controller = createTestSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
 		registerHerdrSidebarCommands(pi, controller);
@@ -221,7 +244,7 @@ describe("herdr Objective sidebar", () => {
 		const pi = new FakePi({ script: [objectiveListStep([])] });
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr, {
+		const controller = createTestSidebarController(adaptedPi, herdr, {
 			clock: createManualClock(NOW).clock,
 		});
 		registerHerdrSidebarCommands(pi, controller);
@@ -243,7 +266,7 @@ describe("herdr Objective sidebar", () => {
 		const pi = new FakePi();
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createTestSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -276,7 +299,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway();
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createTestSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext();
 
@@ -300,7 +323,7 @@ describe("herdr Objective sidebar", () => {
 			callerPaneResult: resolvedCallerPane("w1"),
 			renameResult: { type: "failed", message: "workspace not found" },
 		});
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createTestSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -323,7 +346,7 @@ describe("herdr Objective sidebar", () => {
 		});
 		const adaptedPi = createHerdrPiCommandApi(pi);
 		const herdr = callerHerdrGateway("workspace-42");
-		const controller = createHerdrSidebarController(adaptedPi, herdr);
+		const controller = createTestSidebarController(adaptedPi, herdr);
 		registerHerdrSidebarCommands(pi, controller);
 		const ctx = new FakeCommandContext({ cwd: repoRoot });
 
@@ -337,13 +360,6 @@ describe("herdr Objective sidebar", () => {
 		expect(herdr.renameCalls).toEqual([
 			{ workspaceId: "workspace-42", label: "obj:herdr-capability-parity" },
 		]);
-	});
-
-	test("ns:herdr:space:objective-summary uses Pi wiring end-to-end", async () => {
-		const pi = new FakePi();
-		const controller = createHerdrSidebarControllerWithPiWiring(pi);
-		registerHerdrSidebarCommands(pi, controller);
-		expect(pi.commands.has("ns:herdr:space:objective-summary")).toBe(true);
 	});
 });
 

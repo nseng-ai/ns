@@ -63,6 +63,8 @@ async function runGoal(options: {
 					MODEL_SELECTION,
 				),
 		},
+		resolveSlotLabelInput: async () =>
+			cwd.includes("/worktrees/slot-03") ? { slotSlug: "slot-03" } : {},
 		args: goal,
 		ctx,
 		notifyProgress: (message) => progress.push(message),
@@ -81,11 +83,13 @@ describe("herdr space goal", () => {
 		expect(progress).toEqual(["Interpreting goal…", "Renaming Herdr workspace…"]);
 		expect(notificationMessages(ctx)).toContain("Applied Herdr space goal label: refactor-auth");
 		expect(pi.execCalls[0]).toMatchObject({ command: "pi", options: { cwd: ROOT } });
-		expect(pi.execCalls[0]?.args.at(-1)).toContain("Generate a concise workspace name slug");
+		expect(pi.execCalls[0]?.args.at(-1)).toContain(
+			"Generate a concise semantic label for the Herdr space or tab",
+		);
 	});
 
 	test("prefixes the slug inside a managed slot", async () => {
-		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-3";
+		const cwd = "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-03";
 
 		const { pi, herdr } = await runGoal({ cwd, modelOutput: "add-auth" });
 
@@ -148,11 +152,13 @@ describe("herdr space goal", () => {
 		});
 	});
 
-	test("falls back to the sanitized goal when model output is unusable", async () => {
-		const { pi, herdr } = await runGoal({ modelOutput: "!!!" });
+	test("unusable model output fails closed without normalizing the original goal", async () => {
+		const { pi, herdr, ctx } = await runGoal({ modelOutput: "!!!" });
 
 		pi.assertDone();
-		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "ship-the-auth-refactor" }]);
+		expect(herdr.renameCalls).toEqual([]);
+		expect(ctx.notifications.at(-1)?.level).toBe("error");
+		expect(ctx.notifications.at(-1)?.message).toContain("No deterministic");
 	});
 
 	test("model command failure reports an error without renaming", async () => {
@@ -171,8 +177,9 @@ describe("herdr space goal", () => {
 		expect(herdr.renameCalls).toEqual([]);
 		expect(ctx.notifications.at(-1)?.level).toBe("error");
 		expect(ctx.notifications.at(-1)?.message).toContain(
-			"could not be normalized into a workspace goal slug",
+			"could not be normalized into a Herdr resource label",
 		);
+		expect(ctx.notifications.at(-1)?.message).toContain("No deterministic");
 	});
 
 	test("rename failure is reported", async () => {
