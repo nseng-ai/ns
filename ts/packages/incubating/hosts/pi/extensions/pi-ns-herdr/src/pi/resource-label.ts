@@ -1,6 +1,5 @@
 import { deriveContentSlug, type ContentSlugPolicy } from "@nseng-ai/extension-kit/content-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { HerdrResourceLabelDeriver } from "../core/new-space.ts";
 import type { HerdrPiContext } from "./context.ts";
@@ -35,7 +34,7 @@ const RESOURCE_LABEL_VARIANT: ContentSlugPolicy = {
 };
 
 export function createHerdrResourceLabelDeriver(
-	context: Pick<HerdrPiContext, "commands" | "git">,
+	context: Pick<HerdrPiContext, "commands" | "git" | "projectConfig">,
 ): HerdrResourceLabelDeriver {
 	return {
 		async deriveLabel(input) {
@@ -43,7 +42,7 @@ export function createHerdrResourceLabelDeriver(
 				{
 					commands: context.commands,
 					git: context.git,
-					projectConfig: createNodeProjectConfigGateway(),
+					projectConfig: context.projectConfig,
 				},
 				{
 					content: input.description,

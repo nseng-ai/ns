@@ -5,7 +5,7 @@ import type {
 	ContentSlugEvidence,
 	ContentSlugFailure,
 } from "@nseng-ai/extension-kit/content-slug";
-import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { Result } from "@nseng-ai/foundation/result";
 import { derivePlanSlugFromContent } from "@nseng-ai/plans/api";
 
@@ -50,7 +50,7 @@ export async function derivePlanContentSlug(
 		{
 			content: content.value,
 			cwd: input.cwd,
-			...(input.signal === undefined ? {} : { signal: input.signal }),
+			...optionalEntry("signal", input.signal),
 		},
 		BRANCH_CONTEXT_PLAN_PRESENTATION,
 	);
