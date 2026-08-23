@@ -4,7 +4,20 @@ import { join } from "node:path";
 import { inspectClinkrCommandStructure } from "@nseng-ai/clinkr";
 import { describe, expect, test } from "vitest";
 
-const commandDirectory = join(import.meta.dirname, "../../src/commands");
+const commandDirectory = join(import.meta.dirname, "../../src/cli");
+const expectedCliRootEntries = [
+	"app.ts",
+	"check",
+	"copy",
+	"delete",
+	"exec",
+	"export",
+	"gc",
+	"get",
+	"list",
+	"put",
+	"setup-git",
+];
 const expectedCommandPaths = [
 	"check",
 	"copy",
@@ -31,6 +44,15 @@ async function findMetadataFiles(directory: string): Promise<readonly string[]> 
 }
 
 describe("brmem filesystem command structure", () => {
+	test("keeps only the entrypoint and Clinkr routes under src/cli", async () => {
+		const entries = await readdir(commandDirectory, { withFileTypes: true });
+		expect(entries.map((entry) => entry.name).toSorted()).toEqual(expectedCliRootEntries);
+		expect(entries.find((entry) => entry.name === "app.ts")?.isFile()).toBe(true);
+		expect(
+			entries.filter((entry) => entry.name !== "app.ts").every((entry) => entry.isDirectory()),
+		).toBe(true);
+	});
+
 	test("exposes the exact command inventory and hidden exec group", async () => {
 		const routes = await inspectClinkrCommandStructure(commandDirectory);
 

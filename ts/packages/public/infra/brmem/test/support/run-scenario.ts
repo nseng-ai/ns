@@ -5,7 +5,7 @@ import type { ConfirmationResult } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
-import { runCli, type CliDeps } from "../../src/cli.ts";
+import { runCli, type CliDeps } from "../../src/cli/app.ts";
 import { type BrmemCliContext } from "../../src/context.ts";
 import { brmemError, brmemOk, type BrmemResult } from "../../src/contracts.ts";
 import { FakeBrmemGateway, type FakeBrmemGatewayOptions } from "../../src/fake-gateway.ts";

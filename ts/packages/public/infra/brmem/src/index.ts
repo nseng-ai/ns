@@ -1,4 +1,4 @@
-export { runCli, buildCli, VERSION, type CliDeps } from "./cli.ts";
+export { runCli, buildCli, VERSION, type CliDeps } from "./cli/app.ts";
 export {
 	BASE_NAMESPACE,
 	encodeBranchName,

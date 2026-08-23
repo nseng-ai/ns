@@ -28,12 +28,17 @@ describe("buildJsonSchemaDocument", () => {
 		expect(document.machineEnvelopeJsonSchema).toMatchObject({ anyOf: expect.any(Array) });
 	});
 
-	test("omitted schemas produce bodyless status branches", () => {
+	test("omitted usage schema publishes bodyless and framework-owned usage errors", () => {
 		const document = buildJsonSchemaDocument(z.object({}), undefined);
 		expect(document.outputJsonSchema).toEqual({});
-		const machine = document.machineEnvelopeJsonSchema as { anyOf: Array<Record<string, unknown>> };
-		expect(machine.anyOf).toHaveLength(4);
-		expect(machine.anyOf.every((branch) => !JSON.stringify(branch).includes('"data"'))).toBe(true);
+		const machineText = JSON.stringify(document.machineEnvelopeJsonSchema);
+		expect(machineText).toContain('"commanderCode"');
+		expect(machineText).toContain('"issues"');
+		expect(machineText).toContain('"path"');
+		expect(machineText).toContain('"message"');
+		expect(machineText).toContain('"code"');
+		expect(machineText).toContain('"surface"');
+		expect(machineText).toContain('"required":["status","exitCode","errorType","message"]');
 	});
 
 	test("publishes independent data schemas for all four statuses", () => {
@@ -43,9 +48,13 @@ describe("buildJsonSchemaDocument", () => {
 			failureSchema: z.object({ service: z.string() }),
 			usageErrorSchema: z.object({ flag: z.string() }),
 		});
-		const machine = document.machineEnvelopeJsonSchema as { anyOf: Array<Record<string, unknown>> };
-		expect(machine.anyOf).toHaveLength(4);
-		expect(machine.anyOf.every((branch) => JSON.stringify(branch).includes('"data"'))).toBe(true);
+		const machineText = JSON.stringify(document.machineEnvelopeJsonSchema);
+		expect(machineText).toContain('"result"');
+		expect(machineText).toContain('"searched"');
+		expect(machineText).toContain('"service"');
+		expect(machineText).toContain('"flag"');
+		expect(machineText).toContain('"commanderCode"');
+		expect(machineText).toContain('"issues"');
 	});
 });
 

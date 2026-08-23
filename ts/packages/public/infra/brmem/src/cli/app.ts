@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 
-import { join } from "node:path";
-
 import { addClinkrCommandStructure } from "@nseng-ai/clinkr";
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 
-import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
-import type { BrmemSourceReader } from "./source-reader.ts";
+import { createRealBrmemContext, type BrmemCliContext } from "../context.ts";
+import type { BrmemSourceReader } from "../source-reader.ts";
 
 const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
@@ -26,7 +24,7 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 		return { type: "run", context: runContext, buildState: undefined };
 	},
 	buildCli: async ({ appBuilder }) => {
-		await addClinkrCommandStructure(appBuilder, join(import.meta.dirname, "commands"));
+		await addClinkrCommandStructure(appBuilder, import.meta.dirname);
 	},
 });
 

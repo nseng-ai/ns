@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+	commanderUsageErrorDataSchema,
+	requestValidationUsageErrorDataSchema,
+} from "./usage-error-data.ts";
+
 export interface ClinkrOkRenderOverrides {
 	readonly human?: string;
 	readonly markdown?: string;
@@ -83,6 +88,7 @@ export interface ClinkrOutcomeSchemas {
 	readonly resultSchema?: z.ZodType;
 	readonly negativeSchema?: z.ZodType;
 	readonly failureSchema?: z.ZodType;
+	/** Command-handler usage-error data, composed with Clinkr's framework-owned variants. */
 	readonly usageErrorSchema?: z.ZodType;
 }
 
@@ -156,16 +162,33 @@ export function buildMachineEnvelopeSchema(schemas: ClinkrOutcomeSchemas | z.Zod
 			{ status: "failure", exitCode: 2, errorType: z.string(), message: z.string() },
 			outcomeSchemas.failureSchema,
 		),
-		envelopeBranch(
-			{
-				status: "usageError",
-				exitCode: 2,
-				errorType: z.literal("usageError"),
-				message: z.string(),
-			},
-			outcomeSchemas.usageErrorSchema,
-		),
+		...(outcomeSchemas.usageErrorSchema === undefined
+			? bodylessHandlerUsageErrorEnvelopeBranches()
+			: dataBearingHandlerUsageErrorEnvelopeBranches(outcomeSchemas.usageErrorSchema)),
 	]);
+}
+
+const usageErrorEnvelopeFields = {
+	status: "usageError",
+	exitCode: 2,
+	errorType: z.literal("usageError"),
+	message: z.string(),
+} as const;
+
+function bodylessHandlerUsageErrorEnvelopeBranches(): z.ZodObject[] {
+	return usageErrorEnvelopeBranches(envelopeBranch(usageErrorEnvelopeFields, undefined));
+}
+
+function dataBearingHandlerUsageErrorEnvelopeBranches(commandDataSchema: z.ZodType): z.ZodObject[] {
+	return usageErrorEnvelopeBranches(envelopeBranch(usageErrorEnvelopeFields, commandDataSchema));
+}
+
+function usageErrorEnvelopeBranches(handlerBranch: z.ZodObject): z.ZodObject[] {
+	return [
+		handlerBranch,
+		envelopeBranch(usageErrorEnvelopeFields, commanderUsageErrorDataSchema),
+		envelopeBranch(usageErrorEnvelopeFields, requestValidationUsageErrorDataSchema),
+	];
 }
 
 function envelopeBranch(

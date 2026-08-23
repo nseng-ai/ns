@@ -27,14 +27,14 @@ just install-tools
 
 The recipe renders the shared TypeScript source CLI shim template to `$HOME/.local/bin/brmem`.
 
-- Inside an ns checkout, the shim runs that checkout's `ts/packages/public/infra/brmem/src/cli.ts`.
+- Inside an ns checkout, the shim runs that checkout's `ts/packages/public/infra/brmem/src/cli/app.ts`.
 - Outside an ns checkout, it runs the checkout path baked in when the shim was installed.
 - Requirements: Node 24+ matching workspace CI, plus `ts/node_modules` from `just ts-install` or `pnpm --dir ts install`.
 
 ## Local usage
 
 ```text
-node ts/packages/public/infra/brmem/src/cli.ts --help
+node ts/packages/public/infra/brmem/src/cli/app.ts --help
 brmem --runtime
 brmem list --format json
 ```
@@ -43,7 +43,7 @@ Expected runtime diagnostics include:
 
 ```text
 runtime: typescript
-entry_point: @nseng-ai/brmem bin brmem -> ts/packages/public/infra/brmem/src/cli.ts
+entry_point: @nseng-ai/brmem bin brmem -> ts/packages/public/infra/brmem/src/cli/app.ts
 ```
 
 ## Check Entry presence
