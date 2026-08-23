@@ -73,10 +73,10 @@ Emit the plan in the shape below, ending every emitted plan with the required co
    ```markdown
    1. **<concise human-readable PR title>**
       **Content:** <what this PR changes.>
-      **Decision PR:** <the single reviewer question or decision boundary and why it is independent of adjacent work.>
+      **<<PR Class>>:** <class-specific boundary rationale.>
    ```
 
-   Replace the final label with **Mechanical PR:** for ordinary mechanical batches; its rationale must name the review, conflict-resolution, or reversion benefit and the adjacent decision it supports. Use **Mechanical deletion PR:** for pure deletion batches; explain why isolated dead-code removal improves comparison or review and remains independently revertible. Keep class and rationale together on this one labeled line—do not emit separate `Class:` and `Rationale:` fields. The summary supplements rather than replaces the detailed ordered batches, coverage map, rebuild strategy, or executor handoff.
+   Replace `<<PR Class>>` with exactly **Decision PR**, **Mechanical PR**, or **Mechanical deletion PR**. For a decision batch, state the single reviewer question or decision boundary and why it is independent of adjacent work. For an ordinary mechanical batch, name the review, conflict-resolution, or reversion benefit and the adjacent decision it supports. For a pure deletion batch, explain why isolated dead-code removal improves comparison or review and remains independently revertible. Keep class and rationale together on this one labeled line—do not emit separate `Class:` and `Rationale:` fields. The summary supplements rather than replaces the detailed ordered batches, coverage map, rebuild strategy, or executor handoff.
 
 ## Decision-PR description rubric
 
