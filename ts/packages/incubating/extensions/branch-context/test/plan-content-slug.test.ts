@@ -131,6 +131,40 @@ function expectEvidence(result: Awaited<ReturnType<typeof derivePlanContentSlug>
 }
 
 describe("derivePlanContentSlug", () => {
+	test("returns a typed failure when the default plan reader cannot read the file", async () => {
+		const filePath = join(tmpdir(), "definitely-missing-branch-context-plan.md");
+		const pi = new FakeSlugPi({ result: { stdout: "unexpected-model-call\n" } });
+
+		const result = await derivePlanContentSlug(slugContext(pi), { filePath, cwd: CWD });
+
+		expect(result).toMatchObject({
+			ok: false,
+			error: {
+				code: "plan-content-read-failed",
+				message: expect.stringContaining(filePath),
+			},
+		});
+		if (result.ok) throw new Error("expected plan content read to fail");
+		expect(result.error.message).toContain("ENOENT");
+		expect(pi.calls).toEqual([]);
+	});
+
+	test("does not relabel an injected reader rejection as a filesystem failure", async () => {
+		const pi = new FakeSlugPi({ result: { stdout: "unexpected-model-call\n" } });
+		const collaboratorError = new Error("injected reader invariant failed");
+
+		await expect(
+			derivePlanContentSlug(slugContext(pi), {
+				filePath: "/injected/reader/path.md",
+				cwd: CWD,
+				readTextFile: async () => {
+					throw collaboratorError;
+				},
+			}),
+		).rejects.toBe(collaboratorError);
+		expect(pi.calls).toEqual([]);
+	});
+
 	test("successful model output becomes a valid slug", async () => {
 		const filePath = await makePlanFile();
 		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site-plan\n" } });

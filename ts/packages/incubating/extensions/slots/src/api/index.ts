@@ -4,6 +4,10 @@ import { checkoutBranch, checkoutCurrent } from "../lifecycle/checkout.ts";
 import { prepareNavigation, type CheckoutSideEffects } from "../core/navigation-result.ts";
 
 export { parseManagedSlotWorktreeRoot } from "../core/worktree-path.ts";
+export type {
+	ManagedSlotWorktreeRootParseFailure,
+	ManagedSlotWorktreeRootParseResult,
+} from "../core/worktree-path.ts";
 
 export interface SlotCheckoutTarget {
 	slotName: string;

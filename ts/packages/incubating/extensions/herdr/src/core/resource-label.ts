@@ -59,5 +59,5 @@ export function formatHerdrResourceLabel(input: HerdrResourceLabelInput): string
 
 export function slotLabelInputFromWorktreeRoot(worktreeRoot: string): HerdrSlotLabelInput {
 	const slotSlug = parseManagedSlotWorktreeRoot(worktreeRoot);
-	return slotSlug === undefined ? {} : { slotSlug };
+	return slotSlug.ok ? { slotSlug: slotSlug.value } : {};
 }

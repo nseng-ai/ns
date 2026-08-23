@@ -2,18 +2,30 @@ import { describe, expect, test } from "vitest";
 
 import { parseManagedSlotWorktreeRoot } from "@nseng-ai/slots/api";
 
+function expectNotManagedSlotWorktreeRoot(path: string): void {
+	expect(parseManagedSlotWorktreeRoot(path)).toEqual({
+		ok: false,
+		error: {
+			code: "not-managed-slot-worktree-root",
+			message: `Path is not an exact managed Slot worktree root: ${path}`,
+		},
+	});
+}
+
 describe("managed Slot worktree roots", () => {
-	test("returns the canonical Slot name for a managed worktree root", () => {
-		expect(
-			parseManagedSlotWorktreeRoot(
-				"/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-04",
-			),
-		).toBe("slot-04");
+	test.each([
+		["POSIX", "/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-04"],
+		["Windows", "C:\\Users\\example\\AppData\\Local\\ns\\slots\\repos\\ns\\worktrees\\slot-04"],
+	])("returns the canonical Slot name for a %s managed worktree root", (_platform, path) => {
+		expect(parseManagedSlotWorktreeRoot(path)).toEqual({ ok: true, value: "slot-04" });
+	});
+
+	test("accepts the complete canonical Slot name range", () => {
 		expect(
 			parseManagedSlotWorktreeRoot(
 				"/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-99",
 			),
-		).toBe("slot-99");
+		).toEqual({ ok: true, value: "slot-99" });
 	});
 
 	test("normalizes paths lexically before recognition", () => {
@@ -21,35 +33,40 @@ describe("managed Slot worktree roots", () => {
 			parseManagedSlotWorktreeRoot(
 				"/Users/example/.local/state/ns/slots/repos/ns/ignored/../worktrees/slot-04/.",
 			),
-		).toBe("slot-04");
+		).toEqual({ ok: true, value: "slot-04" });
 	});
 
-	test("rejects a nested path when a worktree root is required", () => {
-		expect(
-			parseManagedSlotWorktreeRoot(
-				"/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-04/ts/packages",
-			),
-		).toBeUndefined();
+	test("returns a domain failure for a nested path when a worktree root is required", () => {
+		for (const path of [
+			"/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-04/ts/packages",
+			"C:\\Users\\example\\AppData\\Local\\ns\\slots\\repos\\ns\\worktrees\\slot-04\\ts\\packages",
+		]) {
+			expectNotManagedSlotWorktreeRoot(path);
+		}
 	});
 
-	test("rejects malformed managed-layout owner segments", () => {
+	test("returns a domain failure for malformed managed-layout owner segments", () => {
 		for (const path of [
 			"/Users/example/.local/state/ns/other/repos/ns/worktrees/slot-04",
 			"/Users/example/.local/state/ns/slots/other/ns/worktrees/slot-04",
 			"/Users/example/.local/state/ns/slots/repos/ns/other/slot-04",
+			"C:\\Users\\example\\AppData\\Local\\ns\\other\\repos\\ns\\worktrees\\slot-04",
+			"C:\\Users\\example\\AppData\\Local\\ns\\slots\\other\\ns\\worktrees\\slot-04",
 		]) {
-			expect(parseManagedSlotWorktreeRoot(path)).toBeUndefined();
+			expectNotManagedSlotWorktreeRoot(path);
 		}
 	});
 
-	test("rejects malformed Slot basenames and ordinary checkouts", () => {
+	test("returns a domain failure for malformed Slot basenames and ordinary checkouts", () => {
 		for (const path of [
 			"/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-4",
 			"/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-100",
+			"/Users/example/.local/state/ns/slots/repos/ns/worktrees/slot-aa",
+			"C:\\Users\\example\\AppData\\Local\\ns\\slots\\repos\\ns\\worktrees\\slot-4",
 			"/Users/example/.local/state/ns/slots/repos/ns/worktrees/feature-04",
 			"/repo",
 		]) {
-			expect(parseManagedSlotWorktreeRoot(path)).toBeUndefined();
+			expectNotManagedSlotWorktreeRoot(path);
 		}
 	});
 });

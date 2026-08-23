@@ -162,6 +162,38 @@ describe("land context adapter facts", () => {
 		pi.assertDone();
 	});
 
+	test.each([
+		[
+			"POSIX",
+			"/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-04",
+			{ type: "managed-slot", slotName: "slot-04" },
+		],
+		[
+			"Windows",
+			"C:\\Users\\me\\AppData\\Local\\ns\\slots\\repos\\repo\\worktrees\\slot-04",
+			{ type: "managed-slot", slotName: "slot-04" },
+		],
+		[
+			"malformed Slot name",
+			"/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-4",
+			{ type: "manual-worktree" },
+		],
+		[
+			"nested Slot path",
+			"/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-04/ts/packages",
+			{ type: "manual-worktree" },
+		],
+	] as const)("classifies %s paths through the Slots API", async (_case, path, classification) => {
+		const pi = new FakeLandExecutionApi([]);
+		const context = createTestLandContext(pi);
+
+		await expect(context.worktrees.classifyWorktree({ repoRoot: ROOT, path })).resolves.toEqual({
+			type: "success",
+			value: classification,
+		});
+		pi.assertDone();
+	});
+
 	test("lists local branches with real tip SHAs", async () => {
 		const pi = new FakeLandExecutionApi([
 			step("git", FOR_EACH_REF_ARGS, {

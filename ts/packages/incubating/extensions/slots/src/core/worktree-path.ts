@@ -1,26 +1,51 @@
-import { basename, dirname, resolve } from "node:path";
+import { posix } from "node:path";
+
+import type { Result } from "@nseng-ai/foundation/result";
 
 import { extractSlotNumber, generateSlotName } from "./naming.ts";
 
+export interface ManagedSlotWorktreeRootParseFailure {
+	readonly code: "not-managed-slot-worktree-root";
+	readonly message: string;
+}
+
+export type ManagedSlotWorktreeRootParseResult = Result<
+	string,
+	ManagedSlotWorktreeRootParseFailure
+>;
+
 /**
- * Returns the canonical Slot name for a managed Slot worktree root.
+ * Returns the canonical Slot name for an exact managed Slot worktree root.
  *
  * Recognition is lexical only: this function normalizes the candidate path but
  * performs no filesystem access or symlink resolution.
  */
-export function parseManagedSlotWorktreeRoot(worktreeRoot: string): string | undefined {
-	const normalizedWorktreeRoot = resolve(worktreeRoot);
-	const worktreesDir = dirname(normalizedWorktreeRoot);
-	const repoDir = dirname(worktreesDir);
-	const reposDir = dirname(repoDir);
-	const slotsDir = dirname(reposDir);
+export function parseManagedSlotWorktreeRoot(
+	worktreeRoot: string,
+): ManagedSlotWorktreeRootParseResult {
+	const normalizedWorktreeRoot = posix.resolve(worktreeRoot.replaceAll("\\", "/"));
+	const slotName = posix.basename(normalizedWorktreeRoot);
+	const worktreesDir = posix.dirname(normalizedWorktreeRoot);
+	const repoDir = posix.dirname(worktreesDir);
+	const reposDir = posix.dirname(repoDir);
+	const slotsDir = posix.dirname(reposDir);
 
-	if (basename(worktreesDir) !== "worktrees") return undefined;
-	if (basename(repoDir).length === 0) return undefined;
-	if (basename(reposDir) !== "repos") return undefined;
-	if (basename(slotsDir) !== "slots") return undefined;
+	if (posix.basename(worktreesDir) !== "worktrees") return notManagedSlotWorktreeRoot(worktreeRoot);
+	if (posix.basename(repoDir).length === 0) return notManagedSlotWorktreeRoot(worktreeRoot);
+	if (posix.basename(reposDir) !== "repos") return notManagedSlotWorktreeRoot(worktreeRoot);
+	if (posix.basename(slotsDir) !== "slots") return notManagedSlotWorktreeRoot(worktreeRoot);
 
-	const slotNumber = extractSlotNumber(basename(normalizedWorktreeRoot));
-	if (slotNumber === null) return undefined;
-	return generateSlotName(Number(slotNumber));
+	const slotNumber = extractSlotNumber(slotName);
+	if (slotNumber === null) return notManagedSlotWorktreeRoot(worktreeRoot);
+	return { ok: true, value: generateSlotName(Number(slotNumber)) };
+}
+
+function notManagedSlotWorktreeRoot(worktreeRoot: string): ManagedSlotWorktreeRootParseResult {
+	return {
+		ok: false,
+		error: {
+			code: "not-managed-slot-worktree-root",
+			message: `Path is not an exact managed Slot worktree root: ${worktreeRoot}`,
+		},
+	};
 }

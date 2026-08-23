@@ -162,6 +162,31 @@ describe("plan branch-context preparation public API", () => {
 		expect(brmem.attachPlanCalls).toEqual([]);
 	});
 
+	test("plan read failure returns before model, branch, or attachment mutation", async () => {
+		const { plan, checkout: checkoutEvidence } = await fixture();
+		await rm(plan.filePath);
+		const git = new InMemoryGitGateway();
+		const brmem = new InMemoryBranchMemoryGateway();
+		const graphite = new InMemoryGraphiteBranchGateway();
+		const commands = new SlugCommands();
+
+		const prepared = await preparePlanBranchContext(commands, {
+			plan,
+			checkout: checkoutEvidence,
+			context: context({ git, brmem, graphite }),
+			creation: { type: "graphite-current-parent-current-head" },
+		});
+
+		expect(prepared).toMatchObject({
+			type: "failed",
+			message: expect.stringContaining(plan.filePath),
+		});
+		expect(commands.calls).toEqual([]);
+		expect(git.createBranchAtHeadCalls).toEqual([]);
+		expect(graphite.trackBranchCalls).toEqual([]);
+		expect(brmem.attachPlanCalls).toEqual([]);
+	});
+
 	test("slug failure returns before branch or attachment mutation", async () => {
 		const { plan, checkout: checkoutEvidence } = await fixture();
 		const git = new InMemoryGitGateway();

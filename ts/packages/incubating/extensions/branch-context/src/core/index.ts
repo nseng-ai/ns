@@ -60,6 +60,7 @@ export {
 } from "./plan-preparation.ts";
 export {
 	derivePlanContentSlug,
+	type PlanContentReadFailure,
 	type PlanContentSlugEvidence,
 	type PlanContentSlugResult,
 } from "./plan-content-slug.ts";

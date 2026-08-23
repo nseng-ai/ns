@@ -3,12 +3,23 @@ import { readFile } from "node:fs/promises";
 import type {
 	ContentSlugContext,
 	ContentSlugEvidence,
-	ContentSlugResult,
+	ContentSlugFailure,
 } from "@nseng-ai/extension-kit/content-slug";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import type { Result } from "@nseng-ai/foundation/result";
 import { derivePlanSlugFromContent } from "@nseng-ai/plans/api";
 
 export type PlanContentSlugEvidence = ContentSlugEvidence;
-export type PlanContentSlugResult = ContentSlugResult;
+
+export interface PlanContentReadFailure {
+	readonly code: "plan-content-read-failed";
+	readonly message: string;
+}
+
+export type PlanContentSlugResult = Result<
+	PlanContentSlugEvidence,
+	ContentSlugFailure | PlanContentReadFailure
+>;
 
 export interface DerivePlanContentSlugInput {
 	filePath: string;
@@ -32,15 +43,36 @@ export async function derivePlanContentSlug(
 	context: ContentSlugContext,
 	input: DerivePlanContentSlugInput,
 ): Promise<PlanContentSlugResult> {
-	const readTextFile = input.readTextFile ?? defaultReadTextFile;
-	const content = await readTextFile(input.filePath);
+	const content = await readPlanContent(input);
+	if (!content.ok) return content;
 	return derivePlanSlugFromContent(
 		context,
-		{ content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) },
+		{
+			content: content.value,
+			cwd: input.cwd,
+			...(input.signal === undefined ? {} : { signal: input.signal }),
+		},
 		BRANCH_CONTEXT_PLAN_PRESENTATION,
 	);
 }
 
-function defaultReadTextFile(path: string): Promise<string> {
-	return readFile(path, "utf8");
+function readPlanContent(
+	input: Pick<DerivePlanContentSlugInput, "filePath" | "readTextFile">,
+): Promise<Result<string, PlanContentReadFailure>> {
+	if (input.readTextFile === undefined) return defaultReadTextFile(input.filePath);
+	return input.readTextFile(input.filePath).then((value) => ({ ok: true, value }));
+}
+
+async function defaultReadTextFile(path: string): Promise<Result<string, PlanContentReadFailure>> {
+	try {
+		return { ok: true, value: await readFile(path, "utf8") };
+	} catch (error) {
+		return {
+			ok: false,
+			error: {
+				code: "plan-content-read-failed",
+				message: `Could not read plan content from ${path}: ${formatErrorMessage(error)}`,
+			},
+		};
+	}
 }
