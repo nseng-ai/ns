@@ -60,7 +60,7 @@ Recommend **fresh stack from trunk with the donor retained** whenever any interm
 
 ### 6. Emit and iterate
 
-Emit the plan in the shape below and invite iteration. Revise until the user accepts the plan or ends the session; acceptance still leaves execution to the caller.
+Emit the plan in the shape below, ending every emitted plan with the required concise summary, and invite iteration. Revise until the user accepts the plan or ends the session; acceptance still leaves execution to the caller. The summary is an output contract, not authorization to mutate branches or execute the plan.
 
 ## Plan shape
 
@@ -68,6 +68,15 @@ Emit the plan in the shape below and invite iteration. Revise until the user acc
 2. **Coverage map**: donor file → batch.
 3. **Rebuild-strategy recommendation** with its rationale for this donor.
 4. **Executor handoff**: per-branch expectation that each intermediate branch passes the repository's validation and stays honest; the donor **diff-to-zero** verification (step 5); and a description skeleton per decision batch from the rubric below.
+5. **Summary**: the final section of the emitted plan. Include every proposed batch exactly once and in stack order. Each numbered entry must use this compact shape:
+
+   ```markdown
+   1. **<concise human-readable PR title>**
+      **Content:** <what this PR changes.>
+      **<<PR Class>>:** <class-specific boundary rationale.>
+   ```
+
+   Replace `<<PR Class>>` with exactly **Decision PR**, **Mechanical PR**, or **Mechanical deletion PR**. For a decision batch, state the single reviewer question or decision boundary and why it is independent of adjacent work. For an ordinary mechanical batch, name the review, conflict-resolution, or reversion benefit and the adjacent decision it supports. For a pure deletion batch, explain why isolated dead-code removal improves comparison or review and remains independently revertible. Keep class and rationale together on this one labeled line—do not emit separate `Class:` and `Rationale:` fields. The summary supplements rather than replaces the detailed ordered batches, coverage map, rebuild strategy, or executor handoff.
 
 ## Decision-PR description rubric
 
