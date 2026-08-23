@@ -165,7 +165,7 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain("add a tiny docs note plan for testing");
 		expect(prompt).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
 		expect(prompt).toContain(
-			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --remove-content-file --format json",
+			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
 		);
 		expect(prompt).toContain("Clinkr success envelope");
 		expect(prompt).toContain("completely fresh downstream implementation session");
@@ -185,9 +185,12 @@ describe("buildWritePlanPrompt", () => {
 		expect(prompt).toContain(
 			"Use the generic write tool to write the exact final Markdown content",
 		);
-		expect(prompt).toContain("The CLI removes the temporary file after a successful save");
-		expect(prompt).not.toContain("rm -- '<exact path>'");
-		expect(prompt).toContain("the temporary file is retained");
+		const saveEvidenceIndex = prompt.indexOf("Only after successful save evidence");
+		const cleanupIndex = prompt.indexOf("rm -- '<exact path>'");
+		const failureRetentionIndex = prompt.indexOf("do not remove the temporary file");
+		expect(saveEvidenceIndex).toBeGreaterThan(-1);
+		expect(cleanupIndex).toBeGreaterThan(saveEvidenceIndex);
+		expect(failureRetentionIndex).toBeGreaterThan(cleanupIndex);
 		expect(prompt).toContain(
 			"Do not create Branch Context, start implementation, or write Branch Memory",
 		);
@@ -218,14 +221,17 @@ describe("buildWritePlanPrompt", () => {
 			expect(content).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
 			expect(content).toContain("generic write tool to write the exact final Markdown content");
 			expect(content).toContain(
-				"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --remove-content-file --format json",
+				"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
 			);
 			expect(content).toContain(
 				'Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object',
 			);
-			expect(content).toContain("The CLI removes the temporary file after a successful save");
-			expect(content).not.toContain("rm -- '<exact path>'");
-			expect(content).toContain("the temporary file is retained");
+			const saveEvidenceIndex = content.indexOf("Only after successful save evidence");
+			const cleanupIndex = content.indexOf("rm -- '<exact path>'");
+			const failureRetentionIndex = content.indexOf("do not remove the temporary file");
+			expect(saveEvidenceIndex).toBeGreaterThan(-1);
+			expect(cleanupIndex).toBeGreaterThan(saveEvidenceIndex);
+			expect(failureRetentionIndex).toBeGreaterThan(cleanupIndex);
 			expect(content).toContain(
 				"Do not create Branch Context, start implementation, or write Branch Memory",
 			);
@@ -294,7 +300,15 @@ describe("buildWriteGrilledPlanPrompt", () => {
 
 		expect(prompt).toContain("/ns:plan:grill-and-save");
 		expect(prompt).toContain("plan the grilled command variant");
-		expect(prompt).toContain("enriched-plan exec save --slug");
+		expect(prompt).toContain(
+			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
+		);
+		const saveEvidenceIndex = prompt.indexOf("Only after successful save evidence");
+		const cleanupIndex = prompt.indexOf("rm -- '<exact path>'");
+		const failureRetentionIndex = prompt.indexOf("do not remove the temporary file");
+		expect(saveEvidenceIndex).toBeGreaterThan(-1);
+		expect(cleanupIndex).toBeGreaterThan(saveEvidenceIndex);
+		expect(failureRetentionIndex).toBeGreaterThan(cleanupIndex);
 		expect(prompt).toContain("grill_ask");
 		expect(prompt).toContain("up to 12");
 		expect(prompt).toContain("may not require any user-facing questions");

@@ -31,10 +31,11 @@ Exact save procedure:
 3. Run exactly `mktemp "${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"` and retain the exact path returned by `mktemp`.
 4. Use the generic write tool to write the exact final Markdown content to that returned path. Do not transform, summarize, or reconstruct the content through shell interpolation.
 5. Generate a specific 3–7 token lowercase kebab-case slug for the final plan. It must include at least one non-generic token and no date-like year token.
-6. Safely shell-quote the slug and exact path, then invoke `enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --remove-content-file --format json`.
-7. Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object: `format`, `slug`, `filePath`, `fileName`, `fileStem`, `timestamp`, `timestampNumber`, `sequence`, `repoRoot`, `repoKey`, `repoIdentitySource`, `sourceBranch`, `branchKey`, and `directoryPath`, plus optional `contentFileRemoved` cleanup evidence. The CLI removes the temporary file after a successful save; do not run manual cleanup.
-8. If the save did not succeed, the temporary file is retained. Report its exact path along with the command exit and parse/failure evidence, and stop. If `mktemp` failed before returning a path, report that no temporary path was allocated.
-9. Report the complete parsed saved-plan evidence and stop. Do not create Branch Context, start implementation, or write Branch Memory.
+6. Safely shell-quote the slug and exact path, then invoke `enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json`.
+7. Treat the save as successful only when the command exits zero and stdout parses as a Clinkr success envelope with `status: "ok"` and complete saved-plan evidence in its `data` object: `format`, `slug`, `filePath`, `fileName`, `fileStem`, `timestamp`, `timestampNumber`, `sequence`, `repoRoot`, `repoKey`, `repoIdentitySource`, `sourceBranch`, `branchKey`, and `directoryPath`.
+8. Only after successful save evidence, run `rm -- '<exact path>'` for that exact temporary path. If cleanup fails, warn about cleanup and report the retained path, but do not invalidate the successful save.
+9. If any step before confirmed save success fails, do not remove the temporary file. Retain and report its exact path, report the command exit and parse/failure evidence, and stop. If `mktemp` failed before returning a path, report that no temporary path was allocated.
+10. Report the complete parsed saved-plan evidence and stop. Do not create Branch Context, start implementation, or write Branch Memory.
 
 Local plan store contract:
 

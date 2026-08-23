@@ -75,10 +75,6 @@ const saveRequestSchema = z.lazy(() =>
 		contentFile: z
 			.string()
 			.describe("Markdown content file path (relative paths resolve against cwd)."),
-		removeContentFile: z
-			.boolean()
-			.optional()
-			.describe("Remove the content file after a successful save (transport cleanup)."),
 	}),
 );
 
@@ -103,9 +99,7 @@ const timestampedPlanResultSchema = durablePlanResultBaseSchema.extend({
 	timestampNumber: z.number().int(),
 	sequence: z.number().int().positive(),
 });
-const saveResultSchema = timestampedPlanResultSchema.extend({
-	contentFileRemoved: z.boolean().optional(),
-});
+const saveResultSchema = timestampedPlanResultSchema;
 const resolveResultSchema = z.union([
 	timestampedPlanResultSchema.extend({ source: z.literal("explicit") }),
 	timestampedPlanResultSchema.extend({
@@ -154,7 +148,6 @@ export interface PlansCliContext {
 	commands: CommandExecApi;
 	git: GitGateway;
 	cwd: string;
-	stderr: (text: string) => void;
 	planStoreRoot?: string;
 	planStoreGateway: PlanStoreGateway;
 	localTimestamp?: string;
@@ -164,13 +157,12 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 	metaUrl: import.meta.url,
 	runtime: "typescript",
 	description: "Enriched-plan operations. An enriched plan is any plan saved into ns.",
-	prepareRun: ({ deps, cwd, stderr }) => {
+	prepareRun: ({ deps, cwd }) => {
 		const commands = deps.commands ?? new NodeCommandExecApi();
 		const context: PlansCliContext = {
 			commands,
 			git: deps.git ?? new RealGitGateway(commands),
 			cwd,
-			stderr,
 			planStoreGateway: deps.planStoreGateway ?? createRealPlanStoreGateway(),
 			...optionalEntries({
 				localTimestamp: deps.localTimestamp,
@@ -266,11 +258,7 @@ async function handleSave(
 				...planStoreOptions(ctx),
 				...optionalEntry("localTimestamp", ctx.localTimestamp),
 			});
-			const contentFileRemoved =
-				request.removeContentFile === true
-					? await removeSavedPlanContentFile(ctx, safeContentPath)
-					: undefined;
-			return ok(savedPlanJson(plan, contentFileRemoved));
+			return ok(durablePlanJson(plan));
 		},
 		failureFromError: plansFailureFromError,
 	});
@@ -322,21 +310,6 @@ function planStoreOptions(
 		planStoreGateway: ctx.planStoreGateway,
 		planStoreRoot,
 	});
-}
-
-async function removeSavedPlanContentFile(
-	ctx: PlansCliContext,
-	contentPath: string,
-): Promise<boolean> {
-	try {
-		await ctx.planStoreGateway.removeFile(contentPath);
-		return true;
-	} catch (error) {
-		ctx.stderr(
-			`warning: saved plan content file cleanup failed: ${formatErrorMessage(error)}\nRetained content file: ${contentPath}\n`,
-		);
-		return false;
-	}
 }
 
 function plansErrorType(operation: PlansOperation): string {
@@ -452,16 +425,6 @@ function durablePlanJson(
 		sourceBranch: plan.directory.sourceBranch,
 		branchKey: plan.directory.branchKey,
 		directoryPath: plan.directory.directoryPath,
-	};
-}
-
-function savedPlanJson(
-	plan: TimestampedDurableSavedPlan,
-	contentFileRemoved: boolean | undefined,
-): z.infer<typeof saveResultSchema> {
-	return {
-		...durablePlanJson(plan),
-		...optionalEntry("contentFileRemoved", contentFileRemoved),
 	};
 }
 

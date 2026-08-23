@@ -159,7 +159,7 @@ describe("enriched-plan-commands", () => {
 		);
 		expect(pi.sentUserMessages[0]).toContain(`mktemp "\${TMPDIR:-/tmp}/ns-saved-plan.XXXXXX"`);
 		expect(pi.sentUserMessages[0]).toContain(
-			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --remove-content-file --format json",
+			"enriched-plan exec save --slug '<generated slug>' --content-file '<exact path>' --format json",
 		);
 		expect(pi.sentUserMessages[0]).toContain("Clinkr success envelope");
 		expect(pi.sentUserMessages[0]).toContain("completely fresh downstream implementation session");
