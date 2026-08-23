@@ -38,8 +38,9 @@ improves the conceptual coherence of each change.
    an accurate understanding, they co-author a complete PR description.
 4. The agent writes the co-authored description to the PR, then the author
    reads every claim and requests any further edits (in chat or directly in
-   the GitHub UI). The agent then reports any remaining reviewability concerns
-   and open topics.
+   the GitHub UI). The agent then reports any remaining reviewability concerns,
+   open topics, and recurring policy that is not yet encoded, with a suggested
+   authoritative home.
 
 ## Provenance
 

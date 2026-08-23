@@ -135,11 +135,31 @@ Apply these rules:
   current PR honestly and route the item to a limitation, reviewer focus, or
   the consumability report.
 
+Classify interview material separately from its resolution status:
+
+- **PR-specific rationale** explains the current net diff and remains in the
+  shared interview record or PR body as appropriate.
+- **Candidate durable policy** is a reusable rule or decision likely to recur
+  across PRs or future accountability interviews. Track it for wrap-up only
+  when repository inspection shows that no authoritative source already
+  encodes it. Identify a plausible existing documentation or skill location
+  that should own it. Do not ask the author for lookupable repository facts or
+  turn every design answer, preference, or one-off rationale into policy work.
+
+Record unencoded durable policy for wrap-up by default; do not silently edit
+unrelated documentation or skills. If the author wants to encode it in the
+current PR and the change fits the PR's intended scope, state the proposed edit
+and obtain explicit approval. Then follow the existing PR-change workflow:
+edit, validate, commit, resubmit with the repository's normal tooling, and
+restart at inventory from the new PR head. Policy documentation outside the
+PR's intended scope normally remains a recommendation.
+
 Track every material decision, tradeoff, limitation, and inventory gap as:
 
 - **shared** — author and agent tell the same evidence-consistent story; or
 - **open** — unresolved or planned as a PR change.
 
+This status is orthogonal to the PR-specific or durable-policy classification.
 Completion criterion: every material topic has a status. Open topics may proceed
 only when the draft or final report states them honestly.
 
@@ -240,6 +260,12 @@ during the interview, push back once with evidence before accepting their
 decision. Remind them that this LM-authored version is a draft and that they
 are accountable for the final description.
 
+Before ending the interview, publish the PR for review if it is still a draft.
+Check its current `isDraft` value with `gh pr view`; when true, run
+`gh pr ready <n>`. Do not leave an accountability interview's PR unpublished,
+and do not ask the author to perform this routine step. Verify the PR is ready
+before reporting completion.
+
 ## 4. Report consumability
 
 After the update, give a verdict with concrete recommendations for
@@ -261,4 +287,7 @@ Report:
 - description alignment with reality: aligned or not aligned;
 - every open topic;
 - PR changes the author chose because of the interview;
-- documentation gaps discovered (flag only; do not write docs).
+- reusable or durable policy discovered during the interview that is not yet
+  encoded, or `none` when no such policy was found; and
+- for each unencoded policy, a recommended authoritative existing documentation
+  or skill location (flag only; do not write docs automatically).
