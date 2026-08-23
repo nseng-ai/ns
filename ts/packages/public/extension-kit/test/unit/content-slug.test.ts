@@ -214,13 +214,14 @@ describe("deriveContentSlug", () => {
 		});
 	});
 
-	test("normalizes the first model line, code fences, suffixes, and word cap", async () => {
+	test("normalizes the first model line, code fences, suffixes, and policy caps", async () => {
 		await withRepo(async (repoRoot) => {
 			const commands = new FakeCommands({
 				repoRoot,
 				modelResults: [
 					exited({ stdout: "\n```markdown\nShared Content Slug Session\nignored prose\n```\n" }),
 					exited({ stdout: "one two three four five six seven artifact\n" }),
+					exited({ stdout: "long semantic content slug\n" }),
 					exited({ stdout: "Session\n" }),
 				],
 			});
@@ -239,6 +240,13 @@ describe("deriveContentSlug", () => {
 					TEST_POLICY,
 				),
 			).toMatchObject({ ok: true, value: { slug: "one-two-three-four-five-six" } });
+			expect(
+				await deriveContentSlug(
+					slugContext(commands),
+					{ content: CONTENT, cwd: repoRoot },
+					{ ...TEST_POLICY, normalization: { maxChars: 13 } },
+				),
+			).toMatchObject({ ok: true, value: { slug: "long-semantic" } });
 			expect(
 				await deriveContentSlug(
 					slugContext(commands),

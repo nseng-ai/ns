@@ -25,8 +25,7 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundation/primitives";
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
-import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
-import { MODEL_OPERATION_IDS, resolveProjectModelOperation } from "./model-policy.ts";
+import { deriveContentSlug, type ContentSlugPolicy } from "./content-slug.ts";
 import { runJsonExecCommand } from "./machine-envelope-exec.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-impl";
@@ -72,12 +71,15 @@ export type TrackedBranchPayloadLoadResult =
 
 export interface ResolvedTrackedBranchCreationContext {
 	pi: CommandExecApi;
-	git: Pick<GitGateway, "repoRoot" | "createBranchAtStartPoint">;
+	git: Pick<GitGateway, "optionalRepoRoot" | "createBranchAtStartPoint">;
 	projectConfig: ProjectConfigGateway;
 }
 
 export interface TrackedBranchCreationContext extends ResolvedTrackedBranchCreationContext {
-	git: Pick<GitGateway, "repoRoot" | "createBranchAtStartPoint" | "currentBranch" | "headCommit">;
+	git: Pick<
+		GitGateway,
+		"optionalRepoRoot" | "createBranchAtStartPoint" | "currentBranch" | "headCommit"
+	>;
 }
 
 export interface CreateTrackedBranchForPromptOptions {
@@ -368,71 +370,52 @@ export function formatTrackedBranchPayloadStorageFailure(
 	return `Created Graphite-tracked branch ${branchName}, but failed to store implementation prompt payload in Branch Memory.\nNo ${destinationName} was opened.\n\n${error.message}`;
 }
 
-async function generateTrackedBranchSlug(
-	pi: CommandExecApi,
-	git: Pick<GitGateway, "repoRoot">,
-	projectConfig: ProjectConfigGateway,
-	cwd: string,
-	content: string,
-): Promise<TextResult> {
-	const repository = await git.repoRoot({ cwd });
-	if (!repository.ok) {
-		return {
-			ok: false,
-			message: `Could not resolve the Git repository root: ${repository.error.message}`,
-		};
-	}
-	const model = resolveProjectModelOperation({
-		repoRoot: repository.value,
-		gateway: projectConfig,
-		operationId: MODEL_OPERATION_IDS.slug,
-	});
-	if (!model.ok)
-		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
-	const prompt = buildTrackedBranchSlugPrompt({ kind: "task", content });
-	const result = await generateRawTextWithModel({
-		cwd,
-		prompt,
-		modelSelection: model.value.selection,
-		exec: (command, args, execOptions) => pi.exec(command, args, execOptions),
-	});
-	if (!result.ok) return { ok: false, message: formatRawTextModelFailure(result.failure) };
-	const slug = sanitizeBranchName(result.evidence.rawOutput.trim()) || sanitizeBranchName(content);
-	return slug
-		? { ok: true, text: slug }
-		: { ok: false, message: "Could not derive a usable branch slug." };
-}
-
-function buildTrackedBranchSlugPrompt(input: {
-	kind: "task" | "plan";
-	content: string;
-	sourceLabel?: string;
-}): string {
-	const kindDescription =
-		input.kind === "plan"
-			? "an implementation plan that will be stashed on a new branch"
-			: "a user task prompt that will run in a new branch workspace";
-	return [
+const TRACKED_BRANCH_SLUG_POLICY = {
+	slugKind: "tracked branch slug",
+	promptIntroLines: [
 		"Generate a concise git branch slug for this work item.",
-		`The content is ${kindDescription}.`,
+		"The content is a user task prompt that will run in a new branch workspace.",
 		"Infer the actual code/product change or outcome. Do not name the document, prompt, plan, context, storage workflow, or how this work item was initiated.",
 		"Ignore metadata and provenance such as saved-plan filenames, source labels, suggested slugs, objective-next output, branch-create handoff text, and brmem storage details.",
 		"If a command name appears only because it generated or initiated the plan, do not include it. Include command/product names only when the proposed work directly changes that command/product.",
-		"Rules:",
-		"- Return only the slug, with no quotes, markdown, or explanation.",
+	],
+	promptRuleLines: [
 		"- Use kebab-case: lowercase ASCII words separated by hyphens.",
 		`- Keep it at or under ${MAX_BRANCH_SLUG_LENGTH} characters.`,
 		"- Lead with a verb when natural, such as add-, fix-, refactor-, migrate-, rename-, remove-, or update-.",
 		"- Do not use spaces, underscores, slashes, punctuation, or special characters.",
 		"- Do not include generic suffixes like -plan, -prompt, -context, -branch, -task, or -suggestion unless they are the real feature name.",
 		"- Prefer concrete deliverables and specific nouns from the work item over broad words like changes, cleanup, or improvements.",
-		"",
-		...(input.sourceLabel === undefined ? [] : [`Source: ${input.sourceLabel}`]),
-		"Content:",
-		input.content.length <= MAX_SLUG_INPUT_CHARS
-			? input.content
-			: `${input.content.slice(0, MAX_SLUG_INPUT_CHARS)}\n...[truncated]`,
-	].join("\n");
+	],
+	contentHeading: "Content:",
+	emptyContentPlaceholder: "(empty task prompt)",
+	maxContentChars: MAX_SLUG_INPUT_CHARS,
+	truncationMessage: "...[truncated]",
+	invalidSlugMessage: "Pi slug model output normalized to an invalid tracked branch slug.",
+	failureHeader: "Failed to derive tracked branch slug from task content.",
+	noFallbackLine: "No deterministic fallback was attempted.",
+	normalization: {
+		maxChars: MAX_BRANCH_SLUG_LENGTH,
+		stripSuffixes: ["-plan"],
+	},
+	validateSlug: () => undefined,
+} satisfies ContentSlugPolicy;
+
+async function generateTrackedBranchSlug(
+	pi: CommandExecApi,
+	git: Pick<GitGateway, "optionalRepoRoot">,
+	projectConfig: ProjectConfigGateway,
+	cwd: string,
+	content: string,
+): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
+	const result = await deriveContentSlug(
+		{ commands: pi, git, projectConfig },
+		{ cwd, content },
+		TRACKED_BRANCH_SLUG_POLICY,
+	);
+	return result.ok
+		? { ok: true, text: result.value.slug }
+		: { ok: false, message: result.error.message };
 }
 
 async function chooseAvailableBranchName(

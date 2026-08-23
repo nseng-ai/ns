@@ -38,7 +38,7 @@ type ImplPromptGitGateway = Pick<
 	| "createBranchAtStartPoint"
 	| "currentBranch"
 	| "headCommit"
-	| "repoRoot"
+	| "optionalRepoRoot"
 >;
 
 export interface ImplPromptPayloadOptions extends TrackedBranchPayloadOptions {

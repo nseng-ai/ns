@@ -242,7 +242,7 @@ describe("tracked branch payload public API", () => {
 		expectFocusedSlugCall(commands, prompt);
 		expect(git.currentBranchCalls).toEqual([{ cwd: REPO_ROOT }]);
 		expect(git.headCommitCalls).toEqual([{ cwd: REPO_ROOT }]);
-		expect(git.repoRootCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.optionalRepoRootCalls).toEqual([{ cwd: REPO_ROOT }]);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: REPO_ROOT, branch: "implement-feature-2", startPoint: "abc123" },
 		]);
@@ -358,22 +358,12 @@ describe("tracked branch payload public API", () => {
 		});
 	});
 
-	test("falls back to the full task content after successful unusable model output", async () => {
+	test("fails closed before branch mutation when model output cannot produce a slug", async () => {
 		const prompt = "Implement fallback slug behavior";
 		const commands = new FakeCommands([
 			{
 				command: "pi",
 				result: exited({ stdout: "!!!\n" }),
-			},
-			{
-				command: "git",
-				args: ["show-ref", "--verify", "--quiet", "refs/heads/implement-fallback-slug-behavior"],
-				result: exited({ code: 1 }),
-			},
-			{
-				command: "gt",
-				args: ["track", "implement-fallback-slug-behavior", "--parent", "main", "--no-interactive"],
-				result: exited(),
 			},
 		]);
 		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
@@ -384,12 +374,10 @@ describe("tracked branch payload public API", () => {
 		);
 
 		commands.assertDone();
-		expect(result).toEqual({
-			branchName: "implement-fallback-slug-behavior",
-			semanticSlug: "implement-fallback-slug-behavior",
-			parentBranch: "main",
-			startPoint: "abc123",
+		expect(result).toMatchObject({
+			error: expect.stringContaining("No deterministic fallback was attempted."),
 		});
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
 	});
 
 	test("does not fall back when the model command fails", async () => {
@@ -412,7 +400,7 @@ describe("tracked branch payload public API", () => {
 		expect(git.createBranchAtStartPointCalls).toEqual([]);
 	});
 
-	test("preserves the established failure when model output and content are unusable", async () => {
+	test("fails closed when both model output and content are unusable", async () => {
 		const prompt = "!!!";
 		const commands = new FakeCommands([
 			{
@@ -428,32 +416,18 @@ describe("tracked branch payload public API", () => {
 		);
 
 		commands.assertDone();
-		expect(result).toEqual({ error: "Could not derive a usable branch slug." });
+		expect(result).toMatchObject({
+			error: expect.stringContaining("No deterministic fallback was attempted."),
+		});
 		expect(git.createBranchAtStartPointCalls).toEqual([]);
 	});
 
-	test("uses full original content for fallback beyond prompt truncation", async () => {
-		const prompt = `${" \n".repeat(6_001)}Implement content beyond truncation`;
+	test("fails closed after truncating task content instead of using omitted content as fallback", async () => {
+		const prompt = `${"a".repeat(12_000)}Implement content beyond truncation`;
 		const commands = new FakeCommands([
 			{
 				command: "pi",
 				result: exited({ stdout: "!!!\n" }),
-			},
-			{
-				command: "git",
-				args: ["show-ref", "--verify", "--quiet", "refs/heads/implement-content-beyond-truncation"],
-				result: exited({ code: 1 }),
-			},
-			{
-				command: "gt",
-				args: [
-					"track",
-					"implement-content-beyond-truncation",
-					"--parent",
-					"main",
-					"--no-interactive",
-				],
-				result: exited(),
 			},
 		]);
 		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
@@ -466,9 +440,9 @@ describe("tracked branch payload public API", () => {
 		commands.assertDone();
 		expectFocusedSlugCall(commands, prompt, { isTruncated: true });
 		expect(result).toMatchObject({
-			branchName: "implement-content-beyond-truncation",
-			semanticSlug: "implement-content-beyond-truncation",
+			error: expect.stringContaining("No deterministic fallback was attempted."),
 		});
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
 	});
 
 	test("resolves the configured local trunk SHA without upstream inspection or refresh", async () => {

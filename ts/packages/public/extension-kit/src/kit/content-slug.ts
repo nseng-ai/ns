@@ -1,4 +1,4 @@
-import { normalizeBranchSlugText } from "@nseng-ai/foundation/branch-slug";
+import { normalizeBranchSlugText, trimBranchSlugToLength } from "@nseng-ai/foundation/branch-slug";
 import { formatOutputSection } from "@nseng-ai/foundation/command";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { GitGateway } from "@nseng-ai/foundation/git";
@@ -40,7 +40,8 @@ export interface ContentSlugPolicy {
 	failureHeader: string;
 	noFallbackLine: string;
 	normalization: {
-		maxWords: number;
+		maxWords?: number;
+		maxChars?: number;
 		stripSuffixes?: readonly string[];
 	};
 	validateSlug(slug: string): string | undefined;
@@ -124,7 +125,14 @@ function normalizeContentSlugOutput(
 	const withoutSuffix = removeSuffixes(slug, options.stripSuffixes ?? []);
 	if (withoutSuffix.length === 0) return undefined;
 
-	const repaired = withoutSuffix.split("-").filter(Boolean).slice(0, options.maxWords).join("-");
+	const words = withoutSuffix.split("-").filter(Boolean);
+	const wordLimited = (
+		options.maxWords === undefined ? words : words.slice(0, options.maxWords)
+	).join("-");
+	const repaired =
+		options.maxChars === undefined
+			? wordLimited
+			: trimBranchSlugToLength(wordLimited, options.maxChars);
 	return repaired.length > 0 ? repaired : undefined;
 }
 
