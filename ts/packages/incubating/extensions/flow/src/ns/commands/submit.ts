@@ -117,6 +117,7 @@ export function createFlowSubmitCommand(
 		description: SUBMIT_COMMAND_DESCRIPTION,
 		schema: submitSchema,
 		resultSchema: z.string(),
+		renderHuman: (text) => z.string().parse(text),
 		options: {
 			restack: { short: "-R" },
 			force: { short: "-f" },

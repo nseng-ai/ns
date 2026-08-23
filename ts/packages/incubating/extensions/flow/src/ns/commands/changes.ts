@@ -43,6 +43,7 @@ export const flowChangesCommand: NsCommand = defineCommand({
 	description: CHANGES_COMMAND_DESCRIPTION,
 	schema: z.object({}),
 	resultSchema: z.string(),
+	renderHuman: (text) => text,
 	handler: async (ctx) => {
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {

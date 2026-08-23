@@ -480,7 +480,7 @@ describe("project-local submit extension", () => {
 		const result = await run.result;
 		expect(result.type).toBe("failure");
 		if (result.type === "failure") {
-			expect(result.data).toEqual({ exitCode: 7 });
+			expect(result.data).toBe(result.message);
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
 		const error = run.stderr.join("");
@@ -526,7 +526,7 @@ describe("project-local submit extension", () => {
 		const result = await run.result;
 		expect(result.type).toBe("negative");
 		if (result.type === "negative") {
-			expect(result.data).toEqual({ exitCode: 1 });
+			expect(result.data).toBe(result.message);
 			expect(result.message.split("\n")[0]).toBe(FLOW_SUBMIT_CHECK_FAILURE_MARKER);
 		}
 		const error = run.stderr.join("");

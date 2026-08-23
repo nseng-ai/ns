@@ -54,6 +54,7 @@ export const flowLandCommand: NsCommand<typeof landSchema> = defineCommand({
 	description: "Land the current PR or Graphite stack into trunk.",
 	schema: landSchema,
 	resultSchema: z.string(),
+	renderHuman: (text) => text,
 	options: landCommandOptionSpecs(),
 	handler: async (ctx, request) => {
 		// Resolve caps at the host-extension seam (house-style §1) and thread them ONLY into the CLI

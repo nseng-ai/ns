@@ -49,6 +49,7 @@ export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = def
 	description: REGENERATE_PR_DESCRIPTION,
 	schema: regeneratePrSchema,
 	resultSchema: z.string(),
+	renderHuman: (text) => z.string().parse(text),
 	options: { yes: { short: "-y" } },
 	handler: async (ctx: NsExtensionApi, request: RegeneratePrRequest) => {
 		return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {

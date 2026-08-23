@@ -36,6 +36,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 		description: BRANCH_LATEST_COMMIT_DESCRIPTION,
 		schema: branchLatestCommitRequestSchema,
 		resultSchema: z.string(),
+		renderHuman: (text) => text,
 		options: { slug: { short: "-s" } },
 		handler: async (ctx, request: BranchLatestCommitRequest) => {
 			const caps = resolveFlowStreamCaps(ctx);

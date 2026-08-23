@@ -56,7 +56,7 @@ export interface FlowCliOutputCapture {
 	toResult(
 		exitCode: number,
 		messages: { successMessage: string; failureMessage: string },
-	): CommandExit;
+	): CommandExit<string>;
 }
 
 export interface CreateFlowCliOutputCaptureOptions {
@@ -114,12 +114,12 @@ export function createFlowCliOutputCapture(
 	};
 }
 
-export function exitCodeToFlowCommandExit(exitCode: number, message: string): CommandExit {
-	if (exitCode === 1) return negative(message, { data: { exitCode } });
-	return failure(FLOW_COMMAND_FAILED, message, { exitCode });
+export function exitCodeToFlowCommandExit(exitCode: number, message: string): CommandExit<string> {
+	if (exitCode === 1) return negative(message, message);
+	return failure(FLOW_COMMAND_FAILED, message, message);
 }
 
-export async function runFlowCli(options: RunFlowCliOptions): Promise<CommandExit> {
+export async function runFlowCli(options: RunFlowCliOptions): Promise<CommandExit<string>> {
 	const output = createFlowCliOutputCapture({
 		ctx: options.ctx,
 		...(options.outputMode === undefined ? {} : { mode: options.outputMode }),
