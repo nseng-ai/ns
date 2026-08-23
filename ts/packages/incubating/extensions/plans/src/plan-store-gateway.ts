@@ -58,13 +58,8 @@ export class RealPlanStoreGateway implements PlanStoreGateway {
 	}
 
 	async readRegularFileBytes(path: string): Promise<Uint8Array> {
-		let file: Awaited<ReturnType<typeof open>> | undefined;
 		try {
-			file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-			if (!(await file.stat()).isFile()) {
-				throw new Error(`Plan content file must be a regular, non-symlink file: ${path}`);
-			}
-			return await file.readFile();
+			return await readAndClose();
 		} catch (error) {
 			if (isNodeError(error) && error.code === "ENOENT") {
 				throw new Error(`Plan content file does not exist: ${path}`);
@@ -73,8 +68,18 @@ export class RealPlanStoreGateway implements PlanStoreGateway {
 				throw new Error(`Plan content file must be a regular, non-symlink file: ${path}`);
 			}
 			throw error;
-		} finally {
-			await file?.close();
+		}
+
+		async function readAndClose(): Promise<Uint8Array> {
+			const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+			try {
+				if (!(await file.stat()).isFile()) {
+					throw new Error(`Plan content file must be a regular, non-symlink file: ${path}`);
+				}
+				return await file.readFile();
+			} finally {
+				await file.close();
+			}
 		}
 	}
 

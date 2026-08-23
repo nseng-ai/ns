@@ -45,47 +45,53 @@ const listRequestSchema = z.object({
 		.describe("Plan store root directory (relative paths resolve against cwd)."),
 });
 
-const listResultSchema = z.object({
-	plans: z.array(
-		z.object({
-			format: z.literal("timestamped"),
-			slug: z.string(),
-			branchKey: z.string(),
-			modifiedTimeMs: z.number(),
-			path: z.string(),
-			fileName: z.string(),
-			repo: z.object({
-				root: z.string(),
-				key: z.string(),
-				identitySource: z.enum(["origin-url", "repo-root"]),
-				planStorePath: z.string(),
+const listResultSchema = z.lazy(() =>
+	z.object({
+		plans: z.array(
+			z.object({
+				format: z.literal("timestamped"),
+				slug: z.string(),
+				branchKey: z.string(),
+				modifiedTimeMs: z.number(),
+				path: z.string(),
+				fileName: z.string(),
+				repo: z.object({
+					root: z.string(),
+					key: z.string(),
+					identitySource: z.enum(["origin-url", "repo-root"]),
+					planStorePath: z.string(),
+				}),
 			}),
-		}),
-	),
-});
+		),
+	}),
+);
 
-const saveRequestSchema = z.object({
-	slug: z.string().describe("Saved Plan filename slug (3-7 words in lowercase kebab-case)."),
-	contentFile: z
-		.string()
-		.describe("Markdown content file path (relative paths resolve against cwd)."),
-});
-const saveResultSchema = z.object({
-	format: z.literal("timestamped"),
-	slug: z.string(),
-	filePath: z.string(),
-	fileName: z.string(),
-	fileStem: z.string(),
-	timestamp: z.string(),
-	timestampNumber: z.number().int(),
-	sequence: z.number().int().positive(),
-	repoRoot: z.string(),
-	repoKey: z.string(),
-	repoIdentitySource: z.enum(["origin-url", "repo-root"]),
-	sourceBranch: z.string(),
-	branchKey: z.string(),
-	directoryPath: z.string(),
-});
+const saveRequestSchema = z.lazy(() =>
+	z.object({
+		slug: z.string().describe("Saved Plan filename slug (3-7 words in lowercase kebab-case)."),
+		contentFile: z
+			.string()
+			.describe("Markdown content file path (relative paths resolve against cwd)."),
+	}),
+);
+const saveResultSchema = z.lazy(() =>
+	z.object({
+		format: z.literal("timestamped"),
+		slug: z.string(),
+		filePath: z.string(),
+		fileName: z.string(),
+		fileStem: z.string(),
+		timestamp: z.string(),
+		timestampNumber: z.number().int(),
+		sequence: z.number().int().positive(),
+		repoRoot: z.string(),
+		repoKey: z.string(),
+		repoIdentitySource: z.enum(["origin-url", "repo-root"]),
+		sourceBranch: z.string(),
+		branchKey: z.string(),
+		directoryPath: z.string(),
+	}),
+);
 
 const resolveRequestSchema = z.object({
 	path: z.string().optional().describe("Absolute, @-prefixed, or home-relative plan file path."),
@@ -168,7 +174,7 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 		execGroup.command({
 			name: "save",
 			description: "Save Markdown bytes as a timestamped source-branch plan.",
-			schema: saveRequestSchema,
+			schema: saveRequestSchema.unwrap(),
 			resultSchema: saveResultSchema,
 			handler: handleSave,
 			renderHuman: renderSavedPlan,
