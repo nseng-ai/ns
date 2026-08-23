@@ -3,7 +3,6 @@ import { describe, expect, test } from "vitest";
 import {
 	HANDOFF_KEY_SUFFIX,
 	HANDOFF_NAMESPACE,
-	deriveSemanticHandoffSlug,
 	handoffKeyFromSlug,
 	handoffKeyToSlug,
 	handoffSlugToKey,
@@ -81,15 +80,5 @@ describe("handoff identity", () => {
 		expect(normalizeHandoffSlugInput("   ")).toMatchObject({ type: "invalid" });
 		expect(normalizeHandoffSlugInput("!!!")).toMatchObject({ type: "invalid" });
 		expect(normalizeHandoffSlugInput(".md")).toMatchObject({ type: "invalid" });
-	});
-
-	test("derives semantic slugs with the shared rule", () => {
-		expect(deriveSemanticHandoffSlug("Finish handoff tab implementation!!!")).toBe(
-			"finish-handoff-tab-implementation",
-		);
-		expect(deriveSemanticHandoffSlug("one two three four five six seven eight nine ten")).toBe(
-			"one-two-three-four-five-six-seven-eight",
-		);
-		expect(deriveSemanticHandoffSlug("!!!")).toBeUndefined();
 	});
 });

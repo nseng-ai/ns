@@ -21,14 +21,6 @@ function kebabNormalizeSlugText(value: string): string {
 		.replace(/^-|-$/g, "");
 }
 
-export function deriveSemanticHandoffSlug(focus: string): string | undefined {
-	const slug = kebabNormalizeSlugText(focus);
-	if (slug.length === 0) {
-		return undefined;
-	}
-	return slug.split("-").slice(0, 8).join("-");
-}
-
 /**
  * Normalize a human-given handoff name into a valid flat handoff slug using the
  * deterministic scheme the handoff-create skill documents: lowercase, runs of
