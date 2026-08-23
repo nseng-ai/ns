@@ -94,28 +94,20 @@ describe("RealPlanStoreGateway", () => {
 			});
 			const gateway = createRealPlanStoreGateway();
 			const firstContent = new TextEncoder().encode("# First Useful Plan\r\n");
-			const first = await savePlanContentBytes(unusedPi, {
-				slug: "first-useful-plan",
-				content: firstContent,
-				store: {
-					cwd: repoRoot,
-					planStoreRoot,
-					git,
-					planStoreGateway: gateway,
-					localTimestamp: "26-01-02T03-04-05",
-				},
+			const first = await savePlanContentBytes(unusedPi, "first-useful-plan", firstContent, {
+				cwd: repoRoot,
+				planStoreRoot,
+				git,
+				planStoreGateway: gateway,
+				localTimestamp: "26-01-02T03-04-05",
 			});
 			const secondContent = new TextEncoder().encode("# Second Useful Plan\n");
-			const second = await savePlanContentBytes(unusedPi, {
-				slug: "second-useful-plan",
-				content: secondContent,
-				store: {
-					cwd: repoRoot,
-					planStoreRoot,
-					git,
-					planStoreGateway: gateway,
-					localTimestamp: "26-01-02T03-04-05",
-				},
+			const second = await savePlanContentBytes(unusedPi, "second-useful-plan", secondContent, {
+				cwd: repoRoot,
+				planStoreRoot,
+				git,
+				planStoreGateway: gateway,
+				localTimestamp: "26-01-02T03-04-05",
 			});
 
 			expect(first.fileName).toBe("first-useful-plan--26-01-02T03-04-05--1.md");

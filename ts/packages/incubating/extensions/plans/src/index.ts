@@ -49,7 +49,6 @@ export {
 	type PlanStoreOptions,
 	type PlanStoreRepoEvidence,
 	type RepoIdentitySource,
-	type SavePlanContentBytesOptions,
 	type SavedPlanFileEvidence,
 	type SavedPlanFileParams,
 	type SavedPlanListItem,

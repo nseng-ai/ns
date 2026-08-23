@@ -232,11 +232,12 @@ async function handleSave(
 				planStoreGateway: ctx.planStoreGateway,
 			});
 			const content = await ctx.planStoreGateway.readRegularFileBytes(safeContentPath);
-			const plan = await savePlanContentBytes(ctx.commands, {
-				slug: request.slug,
+			const plan = await savePlanContentBytes(
+				ctx.commands,
+				request.slug,
 				content,
-				store: planStoreOptions(ctx),
-			});
+				planStoreOptions(ctx),
+			);
 			return ok(savedPlanJson(plan));
 		},
 		failureFromError: plansFailureFromError,
