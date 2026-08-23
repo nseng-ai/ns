@@ -105,6 +105,10 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 	});
 	const brmem = new InMemoryBranchMemoryGateway(options.brmem);
 	const graphite = new InMemoryGraphiteBranchGateway(options.graphite);
+	const projectConfig = {
+		readTextFile: () => ({ type: "missing" as const }),
+		pathExists: () => ({ type: "missing" as const }),
+	};
 	return {
 		stdout,
 		stderr,
@@ -113,7 +117,7 @@ export function runWithFakes(args: readonly string[], options: RunWithFakesOptio
 		brmem,
 		graphite,
 		exit: runCli(args, {
-			context: { commands, git, brmem, graphite },
+			context: { commands, git, projectConfig, brmem, graphite },
 			cwd: options.cwd,
 			stdout: (text) => stdout.push(text),
 			stderr: (text) => stderr.push(text),

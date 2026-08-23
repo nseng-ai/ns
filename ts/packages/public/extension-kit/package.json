@@ -20,6 +20,7 @@
 		"./pi-types": "./src/kit/pi-types.ts",
 		"./tracked-branch-payload": "./src/kit/tracked-branch-payload.ts",
 		"./model-slug": "./src/kit/model-slug.ts",
+		"./model-slug/testing": "./src/kit/model-slug-testing.ts",
 		"./model-policy": "./src/kit/model-policy.ts",
 		"./pending-worktree": "./src/kit/pending-worktree.ts",
 		"./ns-command": "./src/kit/ns-command.ts",

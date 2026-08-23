@@ -8,6 +8,7 @@ import type {
 import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { HERDR_COMMAND_NAMES } from "@nseng-ai/herdr/api";
 import type {
 	HandoffExtensionAPI,
@@ -71,7 +72,12 @@ export async function registerHerdrPiExtension(
 	// the trunk branch from the repository's cached origin/HEAD git fact only after the
 	// local-trunk basis is selected (see core/trunk-branch.ts).
 	const herdr = createCliHerdrGateway(commands);
-	const context: HerdrPiContext = { commands, git, herdr };
+	const context: HerdrPiContext = {
+		commands,
+		git,
+		projectConfig: createNodeProjectConfigGateway(),
+		herdr,
+	};
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);

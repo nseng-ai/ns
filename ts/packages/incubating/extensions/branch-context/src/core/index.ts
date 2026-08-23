@@ -52,12 +52,15 @@ export {
 export {
 	createPreparedPlanBranchContext,
 	preparePlanBranchContext,
+	type FailedPreparedPlanBranchContext,
 	type PreparedPlanBranchContext,
 	type PreviewPreparedPlanBranchContext,
 	type ReadyPreparedPlanBranchContext,
+	type SuccessfulPreparedPlanBranchContext,
 } from "./plan-preparation.ts";
 export {
-	buildPlanContentSlugPrompt,
 	derivePlanContentSlug,
+	type PlanContentReadFailure,
 	type PlanContentSlugEvidence,
+	type PlanContentSlugResult,
 } from "./plan-content-slug.ts";

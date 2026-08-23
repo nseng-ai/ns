@@ -410,15 +410,27 @@ export async function deriveCreateBranchContextPreview(
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
 	const selectedFile = selectedSavedPlanFileInfo(selected);
-	const slugEvidence = await derivePlanContentSlug(pi, {
-		filePath: selectedFile.filePath,
-		cwd: ctx.cwd,
-	});
+	const branchContext = resolveBranchContextContext(pi, ctx.cwd, options);
+	const slugEvidence = await derivePlanContentSlug(
+		{
+			// Keep model execution on the caller's Pi channel; injected branch-context
+			// operations may intentionally use a different command adapter.
+			commands: pi,
+			git: branchContext.git,
+			projectConfig: branchContext.projectConfig,
+		},
+		{
+			filePath: selectedFile.filePath,
+			cwd: ctx.cwd,
+		},
+	);
+	if (!slugEvidence.ok) throw new Error(slugEvidence.error.message);
+	const evidence = slugEvidence.value;
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
-	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);
-	const planKey = buildBranchContextPlanKey(slugEvidence.slug);
+	const target = deriveBranchContextTargetBranch(args, evidence.slug, options);
+	const planKey = buildBranchContextPlanKey(evidence.slug);
 	const requestedOperation = buildBranchContextCreateOperation({
-		slug: slugEvidence.slug,
+		slug: evidence.slug,
 		filePath: selectedFile.filePath,
 		creation: branchContextCreationPolicyFromMethod(branchCreation),
 		...optionalEntry("branchName", target.branchNameForCreation),
@@ -435,7 +447,7 @@ export async function deriveCreateBranchContextPreview(
 		});
 	}
 	const base = {
-		slug: slugEvidence.slug,
+		slug: evidence.slug,
 		savedPlanFileStem: selected.savedPlanFileStem,
 		filePath: selectedFile.filePath,
 		fileName: selectedFile.fileName,
@@ -446,7 +458,7 @@ export async function deriveCreateBranchContextPreview(
 		isExplicitTargetBranch: target.isExplicitTargetBranch,
 		branchSelection: selectedOperation.branchSelection,
 		branchCreation,
-		slugEvidence,
+		slugEvidence: evidence,
 	};
 
 	return { ...base, ...selectedSavedPlanEvidence(selected) };

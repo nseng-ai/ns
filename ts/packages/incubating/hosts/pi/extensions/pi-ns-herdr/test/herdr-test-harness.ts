@@ -61,6 +61,7 @@ export interface ExecCall {
 export interface ScriptedExec {
 	command: string;
 	args?: string[];
+	assertArgs?: (args: string[]) => void;
 	result?: RawPiExecResultFixture;
 	error?: unknown;
 }
@@ -111,6 +112,13 @@ export const PLAN_KEY = `${PLAN_SLUG}.md`;
 export const SOURCE_BRANCH = "herdr-capability-parity";
 export const START_POINT = "deadbeef1234567890abcdef1234567890abcdef";
 export const PLAN_CONTENT = "# Plan\n";
+export const TEST_PROJECT_CONFIG = {
+	readTextFile: () => ({
+		type: "found" as const,
+		text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	}),
+	pathExists: () => ({ type: "missing" as const }),
+};
 export const REPO_ORIGIN_URL = "git@github.com:owner/repo.git";
 
 // ---------------------------------------------------------------------------
@@ -559,12 +567,14 @@ export function runScriptedExec(options: RunScriptedExecOptions): RunScriptedExe
 	}
 	if (
 		expected.command !== command ||
-		expectedArgsMismatch(expected.args, args, shouldRequireExpectedArgs)
+		(expected.assertArgs === undefined &&
+			expectedArgsMismatch(expected.args, args, shouldRequireExpectedArgs))
 	) {
 		const expectedArgs = expected.args === undefined ? "<unspecified>" : expected.args.join(" ");
 		const message = `expected ${expected.command} ${expectedArgs}, got ${command} ${args.join(" ")}`;
 		return { result: execResult({ code: 99, stderr: message }), errorMessage: message };
 	}
+	expected.assertArgs?.(args);
 	if (expected.error) {
 		throw expected.error;
 	}

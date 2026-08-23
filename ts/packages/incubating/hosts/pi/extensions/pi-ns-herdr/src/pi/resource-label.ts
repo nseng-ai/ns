@@ -1,12 +1,4 @@
-import {
-	deriveKitContentSlug,
-	type ContentSlugDerivationVariant,
-} from "@nseng-ai/extension-kit/content-slug";
-import {
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "@nseng-ai/extension-kit/model-policy";
+import { deriveContentSlug, type ContentSlugPolicy } from "@nseng-ai/extension-kit/content-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
@@ -16,7 +8,7 @@ import type { HerdrPiContext } from "./context.ts";
 const MAX_RESOURCE_LABEL_WORDS = 6;
 const MAX_RESOURCE_DESCRIPTION_CHARS = 8_000;
 
-const RESOURCE_LABEL_VARIANT: ContentSlugDerivationVariant = {
+const RESOURCE_LABEL_VARIANT: ContentSlugPolicy = {
 	slugKind: "Herdr resource label",
 	promptIntroLines: [
 		"Generate a concise semantic label for a new Herdr space or tab from the user's description below.",
@@ -47,28 +39,21 @@ export function createHerdrResourceLabelDeriver(
 ): HerdrResourceLabelDeriver {
 	return {
 		async deriveLabel(input) {
-			const repository = await context.git.optionalRepoRoot({ cwd: input.cwd });
-			if (repository.type !== "found") {
-				throw new Error("Could not determine the repository root for ns.toml.");
-			}
-			const policy = loadModelPolicy({
-				repoRoot: repository.value,
-				gateway: createNodeProjectConfigGateway(),
-			});
-			if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-			const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
-			if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
-			const evidence = await deriveKitContentSlug(
-				context.commands,
+			const evidence = await deriveContentSlug(
+				{
+					commands: context.commands,
+					git: context.git,
+					projectConfig: createNodeProjectConfigGateway(),
+				},
 				{
 					content: input.description,
 					cwd: input.cwd,
-					modelSelection: model.value.selection,
 					...optionalEntry("signal", input.signal),
 				},
 				RESOURCE_LABEL_VARIANT,
 			);
-			return evidence.slug;
+			if (!evidence.ok) throw new Error(evidence.error.message);
+			return evidence.value.slug;
 		},
 	};
 }

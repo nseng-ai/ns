@@ -34,9 +34,20 @@ export interface PreviewPreparedPlanBranchContext extends PreparedPlanBranchCont
 	preview: string;
 }
 
+export interface FailedPreparedPlanBranchContext {
+	type: "failed";
+	message: string;
+}
+
 export type PreparedPlanBranchContext =
 	| ReadyPreparedPlanBranchContext
-	| PreviewPreparedPlanBranchContext;
+	| PreviewPreparedPlanBranchContext
+	| FailedPreparedPlanBranchContext;
+
+export type SuccessfulPreparedPlanBranchContext = Exclude<
+	PreparedPlanBranchContext,
+	FailedPreparedPlanBranchContext
+>;
 
 export async function preparePlanBranchContext(
 	pi: CommandExecApi,
@@ -48,12 +59,22 @@ export async function preparePlanBranchContext(
 		creation: BranchContextCreationPolicy;
 	},
 ): Promise<PreparedPlanBranchContext> {
-	const slugEvidence = await derivePlanContentSlug(pi, {
-		filePath: options.plan.filePath,
-		cwd: options.checkout.repoRoot,
-	});
+	const slugEvidence = await derivePlanContentSlug(
+		{
+			// Slug generation must use the caller's Pi execution channel; the owner context may
+			// carry a separate Node command adapter for branch-context operations.
+			commands: pi,
+			git: options.context.git,
+			projectConfig: options.context.projectConfig,
+		},
+		{
+			filePath: options.plan.filePath,
+			cwd: options.checkout.repoRoot,
+		},
+	);
+	if (!slugEvidence.ok) return { type: "failed", message: slugEvidence.error.message };
 	const initialOperation = buildBranchContextCreateOperation({
-		slug: slugEvidence.slug,
+		slug: slugEvidence.value.slug,
 		filePath: options.plan.filePath,
 		creation: options.creation,
 		...optionalEntries({ summary: options.plan.summary }),
@@ -110,7 +131,7 @@ export async function preparePlanBranchContext(
 
 export async function createPreparedPlanBranchContext(
 	pi: CommandExecApi,
-	prepared: PreparedPlanBranchContext,
+	prepared: SuccessfulPreparedPlanBranchContext,
 ): Promise<BranchContextEvidence> {
 	if (
 		describeBranchContextCreationPolicy(prepared.operation.creation).start.type === "current-head"

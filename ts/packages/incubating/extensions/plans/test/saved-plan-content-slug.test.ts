@@ -1,6 +1,3 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const TEST_MODEL_SELECTION = {
@@ -8,19 +5,16 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
-import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
+import { deriveSavedPlanContentSlug } from "../src/index.ts";
+import type { ContentSlugContext } from "@nseng-ai/extension-kit/content-slug";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
 import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
+import { RealGitGateway } from "@nseng-ai/foundation/git";
 
-const CWD = mkdtempSync(join(tmpdir(), "saved-plan-slug-root-"));
-writeFileSync(
-	join(CWD, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
-);
+const CWD = "/repo";
 const SAVED_PLAN_CONTENT =
 	"# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 
@@ -58,67 +52,98 @@ class FakeSlugPi implements CommandExecApi {
 	}
 }
 
-function expectSavedPlanNoFallback(error: unknown): void {
-	expect(error).toBeInstanceOf(Error);
-	expect((error as Error).message).toContain(
+function slugContext(commands: CommandExecApi): ContentSlugContext {
+	return {
+		commands,
+		git: new RealGitGateway(commands),
+		projectConfig: {
+			readTextFile: () => ({
+				type: "found",
+				text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			}),
+			pathExists: () => ({ type: "missing" }),
+		},
+	};
+}
+
+function expectSavedPlanNoFallback(
+	result: Awaited<ReturnType<typeof deriveSavedPlanContentSlug>>,
+): string {
+	expect(result.ok).toBe(false);
+	if (result.ok) throw new Error("expected slug derivation to fail");
+	expect(result.error.message).toContain(
 		"Failed to derive saved-plan filename slug from plan content.",
 	);
-	expect((error as Error).message).toContain(
+	expect(result.error.message).toContain(
 		"No assistant-generated slug or deterministic fallback was attempted.",
 	);
+	return result.error.message;
 }
 
 describe("deriveSavedPlanContentSlug", () => {
 	test("successful model output becomes a valid saved-plan filename slug", async () => {
-		const pi = new FakeSlugPi({ result: { stdout: "branch-scoped-plan-extension\n" } });
+		const pi = new FakeSlugPi({ result: { stdout: "branch-scoped-plan-extension-plan\n" } });
 
-		const evidence = await deriveSavedPlanContentSlug(pi, {
+		const evidence = await deriveSavedPlanContentSlug(slugContext(pi), {
 			content: SAVED_PLAN_CONTENT,
 			cwd: CWD,
 		});
 
 		expect(evidence).toEqual({
-			slug: "branch-scoped-plan-extension",
-			rawOutput: "branch-scoped-plan-extension\n",
-			provider: TEST_MODEL_SELECTION.provider,
-			model: TEST_MODEL_SELECTION.modelId,
+			ok: true,
+			value: {
+				slug: "branch-scoped-plan-extension",
+				rawOutput: "branch-scoped-plan-extension-plan\n",
+				provider: TEST_MODEL_SELECTION.provider,
+				model: TEST_MODEL_SELECTION.modelId,
+			},
 		});
 		expect(pi.calls).toHaveLength(2);
 		expect(pi.calls[0]?.command).toBe("git");
 		expect(pi.calls[0]?.args).toEqual(["rev-parse", "--show-toplevel"]);
 		expect(pi.calls[1]?.command).toBe("pi");
-		expect(pi.calls[1]?.args).toEqual(
-			buildRawTextModelArgs(
-				buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT),
-				TEST_MODEL_SELECTION,
-			),
-		);
-		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
-	});
-
-	test("invalid normalized slug output fails with saved-plan-specific failure text", async () => {
-		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
-
-		try {
-			await deriveSavedPlanContentSlug(pi, { content: SAVED_PLAN_CONTENT, cwd: CWD });
-			throw new Error("expected slug derivation to fail");
-		} catch (error) {
-			expectSavedPlanNoFallback(error);
-			expect((error as Error).message).toContain(
-				"Pi slug model output normalized to an invalid saved-plan filename slug.",
-			);
-			expect((error as Error).message).toContain("Normalized slug: work-plan-task");
-		}
-	});
-
-	test("prompt uses only final plan content for saved-plan slugging", () => {
-		const prompt = buildSavedPlanContentSlugPrompt(SAVED_PLAN_CONTENT);
-
+		expect(pi.calls[1]?.args).toContain(TEST_MODEL_SELECTION.provider);
+		expect(pi.calls[1]?.args).toContain(TEST_MODEL_SELECTION.modelId);
+		const prompt = pi.calls[1]?.args.at(-1) ?? "";
 		expect(prompt).toContain(SAVED_PLAN_CONTENT.trim());
+		expect(prompt).toContain("Use only the final plan content.");
+		expect(prompt).toContain("- Use 3–7 words.");
+		expect(prompt).toContain("## Plan content");
 		expect(prompt).toContain(
 			"Do not use the current branch, repository name, request text, filename, or path.",
 		);
 		expect(prompt).not.toContain("branch-contexts/add-widget");
 		expect(prompt).not.toContain("/tmp/saved-plan.md");
+		expect(pi.calls[1]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
+	});
+
+	test("truncates plan content at 32k characters in the private model prompt", async () => {
+		const omittedTail = "OMITTED_PLAN_TAIL";
+		const pi = new FakeSlugPi({ result: { stdout: "bounded-plan-content\n" } });
+
+		await deriveSavedPlanContentSlug(slugContext(pi), {
+			content: `${"x".repeat(32_000)}${omittedTail}`,
+			cwd: CWD,
+		});
+
+		const prompt = pi.calls[1]?.args.at(-1) ?? "";
+		expect(prompt).toContain("x".repeat(32_000));
+		expect(prompt).toContain("[Plan content truncated for slug generation]");
+		expect(prompt).not.toContain(omittedTail);
+	});
+
+	test("invalid normalized slug output fails with saved-plan-specific failure text", async () => {
+		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
+
+		const message = expectSavedPlanNoFallback(
+			await deriveSavedPlanContentSlug(slugContext(pi), {
+				content: SAVED_PLAN_CONTENT,
+				cwd: CWD,
+			}),
+		);
+		expect(message).toContain(
+			"Pi slug model output normalized to an invalid saved-plan filename slug.",
+		);
+		expect(message).toContain("Normalized slug: work-plan-task");
 	});
 });

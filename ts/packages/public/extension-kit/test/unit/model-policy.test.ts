@@ -5,6 +5,7 @@ import {
 	MODEL_OPERATION_IDS,
 	parseModelPolicyToml,
 	resolveModelOperation,
+	resolveProjectModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
@@ -142,6 +143,57 @@ thinking = "high"
 				profiles: { fast: { provider: "acme", modelId: "fast", thinking: "minimal" as const } },
 			},
 		});
+	});
+
+	test("resolves a configured project operation and the default fast operation", () => {
+		const configured: ProjectConfigGateway = {
+			readTextFile: () => ({
+				type: "found",
+				text: '[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "acme/deep"\nthinking = "high"\n[models.operations]\nslug = "deep"',
+			}),
+			pathExists: () => ({ type: "missing" }),
+		};
+		expect(
+			resolveProjectModelOperation({
+				repoRoot: "/repo",
+				gateway: configured,
+				operationId: MODEL_OPERATION_IDS.slug,
+			}),
+		).toMatchObject({
+			ok: true,
+			value: { profile: "deep", selection: { provider: "acme", modelId: "deep" } },
+		});
+		expect(
+			resolveProjectModelOperation({
+				repoRoot: "/repo",
+				gateway: configured,
+				operationId: "unconfigured",
+			}),
+		).toMatchObject({
+			ok: true,
+			value: { profile: "fast", selection: { provider: "acme", modelId: "fast" } },
+		});
+	});
+
+	test("preserves malformed project policy and missing-profile failures", () => {
+		const gateway = (text: string): ProjectConfigGateway => ({
+			readTextFile: () => ({ type: "found", text }),
+			pathExists: () => ({ type: "missing" }),
+		});
+		expect(
+			resolveProjectModelOperation({
+				repoRoot: "/repo",
+				gateway: gateway("[models"),
+				operationId: MODEL_OPERATION_IDS.slug,
+			}),
+		).toMatchObject({ ok: false, error: { code: "invalid-toml" } });
+		expect(
+			resolveProjectModelOperation({
+				repoRoot: "/repo",
+				gateway: gateway(""),
+				operationId: MODEL_OPERATION_IDS.slug,
+			}),
+		).toMatchObject({ ok: false, error: { code: "missing-profile" } });
 	});
 
 	test("returns a clear error when ns.toml is missing", () => {

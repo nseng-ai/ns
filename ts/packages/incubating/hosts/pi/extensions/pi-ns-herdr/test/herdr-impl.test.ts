@@ -36,7 +36,7 @@ import {
 	registerHerdrPromptSpaceImplCommand,
 	registerHerdrPromptTabImplCommand,
 } from "../src/pi/impl-prompt.ts";
-import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
+import { assertFocusedRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug/testing";
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
 
 class TrackingBranchMemoryGateway extends FakeBrmemGateway {
@@ -53,8 +53,7 @@ class TrackingBranchMemoryGateway extends FakeBrmemGateway {
 	}
 }
 import { createBranchContextContext } from "@nseng-ai/branch-context/api";
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
-import { buildTrackedBranchSlugPrompt } from "@nseng-ai/extension-kit/tracked-branch-payload";
+import type { ScriptedExec } from "./herdr-test-harness.ts";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import type { StdinCapableCommandExecApi } from "@nseng-ai/foundation/command";
@@ -73,12 +72,12 @@ import {
 	WORKTREE,
 	BRANCH,
 	PLAN_CONTENT,
+	TEST_PROJECT_CONFIG,
 	PLAN_SLUG,
 	PLAN_KEY,
 	SOURCE_BRANCH,
 	START_POINT,
 	implValidationScript,
-	gitRootStep,
 	headStep,
 	writePlanStoreFile,
 	savedPlanEntry,
@@ -89,6 +88,18 @@ afterEach(resetHerdrTestEnvironment);
 const IMPL_PROMPT_NAMESPACE = "ns-impl";
 const IMPL_PROMPT_KEY = "prompt.md";
 const TRUNK_BRANCH = "master";
+
+function focusedSlugModelStep(expectedPromptContent: string, stdout: string): ScriptedExec {
+	return {
+		command: "pi",
+		assertArgs(args) {
+			const prompt = assertFocusedRawTextModelArgs(args, TEST_MODEL_SELECTION);
+			expect(prompt).toContain(expectedPromptContent.trim());
+		},
+		result: { stdout },
+	};
+}
+
 function dispatchPlanDependencies() {
 	return {};
 }
@@ -110,6 +121,7 @@ function herdrPiTestContext(
 	return {
 		commands: createHerdrPiCommandApi(pi),
 		git,
+		projectConfig: TEST_PROJECT_CONFIG,
 		herdr,
 	};
 }
@@ -225,6 +237,7 @@ describe("herdr Pi extension — full suite", () => {
 		scenario.register({
 			commands,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
+			projectConfig: TEST_PROJECT_CONFIG,
 			herdr: new FakeHerdrGateway(),
 		});
 
@@ -246,13 +259,10 @@ describe("Herdr prompt implementation", () => {
 		const prompt = "Implement the Herdr implementation flow with literal --from trunk text";
 		const pi = new FakePi({
 			script: [
-				step(
-					"pi",
-					buildRawTextModelArgs(
-						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
-						TEST_MODEL_SELECTION,
-					),
-					{ stdout: `${BRANCH}\n` },
+				focusedSlugModelStep(
+					prompt,
+					`${BRANCH}
+`,
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
@@ -302,6 +312,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git,
+				projectConfig: TEST_PROJECT_CONFIG,
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({
@@ -349,13 +360,10 @@ describe("Herdr prompt implementation", () => {
 		const prompt = "Implement this prompt in a caller tab";
 		const pi = new FakePi({
 			script: [
-				step(
-					"pi",
-					buildRawTextModelArgs(
-						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
-						TEST_MODEL_SELECTION,
-					),
-					{ stdout: `${BRANCH}\n` },
+				focusedSlugModelStep(
+					prompt,
+					`${BRANCH}
+`,
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
@@ -406,6 +414,7 @@ describe("Herdr prompt implementation", () => {
 					headCommit: START_POINT,
 					repoRoot: ROOT,
 				}),
+				projectConfig: TEST_PROJECT_CONFIG,
 				herdr,
 			},
 			{
@@ -446,7 +455,12 @@ describe("Herdr prompt implementation", () => {
 		const git = new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH });
 		let slotCalls = 0;
 		registerHerdrPromptTabImplCommand(
-			{ commands: createHerdrPiCommandApi(pi), git, herdr },
+			{
+				commands: createHerdrPiCommandApi(pi),
+				git,
+				projectConfig: TEST_PROJECT_CONFIG,
+				herdr,
+			},
 			{
 				slotClient: {
 					async checkoutCurrent() {
@@ -488,13 +502,10 @@ describe("Herdr prompt implementation", () => {
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
-				step(
-					"pi",
-					buildRawTextModelArgs(
-						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
-						TEST_MODEL_SELECTION,
-					),
-					{ stdout: `${BRANCH}\n` },
+				focusedSlugModelStep(
+					prompt,
+					`${BRANCH}
+`,
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("gt", ["track", BRANCH, "--parent", TRUNK_BRANCH, "--no-interactive"], {}),
@@ -544,6 +555,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git,
+				projectConfig: TEST_PROJECT_CONFIG,
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({
@@ -593,7 +605,13 @@ describe("Herdr prompt implementation", () => {
 		const ctx = new FakeCommandContext({ cwd: ROOT });
 
 		await handleHerdrSlotImplPrompt(
-			{ commands: createHerdrPiCommandApi(pi), pi: ctx, herdr, git },
+			{
+				commands: createHerdrPiCommandApi(pi),
+				pi: ctx,
+				herdr,
+				git,
+				projectConfig: TEST_PROJECT_CONFIG,
+			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
 				slotClient: testSlotClient,
@@ -624,13 +642,10 @@ describe("Herdr prompt implementation", () => {
 		const prompt = "Implement the Herdr implementation flow";
 		const pi = new FakePi({
 			script: [
-				step(
-					"pi",
-					buildRawTextModelArgs(
-						buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
-						TEST_MODEL_SELECTION,
-					),
-					{ stdout: `${BRANCH}\n` },
+				focusedSlugModelStep(
+					prompt,
+					`${BRANCH}
+`,
 				),
 				step("git", ["show-ref", "--verify", "--quiet", `refs/heads/${BRANCH}`], { code: 1 }),
 				step("gt", ["track", BRANCH, "--parent", SOURCE_BRANCH, "--no-interactive"], {}),
@@ -680,6 +695,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git,
+				projectConfig: TEST_PROJECT_CONFIG,
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir, now: () => 123 }),
@@ -713,6 +729,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
+				projectConfig: TEST_PROJECT_CONFIG,
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
@@ -845,11 +862,10 @@ describe("ns:herdr:impl:plan:tab", () => {
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{ stdout: `${PLAN_SLUG}\n` },
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -859,7 +875,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const git = new InMemoryGitGateway({
-			optionalRepoRoot: { type: "missing" },
+			optionalRepoRoot: repoRoot,
 			currentBranch: SOURCE_BRANCH,
 			headCommit: START_POINT,
 		});
@@ -868,6 +884,7 @@ describe("ns:herdr:impl:plan:tab", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1035,11 +1052,10 @@ describe("ns:herdr:impl:plan:space", () => {
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{ stdout: `${PLAN_SLUG}\n` },
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -1051,7 +1067,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		const git = new InMemoryGitGateway({
-			optionalRepoRoot: { type: "missing" },
+			optionalRepoRoot: repoRoot,
 			existingBranches: [PLAN_SLUG],
 			branchUpstream: {
 				remoteName: "origin",
@@ -1063,6 +1079,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite,
 		});
@@ -1148,6 +1165,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1189,6 +1207,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1226,11 +1245,10 @@ describe("ns:herdr:impl:plan:space", () => {
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{ stdout: `${PLAN_SLUG}\n` },
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -1241,11 +1259,12 @@ describe("ns:herdr:impl:plan:space", () => {
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
 		const options = herdrPlanImplTestOptions(planStoreRoot);
-		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const git = new InMemoryGitGateway({ optionalRepoRoot: repoRoot });
 		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1290,13 +1309,11 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 				step("git", ["branch", "--show-current"], { stdout: `${SOURCE_BRANCH}\n` }),
 				...implValidationScript(repoRoot),
 				step("git", ["branch", "--show-current"], { stdout: `${SOURCE_BRANCH}\n` }),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{ stdout: `${PLAN_SLUG}\n` },
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
-				headStep(),
 			],
 		});
 		await registerHerdrPiExtension(pi);
@@ -1324,13 +1341,10 @@ describe("ns:herdr:impl:plan:space — dry-run (no Herdr mutations)", () => {
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{
-						stdout: `${PLAN_SLUG}\n`,
-					},
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 				headStep(),
 			],
@@ -1387,11 +1401,10 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{ stdout: `${PLAN_SLUG}\n` },
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -1406,13 +1419,14 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			// interaction; it is never re-queried afterwards.
 			onWaitForIdle: () => expect(herdr.resolveCallerPaneCalls).toBe(1),
 		});
-		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const git = new InMemoryGitGateway({ optionalRepoRoot: repoRoot });
 		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite,
 		});
@@ -1461,11 +1475,10 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				step("git", ["rev-parse", "--verify", `refs/heads/${TRUNK_BRANCH}`], {
 					stdout: `${START_POINT}\n`,
 				}),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{ stdout: `${PLAN_SLUG}\n` },
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -1475,13 +1488,14 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			selectIndices: [1],
 			branchEntries: [savedPlanEntry(repoRoot, planFile)],
 		});
-		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		const git = new InMemoryGitGateway({ optionalRepoRoot: repoRoot });
 		const brmem = new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH });
 		const graphite = new InMemoryGraphiteBranchGateway();
 		const options = herdrPlanImplTestOptions(planStoreRoot);
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite,
 		});
@@ -1549,13 +1563,10 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{
-						stdout: `${PLAN_SLUG}\n`,
-					},
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -1573,11 +1584,12 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 			return {
 				commands: createHerdrPiCommandApi(pi),
 				git: new InMemoryGitGateway({
-					optionalRepoRoot: { type: "missing" },
+					optionalRepoRoot: repoRoot,
 					currentBranch: SOURCE_BRANCH,
 					headCommit: START_POINT,
 					existingBranches: [PLAN_SLUG],
 				}),
+				projectConfig: TEST_PROJECT_CONFIG,
 				brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 				graphite: new InMemoryGraphiteBranchGateway(),
 			};
@@ -1612,13 +1624,10 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{
-						stdout: `${PLAN_SLUG}\n`,
-					},
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -1631,10 +1640,11 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		options.createBranchContextContext = (_commands, _cwd) => ({
 			commands: createHerdrPiCommandApi(pi),
 			git: new InMemoryGitGateway({
-				optionalRepoRoot: { type: "missing" },
+				optionalRepoRoot: repoRoot,
 				currentBranch: SOURCE_BRANCH,
 				headCommit: START_POINT,
 			}),
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			graphite: new InMemoryGraphiteBranchGateway({
 				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
@@ -1668,13 +1678,10 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{
-						stdout: `${PLAN_SLUG}\n`,
-					},
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 			],
 		});
@@ -1687,10 +1694,11 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		options.createBranchContextContext = (_commands, _cwd) => ({
 			commands: createHerdrPiCommandApi(pi),
 			git: new InMemoryGitGateway({
-				optionalRepoRoot: { type: "missing" },
+				optionalRepoRoot: repoRoot,
 				currentBranch: SOURCE_BRANCH,
 				headCommit: START_POINT,
 			}),
+			projectConfig: TEST_PROJECT_CONFIG,
 			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			graphite: new InMemoryGraphiteBranchGateway({
 				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
@@ -1725,13 +1733,10 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		const pi = new FakePi({
 			script: [
 				...implValidationScript(repoRoot),
-				gitRootStep(repoRoot),
-				step(
-					"pi",
-					buildRawTextModelArgs(buildPlanContentSlugPrompt(PLAN_CONTENT), TEST_MODEL_SELECTION),
-					{
-						stdout: `${PLAN_SLUG}\n`,
-					},
+				focusedSlugModelStep(
+					PLAN_CONTENT,
+					`${PLAN_SLUG}
+`,
 				),
 				headStep(),
 			],

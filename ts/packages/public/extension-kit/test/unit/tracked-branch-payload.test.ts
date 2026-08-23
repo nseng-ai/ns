@@ -1,11 +1,11 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { assertFocusedRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug/testing";
 import {
 	buildTrackedBranchImplPrompt,
-	buildTrackedBranchSlugPrompt,
 	loadTrackedBranchPayload,
 	createTrackedBranchForPrompt,
 	createTrackedBranchFromResolvedParent,
@@ -15,26 +15,23 @@ import {
 	TRACKED_BRANCH_PAYLOAD_KEY,
 	TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { afterEach, describe, expect, test } from "vitest";
 
 const REPO_ROOT = mkdtempSync(join(tmpdir(), "tracked-branch-payload-root-"));
-writeFileSync(
-	join(REPO_ROOT, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
-);
-
-const TEST_MODEL_SELECTION = {
-	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
-	thinking: "minimal" as const,
+const PROJECT_CONFIG: ProjectConfigGateway = {
+	readTextFile: () => ({
+		type: "found",
+		text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	}),
+	pathExists: () => ({ type: "missing" }),
 };
 
 interface Step {
 	command: string;
-	args: string[];
+	args?: string[];
 	result: ExecResult;
 }
 
@@ -51,7 +48,8 @@ class FakeCommands implements CommandExecApi {
 		this.calls.push({ command, args: [...args], ...(options === undefined ? {} : { options }) });
 		const expected = this.steps[this.next++];
 		if (expected === undefined) throw new Error(`Unexpected command: ${command} ${args.join(" ")}`);
-		expect({ command, args }).toEqual({ command: expected.command, args: expected.args });
+		expect(command).toBe(expected.command);
+		if (expected.args !== undefined) expect(args).toEqual(expected.args);
 		return expected.result;
 	}
 
@@ -61,6 +59,36 @@ class FakeCommands implements CommandExecApi {
 }
 
 const directories: string[] = [];
+
+function trackedBranchContext(pi: CommandExecApi, git: InMemoryGitGateway) {
+	return { pi, git, projectConfig: PROJECT_CONFIG };
+}
+
+function expectFocusedSlugCall(
+	commands: FakeCommands,
+	content: string,
+	options: { isTruncated?: boolean } = {},
+): void {
+	const calls = commands.calls.filter((call) => call.command === "pi");
+	expect(calls).toHaveLength(1);
+	const call = calls[0];
+	expect(call?.options?.cwd).toBe(REPO_ROOT);
+	const modelPrompt = assertFocusedRawTextModelArgs(call?.args ?? [], {
+		provider: "openai-codex",
+		modelId: "gpt-5.6-luna",
+		thinking: "minimal",
+	});
+	expect(modelPrompt).toContain("Generate a concise git branch slug");
+	expect(modelPrompt).toContain("user task prompt that will run in a new branch workspace");
+	expect(modelPrompt).toContain("Content:");
+	if (options.isTruncated === true) {
+		expect(modelPrompt).toContain("...[truncated]");
+		expect(modelPrompt).not.toContain(content.slice(12_000));
+		return;
+	}
+	expect(modelPrompt).toContain(content);
+	expect(modelPrompt.endsWith(content)).toBe(true);
+}
 
 afterEach(async () => {
 	await Promise.all(
@@ -181,10 +209,6 @@ describe("tracked branch payload public API", () => {
 		const commands = new FakeCommands([
 			{
 				command: "pi",
-				args: buildRawTextModelArgs(
-					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
-					TEST_MODEL_SELECTION,
-				),
 				result: exited({ stdout: "implement-feature\n" }),
 			},
 			{
@@ -209,12 +233,13 @@ describe("tracked branch payload public API", () => {
 			currentBranch: "feature/source",
 			headCommit: "abc123",
 		});
-		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt },
-		);
+		const result = await createTrackedBranchForPrompt(trackedBranchContext(commands, git), {
+			cwd: REPO_ROOT,
+			prompt,
+		});
 
 		commands.assertDone();
+		expectFocusedSlugCall(commands, prompt);
 		expect(git.currentBranchCalls).toEqual([{ cwd: REPO_ROOT }]);
 		expect(git.headCommitCalls).toEqual([{ cwd: REPO_ROOT }]);
 		expect(git.repoRootCalls).toEqual([{ cwd: REPO_ROOT }]);
@@ -233,10 +258,10 @@ describe("tracked branch payload public API", () => {
 		const commands = new FakeCommands([]);
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
-		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
-		);
+		const result = await createTrackedBranchForPrompt(trackedBranchContext(commands, git), {
+			cwd: REPO_ROOT,
+			prompt: "Implement the feature",
+		});
 
 		commands.assertDone();
 		expect(result).toEqual({ error: "Could not resolve current branch: HEAD is detached." });
@@ -254,10 +279,10 @@ describe("tracked branch payload public API", () => {
 			},
 		});
 
-		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
-		);
+		const result = await createTrackedBranchForPrompt(trackedBranchContext(commands, git), {
+			cwd: REPO_ROOT,
+			prompt: "Implement the feature",
+		});
 
 		commands.assertDone();
 		expect(result).toEqual({
@@ -278,10 +303,10 @@ describe("tracked branch payload public API", () => {
 			},
 		});
 
-		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
-		);
+		const result = await createTrackedBranchForPrompt(trackedBranchContext(commands, git), {
+			cwd: REPO_ROOT,
+			prompt: "Implement the feature",
+		});
 
 		commands.assertDone();
 		expect(result).toEqual({ error: "Could not resolve HEAD: HEAD unavailable" });
@@ -295,10 +320,6 @@ describe("tracked branch payload public API", () => {
 		const commands = new FakeCommands([
 			{
 				command: "pi",
-				args: buildRawTextModelArgs(
-					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
-					TEST_MODEL_SELECTION,
-				),
 				result: exited({ stdout: "implement-trunk-feature\n" }),
 			},
 			{
@@ -315,7 +336,7 @@ describe("tracked branch payload public API", () => {
 
 		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
 		const result = await createTrackedBranchFromResolvedParent(
-			{ pi: commands, git },
+			trackedBranchContext(commands, git),
 			{
 				cwd: REPO_ROOT,
 				prompt,
@@ -325,6 +346,7 @@ describe("tracked branch payload public API", () => {
 		);
 
 		commands.assertDone();
+		expectFocusedSlugCall(commands, prompt);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: REPO_ROOT, branch: "implement-trunk-feature", startPoint: "def456" },
 		]);
@@ -333,6 +355,119 @@ describe("tracked branch payload public API", () => {
 			semanticSlug: "implement-trunk-feature",
 			parentBranch: "main",
 			startPoint: "def456",
+		});
+	});
+
+	test("falls back to the full task content after successful unusable model output", async () => {
+		const prompt = "Implement fallback slug behavior";
+		const commands = new FakeCommands([
+			{
+				command: "pi",
+				result: exited({ stdout: "!!!\n" }),
+			},
+			{
+				command: "git",
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/implement-fallback-slug-behavior"],
+				result: exited({ code: 1 }),
+			},
+			{
+				command: "gt",
+				args: ["track", "implement-fallback-slug-behavior", "--parent", "main", "--no-interactive"],
+				result: exited(),
+			},
+		]);
+		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
+
+		const result = await createTrackedBranchFromResolvedParent(
+			trackedBranchContext(commands, git),
+			{ cwd: REPO_ROOT, prompt, parentBranch: "main", startPoint: "abc123" },
+		);
+
+		commands.assertDone();
+		expect(result).toEqual({
+			branchName: "implement-fallback-slug-behavior",
+			semanticSlug: "implement-fallback-slug-behavior",
+			parentBranch: "main",
+			startPoint: "abc123",
+		});
+	});
+
+	test("does not fall back when the model command fails", async () => {
+		const prompt = "Implement fallback slug behavior";
+		const commands = new FakeCommands([
+			{
+				command: "pi",
+				result: exited({ code: 2, stderr: "model unavailable" }),
+			},
+		]);
+		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
+
+		const result = await createTrackedBranchFromResolvedParent(
+			trackedBranchContext(commands, git),
+			{ cwd: REPO_ROOT, prompt, parentBranch: "main", startPoint: "abc123" },
+		);
+
+		commands.assertDone();
+		expect(result).toMatchObject({ error: expect.stringContaining("model unavailable") });
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+	});
+
+	test("preserves the established failure when model output and content are unusable", async () => {
+		const prompt = "!!!";
+		const commands = new FakeCommands([
+			{
+				command: "pi",
+				result: exited({ stdout: "???\n" }),
+			},
+		]);
+		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
+
+		const result = await createTrackedBranchFromResolvedParent(
+			trackedBranchContext(commands, git),
+			{ cwd: REPO_ROOT, prompt, parentBranch: "main", startPoint: "abc123" },
+		);
+
+		commands.assertDone();
+		expect(result).toEqual({ error: "Could not derive a usable branch slug." });
+		expect(git.createBranchAtStartPointCalls).toEqual([]);
+	});
+
+	test("uses full original content for fallback beyond prompt truncation", async () => {
+		const prompt = `${" \n".repeat(6_001)}Implement content beyond truncation`;
+		const commands = new FakeCommands([
+			{
+				command: "pi",
+				result: exited({ stdout: "!!!\n" }),
+			},
+			{
+				command: "git",
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/implement-content-beyond-truncation"],
+				result: exited({ code: 1 }),
+			},
+			{
+				command: "gt",
+				args: [
+					"track",
+					"implement-content-beyond-truncation",
+					"--parent",
+					"main",
+					"--no-interactive",
+				],
+				result: exited(),
+			},
+		]);
+		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
+
+		const result = await createTrackedBranchFromResolvedParent(
+			trackedBranchContext(commands, git),
+			{ cwd: REPO_ROOT, prompt, parentBranch: "main", startPoint: "abc123" },
+		);
+
+		commands.assertDone();
+		expectFocusedSlugCall(commands, prompt, { isTruncated: true });
+		expect(result).toMatchObject({
+			branchName: "implement-content-beyond-truncation",
+			semanticSlug: "implement-content-beyond-truncation",
 		});
 	});
 
@@ -364,10 +499,6 @@ describe("tracked branch payload public API", () => {
 		const commands = new FakeCommands([
 			{
 				command: "pi",
-				args: buildRawTextModelArgs(
-					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
-					TEST_MODEL_SELECTION,
-				),
 				result: exited({ stdout: "implement-feature\n" }),
 			},
 			{
@@ -384,7 +515,7 @@ describe("tracked branch payload public API", () => {
 
 		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
 		const result = await createTrackedBranchFromResolvedParent(
-			{ pi: commands, git },
+			trackedBranchContext(commands, git),
 			{
 				cwd: REPO_ROOT,
 				prompt,

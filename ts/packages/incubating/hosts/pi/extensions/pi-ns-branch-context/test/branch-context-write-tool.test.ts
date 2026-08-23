@@ -16,7 +16,6 @@ import {
 	createBranchContextOperationFakes,
 	createToolContext,
 	registeredTool,
-	savedPlanSlugArgs,
 	savedPlanSlugStep,
 	type ToolUpdate,
 } from "./branch-context-extension-support.ts";
@@ -71,7 +70,8 @@ describe("write_saved_plan_file tool", () => {
 
 		pi.assertDone();
 		expect(pi.execCalls[0]?.command).toBe("pi");
-		expect(pi.execCalls[0]?.args).toEqual(savedPlanSlugArgs(content));
+		expect(pi.execCalls[0]?.args.at(-1)).toContain(content.trim());
+		expect(pi.execCalls[0]?.args.at(-1)).toContain("saved-plan filename slug");
 		expect(pi.execCalls[0]?.options).toMatchObject({
 			cwd: ROOT,
 			signal: expect.any(AbortSignal),

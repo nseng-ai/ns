@@ -1,15 +1,5 @@
 export { buildCli, runCli, type CliDeps, type PlansCliContext } from "./cli.ts";
 export {
-	buildContentSlugPrompt,
-	deriveContentSlug,
-	MAX_PLAN_CONTENT_CHARS,
-	normalizePlanContentSlugOutput,
-	truncatePlanContentForSlug,
-	type PlanContentSlugVariantSeed,
-	type ContentSlugEvidence,
-	type DeriveContentSlugInput,
-} from "./content-slug-derivation.ts";
-export {
 	createRealPlanStoreGateway,
 	RealPlanStoreGateway,
 	type PlanStoreDirectoryEntry,
@@ -53,9 +43,11 @@ export {
 	type SavedPlanListItem,
 } from "./saved-plan-file.ts";
 export {
-	buildSavedPlanContentSlugPrompt,
+	derivePlanSlugFromContent,
 	deriveSavedPlanContentSlug,
+	type PlanContentSlugPresentation,
 	type SavedPlanContentSlugEvidence,
+	type SavedPlanContentSlugResult,
 } from "./saved-plan-content-slug.ts";
 export {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,

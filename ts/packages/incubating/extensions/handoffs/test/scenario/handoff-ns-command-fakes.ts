@@ -4,7 +4,6 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import type {
 	ExecResult,
 	NsCommand,
@@ -23,9 +22,9 @@ export interface FakeHandoffNsApiOptions {
 	brmem?: FakeBrmemGateway;
 	commands?: CommandExecApi;
 	git?: InMemoryGitGateway;
-	projectConfig?: ProjectConfigGateway;
 	sourceReader?: BrmemSourceReader;
 	interaction?: ClinkrInteraction;
+	projectConfigText?: string;
 	isInteractive?: boolean;
 	stderr?: (text: string) => void;
 }
@@ -69,7 +68,13 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 				brmem,
 				...(options.commands === undefined ? {} : { commands: options.commands }),
 				git,
-				...(options.projectConfig === undefined ? {} : { projectConfig: options.projectConfig }),
+				projectConfig: {
+					readTextFile: () =>
+						options.projectConfigText === undefined
+							? { type: "missing" }
+							: { type: "found", text: options.projectConfigText },
+					pathExists: () => ({ type: "missing" }),
+				},
 				...(options.sourceReader === undefined ? {} : { sourceReader: options.sourceReader }),
 				...(options.interaction === undefined ? {} : { interaction: options.interaction }),
 			},

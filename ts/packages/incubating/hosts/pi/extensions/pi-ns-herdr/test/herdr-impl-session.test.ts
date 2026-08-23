@@ -11,7 +11,14 @@ import {
 	SESSION_PROMPT_ACTIONS,
 } from "../src/pi/impl-session.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
-import { FakeCommandContext, FakeHerdrGateway, FakePi, ROOT, step } from "./herdr-test-harness.ts";
+import {
+	FakeCommandContext,
+	FakeHerdrGateway,
+	FakePi,
+	ROOT,
+	step,
+	TEST_PROJECT_CONFIG,
+} from "./herdr-test-harness.ts";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
 const COMMAND_NAME = "ns:herdr:impl:session:space";
@@ -22,6 +29,7 @@ function registrationContext(pi: FakePi) {
 	return {
 		commands: createHerdrPiCommandApi(pi),
 		git: new InMemoryGitGateway(),
+		projectConfig: TEST_PROJECT_CONFIG,
 		trunkBranch: "master",
 		herdr: new FakeHerdrGateway(),
 	};

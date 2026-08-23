@@ -43,6 +43,10 @@ function branchContext(overrides: Partial<BranchContextContext> = {}): BranchCon
 	return {
 		commands,
 		git: overrides.git ?? new InMemoryGitGateway(),
+		projectConfig: {
+			readTextFile: () => ({ type: "missing" }),
+			pathExists: () => ({ type: "missing" }),
+		},
 		brmem: overrides.brmem ?? new InMemoryBranchMemoryGateway(),
 		graphite: overrides.graphite ?? new InMemoryGraphiteBranchGateway(),
 	};

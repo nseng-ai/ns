@@ -205,7 +205,7 @@ async function runRawTextModelAttempt(
 	};
 }
 
-export function buildRawTextModelArgs(prompt: string, model: ModelSelection): string[] {
+function buildRawTextModelArgs(prompt: string, model: ModelSelection): string[] {
 	return [
 		"--provider",
 		model.provider,

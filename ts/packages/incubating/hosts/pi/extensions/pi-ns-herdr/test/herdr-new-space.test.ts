@@ -11,6 +11,7 @@ import {
 	FakePi,
 	notificationMessages,
 	ROOT,
+	TEST_PROJECT_CONFIG,
 } from "./herdr-test-harness.ts";
 
 function labelDeriver(label = "review-brmem-contract"): HerdrResourceLabelDeriver {
@@ -114,6 +115,7 @@ describe("Herdr new space", () => {
 		const dependencies = {
 			commands: createHerdrPiCommandApi(renderedPi),
 			git: new InMemoryGitGateway({ optionalRepoRoot: ROOT }),
+			projectConfig: TEST_PROJECT_CONFIG,
 			herdr,
 		};
 		registerHerdrNewSpaceCommand(dependencies);

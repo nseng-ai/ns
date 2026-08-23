@@ -31,6 +31,10 @@ function branchContext(
 	return {
 		commands: pi,
 		git: overrides.git,
+		projectConfig: {
+			readTextFile: () => ({ type: "missing" }),
+			pathExists: () => ({ type: "missing" }),
+		},
 		brmem: overrides.brmem,
 		graphite: new InMemoryGraphiteBranchGateway(),
 	};

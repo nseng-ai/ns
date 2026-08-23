@@ -8,7 +8,6 @@ import {
 	branchStateSchema,
 	createHandoffArtifact,
 	deleteHandoffArtifact,
-	deriveSemanticHandoffSlug,
 	executeDeletedBranchGarbageCollection,
 	handoffKeyFromSlug,
 	handoffKeyToSlug,
@@ -46,7 +45,6 @@ describe("@nseng-ai/handoffs/api", () => {
 	test("exports identity helpers and schemas", () => {
 		expect(HANDOFF_NAMESPACE).toBe("handoff");
 		expect(HANDOFF_KEY_SUFFIX).toBe(".md");
-		expect(deriveSemanticHandoffSlug("Pick up handoff flow")).toBe("pick-up-handoff-flow");
 		expect(handoffKeyFromSlug("pick-up-handoff-flow")).toEqual({
 			type: "ok",
 			value: "pick-up-handoff-flow.md",

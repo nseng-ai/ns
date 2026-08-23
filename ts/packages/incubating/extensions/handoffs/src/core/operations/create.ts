@@ -92,23 +92,19 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 			requestedSlug: explicitSlug.requestedSlug,
 		};
 	} else {
-		try {
-			const derived = await deriveHandoffContentSlug(
-				{ commands: ctx.commands, git: ctx.git, projectConfig: ctx.projectConfig },
-				{ content: prepared.value.content, cwd: ctx.cwd },
-			);
-			slugEvidence = {
-				slugSource: "content-derived",
-				slug: derived.slug,
-				provider: derived.provider,
-				model: derived.model,
-			};
-		} catch (error) {
-			return failure(
-				"handoff-slug-derivation-failed",
-				error instanceof Error ? error.message : String(error),
-			);
+		const derived = await deriveHandoffContentSlug(ctx, {
+			content: prepared.value.content,
+			cwd: ctx.cwd,
+		});
+		if (!derived.ok) {
+			return failure("handoff-slug-derivation-failed", derived.error.message);
 		}
+		slugEvidence = {
+			slugSource: "content-derived",
+			slug: derived.value.slug,
+			provider: derived.value.provider,
+			model: derived.value.model,
+		};
 	}
 
 	const target =

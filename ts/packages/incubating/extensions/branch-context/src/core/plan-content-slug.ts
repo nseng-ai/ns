@@ -1,14 +1,25 @@
 import { readFile } from "node:fs/promises";
 
-import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import {
-	buildContentSlugPrompt,
-	deriveContentSlug,
-	type ContentSlugEvidence,
-	type PlanContentSlugVariantSeed,
-} from "@nseng-ai/plans";
+import type {
+	ContentSlugContext,
+	ContentSlugEvidence,
+	ContentSlugFailure,
+} from "@nseng-ai/extension-kit/content-slug";
+import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
+import type { Result } from "@nseng-ai/foundation/result";
+import { derivePlanSlugFromContent } from "@nseng-ai/plans/api";
 
 export type PlanContentSlugEvidence = ContentSlugEvidence;
+
+export interface PlanContentReadFailure {
+	readonly code: "plan-content-read-failed";
+	readonly message: string;
+}
+
+export type PlanContentSlugResult = Result<
+	PlanContentSlugEvidence,
+	ContentSlugFailure | PlanContentReadFailure
+>;
 
 export interface DerivePlanContentSlugInput {
 	filePath: string;
@@ -17,7 +28,7 @@ export interface DerivePlanContentSlugInput {
 	readTextFile?: (path: string) => Promise<string>;
 }
 
-const PLAN_CONTENT_SLUG_VARIANT: PlanContentSlugVariantSeed = {
+const BRANCH_CONTEXT_PLAN_PRESENTATION = {
 	slugKind: "branch-context slug",
 	promptIntroLines: [
 		"Generate the branch-context slug for the Markdown implementation plan content below.",
@@ -29,22 +40,39 @@ const PLAN_CONTENT_SLUG_VARIANT: PlanContentSlugVariantSeed = {
 };
 
 export async function derivePlanContentSlug(
-	pi: CommandExecApi,
+	context: ContentSlugContext,
 	input: DerivePlanContentSlugInput,
-): Promise<PlanContentSlugEvidence> {
-	const readTextFile = input.readTextFile ?? defaultReadTextFile;
-	const content = await readTextFile(input.filePath);
-	return deriveContentSlug(
-		pi,
-		{ content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) },
-		PLAN_CONTENT_SLUG_VARIANT,
+): Promise<PlanContentSlugResult> {
+	const content = await readPlanContent(input);
+	if (!content.ok) return content;
+	return derivePlanSlugFromContent(
+		context,
+		{
+			content: content.value,
+			cwd: input.cwd,
+			...(input.signal === undefined ? {} : { signal: input.signal }),
+		},
+		BRANCH_CONTEXT_PLAN_PRESENTATION,
 	);
 }
 
-function defaultReadTextFile(path: string): Promise<string> {
-	return readFile(path, "utf8");
+function readPlanContent(
+	input: Pick<DerivePlanContentSlugInput, "filePath" | "readTextFile">,
+): Promise<Result<string, PlanContentReadFailure>> {
+	if (input.readTextFile === undefined) return defaultReadTextFile(input.filePath);
+	return input.readTextFile(input.filePath).then((value) => ({ ok: true, value }));
 }
 
-export function buildPlanContentSlugPrompt(content: string): string {
-	return buildContentSlugPrompt(content, PLAN_CONTENT_SLUG_VARIANT);
+async function defaultReadTextFile(path: string): Promise<Result<string, PlanContentReadFailure>> {
+	try {
+		return { ok: true, value: await readFile(path, "utf8") };
+	} catch (error) {
+		return {
+			ok: false,
+			error: {
+				code: "plan-content-read-failed",
+				message: `Could not read plan content from ${path}: ${formatErrorMessage(error)}`,
+			},
+		};
+	}
 }
