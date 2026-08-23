@@ -59,20 +59,17 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 	const result = await ctx.gateway.deleteEntry({ namespace, key, branch });
 	if (result.type === "error") {
 		if (result.error.code === "key-not-found") {
-			return negative(
-				`No Entry to delete: Entry Key=${key} Namespace=${namespaceValueLabel(namespace)} Branch=${branch} at ${locator}. Underlying error: ${result.error.message}`,
-				{
-					data: {
-						namespace,
-						key,
-						branch,
-						refName: locator,
-						deleted: false,
-						cancelled: false,
-						commit: null,
-					},
-				},
-			);
+			const message = `No Entry to delete: Entry Key=${key} Namespace=${namespaceValueLabel(namespace)} Branch=${branch} at ${locator}. Underlying error: ${result.error.message}`;
+			return negative(message, {
+				namespace,
+				key,
+				branch,
+				refName: locator,
+				deleted: false,
+				cancelled: false,
+				commit: null,
+				message,
+			});
 		}
 		return gatewayFailure<DeleteResult>(result.error);
 	}
@@ -88,7 +85,8 @@ export async function runDelete(ctx: BrmemCliContext, request: DeleteRequest) {
 	});
 }
 
-export function renderDelete(result: DeleteResult): string {
+export function renderDelete(result: DeleteResult & { message?: string }): string {
+	if (result.message !== undefined) return result.message;
 	if (result.cancelled) {
 		return [
 			"Cancelled Branch Memory Entry delete.",

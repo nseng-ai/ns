@@ -634,5 +634,5 @@ function parseObjectiveListStdout(stdout: string): ObjectiveListParseResult {
 	if (envelope.type !== "valid") {
 		return { type: "invalid", message: envelope.message };
 	}
-	return parseObjectiveListData(envelope.data);
+	return parseObjectiveListData(envelope.data!);
 }

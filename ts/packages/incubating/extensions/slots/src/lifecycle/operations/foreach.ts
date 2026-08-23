@@ -166,7 +166,7 @@ export async function runForeach(ctx: SlotCliContext, request: ForeachRequest) {
 	if (failedCount > 0)
 		return negative(
 			`ns slot foreach: command failed in ${failedCount} of ${totalTargets} worktree(s).`,
-			{ data: result, human: renderForeach(result, ctx.renderCapabilities) },
+			result,
 		);
 	return ok(result);
 }

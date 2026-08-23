@@ -34,7 +34,7 @@ describe("slot ns extension context", () => {
 	it("passes host render capabilities explicitly so interactive previews can reuse terminal colors", async () => {
 		const renderCapabilities: RenderCapabilities = { canEmitAnsi: true, caps: colorCaps };
 		const command = loadSlotNsCommand("list") as NsCommand<NsCommandSchema, unknown>;
-		await command.run(extensionApi({ renderCapabilities }), { argv: [] });
+		await command.handler(extensionApi({ renderCapabilities }), { argv: [] });
 
 		expect(createRealSlotContext).toHaveBeenCalledWith(
 			expect.objectContaining({

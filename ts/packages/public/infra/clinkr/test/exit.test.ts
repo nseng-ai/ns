@@ -201,7 +201,7 @@ describe("toMachineEnvelope", () => {
 	test("negative envelope with data orders keys exitCode, message, data", () => {
 		const envelope = toMachineEnvelope(negative("empty", { count: 0 }));
 		expect(Object.keys(envelope)).toEqual(["status", "exitCode", "message", "data"]);
-		expect(envelope.data).toEqual({ count: 0 });
+		expect(envelope.data!).toEqual({ count: 0 });
 	});
 
 	test("failure envelope orders keys exitCode, errorType, message", () => {

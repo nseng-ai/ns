@@ -49,6 +49,11 @@ export const showRecordSchema = z.object({
 
 export const showResultSchema = z.object({ skills: z.array(showRecordSchema) });
 export const checkResultSchema = z.object({ ok: z.boolean(), skills: z.array(showRecordSchema) });
+export const commandFailureDataSchema = z.record(z.string(), z.unknown());
+export const commandUsageErrorDataSchema = z.union([
+	z.object({ missingFlag: z.string(), paths: z.array(z.string()) }),
+	z.object({ paths: z.array(z.string()) }),
+]);
 
 export function toShowRecord(inspection: import("./core.ts").SkillInspection) {
 	return {

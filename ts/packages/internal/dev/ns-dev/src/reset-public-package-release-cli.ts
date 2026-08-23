@@ -31,7 +31,7 @@ export const resetPublicPackageReleaseRequestSchema = z.object({
 export async function runResetPublicPackageRelease(
 	context: NsDevCliContext,
 	request: z.output<typeof resetPublicPackageReleaseRequestSchema>,
-): Promise<ClinkrExit<ReleaseResetResult>> {
+): Promise<ClinkrExit<ReleaseResetResult, unknown, unknown, unknown>> {
 	const gateway = context.releaseReset ?? createReleaseResetGateway(context);
 	let planned: Awaited<ReturnType<typeof planReleaseReset>>;
 	try {
@@ -69,7 +69,7 @@ export async function runResetPublicPackageRelease(
 				confirmation.type === "aborted"
 					? "Release reset confirmation was aborted; no reset effects ran."
 					: "Release reset was declined; no reset effects ran.",
-				{ data: declined, human: renderResetPublicPackageRelease(declined) },
+				declined,
 			);
 		}
 	}
@@ -152,7 +152,7 @@ function createReleaseResetGateway(
 function exitForRefusal(
 	result: Extract<ReleaseResetResult, { readonly outcome: "refused" }>,
 	requestedVersion: string,
-): ClinkrExit<ReleaseResetResult> {
+): ClinkrExit<ReleaseResetResult, unknown, unknown, unknown> {
 	const rendered = renderResetPublicPackageReleaseWithVersion(result, requestedVersion);
 	if (result.failure !== undefined) {
 		return failure(
@@ -161,13 +161,13 @@ function exitForRefusal(
 			result,
 		);
 	}
-	return negative(`Release reset refused: ${result.code}.`, { data: result, human: rendered });
+	return negative(`Release reset refused: ${result.code}.`, result);
 }
 
 function unexpectedFailure(
 	operation: "plan" | "confirm" | "apply",
 	error: unknown,
-): ClinkrExit<ReleaseResetResult> {
+): ClinkrExit<ReleaseResetResult, unknown, unknown, unknown> {
 	const message = formatErrorMessage(error);
 	return failure("release-reset-failed", `Release reset ${operation} failed: ${message}`, {
 		operation,

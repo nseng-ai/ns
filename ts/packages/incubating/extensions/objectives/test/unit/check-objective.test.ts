@@ -76,9 +76,9 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (withoutFrontmatter.type !== "ok") throw new Error("expected ok exit");
-		if (withoutFrontmatter.data === undefined) throw new Error("expected ok data");
-		expect(withoutFrontmatter.data.status).toBe("ok");
-		expect(withoutFrontmatter.data.errorCount).toBe(0);
+		if (withoutFrontmatter.data! === undefined) throw new Error("expected ok data");
+		expect(withoutFrontmatter.data!.status).toBe("ok");
+		expect(withoutFrontmatter.data!.errorCount).toBe(0);
 		expect(withFrontmatter).toEqual(withoutFrontmatter);
 	});
 
@@ -105,7 +105,7 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (withoutFrontmatter.type !== "negative") throw new Error("expected negative exit");
-		expect(withoutFrontmatter.data?.status).toBe("failed");
+		expect(withoutFrontmatter.data!?.status).toBe("failed");
 		expect(withFrontmatter).toEqual(withoutFrontmatter);
 	});
 
@@ -119,12 +119,12 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		if (exit.data?.status !== "failed") throw new Error("expected failed result");
-		expect(exit.data.errorCount).toBe(1);
-		const failing = exit.data.checks.filter((check) => !check.isPassed);
+		if (exit.data!?.status !== "failed") throw new Error("expected failed result");
+		expect(exit.data!.errorCount).toBe(1);
+		const failing = exit.data!.checks.filter((check) => !check.isPassed);
 		expect(failing).toHaveLength(1);
 		expect(failing[0]?.label).toBe("objective.md Record Frontmatter parses");
-		const headingChecks = exit.data.checks.filter((check) => check.label.includes("##"));
+		const headingChecks = exit.data!.checks.filter((check) => check.label.includes("##"));
 		expect(headingChecks.length).toBeGreaterThan(0);
 		expect(headingChecks.every((check) => check.isPassed)).toBe(true);
 	});
@@ -146,9 +146,9 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		if (exit.data === undefined) throw new Error("expected ok data");
-		if (exit.data.status !== "ok") throw new Error("expected ok result");
-		const closureCheck = exit.data.checks.find((check) =>
+		if (exit.data! === undefined) throw new Error("expected ok data");
+		if (exit.data!.status !== "ok") throw new Error("expected ok result");
+		const closureCheck = exit.data!.checks.find((check) =>
 			check.label.includes("## Closure for closed Objective"),
 		);
 		expect(closureCheck?.isPassed).toBe(true);
@@ -169,8 +169,8 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		if (exit.data?.status !== "failed") throw new Error("expected failed result");
-		const failing = exit.data.checks.filter((check) => !check.isPassed);
+		if (exit.data!?.status !== "failed") throw new Error("expected failed result");
+		const failing = exit.data!.checks.filter((check) => !check.isPassed);
 		expect(failing.map((check) => check.label)).toEqual([
 			"objective.md edge checkout-free-sdl-distribution endpoint exists",
 		]);
@@ -192,11 +192,11 @@ describe("objective check with Record Frontmatter", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		if (exit.data === undefined) throw new Error("expected ok data");
-		expect(exit.data.status).toBe("ok");
-		expect(exit.data.errorCount).toBe(0);
-		expect(exit.data.warningCount).toBe(1);
-		const warning = exit.data.checks.find(
+		if (exit.data! === undefined) throw new Error("expected ok data");
+		expect(exit.data!.status).toBe("ok");
+		expect(exit.data!.errorCount).toBe(0);
+		expect(exit.data!.warningCount).toBe(1);
+		const warning = exit.data!.checks.find(
 			(check) => check.severity === "warning" && !check.isPassed,
 		);
 		expect(warning?.label).toBe("objective.md Blocked Sentence has no closed edge counterparts");
@@ -233,11 +233,11 @@ describe("objective check --all edge sweep", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		if (exit.data === undefined) throw new Error("expected ok data");
-		expect(exit.data.status).toBe("sweep-ok");
-		if (exit.data.status !== "sweep-ok") throw new Error("expected sweep-ok result");
-		expect(exit.data.recordCount).toBe(3);
-		expect(exit.data.violations).toEqual([]);
+		if (exit.data! === undefined) throw new Error("expected ok data");
+		expect(exit.data!.status).toBe("sweep-ok");
+		if (exit.data!.status !== "sweep-ok") throw new Error("expected sweep-ok result");
+		expect(exit.data!.recordCount).toBe(3);
+		expect(exit.data!.violations).toEqual([]);
 	});
 
 	test("sweep stays sweep-ok when only blocked/closed-counterpart warnings exist", async () => {
@@ -256,12 +256,12 @@ describe("objective check --all edge sweep", () => {
 		);
 
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		if (exit.data === undefined) throw new Error("expected ok data");
-		expect(exit.data.status).toBe("sweep-ok");
-		if (exit.data.status !== "sweep-ok") throw new Error("expected sweep-ok result");
-		expect(exit.data.errorCount).toBe(0);
-		expect(exit.data.warningCount).toBe(1);
-		expect(exit.data.violations.map((item) => item.severity)).toEqual(["warning"]);
+		if (exit.data! === undefined) throw new Error("expected ok data");
+		expect(exit.data!.status).toBe("sweep-ok");
+		if (exit.data!.status !== "sweep-ok") throw new Error("expected sweep-ok result");
+		expect(exit.data!.errorCount).toBe(0);
+		expect(exit.data!.warningCount).toBe(1);
+		expect(exit.data!.violations.map((item) => item.severity)).toEqual(["warning"]);
 	});
 
 	test("sweep covers active records and aggregates violations", async () => {
@@ -292,10 +292,10 @@ describe("objective check --all edge sweep", () => {
 		);
 
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		expect(exit.data?.status).toBe("sweep-failed");
-		if (exit.data?.status !== "sweep-failed") throw new Error("expected sweep-failed result");
-		expect(exit.data.recordCount).toBe(2);
-		expect(exit.data.violations.map((item) => item.label)).toEqual([
+		expect(exit.data!?.status).toBe("sweep-failed");
+		if (exit.data!?.status !== "sweep-failed") throw new Error("expected sweep-failed result");
+		expect(exit.data!.recordCount).toBe(2);
+		expect(exit.data!.violations.map((item) => item.label)).toEqual([
 			"objective.md edge no-such-record endpoint exists",
 			"objective.md edge checkout-free-sdl-distribution endpoint exists",
 		]);

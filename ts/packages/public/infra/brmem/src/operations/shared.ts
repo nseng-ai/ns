@@ -19,7 +19,7 @@ export interface ResolvedEntryRequest {
 }
 
 export type ResolvedEntryRequestResult =
-	| ClinkrExit<never>
+	| ClinkrExit<never, never, never, never>
 	| {
 			type: "resolved";
 			value: ResolvedEntryRequest;

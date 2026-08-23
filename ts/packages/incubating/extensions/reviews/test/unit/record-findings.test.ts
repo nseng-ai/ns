@@ -44,7 +44,7 @@ describe("runRecordFindings", () => {
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") return;
-		expect(exit.data).toMatchObject({
+		expect(exit.data!!).toMatchObject({
 			reviewName: "typescript-style",
 			reviewPath: "/repo/.ns/reviews/typescript-style/review.md",
 			modelProfile: "deep",
@@ -55,7 +55,7 @@ describe("runRecordFindings", () => {
 			usage: null,
 			inputCoverage: null,
 		});
-		expect(exit.data.findings).toEqual([FINDING]);
+		expect(exit.data!!.findings).toEqual([FINDING]);
 		expect(reviewLog.writtenEntries()).toHaveLength(1);
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("# Reviews Review: typescript-style");
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("- Model profile: `deep`");
@@ -134,8 +134,8 @@ describe("runRecordFindings", () => {
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") return;
 		expect(exit.message).toContain("failed to write Branch Memory review log");
-		expect(exit.data?.reviewName).toBe("typescript-style");
-		expect(exit.data?.model).toBe("anthropic/claude-sonnet-4-6");
+		expect(exit.data!!?.reviewName).toBe("typescript-style");
+		expect(exit.data!!?.model).toBe("anthropic/claude-sonnet-4-6");
 	});
 });
 

@@ -43,12 +43,18 @@ const regeneratePrSchema = z.object({
 
 type RegeneratePrRequest = z.output<typeof regeneratePrSchema>;
 
+const regeneratePrUsageErrorSchema = z.object({
+	missingFlag: z.literal("--yes"),
+	howToSupply: z.string(),
+});
+
 export const flowRegeneratePrCommand: NsCommand<typeof regeneratePrSchema> = defineCommand({
 	name: "regenerate-pr",
 	summary: "Regenerate and replace the complete PR title and body.",
 	description: REGENERATE_PR_DESCRIPTION,
 	schema: regeneratePrSchema,
 	resultSchema: z.string(),
+	usageErrorSchema: regeneratePrUsageErrorSchema,
 	renderHuman: (text) => z.string().parse(text),
 	options: { yes: { short: "-y" } },
 	handler: async (ctx: NsExtensionApi, request: RegeneratePrRequest) => {

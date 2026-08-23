@@ -97,7 +97,7 @@ export type ReleaseCliResult = z.output<typeof releaseCliResultSchema>;
 export async function runReleasePublicPackageSet(
 	context: NsDevCliContext,
 	request: z.output<typeof releasePublicPackageSetRequestSchema>,
-): Promise<ClinkrExit<ReleaseCliResult>> {
+): Promise<ClinkrExit<ReleaseCliResult, unknown, unknown, unknown>> {
 	if (!request.plan && !request.yes && !context.interaction.isInteractive()) {
 		return usageError("Publishing non-interactively requires --yes.", {
 			missingFlag: "--yes",
@@ -131,7 +131,7 @@ export function renderReleasePublicPackageSet(data: ReleaseCliResult): string {
 async function runPlan(
 	version: string,
 	context: ReleaseCliContext,
-): Promise<ClinkrExit<ReleaseCliResult>> {
+): Promise<ClinkrExit<ReleaseCliResult, unknown, unknown, unknown>> {
 	const result = await planFreshRelease(context.release, version);
 	if (result.type === "refused")
 		return releaseFailure(
@@ -164,7 +164,7 @@ async function runPlan(
 async function runTransaction(
 	version: string,
 	context: ReleaseCliContext,
-): Promise<ClinkrExit<ReleaseCliResult>> {
+): Promise<ClinkrExit<ReleaseCliResult, unknown, unknown, unknown>> {
 	const result = await runReleaseTransaction(context, version);
 	return result.type === "verified"
 		? ok({
@@ -186,7 +186,7 @@ async function runTransaction(
 function releaseFailure(
 	evidence: ReleaseEvidence,
 	error: ReleaseFailure,
-): ClinkrExit<ReleaseCliResult> {
+): ClinkrExit<ReleaseCliResult, unknown, unknown, unknown> {
 	return failure(error.code, error.message, { ...evidence, error, finalStatus: "refused" });
 }
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { ClinkrGroup } from "@nseng-ai/clinkr";
+import { z } from "zod";
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 
 import { createRealBrmemContext, type BrmemCliContext } from "./context.ts";
@@ -86,6 +87,7 @@ const entry = defineCli<BrmemCliContext, CliDeps, undefined>({
 			positionals: { key: { position: 0 } },
 			options: { yes: { short: "-y" } },
 			resultSchema: deleteResultSchema,
+			usageErrorSchema: z.unknown(),
 			handler: runDelete,
 			renderHuman: renderDelete,
 		});

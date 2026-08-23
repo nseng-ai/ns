@@ -62,7 +62,10 @@ function makeApi(options: ScenarioOptions = {}): FakeObjectiveNsApi {
 	});
 }
 
-function assertJsonEnvelopeStdout<T>(api: FakeObjectiveNsApi, exit: ClinkrExit<T>): unknown {
+function assertJsonEnvelopeStdout<T, N, F, U>(
+	api: FakeObjectiveNsApi,
+	exit: ClinkrExit<T, N, F, U>,
+): unknown {
 	const stdout = `${api.stdoutChunks.join("")}${envelopeJsonText(toMachineEnvelope(exit))}`;
 	expect(stdout).not.toMatch(/^# Runner Begin:/u);
 	return JSON.parse(stdout) as unknown;
@@ -80,7 +83,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data).toMatchObject({
+		expect(exit.data!!).toMatchObject({
 			slug: SLUG,
 			mode: "default",
 			baseBranch: "main",
@@ -88,10 +91,10 @@ describe("ns objective exec runner-begin scenarios", () => {
 			changedPaths: [],
 			reportPath: REPORT_PATH,
 		});
-		expect(exit.data.objectivePath).toContain(SLUG);
-		expect(exit.data.prompt).toContain(`\`${REPORT_PATH}\``);
-		expect(exit.data.prompt).toContain('"status": "<ready-for-parent-commit | stop | blocked>"');
-		expect(exit.data.prompt).toContain("Leave ALL changes uncommitted.");
+		expect(exit.data!!.objectivePath).toContain(SLUG);
+		expect(exit.data!!.prompt).toContain(`\`${REPORT_PATH}\``);
+		expect(exit.data!!.prompt).toContain('"status": "<ready-for-parent-commit | stop | blocked>"');
+		expect(exit.data!!.prompt).toContain("Leave ALL changes uncommitted.");
 		expect(api.phases).toEqual(["checking-preconditions"]);
 		expect(api.stdoutChunks).toEqual([]);
 	});
@@ -120,8 +123,8 @@ describe("ns objective exec runner-begin scenarios", () => {
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.reportPath).toBe("/scratch/report.json");
-		expect(exit.data.prompt).toContain("/scratch/report.json");
+		expect(exit.data!!.reportPath).toBe("/scratch/report.json");
+		expect(exit.data!!.prompt).toContain("/scratch/report.json");
 	});
 
 	test("recover mode carries live changed paths and the recover preamble", async () => {
@@ -140,11 +143,11 @@ describe("ns objective exec runner-begin scenarios", () => {
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.mode).toBe("recover");
-		expect(exit.data.baseBranch).toBe("feature/demo-step");
-		expect(exit.data.changedPaths).toEqual(["src/a.ts", "src/b.ts"]);
-		expect(exit.data.prompt).toContain("Recovery mode: a previous runner step failed");
-		expect(exit.data.prompt).toContain("- src/a.ts");
+		expect(exit.data!!.mode).toBe("recover");
+		expect(exit.data!!.baseBranch).toBe("feature/demo-step");
+		expect(exit.data!!.changedPaths).toEqual(["src/a.ts", "src/b.ts"]);
+		expect(exit.data!!.prompt).toContain("Recovery mode: a previous runner step failed");
+		expect(exit.data!!.prompt).toContain("- src/a.ts");
 	});
 
 	test("guidance reaches the prompt verbatim, inline and via @file", async () => {
@@ -156,7 +159,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		);
 		expect(inlineExit.type).toBe("ok");
 		if (inlineExit.type === "ok") {
-			expect(inlineExit.data.prompt).toContain("Only touch the parser.");
+			expect(inlineExit.data!!.prompt).toContain("Only touch the parser.");
 		}
 
 		const fileApi = makeApi({
@@ -171,7 +174,7 @@ describe("ns objective exec runner-begin scenarios", () => {
 		);
 		expect(fileExit.type).toBe("ok");
 		if (fileExit.type === "ok") {
-			expect(fileExit.data.prompt).toContain("Guidance loaded from a file.");
+			expect(fileExit.data!!.prompt).toContain("Guidance loaded from a file.");
 		}
 	});
 

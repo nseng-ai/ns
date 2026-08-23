@@ -72,7 +72,7 @@ async function runMapBranchPrsOperation(
 		ambiguousBranchNames: result.ambiguousBranches.map((entry) => entry.branch),
 	};
 	if (!hasBranchPrMappingGaps(gaps)) return ok(result);
-	return negative(branchPrMappingGapsMessage(gaps), { data: result });
+	return negative(branchPrMappingGapsMessage(gaps), result);
 }
 
 export function branchesValidationMessage(

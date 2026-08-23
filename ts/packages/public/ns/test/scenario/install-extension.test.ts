@@ -209,7 +209,7 @@ describe("installExtension", () => {
 			'harnesses = ["pi"]\nextensions = ["./extensions/tools"]\n',
 		);
 		if (result.type !== "ok") throw new Error("Expected install success.");
-		expect(result.data.steps).toEqual([
+		expect(result.data!!.steps).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
 			{ type: "repository-resolved", repoRoot: "/repo", trunkBranch: "main" },
 			{ type: "phase", phase: "repository-preflight", status: "completed" },

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
 	installExtension,
 	installExtensionRequestSchema,
@@ -15,6 +17,8 @@ export const nsExtensionInstallCommand = nsInitCommand({
 	schema: installExtensionRequestSchema,
 	positionals: { source: { position: 0 } },
 	resultSchema: installExtensionResultSchema,
+	failureSchema: z.any(),
+	usageErrorSchema: z.any(),
 	handler: (context, request) => installExtension(context, { ...request, cwd: context.cwd }),
 	renderHuman: renderInstallExtensionHuman,
 	renderMarkdown: renderInstallExtensionMarkdown,

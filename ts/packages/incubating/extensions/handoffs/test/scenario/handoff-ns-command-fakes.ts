@@ -1,7 +1,6 @@
 import { FakeBrmemGateway, type BrmemSourceReader, type SourceBytesResult } from "@nseng-ai/brmem";
-import type { ClinkrExit, ClinkrInteraction } from "@nseng-ai/clinkr";
+import { usageError, type ClinkrExit, type ClinkrInteraction } from "@nseng-ai/clinkr";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { requestObjectToArgv } from "@nseng-ai/foundation/test-kit";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
@@ -80,27 +79,21 @@ export function createFakeHandoffNsApi(options: FakeHandoffNsApiOptions = {}): F
 	return new FakeHandoffNsApi(options);
 }
 
-export async function runHandoffCommand<S extends NsCommandSchema, T>(
-	command: NsCommand<S, T>,
+export async function runHandoffCommand<S extends NsCommandSchema, T extends {}, N, F, U>(
+	command: NsCommand<S, T, N, F, U>,
 	request: unknown,
 	options: { api?: NsExtensionApi } = {},
-): Promise<ClinkrExit<T>> {
-	const exit = await command.run(options.api ?? createFakeHandoffNsApi(), {
-		argv: requestObjectToArgv(request, {
-			positionalKeys: positionalRequestKeysForCommand(command.name),
-		}),
-	});
-	if (!isClinkrExit<T>(exit)) {
+): Promise<ClinkrExit<T, N, F, U>> {
+	if (!("handler" in command)) throw new Error(`Command  has no handler.`);
+	const parsed = command.schema.safeParse(request);
+	if (!parsed.success) return usageError(parsed.error.message) as ClinkrExit<T, N, F, U>;
+	const exit = await command.handler(options.api ?? createFakeHandoffNsApi(), parsed.data);
+	if (!isClinkrExit<T, N, F, U>(exit)) {
 		throw new Error(
 			`Command ${command.name} returned a legacy ns result instead of a Clinkr exit.`,
 		);
 	}
 	return exit;
-}
-
-function positionalRequestKeysForCommand(commandName: string): readonly string[] {
-	if (commandName === "match") return ["selector"];
-	return ["delete", "pickup"].includes(commandName) ? ["slug"] : [];
 }
 
 export async function putHandoffEntry(
@@ -166,7 +159,7 @@ export class FakeHandoffSourceReader implements BrmemSourceReader {
 	}
 }
 
-function isClinkrExit<T>(value: unknown): value is ClinkrExit<T> {
+function isClinkrExit<T, N, F, U>(value: unknown): value is ClinkrExit<T, N, F, U> {
 	if (typeof value !== "object" || value === null) return false;
 	const type = (value as { type?: unknown }).type;
 	return type === "ok" || type === "negative" || type === "failure" || type === "usageError";

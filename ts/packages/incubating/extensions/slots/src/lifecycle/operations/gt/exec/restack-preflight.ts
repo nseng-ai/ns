@@ -76,7 +76,7 @@ export async function runGtRestackPreflight(
 			currentPath: ctx.repo.root,
 		});
 		if (result.rebaseInProgress) return ok(result);
-		return negative(`${stackResult.message} — run \`gt track\` first`, { data: result });
+		return negative(`${stackResult.message} — run \`gt track\` first`, result);
 	}
 
 	const stack = stackResult.stack;
@@ -92,7 +92,7 @@ export async function runGtRestackPreflight(
 			slotConflicts: [],
 			warnings: [],
 		};
-		return negative(`On trunk '${stack.trunk}'; no stack is checked out.`, { data: result });
+		return negative(`On trunk '${stack.trunk}'; no stack is checked out.`, result);
 	}
 	const hasUpstackChildren = stack.descendants.length > 0;
 	const effectiveScope =
@@ -131,7 +131,7 @@ export async function runGtRestackPreflight(
 	};
 	if (result.rebaseInProgress) return ok(result);
 	if (!result.clean || result.slotConflicts.length > 0)
-		return negative("Restack preflight is blocked.", { data: result });
+		return negative("Restack preflight is blocked.", result);
 	return ok(result);
 }
 

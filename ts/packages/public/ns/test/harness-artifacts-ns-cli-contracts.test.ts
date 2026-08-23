@@ -104,7 +104,7 @@ function parseJsonOutput(result: CliRun): Record<string, unknown> {
 }
 
 function dataFromEnvelope(envelope: Record<string, unknown>): Record<string, unknown> {
-	const data = envelope.data;
+	const data = envelope.data!;
 	if (typeof data !== "object" || data === null) {
 		throw new Error("Expected envelope data object.");
 	}

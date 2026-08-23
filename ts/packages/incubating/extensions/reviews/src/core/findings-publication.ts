@@ -82,7 +82,8 @@ export function parseFindingsPayloadResult(
 		return payloadError("expected a clinkr envelope with top-level 'status' and 'exitCode'");
 
 	const success = reviewRunSuccessEnvelopeSchema.safeParse(data.value);
-	if (success.success) return payloadFromReviewRunResult(success.data.data);
+	if (success.success)
+		return payloadFromReviewRunResult(reviewRunResultSchema.parse(success.data.data));
 
 	const negativeResult = reviewRunShellNegativeEnvelopeSchema.safeParse(data.value);
 	if (negativeResult.success) return payloadFromReviewRunResult(negativeResult.data.data);

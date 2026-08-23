@@ -21,6 +21,8 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 		"Create a Graphite branch from current work, then move it into a managed slot worktree.",
 	schema: autoslotSchema,
 	resultSchema: z.string(),
+	negativeSchema: z.string(),
+	failureSchema: z.string(),
 	renderHuman: (text) => text,
 	options: { slug: { short: "-s" } },
 	handler: async (ctx, request) => {
@@ -28,7 +30,7 @@ export const flowAutoslotCommand: NsCommand<typeof autoslotSchema> = defineComma
 		// edge so autoslot durable outcomes render in the house style next to where facts are computed.
 		const caps = resolveFlowStreamCaps(ctx);
 		const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
-		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error, model.error);
 		return await runFlowCli({
 			ctx,
 			successMessage: "Autoslot completed.",

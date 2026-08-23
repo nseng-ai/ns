@@ -12,7 +12,6 @@ import {
 	type ClinkrUsageErrorExit,
 	type RenderCapabilities,
 } from "@nseng-ai/clinkr";
-import { rawCommand } from "@nseng-ai/clinkr/raw";
 import { defineCli, type CliEntrypointDeps } from "@nseng-ai/foundation/cli-runtime";
 import { z } from "zod";
 
@@ -142,14 +141,12 @@ const entry = defineCli<VibechkCliContext, CliDeps, undefined>({
 			renderHuman: renderDiff,
 		});
 
-		root.command(
-			rawCommand({
-				name: "run",
-				description: "Run a plan in a clean git workdir and persist a local run bundle.",
-				schema: runRequestSchema,
-				run: runRun,
-			}),
-		);
+		root.command({
+			name: "run",
+			description: "Run a plan in a clean git workdir and persist a local run bundle.",
+			schema: runRequestSchema,
+			handler: runRun,
+		});
 		appBuilder.importLegacyClinkrGroupForMigration(root);
 	},
 	handleRunError: ({ error, stderr }) => {
@@ -196,6 +193,7 @@ type RunsResult =
 	| { type: "table"; loaded: LoadedBundle[]; outputBounds: RunsOutputBounds };
 type VibechkReadOnlyErrorData = {
 	type: "lookup-error";
+	message: string;
 	idOrPrefix?: unknown;
 	matches?: unknown;
 };
@@ -237,7 +235,7 @@ function renderRuns(result: RunsResult, caps: RenderCapabilities = { canEmitAnsi
 async function runShow(
 	ctx: VibechkCliContext,
 	request: ShowRequest,
-): Promise<ClinkrExit<ShowResult>> {
+): Promise<ClinkrExit<ShowResult, VibechkReadOnlyErrorData, unknown, unknown>> {
 	try {
 		const storeRoot = resolveStoreRoot(request.store, ctx.env);
 		const loaded = await readBundle(storeRoot, request.idOrPrefix);
@@ -251,14 +249,14 @@ function renderShow(
 	result: ShowResult,
 	_caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	if (!("loaded" in result)) return result.type;
+	if (!("loaded" in result)) return result.message;
 	return renderRunReport(result.loaded);
 }
 
 async function runDiff(
 	ctx: VibechkCliContext,
 	request: DiffRequest,
-): Promise<ClinkrExit<DiffResult>> {
+): Promise<ClinkrExit<DiffResult, VibechkReadOnlyErrorData, unknown, unknown>> {
 	try {
 		const storeRoot = resolveStoreRoot(request.store, ctx.env);
 		const baseline = await readBundle(storeRoot, request.baselineId);
@@ -276,7 +274,7 @@ function renderDiff(
 	result: DiffResult,
 	_caps: RenderCapabilities = { canEmitAnsi: false },
 ): string {
-	if (!("baseline" in result)) return result.type;
+	if (!("baseline" in result)) return result.message;
 	return renderComparisonReport(result.baseline, result.treatment);
 }
 
@@ -365,24 +363,31 @@ function textByByteLimit(text: string, maxBytes: number): string {
 
 function vibechkReadOnlyErrorExit(
 	error: unknown,
-): ClinkrNegativeExit<VibechkReadOnlyErrorData> | ClinkrFailureExit | ClinkrUsageErrorExit {
+):
+	| ClinkrNegativeExit<VibechkReadOnlyErrorData>
+	| ClinkrFailureExit<unknown>
+	| ClinkrUsageErrorExit<unknown> {
 	if (!(error instanceof VibechkError)) throw error;
 	if (error.code === "run_not_found" || error.code === "ambiguous_run") {
-		return negative(error.message, { data: vibechkReadOnlyErrorData(error.data) });
+		return negative(error.message, vibechkReadOnlyErrorData(error.data, error.message));
 	}
 	if (error.code === "store_config_error") return usageError(error.message, error.data);
 	return failure(error.code, error.message, error.data);
 }
 
-function vibechkReadOnlyErrorData(data: Record<string, unknown>): VibechkReadOnlyErrorData {
+function vibechkReadOnlyErrorData(
+	data: Record<string, unknown>,
+	message = "Run lookup failed.",
+): VibechkReadOnlyErrorData {
 	return {
 		type: "lookup-error",
+		message,
 		...(data["idOrPrefix"] === undefined ? {} : { idOrPrefix: data["idOrPrefix"] }),
 		...(data["matches"] === undefined ? {} : { matches: data["matches"] }),
 	};
 }
 
-async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<number> {
+async function runRun(ctx: VibechkCliContext, request: RunRequest) {
 	const runnerName = request.runner ?? ctx.defaultRunnerName;
 	const runner = ctx.runnerRegistry.get(runnerName);
 	const repository = ctx.repositoryGatewayFactory(request.workdir);
@@ -405,7 +410,9 @@ async function runRun(ctx: VibechkCliContext, request: RunRequest): Promise<numb
 	});
 
 	ctx.stdout(`Run ID: ${result.runId}\n`);
-	return result.exitCode;
+	return result.exitCode === 0
+		? ok()
+		: negative(`Run exited with code ${result.exitCode}.`, { exitCode: result.exitCode });
 }
 
 export async function runCli(args: readonly string[], deps: CliDeps = {}): Promise<number> {

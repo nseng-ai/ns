@@ -64,7 +64,7 @@ describe("ns-dev CLI shape", () => {
 		const resetSchema = runScenario(["reset-public-package-release", "--json-schema"]);
 		expect(await resetSchema.exit).toBe(0);
 		expect(JSON.parse(resetSchema.stdout.join(""))).toMatchObject({
-			machineEnvelopeJsonSchema: { oneOf: expect.any(Array) },
+			machineEnvelopeJsonSchema: { anyOf: expect.any(Array) },
 		});
 
 		const publishHelp = runScenario(["publish-public-package-set", "--help"]);
@@ -75,7 +75,7 @@ describe("ns-dev CLI shape", () => {
 		const schema = runScenario(["verify-public-package-set", "--json-schema"]);
 		expect(await schema.exit).toBe(0);
 		expect(JSON.parse(schema.stdout.join(""))).toMatchObject({
-			machineEnvelopeJsonSchema: { oneOf: expect.any(Array) },
+			machineEnvelopeJsonSchema: { anyOf: expect.any(Array) },
 		});
 	});
 });

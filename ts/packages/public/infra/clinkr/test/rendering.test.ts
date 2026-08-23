@@ -100,20 +100,49 @@ describe("command-level rendering", () => {
 });
 
 describe("outcome validation", () => {
-	test("rejects missing, unexpected, and schema-invalid data as programmer errors", async () => {
-		const cases: ReadonlyArray<{
-			resultSchema?: z.ZodType;
-			handler: () => Promise<ClinkrExit<unknown>>;
-		}> = [
-			{ resultSchema: payloadSchema, handler: async () => ok() },
-			{ handler: async () => ok({ count: 2 }) },
-			{ resultSchema: payloadSchema, handler: async () => ok({ count: "bad" }) },
-		];
-		for (const spec of cases) {
-			const group = new LegacyClinkrGroup<null>({ name: "probe", validateOutcomes: true });
-			group.command({ name: "act", schema: z.object({}), ...spec });
-			await expect(runForTest(group, ["act"], { context: null })).rejects.toThrow();
-		}
+	test("reports the command path, status, omitted schema, and exact remediation for data", async () => {
+		const group = new LegacyClinkrGroup<null>({ name: "probe", validateOutcomes: true });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			handler: async () => ok({ count: 2 }),
+		});
+
+		await expect(runForTest(group, ["act"], { context: null })).rejects.toThrow(
+			"clinkr: command 'probe act' returned status 'ok' with data, but 'resultSchema' is omitted. Remove the data from the 'ok' outcome, or configure 'resultSchema' (use z.any() for explicitly untyped data).",
+		);
+	});
+
+	test("reports the command path, status, configured schema, and exact remediation for missing data", async () => {
+		const group = new LegacyClinkrGroup<null>({ name: "probe", validateOutcomes: true });
+		group.command({
+			name: "act",
+			schema: z.object({}),
+			resultSchema: payloadSchema,
+			handler: async () => ok(),
+		});
+
+		await expect(runForTest(group, ["act"], { context: null })).rejects.toThrow(
+			"clinkr: command 'probe act' returned status 'ok' without data, but 'resultSchema' is configured. Return data from the 'ok' outcome that matches 'resultSchema', or omit 'resultSchema' for a bodyless outcome.",
+		);
+	});
+
+	test("reports the complete nested path and preserves Zod validation detail as the cause", async () => {
+		const root = new LegacyClinkrGroup<null>({ name: "probe", validateOutcomes: true });
+		const admin = new LegacyClinkrGroup<null>({ name: "admin", validateOutcomes: true });
+		admin.command({
+			name: "act",
+			schema: z.object({}),
+			resultSchema: payloadSchema,
+			handler: async (): Promise<ClinkrExit<unknown>> => ok({ count: "bad" }),
+		});
+		root.group(admin);
+
+		await expect(runForTest(root, ["admin", "act"], { context: null })).rejects.toMatchObject({
+			message:
+				"clinkr: command 'probe admin act' returned status 'ok' with data that does not match 'resultSchema'. Return data from the 'ok' outcome that matches 'resultSchema', or change 'resultSchema' to describe the returned data (use z.any() for explicitly untyped data).",
+			cause: expect.objectContaining({ issues: expect.any(Array) }),
+		});
 	});
 
 	test("z.any is the explicit untyped data escape hatch", async () => {

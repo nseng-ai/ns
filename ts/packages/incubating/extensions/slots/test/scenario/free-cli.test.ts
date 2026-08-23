@@ -233,9 +233,9 @@ describe("slot free CLI", () => {
 			},
 		});
 		expect(await human.exit).toBe(1);
-		expect(human.stdout.join("")).toBe("");
-		const stderr = human.stderr.join("");
-		expect(stderr).toContain("Slot free completed with cleanup errors.");
-		expect(stderr).toContain("✗ Failed to close PR #12: permission denied");
+		const output = human.stdout.join("");
+		expect(human.stderr.join("")).toContain("Closing PR #12");
+		expect(output).toContain("Slot free completed with cleanup errors.");
+		expect(output).toContain("✗ Failed to close PR #12: permission denied");
 	});
 });

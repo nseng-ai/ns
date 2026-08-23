@@ -221,7 +221,7 @@ describe("updateExtension acquisition scenarios", () => {
 			},
 		});
 		if (result.type !== "ok") throw new Error("Expected update to succeed.");
-		expect(phaseHistory(result.data.steps)).toEqual([
+		expect(phaseHistory(result.data!!.steps)).toEqual([
 			{ type: "phase", phase: "repository-preflight", status: "started" },
 			{ type: "phase", phase: "repository-preflight", status: "completed" },
 			{ type: "phase", phase: "configuration-preflight", status: "started" },
@@ -245,18 +245,18 @@ describe("updateExtension acquisition scenarios", () => {
 			{ type: "phase", phase: "completion", status: "completed" },
 		]);
 		if (dryRun) {
-			const acquisitionCompleted = result.data.steps.findIndex(
+			const acquisitionCompleted = result.data!!.steps.findIndex(
 				(step) =>
 					step.type === "phase" && step.phase === "acquisition" && step.status === "completed",
 			);
-			const activationPreflight = result.data.steps.findIndex(
+			const activationPreflight = result.data!!.steps.findIndex(
 				(step) => step.type === "phase" && step.phase === "activation-preflight",
 			);
-			const activationApplySkipped = result.data.steps.findIndex(
+			const activationApplySkipped = result.data!!.steps.findIndex(
 				(step) =>
 					step.type === "phase" && step.phase === "activation-apply" && step.status === "skipped",
 			);
-			const firstEffect = result.data.steps.findIndex((step) => step.type === "effect");
+			const firstEffect = result.data!!.steps.findIndex((step) => step.type === "effect");
 			expect(acquisitionCompleted).toBeLessThan(activationPreflight);
 			expect(activationPreflight).toBeLessThan(activationApplySkipped);
 			expect(activationApplySkipped).toBeLessThan(firstEffect);

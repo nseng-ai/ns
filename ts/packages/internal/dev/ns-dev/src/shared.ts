@@ -94,7 +94,7 @@ export async function runTrackedCommand(
 export function trackedCommandFailureExit(
 	failureResult: Extract<CommandRunResult, { type: "failed" }>,
 	options: { errorType?: string; extraData?: Record<string, unknown> } = {},
-): ClinkrExit<never> {
+): ClinkrExit<never, never, unknown, never> {
 	return failure(options.errorType ?? "subprocess-failed", failureResult.message, {
 		...failureResult.data,
 		...(options.extraData ?? {}),
@@ -132,8 +132,8 @@ export async function installNsPublishPackage(
 }
 
 export async function guardFilesystemErrors<T>(
-	run: () => Promise<ClinkrExit<T>>,
-): Promise<ClinkrExit<T>> {
+	run: () => Promise<ClinkrExit<T, unknown, unknown, unknown>>,
+): Promise<ClinkrExit<T, unknown, unknown, unknown>> {
 	try {
 		return await run();
 	} catch (error) {

@@ -310,7 +310,7 @@ describe("branch-context exec", () => {
 				source: "attached",
 			},
 		});
-		const data = payload.data as Record<string, unknown>;
+		const data = payload.data! as Record<string, unknown>;
 		expect(data).not.toHaveProperty("attachedPlanContent");
 		expect(data).not.toHaveProperty("implementationPrompt");
 		expect(run.brmem.listAttachedPlansCalls).toEqual([{ branch }]);
@@ -494,7 +494,7 @@ describe("branch-context exec", () => {
 				implementationPromptFile: promptFile,
 			},
 		});
-		const data = payload.data as Record<string, unknown>;
+		const data = payload.data! as Record<string, unknown>;
 		expect(data).not.toHaveProperty("attachedPlanContent");
 		expect(data).not.toHaveProperty("implementationPrompt");
 		const prompt = await readFile(promptFile, "utf8");
@@ -529,7 +529,7 @@ describe("branch-context exec", () => {
 				attachedPlanContent: content,
 			},
 		});
-		const data = payload.data as Record<string, unknown>;
+		const data = payload.data! as Record<string, unknown>;
 		expect(String(data.implementationPrompt)).toContain("# branch-context implementation");
 		expect(String(data.implementationPrompt)).toContain(
 			"----- BEGIN ATTACHED PLAN -----\n# Attached Plan",

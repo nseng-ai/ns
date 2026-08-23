@@ -401,7 +401,7 @@ describe("pr feedback watch download helpers", () => {
 		expect(parsed.type).toBe("valid");
 		if (parsed.type !== "valid") return;
 
-		const keys = feedbackItemKeyFromDownload(parsed.data);
+		const keys = feedbackItemKeyFromDownload(parsed.data!);
 		expect(keys.map((item) => item.key)).toEqual(["download-feedback:123:1"]);
 		expect(
 			filterIgnoredFeedback(keys, { currentUserLogin: "schrockn" }).actionableTriggerItems.map(
@@ -414,10 +414,10 @@ describe("pr feedback watch download helpers", () => {
 		const parsed = parseDownloadFeedbackData(downloadData());
 		expect(parsed.type).toBe("valid");
 		if (parsed.type !== "valid") return;
-		const item = feedbackItemKeyFromDownload(parsed.data)[0];
+		const item = feedbackItemKeyFromDownload(parsed.data!)[0];
 		expect(item).toBeDefined();
 		if (item === undefined) return;
-		const prompt = buildDetectedFeedbackPrompt({ data: parsed.data, items: [item] });
+		const prompt = buildDetectedFeedbackPrompt({ data: parsed.data!, items: [item] });
 
 		expect(prompt).toContain("Automated PR feedback watch trigger.");
 		expect(prompt).toContain("PR: #123 PR title");
@@ -723,7 +723,7 @@ describe("pr feedback watch extension", () => {
 		expect(pi.userMessages).toEqual([]);
 		expect(
 			pi.entries
-				.map((entry) => entry.data)
+				.map((entry) => entry.data!)
 				.some((entry) => JSON.stringify(entry).includes("baseline")),
 		).toBe(true);
 		expect(ctx.notifications.at(-1)?.message).toContain("existing feedback was baselined");
@@ -949,7 +949,7 @@ describe("pr feedback watch extension", () => {
 		expect(ctx.statuses.get("pr:watch-feedback")).toBeUndefined();
 		expect(
 			pi.entries
-				.map((entry) => entry.data)
+				.map((entry) => entry.data!)
 				.some((entry) => JSON.stringify(entry).includes("stopped")),
 		).toBe(true);
 		pi.assertDone();

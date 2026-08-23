@@ -2,7 +2,12 @@ import { defineCommand, ok, z } from "@nseng-ai/sdk";
 import { commandError, duplicateCanonicalInput } from "../command-support.ts";
 import { NodeSkillExposureGateway } from "../node-skill-exposure-gateway.ts";
 import type { SkillExposureGateway, SkillInspection } from "../types.ts";
-import { showResultSchema, toShowRecord } from "../schemas.ts";
+import {
+	commandFailureDataSchema,
+	commandUsageErrorDataSchema,
+	showResultSchema,
+	toShowRecord,
+} from "../schemas.ts";
 
 type GatewayFactory = (cwd: string) => SkillExposureGateway;
 
@@ -16,6 +21,8 @@ export function createSkillExposureShowCommand(
 		schema: z.object({ paths: z.array(z.string()).min(1) }),
 		positionals: { paths: { position: 0 } },
 		resultSchema: showResultSchema,
+		failureSchema: commandFailureDataSchema,
+		usageErrorSchema: commandUsageErrorDataSchema,
 		handler: async (ctx, request) => {
 			const gateway = createGateway(ctx.cwd);
 			try {

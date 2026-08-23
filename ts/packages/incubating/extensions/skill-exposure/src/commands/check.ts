@@ -2,7 +2,12 @@ import { defineCommand, negative, ok, z } from "@nseng-ai/sdk";
 import { commandError, duplicateCanonicalInput } from "../command-support.ts";
 import { NodeSkillExposureGateway } from "../node-skill-exposure-gateway.ts";
 import type { SkillExposureGateway, SkillInspection } from "../types.ts";
-import { checkResultSchema, toShowRecord } from "../schemas.ts";
+import {
+	checkResultSchema,
+	commandFailureDataSchema,
+	commandUsageErrorDataSchema,
+	toShowRecord,
+} from "../schemas.ts";
 
 type GatewayFactory = (cwd: string) => SkillExposureGateway;
 
@@ -17,6 +22,9 @@ export function createSkillExposureCheckCommand(
 		schema: z.object({ paths: z.array(z.string()).min(1) }),
 		positionals: { paths: { position: 0 } },
 		resultSchema: checkResultSchema,
+		negativeSchema: checkResultSchema,
+		failureSchema: commandFailureDataSchema,
+		usageErrorSchema: commandUsageErrorDataSchema,
 		handler: async (ctx, request) => {
 			const gateway = createGateway(ctx.cwd);
 			try {
@@ -32,7 +40,7 @@ export function createSkillExposureCheckCommand(
 				const result = { ok: skills.every((skill) => skill.policy !== "inconsistent"), skills };
 				return result.ok
 					? ok(result)
-					: negative("Skill exposure overlays are inconsistent.", { data: result });
+					: negative("Skill exposure overlays are inconsistent.", result);
 			} catch (error) {
 				return commandError(error, request.paths);
 			}

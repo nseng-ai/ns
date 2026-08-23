@@ -140,7 +140,7 @@ describe("vibechk run command", () => {
 			},
 		);
 
-		expect(exitCode).toBe(7);
+		expect(exitCode).toBe(1);
 		expect(stdout.join("")).toContain("Run ID: failedrun");
 
 		const showRun = runScenario(["show", "failedrun", "--store", storeRoot]);

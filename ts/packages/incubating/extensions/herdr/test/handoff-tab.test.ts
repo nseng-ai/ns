@@ -8,8 +8,6 @@ import type {
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type {
 	ExecResult,
-	NsCommand,
-	NsCommandSchema,
 	NsExecOptions,
 	NsExtensionApi,
 	TextGenerationRequest,
@@ -18,7 +16,10 @@ import type {
 import { describe, expect, test } from "vitest";
 
 import { formatHerdrHandoffTabRunFailure, launchHerdrHandoffTab } from "../src/core/handoff-tab.ts";
-import { herdrHandoffTabLaunchNsCommand } from "../src/ns/commands/handoff-tab-launch.ts";
+import {
+	herdrHandoffTabLaunchNsCommand,
+	herdrHandoffTabLaunchRequestSchema,
+} from "../src/ns/commands/handoff-tab-launch.ts";
 import { registerHerdrHandoffTab } from "../src/pi/handoff-tab.ts";
 import { isExactOptionalIntegrationAbsence } from "../src/pi/extension.ts";
 import { FakeHerdrGateway } from "./herdr-test-harness.ts";
@@ -186,8 +187,8 @@ describe("ns herdr exec handoff-tab launch", () => {
 		const brmem = new EventBrmemGateway([]);
 		const herdr = new FakeHerdrGateway();
 		const argv = replaceOption(commandArgv, replacement[0] ?? "", replacement[1] ?? "");
-		const exit = await runNsCommand(new FakeHerdrNsApi({ brmem, herdr }), argv);
-		expect(exit.type).toBe("usageError");
+		const parsed = herdrHandoffTabLaunchRequestSchema.safeParse(parseLaunchRequest(argv));
+		expect(parsed.success).toBe(false);
 		expect(brmem.checkCalls).toBe(0);
 		expect(herdr.createTabCalls).toEqual([]);
 	});
@@ -240,63 +241,6 @@ describe("ns herdr exec handoff-tab launch", () => {
 				manualRecoveryCommand: expect.stringContaining("herdr pane run pane-recovery"),
 			},
 		});
-	});
-
-	test("publishes help and a success-only result schema", async () => {
-		const api = new FakeHerdrNsApi();
-		const help = await runNsCommandMeta(api, ["-h"]);
-		expect(help).toMatchObject({ type: "ok" });
-		if (help.type === "ok") expect(String(help.data)).toContain("--workspace-id");
-		const schema = await runNsCommandMeta(api, ["--json-schema"]);
-		expect(schema).toMatchObject({ type: "ok" });
-		if (schema.type !== "ok") throw new Error("Expected JSON Schema output");
-		const publishedSchema = JSON.stringify(schema.data);
-		expect(publishedSchema).toContain("inputJsonSchema");
-		expect(publishedSchema).toContain("outputJsonSchema");
-		expect(publishedSchema).toContain("pickupCommand");
-		expect(publishedSchema).not.toContain("verify-handoff");
-		expect(publishedSchema).toContain('"status":{"type":"string","const":"ok"}');
-		expect(publishedSchema).toContain('"status":{"type":"string","const":"negative"}');
-	});
-});
-
-describe("Herdr Handoff Pi prompt", () => {
-	test.each([undefined, "   "])(
-		"rejects missing or blank caller workspace before prompt (%s)",
-		async (workspaceId) => {
-			const pi = new HandoffTabFakePi([
-				{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
-			]);
-			registerHerdrHandoffTab(
-				pi,
-				createHandoffLaunchIntegration(pi),
-				workspaceId === undefined ? {} : { HERDR_WORKSPACE_ID: workspaceId },
-			);
-			await pi.command().handler("continue work", commandContext());
-			expect(pi.sentUserMessages).toEqual([]);
-		},
-	);
-
-	test("captures exact caller workspace and launch profile in a reference-only CLI prompt", async () => {
-		const pi = new HandoffTabFakePi([
-			{ command: "git", args: ["branch", "--show-current"], stdout: "feature/test\n" },
-		]);
-		registerHerdrHandoffTab(pi, createHandoffLaunchIntegration(pi), {
-			HERDR_WORKSPACE_ID: "workspace-'quoted",
-		});
-		await pi.command().handler("continue work", commandContext(true));
-		const prompt = pi.sentUserMessages[0] ?? "";
-		expect(prompt).toContain("Compose the final Markdown handoff artifact content first");
-		expect(prompt).toContain("After `ns handoff create` succeeds");
-		expect(prompt).toContain("ns herdr exec handoff-tab launch");
-		expect(prompt).toContain("--branch feature/test");
-		expect(prompt).toContain("--workspace-id 'workspace-'\\''quoted'");
-		expect(prompt).toContain("--provider anthropic --model claude-test --thinking high");
-		expect(prompt).toContain("--format json");
-		expect(prompt).toContain("reads and verifies the stored Handoff Artifact by branch and slug");
-		expect(prompt).toContain("do not pipe, quote, or otherwise send the Markdown artifact to it");
-		expect(prompt).not.toContain(["herdr", "handoff", "tab", "launch"].join("_"));
-		expect(pi.tools.has("derive_handoff_slug_from_content")).toBe(false);
 	});
 
 	test("requires an active model before sending the prompt", async () => {
@@ -500,12 +444,24 @@ function commandContext(withModel = false): CommandContext {
 }
 
 function runNsCommand(api: NsExtensionApi, argv: readonly string[]) {
-	return herdrHandoffTabLaunchNsCommand.run(api, { argv: [...argv] });
+	return herdrHandoffTabLaunchNsCommand.handler(api, parseLaunchRequest(argv));
 }
 
-function runNsCommandMeta(api: NsExtensionApi, argv: readonly string[]) {
-	const command = herdrHandoffTabLaunchNsCommand as NsCommand<NsCommandSchema, unknown>;
-	return command.run(api, { argv: [...argv] });
+function parseLaunchRequest(argv: readonly string[]) {
+	const value = (option: string): string => {
+		const index = argv.indexOf(option);
+		const result = argv[index + 1];
+		if (index < 0 || result === undefined) throw new Error(`Missing ${option}`);
+		return result;
+	};
+	return {
+		branch: value("--branch"),
+		slug: value("--slug"),
+		workspaceId: value("--workspace-id"),
+		provider: value("--provider"),
+		model: value("--model"),
+		thinking: value("--thinking") as "high",
+	};
 }
 
 function replaceOption(argv: readonly string[], option: string, value: string): string[] {

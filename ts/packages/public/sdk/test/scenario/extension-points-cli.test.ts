@@ -53,7 +53,7 @@ describe("ns extension point introspection", () => {
 			const envelope = parseJsonOutput(run);
 			expect(envelope.status).toBe("ok");
 			expect(envelope.exitCode).toBe(0);
-			const data = envelope.data as {
+			const data = envelope.data! as {
 				points: Array<{ id: string; activeSource: unknown }>;
 				diagnostics: Array<{ code: string }>;
 			};
@@ -87,7 +87,7 @@ describe("ns extension point introspection", () => {
 			expect(await run.exit).toBe(0);
 			const envelope = parseJsonOutput(run);
 			expect(envelope.status).toBe("ok");
-			const data = envelope.data as {
+			const data = envelope.data! as {
 				points: Array<{
 					id: string;
 					cardinality: string;
@@ -140,7 +140,7 @@ describe("ns extension point introspection", () => {
 			expect(await run.exit).toBe(0);
 			const envelope = parseJsonOutput(run);
 			expect(envelope.status).toBe("ok");
-			const data = envelope.data as {
+			const data = envelope.data! as {
 				point: { id: string; activeSource: unknown; installations: unknown[] };
 			};
 			expect(data.point.id).toBe("flow.submit.pre");
@@ -162,7 +162,7 @@ describe("ns extension point introspection", () => {
 
 			expect(await run.exit).toBe(0);
 			const envelope = parseJsonOutput(run);
-			const data = envelope.data as {
+			const data = envelope.data! as {
 				point: { id: string; activeSource: unknown; installations: unknown[] };
 			};
 			expect(data.point.id).toBe("flow.submit.pre.recovery");
@@ -194,7 +194,7 @@ describe("ns extension point introspection", () => {
 			expect(await run.exit).toBe(0);
 			const envelope = parseJsonOutput(run);
 			expect(envelope.status).toBe("ok");
-			const data = envelope.data as {
+			const data = envelope.data! as {
 				point: {
 					id: string;
 					defaultPath?: string;
@@ -226,7 +226,7 @@ describe("ns extension point introspection", () => {
 			const envelope = parseJsonOutput(run);
 			expect(envelope.status).toBe("negative");
 			expect(envelope.message).toBe("Point missing.point is not defined.");
-			const data = envelope.data as { pointId: string; availablePointIds: string[] };
+			const data = envelope.data! as { pointId: string; availablePointIds: string[] };
 			expect(data.pointId).toBe("missing.point");
 			expect(data.availablePointIds).toContain("flow.submit.pre");
 			expect(run.stderr.join("")).toBe("");

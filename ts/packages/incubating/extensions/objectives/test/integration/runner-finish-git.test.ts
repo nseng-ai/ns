@@ -110,7 +110,7 @@ function readyReportJson(): string {
 function expectBeginOk(exit: Awaited<ReturnType<typeof runRunnerBegin>>): RunnerBeginResult {
 	expect(exit.type).toBe("ok");
 	if (exit.type !== "ok") throw new Error("expected ok begin exit");
-	return exit.data;
+	return exit.data!;
 }
 
 test(
@@ -141,7 +141,7 @@ test(
 		});
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") throw new Error("expected ok finish exit");
-		const result: RunnerFinishResult = exit.data;
+		const result: RunnerFinishResult = exit.data!;
 		expect(result.status).toBe("committed");
 		expect(result.branch).toBe(CHILD_BRANCH);
 		expect(result.changedPaths.sort()).toEqual(["feature-a.txt", "feature-b.txt"]);
@@ -164,7 +164,7 @@ test(
 		});
 		expect(secondExit.type).toBe("negative");
 		if (secondExit.type !== "negative") throw new Error("expected negative second-finish exit");
-		const secondResult = secondExit.data;
+		const secondResult = secondExit.data!;
 		if (secondResult === undefined) throw new Error("expected second-finish data");
 		expect(secondResult.status).toBe("verification-failed");
 		const failedIds = secondResult.gateChecks
@@ -197,8 +197,8 @@ test(
 		const exit = await runRunnerFinish(ctx, { slug: SLUG, facts: JSON.stringify(facts) });
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		expect(exit.data?.status).toBe("verification-failed");
-		const diffCheck = exit.data?.gateChecks.find((check) => check.id === "diff-check");
+		expect(exit.data!?.status).toBe("verification-failed");
+		const diffCheck = exit.data!?.gateChecks.find((check) => check.id === "diff-check");
 		expect(diffCheck?.status).toBe("failed");
 		expect(diffCheck?.detail).toContain("trailing.txt");
 
@@ -232,8 +232,8 @@ test(
 		const exit = await runRunnerFinish(ctx, { slug: SLUG, facts: JSON.stringify(facts) });
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		expect(exit.data?.status).toBe("verification-failed");
-		const indexClean = exit.data?.gateChecks.find((check) => check.id === "index-clean");
+		expect(exit.data!?.status).toBe("verification-failed");
+		const indexClean = exit.data!?.gateChecks.find((check) => check.id === "index-clean");
 		expect(indexClean?.status).toBe("failed");
 
 		const headMessage = workRepo.runGit(["log", "-1", "--format=%B"]);
@@ -269,8 +269,8 @@ test(
 		const exit = await runRunnerFinish(ctx, { slug: SLUG, facts: JSON.stringify(facts) });
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		expect(exit.data?.status).toBe("verification-failed");
-		const headCheck = exit.data?.gateChecks.find((check) => check.id === "head-unchanged");
+		expect(exit.data!?.status).toBe("verification-failed");
+		const headCheck = exit.data!?.gateChecks.find((check) => check.id === "head-unchanged");
 		expect(headCheck?.status).toBe("failed");
 		expect(ctx.stdoutChunks.join("")).toContain(
 			`# Runner Checkpoint: ${SLUG} (verification-failed)`,

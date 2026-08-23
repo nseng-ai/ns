@@ -652,7 +652,7 @@ function writeCommandExitOutput(
 	deps: { stdout: (text: string) => void; stderr: (text: string) => void },
 ): void {
 	if (result.type === "ok") {
-		if (result.data !== "") deps.stdout(`${String(result.data)}\n`);
+		if (result.data! !== "") deps.stdout(`${String(result.data!)}\n`);
 		return;
 	}
 	if (result.type === "negative") {

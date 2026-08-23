@@ -221,7 +221,7 @@ describe("reset-public-package-release CLI", () => {
 		const { exitCode, envelope } = await parsedEnvelope(run);
 		expect(exitCode).toBe(0);
 		expect(envelope).toMatchObject({ status: "ok", exitCode: 0 });
-		if (envelope.status === "ok") expectBoundedResult(envelope.data, "reset-planned");
+		if (envelope.status === "ok") expectBoundedResult(envelope.data!, "reset-planned");
 		expect(gateway.operations).toEqual([`inspect:${version}:${releaseBranch}`]);
 		expect(interaction.requests()).toEqual([]);
 		interaction.assertComplete();
@@ -237,7 +237,7 @@ describe("reset-public-package-release CLI", () => {
 
 		const { exitCode, envelope } = await parsedEnvelope(run);
 		expect(exitCode).toBe(0);
-		if (envelope.status === "ok") expectBoundedResult(envelope.data, "reset");
+		if (envelope.status === "ok") expectBoundedResult(envelope.data!, "reset");
 		expect(gateway.operations).toEqual([
 			`inspect:${version}:${releaseBranch}`,
 			`inspect:${version}:${releaseBranch}`,
@@ -301,7 +301,7 @@ describe("reset-public-package-release CLI", () => {
 
 		const { exitCode, envelope } = await parsedEnvelope(run);
 		expect(exitCode).toBe(0);
-		if (envelope.status === "ok") expectBoundedResult(envelope.data, "reset");
+		if (envelope.status === "ok") expectBoundedResult(envelope.data!, "reset");
 		expect(reads).toBe(1);
 		expect(run.stderr.join("")).toContain("[y/N]");
 	});
@@ -324,8 +324,8 @@ describe("reset-public-package-release CLI", () => {
 		expect(exitCode).toBe(1);
 		expect(envelope).toMatchObject({ status: "negative", exitCode: 1 });
 		if (envelope.status === "negative") {
-			expectBoundedResult(envelope.data, "declined");
-			expect(envelope.data).toMatchObject({
+			expectBoundedResult(envelope.data!, "declined");
+			expect(envelope.data!).toMatchObject({
 				trackedPathsToRestore: [manifestPath(0)],
 				plannedActions: [
 					{ type: "restore-tracked-paths", paths: [manifestPath(0)] },
@@ -352,7 +352,7 @@ describe("reset-public-package-release CLI", () => {
 		if (envelope.status === "usageError") {
 			expect(envelope.message).toContain("--yes");
 			expect(envelope.message).toContain("--dry-run");
-			expect(envelope.data).toMatchObject({ missingFlag: "--yes" });
+			expect(envelope.data!).toMatchObject({ missingFlag: "--yes" });
 		}
 		expect(gateway.operations).toEqual([`inspect:${version}:${releaseBranch}`]);
 		expect(interaction.requests()).toEqual([]);
@@ -370,7 +370,7 @@ describe("reset-public-package-release CLI", () => {
 
 		const { exitCode, envelope } = await parsedEnvelope(run);
 		expect(exitCode).toBe(0);
-		if (envelope.status === "ok") expectBoundedResult(envelope.data, "already-clean");
+		if (envelope.status === "ok") expectBoundedResult(envelope.data!, "already-clean");
 		expect(gateway.operations).toHaveLength(1);
 		expect(interaction.requests()).toEqual([]);
 	});
@@ -388,8 +388,8 @@ describe("reset-public-package-release CLI", () => {
 		expect(exitCode).toBe(1);
 		expect(envelope).toMatchObject({ status: "negative", exitCode: 1 });
 		if (envelope.status === "negative") {
-			expectBoundedResult(envelope.data, "refused");
-			expect(envelope.data).toMatchObject({
+			expectBoundedResult(envelope.data!, "refused");
+			expect(envelope.data!).toMatchObject({
 				code: "release-branch-exists",
 				guidance: expect.stringContaining("never deletes branches"),
 				evidence: { releaseBranch, releaseBranchExists: true },
@@ -413,8 +413,8 @@ describe("reset-public-package-release CLI", () => {
 			errorType: "release-reset-failed",
 		});
 		if (envelope.status === "failure") {
-			expectBoundedResult(envelope.data, "refused");
-			expect(envelope.data).toMatchObject({
+			expectBoundedResult(envelope.data!, "refused");
+			expect(envelope.data!).toMatchObject({
 				code: "reset-inspection-failed",
 				failure: { code: "fake-inspection-failed" },
 			});
@@ -436,8 +436,8 @@ describe("reset-public-package-release CLI", () => {
 			errorType: "release-reset-failed",
 		});
 		if (envelope.status === "failure") {
-			expectBoundedResult(envelope.data, "refused");
-			expect(envelope.data).toMatchObject({
+			expectBoundedResult(envelope.data!, "refused");
+			expect(envelope.data!).toMatchObject({
 				code: "tracked-restore-failed",
 				failure: { code: "fake-restore-failed" },
 				evidence: { completedActions: [] },

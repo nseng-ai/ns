@@ -20,18 +20,18 @@ const TOP_LEVEL_HELP = [
 	"Enriched-plan operations. An enriched plan is any plan saved into ns.",
 	"",
 	"Options:",
-	"  -V, --version      Show the package version.",
-	"  --runtime          Show CLI runtime diagnostics and exit.",
-	"  -h, --help         display help for command",
+	"  -V, --version   Show the package version.",
+	"  --runtime       Show CLI runtime diagnostics and exit.",
+	"  -h, --help      display help for command",
 	"",
 	"Commands:",
-	"  list|ls [options]  List saved plans for the current repository across all",
-	"                     branch keys.",
+	"  list [options]  List saved plans for the current repository across all branch",
+	"                  keys.",
 	"",
 ].join("\n");
 
 const LIST_HELP = [
-	"Usage: enriched-plan list|ls [options]",
+	"Usage: enriched-plan list [options]",
 	"",
 	"List saved plans for the current repository across all branch keys.",
 	"",
@@ -468,6 +468,8 @@ describe("plans exec save pins", () => {
 		expect(neitherJson.stdout.join("")).toBe(
 			jsonUsageError("Pass exactly one of --stdin or --content-file <path>.", {
 				code: "invalid-save-input",
+				argument: "input",
+				reason: "Pass exactly one input source.",
 				requiredExactlyOneOf: ["--stdin", "--content-file"],
 			}),
 		);

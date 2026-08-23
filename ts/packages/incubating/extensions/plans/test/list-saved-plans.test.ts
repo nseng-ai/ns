@@ -241,7 +241,7 @@ describe("plans list CLI", () => {
 				],
 			},
 		});
-		expect(payload.data.plans[0]?.modifiedTimeMs).toBe(1_700_000_000_000);
+		expect(payload.data!.plans[0]?.modifiedTimeMs).toBe(1_700_000_000_000);
 	});
 });
 
@@ -287,10 +287,10 @@ describe("plans exec CLI", () => {
 				summary: "Save it",
 			},
 		});
-		expect(String(payload.data.filePath)).toContain(
+		expect(String(payload.data!.filePath)).toContain(
 			`${fixture.planStoreRoot}/gh--owner--repo/${encodeBranchForPlanPath("feature/source-plan")}/branch-scoped-plan.md`,
 		);
-		expect(fixture.planStoreGateway.readFile(String(payload.data.filePath))).toBe(
+		expect(fixture.planStoreGateway.readFile(String(payload.data!.filePath))).toBe(
 			"# Plan\n\nDo it.\n",
 		);
 	});
@@ -385,9 +385,9 @@ function isJsonListPayload(value: unknown): value is JsonListPayload {
 	return (
 		isRecord(value) &&
 		value.exitCode === 0 &&
-		isRecord(value.data) &&
-		Array.isArray(value.data.plans) &&
-		value.data.plans.every(isJsonListPlan)
+		isRecord(value.data!) &&
+		Array.isArray(value.data!.plans) &&
+		value.data!.plans.every(isJsonListPlan)
 	);
 }
 

@@ -89,6 +89,14 @@ const submitSchema = z.object({
 		),
 });
 
+const submitUsageErrorSchema = z.union([
+	z.object({
+		invalidOption: z.literal("--yes"),
+		requiresOption: z.literal("--regenerate-descriptions"),
+	}),
+	z.object({ missingFlag: z.literal("--yes"), howToSupply: z.string() }),
+]);
+
 const SUBMIT_COMMAND_DESCRIPTION = `Run configured pre-submit checks, checkpoint outstanding changes, then submit the current Graphite branch and downstack ancestors with gt submit --no-edit --publish --no-stack --no-ai --no-interactive.
 
 Pre-submit checks are consumer config in the repo-root ns.toml ([points]."flow.submit.pre", an array of command strings such as ["just"]). Each entry is whitespace-split and executed directly without a shell; the first failing check aborts the submit. Skip them with --no-checks.
@@ -117,6 +125,9 @@ export function createFlowSubmitCommand(
 		description: SUBMIT_COMMAND_DESCRIPTION,
 		schema: submitSchema,
 		resultSchema: z.string(),
+		negativeSchema: z.string(),
+		failureSchema: z.string(),
+		usageErrorSchema: submitUsageErrorSchema,
 		renderHuman: (text) => z.string().parse(text),
 		options: {
 			restack: { short: "-R" },
@@ -143,12 +154,14 @@ export function createFlowSubmitCommand(
 				ctx,
 				MODEL_OPERATION_IDS.flowCheckpoint,
 			);
-			if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
+			if (!checkpointModel.ok)
+				return failure(FLOW_COMMAND_FAILED, checkpointModel.error, checkpointModel.error);
 			const prDescriptionModel = await resolveFlowModelSelection(
 				ctx,
 				MODEL_OPERATION_IDS.flowPrDescription,
 			);
-			if (!prDescriptionModel.ok) return failure(FLOW_COMMAND_FAILED, prDescriptionModel.error);
+			if (!prDescriptionModel.ok)
+				return failure(FLOW_COMMAND_FAILED, prDescriptionModel.error, prDescriptionModel.error);
 			const checkpointContext: SubmitCheckpointContext = {
 				modelSelection: checkpointModel.modelSelection,
 				...optionalEntry("repoRoot", repoRoot),
@@ -158,7 +171,7 @@ export function createFlowSubmitCommand(
 					? { kind: "none" as const }
 					: await loadFlowSubmitHooks({ repoRoot });
 			if (checksLoad.kind === "invalid") {
-				return failure(FLOW_COMMAND_FAILED, checksLoad.error.message);
+				return failure(FLOW_COMMAND_FAILED, checksLoad.error.message, checksLoad.error.message);
 			}
 			const caps = resolveFlowStreamCaps(ctx);
 			const structuredProgress = resolveSubmitProgress({
@@ -218,7 +231,8 @@ async function confirmRegenerateAllPrMetadata(
 		return usageError(confirmation.message, confirmation.data);
 	}
 	if (confirmation.type !== "confirmed") {
-		return negative("Submit was cancelled; no commands were run and no PR metadata was edited.");
+		const message = "Submit was cancelled; no commands were run and no PR metadata was edited.";
+		return negative(message, message);
 	}
 	return undefined;
 }

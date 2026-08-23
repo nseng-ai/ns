@@ -101,9 +101,7 @@ export async function runGtDescendantsReport(
 		);
 	const localBranches: ReadonlySet<string> = new Set(localBranchesResult.branches);
 	if (!localBranches.has(request.branch))
-		return negative(`Local branch '${request.branch}' was not found.`, {
-			data: { target: request.branch },
-		});
+		return negative(`Local branch '${request.branch}' was not found.`, { target: request.branch });
 
 	const graphResult = await ctx.gt.stackGraph(ctx.repo.mainRepoRoot);
 	if (graphResult.type === "git_common_dir_missing")
@@ -120,7 +118,7 @@ export async function runGtDescendantsReport(
 		});
 	if (!graphResult.graph.topology.has(request.branch))
 		return negative(`Graphite metadata for branch '${request.branch}' was not found.`, {
-			data: { target: request.branch },
+			target: request.branch,
 		});
 
 	const walk = walkDescendants(graphResult.graph.topology, request.branch);

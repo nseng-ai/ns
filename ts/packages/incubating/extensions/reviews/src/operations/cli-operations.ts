@@ -307,7 +307,7 @@ export function clinkrExitFromReviewRunOutcome(
 	if (outcome.type === "completed_log_failed") {
 		return negative(
 			`${renderReviewRun(outcome.result)}\n\nreviews: failed to write Branch Memory review log:\n${outcome.error.message}`,
-			{ data: outcome.result },
+			outcome.result,
 		);
 	}
 	return ok(outcome.result);
@@ -388,7 +388,7 @@ export function clinkrExitFromRecordFindingsOutcome(
 	if (outcome.type === "recorded_log_failed") {
 		return negative(
 			`${renderReviewRun(outcome.result)}\n\nreviews: failed to write Branch Memory review log:\n${outcome.error.message}`,
-			{ data: outcome.result },
+			outcome.result,
 		);
 	}
 	ctx.stderr(`recorded review log: ${outcome.logEntry.key}\n`);
@@ -480,14 +480,14 @@ export async function runPublishFindings(
 export async function runPublishFindingsCommand(
 	ctx: ReviewsRuntime,
 	request: PublishFindingsRequest,
-): Promise<ClinkrExit<PublishFindingsCommandResult>> {
+): Promise<ClinkrExit<PublishFindingsCommandResult, unknown, unknown, unknown>> {
 	return clinkrExitFromPublishFindingsResult(ctx, await publishFindingsFromRequest(ctx, request));
 }
 
 export function clinkrExitFromPublishFindingsResult(
 	ctx: Pick<ReviewsRuntime, "stderr">,
 	result: PublishFindingsResult,
-): ClinkrExit<PublishFindingsCommandResult> {
+): ClinkrExit<PublishFindingsCommandResult, unknown, unknown, unknown> {
 	if (!result.ok) return failureFromPublicationError(result.error);
 
 	ctx.stderr(renderPublishFindingsDiagnostics(result.value));
@@ -561,7 +561,9 @@ function failureFromReview(error: ReviewFailure): ClinkrExit<never> {
 	return failure(error.code, error.message);
 }
 
-function failureFromPublicationError(error: PublicationError): ClinkrExit<never> {
+function failureFromPublicationError(
+	error: PublicationError,
+): ClinkrExit<never, never, unknown, never> {
 	return failure("reviews-publish-findings-failed", `publish-findings: ${error.message}`, {
 		fatalFailurePhase: error.fatalFailurePhase,
 		reason: error.reason,

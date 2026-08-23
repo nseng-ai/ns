@@ -40,20 +40,16 @@ export async function runGet(ctx: BrmemCliContext, request: GetRequest) {
 	const locator = mustEntryLocator(namespace, key, branch);
 	const target = request.at ?? locator;
 	if (result.type === "missing") {
-		return negative(
-			`No content for Entry Key ${key} in Namespace ${namespaceValueLabel(namespace)} on Branch ${branch} at ${target}. Inspect with: git show ${request.at === undefined ? locator : `${request.at}:${key}`}`,
-			{
-				data: {
-					namespace,
-					key,
-					branch,
-					content: "",
-					refName: locator,
-					target,
-					at: request.at ?? null,
-				},
-			},
-		);
+		const message = `No content for Entry Key ${key} in Namespace ${namespaceValueLabel(namespace)} on Branch ${branch} at ${target}. Inspect with: git show ${request.at === undefined ? locator : `${request.at}:${key}`}`;
+		return negative(message, {
+			namespace,
+			key,
+			branch,
+			content: message,
+			refName: locator,
+			target,
+			at: request.at ?? null,
+		});
 	}
 	return ok({
 		namespace,

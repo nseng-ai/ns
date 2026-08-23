@@ -94,7 +94,10 @@ function makeApi(options: ScenarioOptions = {}): ScenarioApi {
 	return Object.assign(api, { runnerGit });
 }
 
-function assertJsonEnvelopeStdout<T>(api: FakeObjectiveNsApi, exit: ClinkrExit<T>): unknown {
+function assertJsonEnvelopeStdout<T, N, F, U>(
+	api: FakeObjectiveNsApi,
+	exit: ClinkrExit<T, N, F, U>,
+): unknown {
 	const stdout = `${api.stdoutChunks.join("")}${envelopeJsonText(toMachineEnvelope(exit))}`;
 	expect(stdout).not.toMatch(/^# Runner Checkpoint:/u);
 	return JSON.parse(stdout) as unknown;
@@ -112,7 +115,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data).toMatchObject({
+		expect(exit.data!!).toMatchObject({
 			slug: SLUG,
 			mode: "default",
 			status: "committed",
@@ -122,13 +125,13 @@ describe("ns objective exec runner-finish scenarios", () => {
 			changedPaths: ["src/a.ts"],
 			stopReason: null,
 		});
-		expect(exit.data.gateChecks.every((check) => check.status !== "failed")).toBe(true);
-		expect(exit.data.checkpointMarkdown).toContain(`# Runner Checkpoint: ${SLUG} (committed)`);
-		expect(exit.data.checkpointMarkdown).toContain("## Verified facts (runner-attested)");
-		expect(exit.data.checkpointMarkdown).toContain(
+		expect(exit.data!!.gateChecks.every((check) => check.status !== "failed")).toBe(true);
+		expect(exit.data!!.checkpointMarkdown).toContain(`# Runner Checkpoint: ${SLUG} (committed)`);
+		expect(exit.data!!.checkpointMarkdown).toContain("## Verified facts (runner-attested)");
+		expect(exit.data!!.checkpointMarkdown).toContain(
 			"## Child-reported narrative (unverified claims)",
 		);
-		expect(exit.data.checkpointMarkdown).not.toContain("- usage:");
+		expect(exit.data!!.checkpointMarkdown).not.toContain("- usage:");
 		expect(api.phases).toEqual(["validating-inputs", "verifying", "committing"]);
 		expect(api.execCalls.map((call) => call.args)).toEqual([]);
 		expect(api.runnerGit.hasStagedChangesCalls).toEqual([{ cwd: "/repo" }]);
@@ -148,7 +151,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		);
 
 		expect(exit.type).toBe("ok");
-		if (exit.type === "ok") expect(exit.data.status).toBe("committed");
+		if (exit.type === "ok") expect(exit.data!!.status).toBe("committed");
 	});
 
 	test("inline --report overrides the facts' report path", async () => {
@@ -165,7 +168,7 @@ describe("ns objective exec runner-finish scenarios", () => {
 		);
 
 		expect(exit.type).toBe("ok");
-		if (exit.type === "ok") expect(exit.data.status).toBe("committed");
+		if (exit.type === "ok") expect(exit.data!!.status).toBe("committed");
 	});
 
 	test("stop report: ok exit with live changed paths in the checkpoint", async () => {
@@ -185,11 +188,11 @@ describe("ns objective exec runner-finish scenarios", () => {
 
 		expect(exit.type).toBe("ok");
 		if (exit.type !== "ok") throw new Error("expected ok exit");
-		expect(exit.data.status).toBe("stop");
-		expect(exit.data.stopReason).toBe("scope boundary");
-		expect(exit.data.changedPaths).toEqual(["src/a.ts"]);
-		expect(exit.data.checkpointMarkdown).toContain("changed paths (1):");
-		expect(exit.data.commitSha).toBeNull();
+		expect(exit.data!!.status).toBe("stop");
+		expect(exit.data!!.stopReason).toBe("scope boundary");
+		expect(exit.data!!.changedPaths).toEqual(["src/a.ts"]);
+		expect(exit.data!!.checkpointMarkdown).toContain("changed paths (1):");
+		expect(exit.data!!.commitSha).toBeNull();
 		expect(api.phases).toEqual(["validating-inputs"]);
 	});
 
@@ -262,8 +265,8 @@ describe("ns objective exec runner-finish scenarios", () => {
 
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		expect(exit.data?.status).toBe("verification-failed");
-		const indexClean = exit.data?.gateChecks.find((check) => check.id === "index-clean");
+		expect(exit.data!!?.status).toBe("verification-failed");
+		const indexClean = exit.data!!?.gateChecks.find((check) => check.id === "index-clean");
 		expect(indexClean?.status).toBe("failed");
 		expect(api.runnerGit.stagePathsCalls).toEqual([]);
 		expect(api.runnerGit.commitCalls).toEqual([]);
@@ -284,8 +287,8 @@ describe("ns objective exec runner-finish scenarios", () => {
 
 		expect(exit.type).toBe("negative");
 		if (exit.type !== "negative") throw new Error("expected negative exit");
-		expect(exit.data?.status).toBe("verification-failed");
-		const diffCheck = exit.data?.gateChecks.find((check) => check.id === "diff-check");
+		expect(exit.data!!?.status).toBe("verification-failed");
+		const diffCheck = exit.data!!?.gateChecks.find((check) => check.id === "diff-check");
 		expect(diffCheck?.status).toBe("failed");
 		expect(diffCheck?.detail).toContain("trailing whitespace");
 		expect(api.execCalls.map((call) => call.args)).toEqual([]);

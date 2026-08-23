@@ -152,7 +152,7 @@ export function extensionLifecycleFailure<TResult>(
 	verb: ExtensionLifecycleVerb,
 	preflightFailure: ExtensionLifecyclePreflightFailure,
 	recorder: LifecycleRecorder,
-): ClinkrExit<TResult> {
+): ClinkrExit<TResult, unknown, unknown, unknown> {
 	const prefix = `ns-extension-${verb}`;
 	if (preflightFailure.type === "repository") {
 		const diagnostic = activationRepositoryFailureDiagnostic(preflightFailure.result);

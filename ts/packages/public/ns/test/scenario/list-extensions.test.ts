@@ -298,8 +298,8 @@ describe("listExtensions", () => {
 
 		const result = await listExtensions(context, { cwd: "/repo" });
 		if (result.type !== "ok") throw new Error("expected successful inventory");
-		expect(result.data.extensions.map((row) => row.sourceSpec)).toEqual(specs);
-		expect(result.data.extensions.map((row) => row.sourceKind)).toEqual([
+		expect(result.data!!.extensions.map((row) => row.sourceSpec)).toEqual(specs);
+		expect(result.data!!.extensions.map((row) => row.sourceKind)).toEqual([
 			"npm",
 			"local",
 			"git",
@@ -308,7 +308,7 @@ describe("listExtensions", () => {
 			"local",
 			"local",
 		]);
-		expect(result.data.extensions.map((row) => row.acquisitionStatus)).toEqual([
+		expect(result.data!!.extensions.map((row) => row.acquisitionStatus)).toEqual([
 			"missing",
 			"invalid",
 			"invalid",
@@ -317,18 +317,20 @@ describe("listExtensions", () => {
 			"invalid",
 			"invalid",
 		]);
-		expect(result.data.extensions.every((row) => row.artifactStatus === "unavailable")).toBe(true);
-		expect(result.data.extensions[3]?.diagnostics).toEqual([
+		expect(result.data!!.extensions.every((row) => row.artifactStatus === "unavailable")).toBe(
+			true,
+		);
+		expect(result.data!!.extensions[3]?.diagnostics).toEqual([
 			{
 				code: "extension-descriptor-source-unsupported",
 				message:
 					"Extension source must be an npm: spec or an unprefixed local path: https://example.test/ext.tgz.",
 			},
 		]);
-		expect(result.data.extensions[5]?.diagnostics[0]?.code).toBe(
+		expect(result.data!!.extensions[5]?.diagnostics[0]?.code).toBe(
 			"extension-descriptor-duplicate-identity",
 		);
-		expect(result.data.extensions[6]?.diagnostics[0]?.code).toBe(
+		expect(result.data!!.extensions[6]?.diagnostics[0]?.code).toBe(
 			"extension-descriptor-duplicate-identity",
 		);
 		expect(artifacts.inspectCalls()).toEqual([]);
@@ -416,7 +418,7 @@ describe("listExtensions", () => {
 			{ cwd: "/repo" },
 		);
 		if (result.type !== "ok") throw new Error("expected successful inventory");
-		const rendered = renderListExtensionsHuman(result.data);
+		const rendered = renderListExtensionsHuman(result.data!!);
 		expect(rendered).toContain("SOURCE");
 		expect(rendered).toContain("./extension");
 		expect(rendered).toContain("ARTIFACTS (AFFECTED/OBSERVED)");

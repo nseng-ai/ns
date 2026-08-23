@@ -120,7 +120,7 @@ describe("ns-init CLI contracts", () => {
 	test("publishes extension list help, schema, and extra-argument usage contracts", async () => {
 		const help = await run(["extension", "list", "-h"]);
 		expect(help.exit).toBe(0);
-		expect(help.stdout).toContain("Usage: ns extension list|ls [options]");
+		expect(help.stdout).toContain("Usage: ns extension list [options]");
 		expect(help.stdout).toContain("without\nacquiring packages or changing files");
 		expect(help.stdout).not.toContain("--yes");
 		expect(help.stdout).not.toContain("--force");

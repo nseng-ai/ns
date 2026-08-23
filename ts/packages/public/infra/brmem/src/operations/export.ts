@@ -108,8 +108,7 @@ export async function runExport(ctx: BrmemCliContext, request: ExportRequest) {
 	const entriesResult = await ctx.gateway.listEntries({ namespace, branch });
 	if (entriesResult.type === "error") return gatewayFailure<ExportResult>(entriesResult.error);
 	const entries = [...entriesResult.value].sort(compareEntries);
-	if (entries.length === 0)
-		return ok(baseResult, { human: emptySelectionMessage(namespace, branch) });
+	if (entries.length === 0) return ok(baseResult);
 
 	const prepared = await prepareExports(ctx, entries, outputDir);
 	if (prepared.type === "failure") return prepared.exit;
@@ -411,11 +410,6 @@ function resolveOutputDir(outputDir: string | undefined, cwd: string): string {
 		return join(tmpdir(), `brmem-export-${randomBytes(8).toString("hex")}`);
 	if (isAbsolute(outputDir)) return outputDir;
 	return resolve(cwd, outputDir);
-}
-
-function emptySelectionMessage(namespace: string, branch: string): string {
-	if (namespace === "base") return `No base Entries found on Branch ${branch}.`;
-	return `No Entries found on Branch ${branch} in ${namespaceDisplayLabel(namespace)}.`;
 }
 
 function selectionSummary(namespace: string, count: number): string {

@@ -45,7 +45,10 @@ export type DestructiveConfirmationResult =
 	| { type: "confirmed" }
 	| { type: "declined" }
 	| { type: "aborted" }
-	| { type: "gateFailure"; exit: ClinkrExit<never> };
+	| {
+			type: "gateFailure";
+			exit: ClinkrExit<never, never, never, { missingFlag: string; howToSupply: string }>;
+	  };
 
 export async function confirmDestructiveAction(
 	ctx: HandoffCliContext,

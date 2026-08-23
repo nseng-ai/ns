@@ -183,7 +183,7 @@ class FakePi implements ObjectiveExtensionAPI {
 		}
 		try {
 			const envelope = JSON.parse(expected.result?.stdout ?? "");
-			return { type: "loaded", list: envelope.data as ObjectiveListResult };
+			return { type: "loaded", list: envelope.data! as ObjectiveListResult };
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			return { type: "failed", message: `Malformed objective list JSON: ${message}` };

@@ -25,7 +25,6 @@ import { createRealPlanStoreGateway, type PlanStoreGateway } from "./plan-store-
 import {
 	buildPlanStoreOptions,
 	findLatestSavedPlanFile,
-	formatSavedPlanFileEvidence,
 	NoSavedPlanAvailableError,
 	listSavedPlans,
 	writeSavedPlanFile,
@@ -130,6 +129,7 @@ const entry = defineCli<PlansCliContext, CliDeps, undefined>({
 			description: "Save a source-branch plan file in the local store.",
 			schema: saveRequestSchema,
 			handler: handleSave,
+			renderHuman: renderSavedPlanFileData,
 		});
 		execGroup.command({
 			name: "resolve",
@@ -157,7 +157,7 @@ export async function runCli(args: readonly string[], deps: CliDeps = {}): Promi
 async function handleList(
 	ctx: PlansCliContext,
 	request: ListRequest,
-): Promise<ClinkrExit<SavedPlanListData>> {
+): Promise<ClinkrExit<SavedPlanListData, unknown, unknown, unknown>> {
 	return await runOperationCommand({
 		operation: "list",
 		action: async () => {
@@ -176,7 +176,14 @@ async function handleList(
 async function handleSave(
 	ctx: PlansCliContext,
 	request: SaveRequest,
-): Promise<ClinkrExit<SavedPlanFileData>> {
+): Promise<
+	ClinkrExit<
+		SavedPlanFileData,
+		unknown,
+		unknown,
+		{ code: string; argument: string; reason: string; requiredExactlyOneOf?: string[] }
+	>
+> {
 	return await runOperationCommand({
 		operation: "save",
 		action: async () => {
@@ -191,6 +198,8 @@ async function handleSave(
 			if (Boolean(request.stdin) === (request.contentFile !== undefined)) {
 				return usageError("Pass exactly one of --stdin or --content-file <path>.", {
 					code: "invalid-save-input",
+					argument: "input",
+					reason: "Pass exactly one input source.",
 					requiredExactlyOneOf: ["--stdin", "--content-file"],
 				});
 			}
@@ -214,7 +223,7 @@ async function handleSave(
 				},
 				planStoreOptions(ctx),
 			);
-			return ok(savedPlanFileJson(evidence), { human: formatSavedPlanFileEvidence(evidence) });
+			return ok(savedPlanFileJson(evidence));
 		},
 		failureFromError: plansFailureFromError,
 	});
@@ -223,8 +232,8 @@ async function handleSave(
 async function handleResolve(
 	ctx: PlansCliContext,
 	request: ResolveRequest,
-): Promise<ClinkrExit<ResolvePlanData>> {
-	return await runOperationCommand<PlansOperation, ResolvePlanData>({
+): Promise<ClinkrExit<ResolvePlanData, unknown, unknown, unknown>> {
+	return await runOperationCommand({
 		operation: "resolve",
 		action: async () => {
 			try {
@@ -232,7 +241,8 @@ async function handleResolve(
 			} catch (error) {
 				if (error instanceof NoSavedPlanAvailableError) {
 					return negative(error.message, {
-						data: { code: error.reason, directoryPath: error.directoryPath },
+						code: error.reason,
+						directoryPath: error.directoryPath,
 					});
 				}
 				throw error;
@@ -242,7 +252,10 @@ async function handleResolve(
 	});
 }
 
-function plansFailureFromError(operation: PlansOperation, error: unknown): ClinkrExit<never> {
+function plansFailureFromError(
+	operation: PlansOperation,
+	error: unknown,
+): ClinkrExit<never, never, unknown, never> {
 	return failure(plansErrorType(operation), formatErrorMessage(error), {
 		code: "unexpected-error",
 	});
@@ -291,6 +304,20 @@ async function resolvePlanEvidence(
 	}
 	const latest = await findLatestSavedPlanFile(ctx.commands, planStoreOptions(ctx));
 	return { source: "latest", ...latest };
+}
+
+function renderSavedPlanFileData(data: SavedPlanFileData): string {
+	return [
+		"Saved plan file in local plan store.",
+		`Path: ${data.filePath}`,
+		`Repo key: ${data.repoKey}`,
+		`Repo root: ${data.repoRoot}`,
+		`Repo identity source: ${data.repoIdentitySource}`,
+		`Source branch: ${data.sourceBranch}`,
+		`Branch path segment: ${data.branchKey}`,
+		`Slug: ${data.slug}`,
+		...(data.summary === undefined ? [] : [`Summary: ${data.summary}`]),
+	].join("\n");
 }
 
 function formatSavedPlanListData(data: SavedPlanListData): string {

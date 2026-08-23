@@ -57,7 +57,6 @@ export default {
 		expect(command.schema).toBeInstanceOf(z.ZodObject);
 	});
 
-
 	test("validates nested-path manifest entries against the loaded command leaf", async () => {
 		const modulePath = await createModule(`
 import { ok } from "@nseng-ai/sdk";

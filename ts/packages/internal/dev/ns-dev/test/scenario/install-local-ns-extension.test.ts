@@ -347,8 +347,8 @@ describe("install-local-ns-extension", () => {
 		expect(await run.exit).toBe(2);
 		const output = parseJsonOutput(run) as { data?: { path?: string; message?: string } };
 		expect(output).toMatchObject({ status: "failure", errorType: "ns-toml-invalid" });
-		expect(output.data?.path).toBe("/target/ns.toml");
-		expect(typeof output.data?.message).toBe("string");
+		expect(output.data!?.path).toBe("/target/ns.toml");
+		expect(typeof output.data!?.message).toBe("string");
 	});
 });
 

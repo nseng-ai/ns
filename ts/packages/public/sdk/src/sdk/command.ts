@@ -70,9 +70,9 @@ export function defineRawCommand<T>(command: RawArgvCommandSpec<T>): RawArgvComm
 export interface DefineCommandSpec<
 	S extends NsCommandSchema,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > extends ClinkrCommandMetadata {
 	readonly name: string;
 	readonly summary: string;
@@ -90,14 +90,8 @@ export interface DefineCommandSpec<
 	readonly usageErrorSchema?: z.ZodType<TUsageError>;
 	readonly positionals?: Partial<Record<keyof z.infer<S> & string, PositionalSpec>>;
 	readonly options?: Partial<Record<keyof z.infer<S> & string, OptionSpec>>;
-	readonly renderHuman?: (
-		data: TResult | TNegative | TFailure | TUsageError,
-		caps: RenderCapabilities,
-	) => string;
-	readonly renderMarkdown?: (
-		data: TResult | TNegative | TFailure | TUsageError,
-		caps: RenderCapabilities,
-	) => string;
+	readonly renderHuman?: (data: TResult, caps: RenderCapabilities) => string;
+	readonly renderMarkdown?: (data: TResult, caps: RenderCapabilities) => string;
 	readonly completionProvider?: NsCommandCompletionProvider;
 }
 
@@ -110,9 +104,9 @@ interface NsCommandIdentity {
 export type NsCommand<
 	S extends NsCommandSchema = z.ZodObject,
 	TResult = never,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 > = [TResult] extends [never]
 	? NsCommandIdentity
 	: Readonly<
@@ -124,9 +118,9 @@ export type NsCommand<
 export function defineNsCommand<
 	S extends NsCommandSchema,
 	TResult,
-	TNegative = TResult,
-	TFailure = TResult,
-	TUsageError = TResult,
+	TNegative = unknown,
+	TFailure = unknown,
+	TUsageError = unknown,
 >(
 	spec: DefineCommandSpec<S, TResult, TNegative, TFailure, TUsageError>,
 ): NsCommand<S, TResult, TNegative, TFailure, TUsageError> {
