@@ -24,9 +24,9 @@ Norms for agent-facing CLIs are still evolving. Keeping the mechanics in one pac
 
 ## Fast by default
 
-Clinkr discovers a command structure from a direct filesystem hierarchy, but it does not construct the whole command tree. For command selection, help, and name completion, it imports immediate child modules, calls each command module's cheap `metadata()`, and calls each group module's cheap, complete `group()` definition. A group's children still come from its directory. Command schemas, handlers, gateways, renderers, completion providers, and expensive imports belong inside `command()`, which runs only after that command is selected.
+Clinkr discovers a command structure from a direct filesystem hierarchy, but it does not construct the whole command tree. For top-level or group help and command-name completion, it imports each immediate command's cheap `metadata.ts` and each group's cheap, complete `group.ts`; it does not import command implementation. A group's children still come from its directory. A command is selected for execution, command help, schema introspection, or option-value completion. Those selected operations import its `command.ts` and construct its definition, but only execution runs the handler.
 
-Successful selected-command loads are cached for that app, concurrent loads share their in-flight work, and failed loads remain retryable. Sibling command definitions are not constructed. A heavy command may dynamically import a private implementation from inside `command()`, but normal commands stay in one file. Group module top levels and `group()` itself must remain cheap.
+Successful selected-command loads are cached for that app, concurrent loads share their in-flight work, and failed loads remain retryable. Sibling command definitions are not constructed. Because `command.ts` itself is selected-only, it may use ordinary top-level imports for schemas, handlers, gateways, renderers, and completion providers. Dynamic imports are optional, not required for laziness. Group module top levels, `group()`, and command `metadata.ts` must remain cheap.
 
 > **Status:** This is a provisional contract under active review. Examples and behavior claims must be verified before this document is promoted to the package README.
 
@@ -53,20 +53,23 @@ The common path starts with a `cli/` directory:
 ```text
 cli/
   app.ts
+  metadata.ts
   command.ts
 ```
 
-`cli/command.ts` is the app's optional default command. A command module exports cheap metadata separately from its potentially expensive definition:
+The required `cli/metadata.ts` + `cli/command.ts` pair is the app's optional default command. Metadata is eager and cheap; the command definition is selected-only:
 
 ```ts
-// cli/command.ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+// cli/metadata.ts
 import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
-import { z } from "zod";
 
 export function metadata(): ClinkrCommandMetadata {
   return { description: "Greet a person." };
 }
+
+// cli/command.ts
+import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { z } from "zod";
 
 export async function command() {
   return defineCommand({
@@ -90,7 +93,7 @@ export async function command() {
 }
 ```
 
-The exact command-definition type and helper spellings are provisional; the examples consistently show the desired authoring shape. Directory structure supplies the command or group name. A command's explicitly typed `metadata()` supplies description or summary, explicit aliases, hidden state, and help grouping, while its selected `command()` returns `defineCommand({...})`. The generic helper lets `schema` and `resultSchema` drive handler and renderer inference. Command module top levels and `metadata()` must stay cheap; heavy static imports belong behind `command()` or a private dynamic import it performs.
+The exact command-definition type and helper spellings are provisional; the examples consistently show the desired authoring shape. Directory structure supplies the command or group name. A command's explicitly typed `metadata.ts` supplies description or summary, explicit aliases, hidden state, and help grouping, while its selected-only `command.ts` returns `defineCommand({...})`. The generic helper lets `schema` and `resultSchema` drive handler and renderer inference. `metadata.ts` must stay cheap. `command.ts` may use ordinary top-level implementation imports because Clinkr does not import it for top-level/group help or command-name completion.
 
 `cli/app.ts` identifies the command directory and runs the app:
 
@@ -234,26 +237,31 @@ Filesystem paths are command paths. There are no required `groups/`, `commands/`
 ```text
 cli/
   app.ts
-  command.ts              # optional app default
+  metadata.ts             # optional app-default metadata
+  command.ts              # optional app-default definition
   issues/
     group.ts              # `issues` is a named group
-    command.ts            # optional `issues` default
+    metadata.ts           # optional `issues` default metadata
+    command.ts            # optional `issues` default definition
     list/
-      command.ts          # `issues list`
+      metadata.ts         # `issues list` metadata
+      command.ts          # `issues list` definition
     labels/
       group.ts            # `issues labels` group
       add/
-        command.ts        # `issues labels add`
+        metadata.ts       # `issues labels add` metadata
+        command.ts        # `issues labels add` definition
 ```
 
 The conventions are mechanical:
 
 - a directory with `group.ts` is a named group;
-- `command.ts` without a peer `group.ts` is the named command represented by its directory;
-- `command.ts` beside `group.ts` is that group's default command;
-- root `cli/command.ts` is the app default.
+- a required `metadata.ts` + `command.ts` pair without a peer `group.ts` is the named command represented by its directory;
+- that required pair beside `group.ts` is the group's default command;
+- the required pair at root is the app default;
+- either command file without the other is invalid.
 
-A normal command or group uses one public definition file. There is no metadata sidecar, generated manifest, generated runtime module, or production codegen step.
+A group uses one eager `group.ts`; a command uses exactly the two-file metadata/definition seam. There is no optional sidecar, generated manifest, generated runtime module, compatibility shape, or production codegen step.
 
 A group module exports one cheap, complete definition function. There is no separate group `metadata()` or lazy second definition function; child commands and groups come from the directory:
 
@@ -272,17 +280,19 @@ export function group(): ClinkrGroupDefinition {
 }
 ```
 
-A leaf remains concrete and self-contained:
+A leaf remains concrete as one required metadata/definition pair:
 
 ```ts
-// cli/issues/list/command.ts
-import { defineCommand, ok } from "@nseng-ai/clinkr";
+// cli/issues/list/metadata.ts
 import type { ClinkrCommandMetadata } from "@nseng-ai/clinkr";
-import { z } from "zod";
 
 export function metadata(): ClinkrCommandMetadata {
   return { description: "List open issues." };
 }
+
+// cli/issues/list/command.ts
+import { defineCommand, ok } from "@nseng-ai/clinkr";
+import { z } from "zod";
 
 export async function command() {
   return defineCommand({
@@ -296,7 +306,7 @@ export async function command() {
 
 Aliases are explicit public API; Clinkr never infers them. Invoking a scope without a selected child runs its default command when present and otherwise shows help. Hidden commands and groups remain invocable but do not appear in parent help.
 
-Runtime discovery requires these command/group files and directories to ship intact. Bundlers and single-file packaging may need the programmatic builder escape hatch or a future dedicated adapter; Clinkr does not solve this with a generated manifest.
+Runtime discovery requires these command/group files and directories—including both files in every command pair—to ship intact. Bundlers and single-file packaging may need the programmatic builder escape hatch or a future dedicated adapter; Clinkr does not solve this with a generated manifest.
 
 ## Shell completion
 

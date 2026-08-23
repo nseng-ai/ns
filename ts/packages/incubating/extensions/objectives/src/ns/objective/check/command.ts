@@ -1,7 +1,21 @@
-import type { ClinkrCommandMetadata, ClinkrExit } from "@nseng-ai/clinkr";
+import { usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import { z } from "zod";
+
 import type { ObjectiveCliContext } from "../../../core/context.ts";
-import type { CheckObjectiveResult } from "../../../core/operations/check-objective.ts";
-import type { ObjectiveEdgeSweepResult } from "../../../core/operations/edge-sweep.ts";
+import {
+	checkObjectiveRequestSchema,
+	checkObjectiveResultSchema,
+	renderCheckObjective,
+	runCheckObjective,
+	type CheckObjectiveResult,
+} from "../../../core/operations/check-objective.ts";
+import {
+	objectiveEdgeSweepResultSchema,
+	renderEdgeSweep,
+	runEdgeSweep,
+	type ObjectiveEdgeSweepResult,
+} from "../../../core/operations/edge-sweep.ts";
+import { objectiveNsCommand } from "../../objective-command.ts";
 
 interface ObjectiveCheckCommandRequest {
 	readonly slug?: string | undefined;
@@ -9,10 +23,6 @@ interface ObjectiveCheckCommandRequest {
 }
 
 type ObjectiveCheckCommandResult = CheckObjectiveResult | ObjectiveEdgeSweepResult;
-
-export function metadata(): ClinkrCommandMetadata {
-	return { description: COMMAND_DESCRIPTION };
-}
 
 export async function runObjectiveCheckCommand(
 	ctx: ObjectiveCliContext,
@@ -27,24 +37,15 @@ export async function runObjectiveCheckCommand(
 > {
 	if (request.all === true) {
 		if (request.slug !== undefined) {
-			const { usageError } = await import("@nseng-ai/clinkr");
 			return usageError("Pass an Objective slug or --all, not both.", { slug: request.slug });
 		}
-		const { runEdgeSweep } = await import("../../../core/operations/edge-sweep.ts");
 		return await runEdgeSweep(ctx.storage);
 	}
-	const { runCheckObjective } = await import("../../../core/operations/check-objective.ts");
 	return await runCheckObjective(ctx, { slug: request.slug });
 }
 
 export async function command() {
-	const [{ z }, { objectiveNsCommand }, check, edgeSweep] = await Promise.all([
-		import("zod"),
-		import("../../objective-command.ts"),
-		import("../../../core/operations/check-objective.ts"),
-		import("../../../core/operations/edge-sweep.ts"),
-	]);
-	const schema = check.checkObjectiveRequestSchema.extend({
+	const schema = checkObjectiveRequestSchema.extend({
 		all: z
 			.boolean()
 			.optional()
@@ -53,8 +54,8 @@ export async function command() {
 			),
 	});
 	const resultSchema = z.discriminatedUnion("status", [
-		...check.checkObjectiveResultSchema.options,
-		...edgeSweep.objectiveEdgeSweepResultSchema.options,
+		...checkObjectiveResultSchema.options,
+		...objectiveEdgeSweepResultSchema.options,
 	]);
 
 	return objectiveNsCommand({
@@ -67,9 +68,7 @@ export async function command() {
 		handler: runObjectiveCheckCommand,
 		renderHuman: (result, caps) =>
 			result.status === "sweep-ok" || result.status === "sweep-failed"
-				? edgeSweep.renderEdgeSweep(result, caps)
-				: check.renderCheckObjective(result, caps),
+				? renderEdgeSweep(result, caps)
+				: renderCheckObjective(result, caps),
 	});
 }
-
-const COMMAND_DESCRIPTION = "Check one Objective record, or sweep all record edges with --all.";

@@ -109,18 +109,57 @@ describe("filesystem command structures", () => {
 		expect(help.stdout).not.toContain("secret");
 	});
 
-	test("imports cheap metadata eagerly but invokes only the selected command definition", async () => {
+	test("evaluates metadata modules eagerly and only the selected command module", async () => {
 		clearLoads();
 		const app = await createClinkrApp({
 			name: "fixture",
 			commandDirectory: join(fixtureRoot, "selected"),
 		});
-		expect(readLoads()).toEqual(["first:metadata", "second:metadata"]);
+		const eagerLoads = [
+			"first:metadata-module",
+			"first:metadata-call",
+			"second:metadata-module",
+			"second:metadata-call",
+		];
+		expect(readLoads()).toEqual(eagerLoads);
+
+		await runForTest(app, ["--help"]);
+		await app.complete({ words: [""] });
+		expect(readLoads()).toEqual(eagerLoads);
+
+		await runForTest(app, ["first", "--help"]);
+		expect(readLoads()).toEqual([
+			"first:metadata-module",
+			"first:metadata-call",
+			"second:metadata-module",
+			"second:metadata-call",
+			"first:command-module",
+			"first:command-call",
+		]);
+
+		await runForTest(app, ["second", "--json-schema"]);
+		expect(readLoads()).toEqual([
+			...eagerLoads,
+			"first:command-module",
+			"first:command-call",
+			"second:command-module",
+			"second:command-call",
+		]);
 
 		await runForTest(app, ["first"]);
 		await runForTest(app, ["first"]);
-
-		expect(readLoads()).toEqual(["first:metadata", "second:metadata", "first:command"]);
+		expect(readLoads()).toEqual([
+			"first:metadata-module",
+			"first:metadata-call",
+			"second:metadata-module",
+			"second:metadata-call",
+			"first:command-module",
+			"first:command-call",
+			"second:command-module",
+			"second:command-call",
+			"first:handler",
+			"first:handler",
+		]);
 	});
 
 	test("retries failed selected definitions and caches only successful loads", async () => {
@@ -145,16 +184,33 @@ describe("filesystem command structures", () => {
 		).rejects.toThrow("commandDirectory must be absolute");
 	});
 
-	test("rejects malformed module exports before publishing an app", async () => {
+	test.each([
+		["incomplete-metadata", "missing command.ts"],
+		["incomplete-command", "missing metadata.ts"],
+	])("rejects an incomplete command pair in %s eagerly", async (fixture, message) => {
+		await expect(
+			createClinkrApp({ name: "fixture", commandDirectory: join(fixtureRoot, fixture) }),
+		).rejects.toThrow(message);
+	});
+
+	test("rejects malformed metadata exports eagerly", async () => {
 		await expect(
 			createClinkrApp({
 				name: "fixture",
-				commandDirectory: join(fixtureRoot, "malformed"),
+				commandDirectory: join(fixtureRoot, "malformed-metadata"),
 			}),
-		).rejects.toThrow("must export command()");
+		).rejects.toThrow("must export metadata()");
 	});
 
-	test("rejects command definitions that do not come from defineCommand", async () => {
+	test("rejects malformed command exports only after selection", async () => {
+		const app = await createClinkrApp({
+			name: "fixture",
+			commandDirectory: join(fixtureRoot, "malformed"),
+		});
+		await expect(runForTest(app, ["bad"])).rejects.toThrow("must export command()");
+	});
+
+	test("rejects command definitions that do not come from defineCommand only after selection", async () => {
 		const app = await createClinkrApp({
 			name: "fixture",
 			commandDirectory: join(fixtureRoot, "wrong-definition"),

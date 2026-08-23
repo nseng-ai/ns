@@ -95,13 +95,17 @@ export default defineExtension({
 			`export function group() { return { description: "Tool commands." }; }\n`,
 		);
 		writeWorkspaceFile(
+			join(commandDirectory, "tools", "scan", "metadata.ts"),
+			`export function metadata() { return { summary: "Scan.", description: "Scan with context." }; }\n`,
+		);
+		writeWorkspaceFile(
 			join(commandDirectory, "tools", "scan", "command.ts"),
 			`
 import { defineCommand } from ${JSON.stringify(
 				join(import.meta.dirname, "../../../infra/clinkr/src/index.ts"),
 			)};
 import { z } from ${JSON.stringify(join(import.meta.dirname, "../../node_modules/zod/index.js"))};
-export function metadata() { return { summary: "Scan.", description: "Scan with context." }; }
+
 export function command() { return defineCommand({
   schema: z.object({}),
   resultSchema: z.object({ cwd: z.string() }),

@@ -1,3 +1,1 @@
-export function metadata() {
-	return {};
-}
+export const notCommand = true;
