@@ -52,9 +52,10 @@ and avoid `any` except isolated, commented library-forced seams. Validate extern
 schemas and derive types with `z.infer`. Encode expected failure as returned data at async/system
 boundaries (`Result<T,E>`, terminal error events); throw only for programmer errors and broken
 invariants. Top-level module logic uses `function` declarations; callbacks and expression-position
-factories can use arrows. Prefer guard clauses, nullish operators for nullish semantics, and options
-objects for several/optional inputs. Respect ownership-boundary immutability: do not mutate inputs,
-returned values, or shared/public state in place. Keep the core minimal: optional behavior lives behind
+factories can use arrows. Prefer guard clauses and nullish operators for nullish semantics. Keep a
+small, clearly ordered set of required core data and dependencies as direct inputs; use named options
+objects for behavioral configuration and long input lists. Respect ownership-boundary immutability: do
+not mutate inputs, returned values, or shared/public state in place. Keep the core minimal: optional behavior lives behind
 plugins, adapters, or capability flags. Functions do logic; classes coordinate state. Inline one-use
 helpers. Suppressions and empty catches explain why. Be direct in reviews and comments; explain why, not
 mechanics.
