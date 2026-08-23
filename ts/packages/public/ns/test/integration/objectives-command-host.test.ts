@@ -12,19 +12,25 @@ const OBJECTIVES_PACKAGE = new URL(
 	"../../../../incubating/extensions/objectives/",
 	import.meta.url,
 );
-const OBJECTIVE_DEFINITION_SUFFIXES = [
-	"objective/check/definition.ts",
-	"objective/exec/list-candidates/definition.ts",
-	"objective/exec/load-orientations/definition.ts",
-	"objective/exec/publication-bind/definition.ts",
-	"objective/exec/publication-publish/definition.ts",
-	"objective/exec/read-objective/definition.ts",
-	"objective/exec/runner-begin/definition.ts",
-	"objective/exec/runner-finish/definition.ts",
-	"objective/exec/runner-subagent-usage/definition.ts",
-	"objective/exec/tracking-gate/definition.ts",
-	"objective/list/definition.ts",
-	"objective/show/definition.ts",
+const OBJECTIVE_ROUTES = [
+	{ route: ["check"], implementation: "core/operations/check-objective.ts" },
+	{ route: ["exec", "list-candidates"], implementation: "core/operations/list-candidates.ts" },
+	{
+		route: ["exec", "load-orientations"],
+		implementation: "core/operations/load-orientations.ts",
+	},
+	{ route: ["exec", "publication-bind"], implementation: "ns/publication-commands.ts" },
+	{ route: ["exec", "publication-publish"], implementation: "ns/publication-commands.ts" },
+	{ route: ["exec", "read-objective"], implementation: "core/operations/read-objective.ts" },
+	{ route: ["exec", "runner-begin"], implementation: "runner/begin.ts" },
+	{ route: ["exec", "runner-finish"], implementation: "runner/finish.ts" },
+	{
+		route: ["exec", "runner-subagent-usage"],
+		implementation: "core/operations/runner-subagent-usage.ts",
+	},
+	{ route: ["exec", "tracking-gate"], implementation: "core/operations/tracking-gate.ts" },
+	{ route: ["list"], implementation: "core/operations/list-objectives.ts" },
+	{ route: ["show"], implementation: "core/operations/show-objective.ts" },
 ] as const;
 const tempDirectories: string[] = [];
 
@@ -39,11 +45,11 @@ describe("real ns host Objectives command loading", () => {
 		{ name: "root help", args: ["--help"] },
 		{ name: "root version", args: ["--version"] },
 		{ name: "root runtime", args: ["--runtime"] },
-	])("$name does not load Objective command definitions", ({ args }) => {
+	])("$name does not load Objective command implementations", ({ args }) => {
 		const run = runNsWithObjectiveImportLog(args);
 
 		expect(run.status, run.stderr).toBe(0);
-		expect(run.objectiveDefinitions).toEqual([]);
+		expect(run.objectiveImplementations).toEqual([]);
 	});
 
 	test("root Objective help lists visible leaves and hides exec", () => {
@@ -54,27 +60,25 @@ describe("real ns host Objectives command loading", () => {
 		expect(run.stdout).toMatch(/^  list(?:\s|$)/m);
 		expect(run.stdout).toMatch(/^  show(?:\s|$)/m);
 		expect(run.stdout).not.toMatch(/^  exec(?:\s|$)/m);
-		expect(run.objectiveDefinitions).toEqual([]);
+		expect(run.objectiveImplementations).toEqual([]);
 	});
 
-	test.each(OBJECTIVE_DEFINITION_SUFFIXES)("selected help loads only %s", (definitionSuffix) => {
-		const route = routeFromDefinitionSuffix(definitionSuffix);
+	test.each(OBJECTIVE_ROUTES)("selected help loads only $route", ({ route, implementation }) => {
 		const run = runNsWithObjectiveImportLog(["objective", ...route, "--help"]);
 
 		expect(run.status, run.stderr).toBe(0);
 		expect(run.stdout).toContain(`Usage: ns objective ${route.join(" ")}`);
-		expect(run.objectiveDefinitions).toEqual([definitionSuffix]);
+		expect(run.objectiveImplementations).toEqual([implementation]);
 	});
 
-	test.each(OBJECTIVE_DEFINITION_SUFFIXES)(
-		"every Objective leaf exposes schema through the real host: %s",
-		(definitionSuffix) => {
-			const route = routeFromDefinitionSuffix(definitionSuffix);
+	test.each(OBJECTIVE_ROUTES)(
+		"every Objective leaf exposes schema through the real host: $route",
+		({ route, implementation }) => {
 			const run = runNsWithObjectiveImportLog(["objective", ...route, "--json-schema"]);
 
 			expect(run.status, run.stderr).toBe(0);
 			expect(JSON.parse(run.stdout)).toHaveProperty("machineEnvelopeJsonSchema");
-			expect(run.objectiveDefinitions).toEqual([definitionSuffix]);
+			expect(run.objectiveImplementations).toEqual([implementation]);
 		},
 	);
 
@@ -91,7 +95,7 @@ describe("real ns host Objectives command loading", () => {
 			} else {
 				expect(run.stdout).toContain("# Objective records in this checkout");
 			}
-			expect(run.objectiveDefinitions).toEqual(["objective/list/definition.ts"]);
+			expect(run.objectiveImplementations).toEqual(["core/operations/list-objectives.ts"]);
 		},
 	);
 
@@ -106,7 +110,7 @@ describe("real ns host Objectives command loading", () => {
 
 		expect(run.status, run.stderr).toBe(0);
 		expect(run.stdout).toContain("### .ns/objectives/");
-		expect(run.objectiveDefinitions).toEqual(["objective/exec/load-orientations/definition.ts"]);
+		expect(run.objectiveImplementations).toEqual(["core/operations/load-orientations.ts"]);
 	});
 
 	test("negative Objective answers use stdout and exit 1", () => {
@@ -115,7 +119,7 @@ describe("real ns host Objectives command loading", () => {
 		expect(run.status).toBe(1);
 		expect(run.stdout).toContain("No Objective record found");
 		expect(run.stderr).toBe("");
-		expect(run.objectiveDefinitions).toEqual(["objective/check/definition.ts"]);
+		expect(run.objectiveImplementations).toEqual(["core/operations/check-objective.ts"]);
 	});
 
 	test("publishes all four outcome statuses without running the selected handler", () => {
@@ -134,10 +138,10 @@ describe("real ns host Objectives command loading", () => {
 			new Set(['"const":"ok"', '"const":"negative"', '"const":"failure"', '"const":"usageError"']),
 		);
 		expect(run.stdout).not.toContain("Objective slug is required");
-		expect(run.objectiveDefinitions).toEqual(["objective/exec/runner-finish/definition.ts"]);
+		expect(run.objectiveImplementations).toEqual(["runner/finish.ts"]);
 	});
 
-	test("route-name completion uses metadata without loading definitions", () => {
+	test("route-name completion uses metadata without loading implementations", () => {
 		const run = runNsWithObjectiveImportLog([
 			"completion",
 			"exec",
@@ -149,10 +153,10 @@ describe("real ns host Objectives command loading", () => {
 
 		expect(run.status, run.stderr).toBe(0);
 		expect(run.stdout).toBe("check\nlist\nshow\n");
-		expect(run.objectiveDefinitions).toEqual([]);
+		expect(run.objectiveImplementations).toEqual([]);
 	});
 
-	test("selected option-value completion loads exactly its definition", () => {
+	test("selected option-value completion loads exactly its implementation", () => {
 		const run = runNsWithObjectiveImportLog([
 			"completion",
 			"exec",
@@ -166,7 +170,7 @@ describe("real ns host Objectives command loading", () => {
 
 		expect(run.status, run.stderr).toBe(0);
 		expect(run.stdout).toBe("all\nactive\nopen\nclosed\n");
-		expect(run.objectiveDefinitions).toEqual(["objective/list/definition.ts"]);
+		expect(run.objectiveImplementations).toEqual(["core/operations/list-objectives.ts"]);
 	});
 
 	test("a malformed unrelated filesystem mount warns without bricking Objectives", () => {
@@ -176,16 +180,9 @@ describe("real ns host Objectives command loading", () => {
 		expect(run.status).toBe(0);
 		expect(run.stdout).toContain("machineEnvelopeJsonSchema");
 		expect(run.stderr).toContain("Warning: Invalid ns extension command structure");
-		expect(run.objectiveDefinitions).toEqual(["objective/check/definition.ts"]);
+		expect(run.objectiveImplementations).toEqual(["core/operations/check-objective.ts"]);
 	});
 });
-
-function routeFromDefinitionSuffix(definitionSuffix: string): string[] {
-	return definitionSuffix
-		.replace(/^objective\//, "")
-		.replace(/\/definition\.ts$/, "")
-		.split("/");
-}
 
 function createProjectWithMalformedUnrelatedMount(): string {
 	const directory = mkdtempSync(join(tmpdir(), "ns-objective-malformed-mount-"));
@@ -219,7 +216,7 @@ function runNsWithObjectiveImportLog(
 	readonly status: number | null;
 	readonly stdout: string;
 	readonly stderr: string;
-	readonly objectiveDefinitions: readonly string[];
+	readonly objectiveImplementations: readonly string[];
 } {
 	const directory = mkdtempSync(join(tmpdir(), "ns-objective-host-"));
 	tempDirectories.push(directory);
@@ -227,7 +224,7 @@ function runNsWithObjectiveImportLog(
 	const logPath = join(directory, "imports.log");
 	writeFileSync(
 		hookPath,
-		`import { appendFileSync } from "node:fs";\nimport { registerHooks } from "node:module";\nregisterHooks({ resolve(specifier, context, nextResolve) { const result = nextResolve(specifier, context); if (result.url.includes("/objectives/src/ns/objective/") && result.url.endsWith("/definition.ts")) appendFileSync(process.env.NS_OBJECTIVE_IMPORT_LOG, result.url + "\\n"); return result; } });\n`,
+		`import { appendFileSync } from "node:fs";\nimport { registerHooks } from "node:module";\nconst markers = ${JSON.stringify(OBJECTIVE_ROUTES.map(({ implementation }) => `/objectives/src/${implementation}`))};\nregisterHooks({ resolve(specifier, context, nextResolve) { const result = nextResolve(specifier, context); const isCommandImport = context.parentURL?.includes("/objectives/src/ns/objective/") && context.parentURL.endsWith("/command.ts"); if (isCommandImport && markers.some((marker) => result.url.endsWith(marker))) appendFileSync(process.env.NS_OBJECTIVE_IMPORT_LOG, result.url + "\\n"); return result; } });\n`,
 		"utf8",
 	);
 	const result = spawnSync(process.execPath, ["--import", hookPath, CLI_SOURCE, ...args], {
@@ -245,9 +242,15 @@ function runNsWithObjectiveImportLog(
 		status: result.status,
 		stdout: result.stdout,
 		stderr: result.stderr,
-		objectiveDefinitions: importLog
-			.split("\n")
-			.filter((line) => line !== "")
-			.map((line) => line.slice(line.lastIndexOf("/objective/") + 1)),
+		objectiveImplementations: [
+			...new Set(
+				importLog
+					.split("\n")
+					.filter((line) => line !== "")
+					.map((line) =>
+						line.slice(line.lastIndexOf("/objectives/src/") + "/objectives/src/".length),
+					),
+			),
+		],
 	};
 }
