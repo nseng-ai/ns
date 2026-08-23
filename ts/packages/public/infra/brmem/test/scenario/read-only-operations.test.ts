@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import { FakeBrmemGateway } from "../../src/fake-gateway.ts";
-import { renderList, type ListResult } from "../../src/operations/list.ts";
 import { runScenario } from "../support/run-scenario.ts";
 
 const seededEntries = [
@@ -23,28 +22,6 @@ const seededEntries = [
 	},
 	{ namespace: "notes", branch: "other", key: "other.md", content: "other" },
 ];
-
-const sampleListResult: ListResult = {
-	namespaceScope: "all",
-	key: null,
-	branch: "feat/x",
-	base: false,
-	allBranches: false,
-	entries: [
-		{
-			namespace: "base",
-			key: "scratch",
-			branch: "feat/x",
-			refName: "refs/brmem/ns/base/feat---x:scratch",
-		},
-		{
-			namespace: "notes",
-			key: "plan/body.md",
-			branch: "feat/x",
-			refName: "refs/brmem/ns/notes/feat---x:plan/body.md",
-		},
-	],
-};
 
 describe("read-only brmem operations", () => {
 	it("get human output prints stored content only", async () => {
@@ -255,10 +232,19 @@ describe("read-only brmem operations", () => {
 		});
 	});
 
-	it("propagates ANSI capability to the list table renderer", () => {
-		const colorOutput = renderList(sampleListResult, { canEmitAnsi: true });
-		const plainOutput = renderList(sampleListResult, { canEmitAnsi: false });
-		expect(colorOutput).toContain(String.fromCharCode(0x1b));
-		expect(plainOutput).not.toContain(String.fromCharCode(0x1b));
+	it("propagates ANSI capability to the list table renderer", async () => {
+		const options = { fake: { currentBranch: "feat/x", entries: seededEntries } };
+		const colorRun = runScenario(["list"], {
+			...options,
+			renderCapabilities: { canEmitAnsi: true },
+		});
+		const plainRun = runScenario(["list"], {
+			...options,
+			renderCapabilities: { canEmitAnsi: false },
+		});
+		expect(await colorRun.exit).toBe(0);
+		expect(await plainRun.exit).toBe(0);
+		expect(colorRun.stdout.join("")).toContain(String.fromCharCode(0x1b));
+		expect(plainRun.stdout.join("")).not.toContain(String.fromCharCode(0x1b));
 	});
 });

@@ -1,7 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { TextDecoder, TextEncoder } from "node:util";
 
-import type { ConfirmationResult } from "@nseng-ai/clinkr";
+import type { ConfirmationResult, RenderCapabilities } from "@nseng-ai/clinkr";
 import { createFakeClinkrInteraction } from "@nseng-ai/clinkr/testing";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
@@ -29,6 +29,7 @@ export interface ScenarioRunOptions {
 	sourceReader?: BrmemSourceReader;
 	confirmations?: readonly ConfirmationResult[];
 	isInteractive?: boolean;
+	renderCapabilities?: RenderCapabilities;
 }
 
 export interface ScenarioRun {
@@ -85,6 +86,9 @@ export function runScenario(
 		sourceReader: context.sourceReader,
 		stdout: (text) => stdout.push(text),
 		stderr: (text) => stderr.push(text),
+		...(options.renderCapabilities === undefined
+			? {}
+			: { renderCapabilities: options.renderCapabilities }),
 	};
 	return {
 		exit: runCli(args, deps).then((code) => {

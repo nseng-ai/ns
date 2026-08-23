@@ -1,16 +1,16 @@
 import { failure, type ClinkrExit, type ClinkrFailureExit } from "@nseng-ai/clinkr";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
-import type { BrmemCliContext } from "../context.ts";
-import type { BrmemErrorInfo } from "../contracts.ts";
-import { normalizeNamespaceOption } from "../ref-layout.ts";
+import type { BrmemCliContext } from "./context.ts";
+import type { BrmemErrorInfo } from "./contracts.ts";
+import { normalizeNamespaceOption } from "./ref-layout.ts";
 import {
 	firstFailure,
 	validateBranchName,
 	validateEntryKey,
 	validateNamespaceName,
 	validationMessage,
-} from "../validation.ts";
+} from "./validation.ts";
 
 export interface ResolvedEntryRequest {
 	namespace: string;
