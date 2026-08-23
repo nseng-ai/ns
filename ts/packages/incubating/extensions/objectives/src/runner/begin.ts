@@ -16,6 +16,7 @@ import {
 	checkRunnerPreconditions,
 	resolveRunnerStepIdentity,
 	runnerPreconditionProblemExit,
+	type ArgumentUsageErrorData,
 } from "./preconditions.ts";
 import { buildRunnerChildPrompt } from "./prompt.ts";
 
@@ -53,6 +54,12 @@ export const runnerBeginResultSchema = z.object({
 export type RunnerBeginRequest = z.infer<typeof runnerBeginRequestSchema>;
 export type RunnerBeginResult = z.infer<typeof runnerBeginResultSchema>;
 
+/** Failure payload for report-path infrastructure errors. */
+export interface RunnerBeginFailureData {
+	readonly argument: string;
+	readonly reportPath: string;
+}
+
 /**
  * Runs the begin bookend: request hygiene, preconditions, prompt construction.
  *
@@ -63,7 +70,9 @@ export type RunnerBeginResult = z.infer<typeof runnerBeginResultSchema>;
 export async function runRunnerBegin(
 	ctx: ObjectiveRunnerCoreContext,
 	request: RunnerBeginRequest,
-): Promise<ClinkrExit<RunnerBeginResult>> {
+): Promise<
+	ClinkrExit<RunnerBeginResult, RunnerBeginResult, RunnerBeginFailureData, ArgumentUsageErrorData>
+> {
 	const identity = resolveRunnerStepIdentity({
 		recover: request.recover,
 		...optionalEntry("slug", request.slug),

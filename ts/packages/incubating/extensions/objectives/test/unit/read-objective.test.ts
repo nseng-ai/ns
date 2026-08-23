@@ -44,7 +44,7 @@ describe("objective update reads", () => {
 			slug: "alpha",
 		});
 
-		if (exit.type !== "ok" || exit.data.status !== "ok") throw new Error("expected ok exit");
+		if (exit.type !== "ok" || exit.data?.status !== "ok") throw new Error("expected ok exit");
 		expect(exit.data.updates.map((update) => update.name)).toEqual([
 			"20260711T120000Z-first.md",
 			"20260712T120000Z-second.md",
@@ -83,7 +83,7 @@ describe("objective update reads", () => {
 			includeUpdates: true,
 		});
 
-		if (exit.type !== "ok" || exit.data.status !== "ok") throw new Error("expected ok exit");
+		if (exit.type !== "ok" || exit.data?.status !== "ok") throw new Error("expected ok exit");
 		expect(exit.data.markdownFiles.updates).toEqual([
 			{
 				update: {
@@ -117,7 +117,7 @@ describe("objective update reads", () => {
 				{ slug: "alpha", includeUpdates },
 			);
 
-			if (exit.type !== "ok" || exit.data.status !== "ok") {
+			if (exit.type !== "ok" || exit.data?.status !== "ok") {
 				throw new Error("expected ok exit");
 			}
 			expect(renderReadObjective(exit.data)).toContain("_Missing `updates/` directory._");
@@ -132,7 +132,7 @@ describe("objective update reads", () => {
 				{ slug: "alpha", includeUpdates },
 			);
 
-			if (exit.type !== "ok" || exit.data.status !== "ok") {
+			if (exit.type !== "ok" || exit.data?.status !== "ok") {
 				throw new Error("expected ok exit");
 			}
 			expect(renderReadObjective(exit.data)).toContain("_No direct update Markdown files found._");
@@ -147,7 +147,7 @@ describe("objective read with Record Frontmatter", () => {
 			{ slug: "alpha" },
 		);
 
-		if (exit.type !== "ok" || exit.data.status !== "ok") throw new Error("expected ok exit");
+		if (exit.type !== "ok" || exit.data?.status !== "ok") throw new Error("expected ok exit");
 		expect(Object.hasOwn(exit.data, "recordFrontmatter")).toBe(false);
 		expect(exit.data.markdownFiles.objectiveMd).toEqual({ type: "ok", content: OBJECTIVE_BODY });
 	});
@@ -159,7 +159,7 @@ describe("objective read with Record Frontmatter", () => {
 			{ slug: "alpha" },
 		);
 
-		if (exit.type !== "ok" || exit.data.status !== "ok") throw new Error("expected ok exit");
+		if (exit.type !== "ok" || exit.data?.status !== "ok") throw new Error("expected ok exit");
 		expect(exit.data.recordFrontmatter).toEqual({
 			type: "frontmatter",
 			frontmatter: {
@@ -186,10 +186,10 @@ describe("objective read with Record Frontmatter", () => {
 			}),
 			{ slug: "alpha" },
 		);
-		if (withoutFrontmatter.type !== "ok" || withoutFrontmatter.data.status !== "ok") {
+		if (withoutFrontmatter.type !== "ok" || withoutFrontmatter.data?.status !== "ok") {
 			throw new Error("expected ok exits");
 		}
-		if (withFrontmatter.type !== "ok" || withFrontmatter.data.status !== "ok") {
+		if (withFrontmatter.type !== "ok" || withFrontmatter.data?.status !== "ok") {
 			throw new Error("expected ok exits");
 		}
 
@@ -207,7 +207,7 @@ describe("objective read with Record Frontmatter", () => {
 			{ slug: "alpha" },
 		);
 
-		if (exit.type !== "ok" || exit.data.status !== "ok") throw new Error("expected ok exit");
+		if (exit.type !== "ok" || exit.data?.status !== "ok") throw new Error("expected ok exit");
 		expect(exit.data.recordFrontmatter).toMatchObject({ type: "malformed" });
 		expect(exit.data.markdownFiles.objectiveMd).toEqual({ type: "ok", content });
 	});
@@ -218,7 +218,7 @@ describe("objective read with Record Frontmatter", () => {
 			{ slug: "alpha" },
 		);
 
-		if (exit.type !== "ok" || exit.data.status !== "ok") throw new Error("expected ok exit");
+		if (exit.type !== "ok" || exit.data?.status !== "ok") throw new Error("expected ok exit");
 		expect(Object.hasOwn(exit.data, "recordFrontmatter")).toBe(false);
 		expect(exit.data.markdownFiles.objectiveMd).toEqual({ type: "missing" });
 	});

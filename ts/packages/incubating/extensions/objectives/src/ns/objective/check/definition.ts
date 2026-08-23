@@ -37,7 +37,14 @@ type ObjectiveCheckCommandResult = CheckObjectiveResult | ObjectiveEdgeSweepResu
 export async function runObjectiveCheckCommand(
 	ctx: ObjectiveCliContext,
 	request: ObjectiveCheckCommandRequest,
-): Promise<ClinkrExit<ObjectiveCheckCommandResult>> {
+): Promise<
+	ClinkrExit<
+		ObjectiveCheckCommandResult,
+		ObjectiveCheckCommandResult,
+		ObjectiveCheckCommandResult,
+		{ readonly slug: string }
+	>
+> {
 	if (request.all === true) {
 		if (request.slug !== undefined) {
 			return usageError("Pass an Objective slug or --all, not both.", { slug: request.slug });

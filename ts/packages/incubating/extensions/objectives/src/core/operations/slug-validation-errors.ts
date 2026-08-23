@@ -9,7 +9,7 @@ interface ObjectiveSlugValidationResult {
 export function handleObjectiveSlugValidationErrors<Result extends ObjectiveSlugValidationResult>(
 	result: Result,
 	slug: string | undefined,
-): ClinkrExit<Result> | null {
+): ClinkrExit<Result, Result, never, never> | null {
 	if (result.status === "missing-slug") {
 		return negative("Missing Objective slug. Pass an explicit slug.", result);
 	}

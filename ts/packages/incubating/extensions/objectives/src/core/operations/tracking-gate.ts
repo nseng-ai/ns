@@ -69,7 +69,14 @@ export type TrackingGateResult = z.infer<typeof trackingGateResultSchema>;
 export async function runTrackingGate(
 	ctx: ObjectiveCliContext,
 	request: TrackingGateRequest,
-): Promise<ClinkrExit<TrackingGateResult>> {
+): Promise<
+	ClinkrExit<
+		TrackingGateResult,
+		TrackingGateResult,
+		TrackingGateResult,
+		{ readonly argument: string }
+	>
+> {
 	if (request.slug === undefined) {
 		return usageError("Objective slug is required.", { argument: "slug" });
 	}

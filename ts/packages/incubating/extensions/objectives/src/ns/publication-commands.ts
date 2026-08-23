@@ -1,6 +1,13 @@
 import { resolve } from "node:path";
 
-import { failure, negative, ok, usageError, type ClinkrExit } from "@nseng-ai/clinkr";
+import {
+	failure,
+	negative,
+	ok,
+	usageError,
+	type ClinkrExit,
+	type ClinkrUsageErrorExit,
+} from "@nseng-ai/clinkr";
 import { z } from "zod";
 
 import { bindObjectiveRunnerPublication } from "../publication/authorization.ts";
@@ -44,7 +51,14 @@ export type PublicationBindResult = z.infer<typeof publicationBindResultSchema>;
 export async function runPublicationBind(
 	ctx: ObjectiveRunnerPublicationCommandContext,
 	request: PublicationBindRequest,
-): Promise<ClinkrExit<PublicationBindResult>> {
+): Promise<
+	ClinkrExit<
+		PublicationBindResult,
+		PublicationBindResult,
+		PublicationBindResult,
+		{ readonly argument: string }
+	>
+> {
 	const attestation = await readJsonInput(ctx, request.attestation, "attestation");
 	if (!attestation.ok) return attestation.exit;
 	const parsed = objectiveRunnerPublicationLaunchAttestationV1Schema.safeParse(attestation.value);
@@ -135,7 +149,14 @@ export type PublicationPublishResult = z.infer<typeof publicationPublishResultSc
 export async function runPublicationPublish(
 	ctx: ObjectiveRunnerPublicationCommandContext,
 	request: PublicationPublishRequest,
-): Promise<ClinkrExit<PublicationPublishResult>> {
+): Promise<
+	ClinkrExit<
+		PublicationPublishResult,
+		PublicationPublishResult,
+		PublicationPublishResult,
+		{ readonly argument: string }
+	>
+> {
 	const authorizationPath = absoluteAtPath(ctx.cwd, request.authorization);
 	const authorizationRead = await ctx.authorizations.read(authorizationPath);
 	if (!authorizationRead.ok) {
@@ -211,7 +232,10 @@ async function readJsonInput(
 	ctx: ObjectiveRunnerPublicationCommandContext,
 	input: string,
 	argument: string,
-): Promise<{ ok: true; value: unknown } | { ok: false; exit: ReturnType<typeof usageError> }> {
+): Promise<
+	| { ok: true; value: unknown }
+	| { ok: false; exit: ClinkrUsageErrorExit<{ readonly argument: string }> }
+> {
 	const path = absoluteAtPath(ctx.cwd, input);
 	const read = await ctx.readTextFile(path);
 	if (!read.ok) {
