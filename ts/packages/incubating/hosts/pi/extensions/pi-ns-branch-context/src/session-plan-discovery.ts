@@ -106,6 +106,72 @@ export const sessionPlanDiscoverySchema = z.discriminatedUnion("type", [
 ]);
 export type SessionPlanDiscovery = z.infer<typeof sessionPlanDiscoverySchema>;
 
+/*
+ * Refactor direction: replace the process machinery below with the shared
+ * subagent child-session runtime once that runtime supports parent-session
+ * forks and exact-skill resource policy.
+ *
+ * This is intentionally a temporary local implementation. It duplicates
+ * capabilities already owned more completely by
+ * `@internal/ns-pi-subagents/runner-subagents`: Pi subprocess launch, JSON
+ * event handling, cancellation and forced termination, stderr bounds, final
+ * assistant-text capture, child-session evidence, usage collection, progress,
+ * and typed process failures. Keeping a second subprocess runner here would
+ * create two implementations of the same host concern.
+ *
+ * The existing subagent runtime cannot be used unchanged. It currently creates
+ * an empty child session and launches `pi --session <new-file>`. Discovery must
+ * instead launch `pi --fork <persisted-parent-session>` so the model can inspect
+ * the conversation visible in the parent. Fork mode also differs because Pi
+ * allocates the child session file: the runtime must learn that path from the
+ * JSON `session` event and must never confuse the parent source path with the
+ * new child path. Launch-metadata hydration, progress, result evidence, and
+ * usage collection must all use the dynamically discovered child path.
+ *
+ * The shared runtime also needs a semantic child resource policy rather than
+ * caller-supplied argv. This discovery operation requires:
+ *
+ * - no tools;
+ * - no ambient extensions, prompt templates, or context files;
+ * - no discovered skills;
+ * - exactly the captured effective skill path supplied with `--skill`;
+ * - the configured model and thinking selection;
+ * - final assistant text with wall-clock and streaming-output bounds.
+ *
+ * Add the capability beneath the model-visible `subagent` tool. Product
+ * commands should dispatch the runtime directly; they should not ask the
+ * parent model to invoke `subagent(...)`. A suitable shared contract has an
+ * explicit session source (`new` or `fork`), an exact-skills resource policy,
+ * model selection, prompt, limits, and `AbortSignal`. Fork mode should be
+ * subprocess-only until the in-process Pi adapter can preserve equivalent
+ * semantics; requesting an unsupported execution architecture must fail rather
+ * than silently start an empty session.
+ *
+ * Package disposition matters. This incubating package may not depend on the
+ * internal `@internal/ns-pi-subagents` package. Move/extract the reusable
+ * child-Pi process/session substrate into an incubating Pi host seam (most
+ * likely `@nseng-ai/pi-runtime`) and make both `ns-pi-subagents` and this
+ * package consume it. `ns-pi-subagents` should continue to own agent
+ * descriptors, runtime selection, Fleet UI, and the model-visible delegation
+ * interface; the lower seam should own generic child-session mechanics.
+ *
+ * After that seam exists, delete from this file:
+ *
+ * - SessionPlanDiscoveryProcessRequest and ProcessResult;
+ * - SessionPlanDiscoveryProcessGateway;
+ * - buildSessionPlanDiscoveryArgs;
+ * - createSessionPlanDiscoveryProcessGateway;
+ * - the local process outcome switch and duplicated timeout/stdout/cancellation
+ *   plumbing in discoverSessionPlan.
+ *
+ * Keep here the Saved Plan domain behavior: model-operation resolution, the
+ * discovery schemas and limits, JSON extraction/validation, contradictory
+ * result rejection, and translation from shared runner outcomes into
+ * SessionPlanDiscovery failure codes. Tests should prove existing new-session
+ * subagents remain compatible, fork argv uses `--fork` rather than `--session`,
+ * child paths come from JSON session evidence, exact-skill isolation flags are
+ * applied, and timeout/cancellation/output limits terminate the child safely.
+ */
 export interface SessionPlanDiscoveryProcessRequest {
 	readonly cwd: string;
 	readonly args: readonly string[];
