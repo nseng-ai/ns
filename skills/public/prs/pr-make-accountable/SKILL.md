@@ -95,29 +95,35 @@ Inventory:
 - apparent limitations and reviewer-risky or subtle areas;
 - material intent, constraints, and rejected alternatives unknowable from the
   evidence;
-- whether the final net diff changes user-facing behavior directly observable by
-  an intended user of the changed product or public interface, such as CLI
-  syntax, output, errors, or workflow outcomes; UI behavior; public API requests
-  or responses; user-controlled configuration behavior; diagnostics presented
-  to users; or another public interaction contract; and
-- for a user-facing behavior change, evidence for at least one candidate
-  representative example: the user's action, the resulting behavior, and any
-  exact text or values that the implementation supports. For an internal-only
-  change, record that classification without manufacturing a candidate.
+- the PR's behavior classification, starting as internal-only; and
+- when affirmative final-net-diff evidence supports reclassification as
+  user-facing, that evidence and at least one candidate representative example:
+  the intended user's action or public interaction, the directly observable
+  changed result, and any exact text or values that the implementation supports.
 
-Classify a PR as internal-only when the net diff changes only internal
-implementation behavior; agent or skill instructions; internal orchestration or
-workflow contracts; support disposition, file placement, registration, overlays,
-or lock metadata; refactoring, tests, or maintenance mechanics; documentation
-without a corresponding behavior change; or behavior visible only to another
-internal component or repository maintainer. Promoting or changing an internal
-reusable skill remains internal-only even when another extension consumes it,
-unless the same net diff changes behavior experienced by intended users.
+Reclassify the PR as user-facing only when the final net diff changes behavior
+directly observable by an intended user of the changed product or public
+interface. Evidence can include changed CLI syntax, output, errors, or workflow
+outcomes; UI behavior; public API requests or responses; user-controlled
+configuration behavior; diagnostics presented to users; or another public
+interaction contract.
+
+Keep the PR internal-only when the net diff changes only internal implementation
+behavior; agent or skill instructions; internal orchestration or workflow
+contracts; support disposition, file placement, registration, overlays, or lock
+metadata; refactoring, tests, or maintenance mechanics; documentation without a
+corresponding behavior change; or behavior visible only to another internal
+component or repository maintainer. Promoting or changing an internal reusable
+skill remains internal-only even when another extension consumes it, unless the
+same net diff changes behavior experienced by intended users. Record the
+internal-only classification without manufacturing a candidate example.
 
 Completion criterion: every material area is either understood from evidence or
-listed as an interview gap. The inventory is not complete until it classifies the
-PR as user-facing or internal-only and, for a user-facing behavior change,
-records candidate evidence for at least one representative example.
+listed as an interview gap. The inventory is not complete until the PR remains
+internal-only or affirmative evidence reclassifies it as user-facing. A
+user-facing classification must record an intended user action or public
+interaction, its directly observable changed result, and candidate evidence for
+at least one representative example.
 
 Present a condensed inventory summary: what the PR appears to do, where it
 lives, and notable decisions. Invite correction. Then ask: **“Why is this

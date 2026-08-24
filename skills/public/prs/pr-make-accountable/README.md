@@ -35,11 +35,12 @@ improves the conceptual coherence of each change.
 2. The agent interviews the author about those gaps, politely challenging
    unclear reasoning, misunderstandings, and decisions that may need changes.
 3. The author can amend the PR before continuing. Once author and agent share
-   an accurate understanding, they co-author a complete PR description. When
-   the final net diff changes user-facing behavior directly observable by an
-   intended user, the body includes at least one evidence-backed representative
-   user action and result. Internal-only changes, including changes to agent or
-   skill instructions and internal workflow contracts, omit examples without a
+   an accurate understanding, they co-author a complete PR description. The
+   agent starts with an internal-only classification and reclassifies the PR only
+   when the final net diff has affirmative evidence of user-facing behavior.
+   A reclassified PR includes at least one evidence-backed representative user
+   action and result. Internal-only changes, including changes to agent or skill
+   instructions and internal workflow contracts, omit examples without a
    placeholder.
 4. The agent writes the co-authored description to the PR, then the author
    reads every claim and requests any further edits (in chat or directly in
