@@ -73,4 +73,19 @@ Risks:
 
 ## Open Questions
 
-- What exact process amendment should `foundation-readme-driven-pass` adopt when a steelthread validates a README interface but falsifies the implementation architecture?
+No open question remains active in this Objective. Any contract or process decision needed by the replacement Clinkr rebuild belongs to that work rather than this historical record.
+
+## Closure
+
+Outcome: abandoned.
+
+The user directed immediate abandonment because Clinkr is being rebuilt elsewhere. The incomplete README promotion, production-vetting, package qualification, legacy cutover, and gate-calibration work will not continue under this Objective. Its references and immutable Semantic Updates remain checked in as historical evidence; they are not the contract for the replacement rebuild and should not be ported by default.
+
+Related work disposition:
+
+- `clinkr-output-and-interaction-model` is closed as an abandoned child/dependency.
+- Open PRs #4147, #4150, #4151, and #4193 and their local branches are retired rather than restacked or landed.
+- The unsubmitted `clinkr-sdk-objectives-filesystem-host` branch is retired.
+- `foundation-readme-driven-pass` remains open, but its Clinkr completion gate is removed and replaced with an explicit rebaseline against the replacement rebuild.
+
+Already-landed changes remain ordinary repository history. This closure does not revert merged work or claim that the original completion criteria were met.

@@ -84,8 +84,12 @@ Risks:
 
 ## Open Questions
 
-- Should the JSON-specific invocation contract carry finite JSON text or an already parsed unknown value? Default to text so the command's schema remains authoritative, but choose the smaller interface after the consumer inventory.
-- Does any demonstrated JSON consumer require lazy acquisition, or can every embedded/test host pass the finite payload value directly?
-- What is the smallest output interface that preserves standalone stream behavior and Pi-safe capture without introducing a semantic Response model?
-- Which optional terminal interaction library, if any, provides the smallest concrete adapter proof? A documented adapter contract may be sufficient if adding a dependency would not improve production behavior.
-- Should raw commands be rejected by the Pi bridge or supported through their existing explicit byte sinks? Decide from current Pi-exposed raw-command inventory; do not broaden raw input virtualization.
+No open question remains active in this Objective. The replacement Clinkr rebuild owns any future invocation I/O, interaction, rendering, raw-command, or host-adapter decisions.
+
+## Closure
+
+Outcome: abandoned.
+
+This Objective is closed without completing its remaining output, end-to-end qualification, documentation, and future-directions rows. The user directed abandonment of the parent `clinkr-readme-driven-development` effort because Clinkr is being rebuilt elsewhere; continuing this dependent contract would create a competing architecture.
+
+Completed inventory and already-landed changes remain repository history and may be consulted as evidence. They do not constrain the replacement rebuild unless that work adopts them explicitly. Open PR #4193 (`invocation-scoped-cli-output-sanitization`) and its local branch are retired rather than restacked or landed. No completion claim is made for this Objective's original criteria.
