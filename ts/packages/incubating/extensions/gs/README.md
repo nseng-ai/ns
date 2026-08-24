@@ -19,6 +19,8 @@ The reproducible baseline and unresolved experiments are recorded in
 [`docs/research/gh-stack-v0.1.0-workflow-baseline.md`](../../../../../docs/research/gh-stack-v0.1.0-workflow-baseline.md).
 The linked-worktree inventory storage evidence is recorded in
 [`docs/research/gh-stack-v0.1.0-linked-worktree-inventory.md`](../../../../../docs/research/gh-stack-v0.1.0-linked-worktree-inventory.md).
+The dirty-work initialization, extension, and recovery evidence is recorded in
+[`docs/research/gh-stack-v0.1.0-autobranch-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-autobranch-contract.md).
 The architecture boundary is accepted in
 [ADR 0061](../../../../../docs/adr/0061-gs-native-lifecycle-ownership.md).
 
@@ -123,6 +125,45 @@ Neither the skill nor Pi adapter adds gh-stack mechanics or edits/loops on Pi's 
 explicitly excludes trunk integration, push or GitHub mutation, Slot release, and automatic abort.
 Reproducible observations and rejected alternatives are recorded in
 [`docs/research/gh-stack-v0.1.0-restack-resolve-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-restack-resolve-contract.md).
+
+### Proposed command: autobranch (provisional — not yet implemented)
+
+> **Provisional.** This section is an accepted contract proposal only. `ns gs autobranch` is not a
+> registered or available command, and nothing in this section is a compatibility promise until an
+> implementation slice removes this marker.
+
+Autobranch turns dirty pending work into a new gh-stack child branch. It is specified as a Tier-2
+local mutation pinned to exactly gh-stack v0.1.0. A TTY user receives a prepared preview and
+confirmation; a non-interactive caller must pass `--yes`/`-y`. `--slug`/`-s` is optional. Explicit
+invalid or colliding child names are refused; the command does not silently suffix them.
+
+Preflight requires a named HEAD, readable source SHA, nonempty porcelain including untracked files,
+no active Git operation, a valid absent child ref, and cached `refs/remotes/origin/HEAD`. It never
+fetches. Pending work can be staged, unstaged, untracked, or mixed; the checkpoint stages all pending
+work.
+
+The contract supports exactly two paths:
+
+1. **dirty cached-trunk bootstrap:** ordinary Git creates and switches to the child, GS proves the
+   dirty transfer, checkpoints all pending work, proves a clean committed child and an unchanged
+   trunk, then runs exactly `gh stack init <child>` and verifies a one-layer invoking-worktree
+   provider view;
+2. **dirty tracked-top extension:** the invoking worktree's public `gh stack view --json` must prove
+   the current non-trunk branch occurs exactly once and is current/topmost. GS runs exactly
+   `gh stack add <child>`, reinspects even after provider failure, proves source/child adjacency and
+   dirty transfer, then checkpoints and reverifies clean current/top facts.
+
+A branch tracked only by a peer worktree is refused as untracked in the invoking provider view.
+Runtime never enumerates peers. Provider exit status is evidence, not authority: fresh observations
+can prove completion after a nonzero exit. Results are `refused`, `completed`,
+`known-partial-failure`, or `ambiguous-failure`, with bounded effects, preserved SHA/dirtiness/
+provider facts, and one recovery action. There is no automatic retry, rollback, child deletion,
+`unstack`, provider-private state access or repair, peer scan, Slot movement, push, or GitHub
+mutation.
+
+The supporting provider evidence and the stable contract clause identifiers (`AB-*`) that later
+implementation slices cite are recorded in
+[`docs/research/gh-stack-v0.1.0-autobranch-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-autobranch-contract.md).
 
 ### Optional Slots composition
 
