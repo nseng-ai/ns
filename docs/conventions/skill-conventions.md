@@ -6,7 +6,7 @@ Conventions for authoring, naming, vendoring, and managing skills in this repo. 
 
 Skill management has two owners with a strict boundary:
 
-1. **`npx skills` owns skill acquisition and installed state.** Use it to acquire, install, update, remove, list, and check skills. It also owns `skills-lock.json`. The canonical install flag is `--agent codex claude-code -y`.
+1. **`npx skills` owns skill acquisition and installed state.** Use it to acquire, install, update, remove, and list skills. It also owns `skills-lock.json`. The canonical install flag is `--agent codex claude-code -y`. Never run its `check` subcommand: the currently resolved CLI performs a broad remote refresh, not a read-only validation.
 2. **Checked-in repository files own ns-specific shape and invocation metadata.** `skills/README.md` defines canonical topology and flat Harness Overlays. Skill frontmatter, Codex `agents/openai.yaml` sidecars, and Pi exclusions in `.pi/settings.json` are reviewed and maintained directly as repository files.
 
 There is no `ns skills`, top-level `ns update`, `ns skill-exposure`, or ns provisioning, reconciliation, or skill-catalog interface. Users and contributors invoke `npx skills` directly; ns does not wrap it or own skill installation state.

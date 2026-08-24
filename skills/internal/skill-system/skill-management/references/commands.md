@@ -81,18 +81,19 @@ npx skills find
 npx skills find typescript
 ```
 
-## `check` and `update`
+## Remote refresh and update
 
-`check` inspects remote sources only. Local first-party skills are edited in
-place and are not checked or updated by these commands.
+Do not run the CLI's `check` subcommand. In the currently resolved version it
+performs a broad remote refresh rather than a read-only check: it mutates
+vendored overlays and `skills-lock.json`, may create `.pi/skills/`, and can fail
+because of unrelated upstream skills. It is not accepted as validation evidence.
 
-```bash
-npx skills check
-```
-
-`update` updates all remote-sourced skills. Prefer targeted `add` with explicit
-`--skill` selections so a curated source does not unexpectedly install more
-skills.
+For read-only inspection, use `npx skills list --json`, exact `readlink` and
+`skills-lock.json` checks, and bounded reference searches. For a deliberate
+remote update, use targeted `npx skills add <source> --skill <identity> --agent
+codex claude-code -y`, inspect all resulting content and lock changes, and
+reject unrelated churn. Do not refresh every remote-sourced skill as a
+validation step.
 
 ## Other subcommands
 
