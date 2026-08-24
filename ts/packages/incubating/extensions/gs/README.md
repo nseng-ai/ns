@@ -39,7 +39,8 @@ The intended outcome loop is:
 
 Only the local inspection step is implemented today. Before any later mutating step is implemented, its
 focused provider experiment must settle the supported starting states, public provider operations,
-observed postconditions, refusals, partial effects, and recovery guidance. The v0.1.0 help text for
+observed postconditions, refusals, partial effects, and recovery guidance. The first settled but still
+unimplemented slice is the local, inter-branch `restack-resolve` contract below. The v0.1.0 help text for
 `sync`, `submit`, `link`, and `merge` describes candidate capabilities; its remote effects, rollback,
 atomicity, and failure boundaries are not yet ns guarantees.
 
@@ -69,12 +70,52 @@ GS does not blindly retry, infer rollback, delete a branch, run whole-stack `uns
 provider-private metadata. No-remote experiments show only that v0.1.0 preflight failures left tested
 local refs and worktrees unchanged; they do not establish general rollback or transactionality.
 
+### Settled contract: restack-resolve
+
+`ns gs restack-resolve` is approved for implementation as a local inter-branch workflow pinned to
+`gh stack` v0.1.0. It uses public `gh stack rebase --no-trunk` for full scope and adds `--downstack` only
+when the user explicitly requests the narrower trunk-side/current scope. It resumes a provider-started
+conflict with one `gh stack rebase --continue` per accepted conflict stop. It never calls `sync`, fetches,
+pushes, updates GitHub, or reads provider-private state.
+
+This command deliberately does **not** update trunk or rebase the bottom stack branch onto a changed
+trunk. Fetching, trunk integration, pushing, and GitHub reconciliation remain part of the unsettled
+reconciliation workflow. Plain `gh stack rebase` is not used because it pulls from the remote by default.
+A GS-owned raw-Git cascade is also rejected for the normal path because it duplicates provider recovery
+and leaves public provider base facts stale until provider reconciliation.
+
+Before starting, the command verifies the exact provider version, a clean worktree, current-branch
+membership in supported `gh stack view --json` facts, the selected branch range, absence of unrelated Git
+operations, and absence of selected branches in another worktree. It snapshots supported topology plus
+independent Git refs and checkout facts for outcome classification. Successful completion requires no
+active rebase, a clean worktree, restoration of the original checkout, chained selected ancestry, and a
+fresh provider view with no selected branch needing rebase.
+
+A conflict is durable, resumable partial state: already-rebased lower branches may have moved while the
+current and later branches remain pending. Resolution stays in the initiating worktree, handles one stop
+at a time, stages only an accepted resolution, runs relevant project checks, and invokes continue at most
+once before observing the next state. Ambiguous resolutions escalate and remain stopped. GS never
+implicitly aborts, skips, replays the start command, or switches a provider-started operation to raw Git;
+`gh stack rebase --abort` requires explicit user authorization.
+
+The CLI owns deterministic version, topology, cleanliness, and worktree preflight; provider invocation;
+structured outcome classification; and Git/provider postcondition evidence. The portable skill owns
+scope confirmation, sequential conflict-resolution policy, validation choice, human escalation, and
+recovery narration. `/ns:gs:restack-resolve` is a thin Pi router to that skill and adds no provider or
+Slot mechanics. Reproducible observations and rejected alternatives are recorded in
+[`docs/research/gh-stack-v0.1.0-restack-resolve-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-restack-resolve-contract.md).
+
 ### Optional Slots composition
 
 Slots are not required for core GS operation. Optional autoslot composition begins only after the GS
 branch, checkpoint, provider facts, and clean worktree are verified. It invokes Slots through the public
 command boundary. Slot refusal or failure preserves the already verified GS state and does not replay or
 roll back provider mutation.
+
+For restack-resolve, every branch in the selected range must be free in other worktrees before mutation.
+Releasing occupied Slots is optional composition through the public Slots command boundary and requires
+user authorization. An interrupted rebase keeps its initiating Slot occupied until it completes or the
+user explicitly authorizes abort.
 
 ## Implemented command: local inventory
 

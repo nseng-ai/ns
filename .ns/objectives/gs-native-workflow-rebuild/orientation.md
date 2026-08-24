@@ -10,4 +10,4 @@ Keep new GS lifecycle modules independent of Flow. Keep Slots optional and compo
 
 Avoid infrastructure-first provider phases, command parity, private gh-stack state mutation, universal stack-provider interfaces, and changes that deprecate, archive, delete, or otherwise retire Flow under this Objective.
 
-Active slice: experimentally settle and build `ns gs restack-resolve` with its portable skill and `/ns:gs:restack-resolve`; use `code-gt-restack-resolve` only as outcome evidence and keep Graphite mechanics out of the GS contract.
+Active slice: implement the settled local `ns gs restack-resolve` contract with public `gh stack rebase --no-trunk` / `--continue`, then add its portable skill and thin `/ns:gs:restack-resolve`; defer trunk, push, and GitHub reconciliation and keep Graphite mechanics out.
