@@ -33,7 +33,7 @@ The gh-stack-native `ns gs` command group. Its `list` operation exposes the Loca
 *Avoid*: `ns flow gs`, generic stack command
 
 **Restack start**:
-One authorized `gh stack rebase --no-trunk` invocation, optionally scoped downstack. It requires exact gh-stack version 0.1.0, a clean worktree, a named branch, and no active Git operation.
+One authorized `gh stack rebase --no-trunk` invocation, scoped downstack by default and widened to full inter-branch scope only by explicit `--full`. It requires exact gh-stack version 0.1.0, a clean worktree, a named branch, and no active Git operation.
 *Avoid*: sync, trunk update, restack transaction
 
 **Conflict stop**:

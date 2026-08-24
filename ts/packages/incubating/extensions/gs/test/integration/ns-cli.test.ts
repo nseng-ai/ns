@@ -46,7 +46,7 @@ describe("ns gs list public route", () => {
 		expect(fixture.context.execCalls).toEqual([]);
 		const restack = runScenario(["gs", "restack-resolve", "--help"], fixture);
 		expect(await restack.exit).toBe(0);
-		expect(restack.stdout.join(" ")).toContain("--downstack");
+		expect(restack.stdout.join(" ")).toContain("--full");
 		expect(restack.stdout.join(" ")).toContain("-y, --yes");
 		expect(restack.stdout.join(" ")).not.toContain("--continue");
 		const schema = runScenario(["gs", "restack-resolve", "--json-schema"], fixture);
@@ -66,7 +66,7 @@ describe("ns gs list public route", () => {
 		const ghCalls = fixture.context.execCalls.filter((call) => call.command === "gh");
 		expect(ghCalls.map((call) => call.args)).toEqual([
 			["stack", "--version"],
-			["stack", "rebase", "--no-trunk"],
+			["stack", "rebase", "--no-trunk", "--downstack"],
 		]);
 		expect(ghCalls.every((call) => call.options?.env?.GH_PROMPT_DISABLED === "1")).toBe(true);
 		expect(ghCalls.every((call) => call.options?.env?.GIT_SEQUENCE_EDITOR === "true")).toBe(true);
@@ -246,7 +246,7 @@ class ScenarioContext implements NsCliBaseContext {
 			if (command === "gh" && args.join(" ") === "stack --version") {
 				return exited(0, "gh stack version 0.1.0\n", "");
 			}
-			if (command === "gh" && args.join(" ") === "stack rebase --no-trunk") {
+			if (command === "gh" && args.join(" ") === "stack rebase --no-trunk --downstack") {
 				return exited(0, "", "");
 			}
 			if (command === "git" && args.join(" ") === "symbolic-ref --quiet --short HEAD") {

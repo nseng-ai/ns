@@ -31,7 +31,7 @@ const recoverySchema = z.lazy(() =>
 
 export const gsRestackRequestSchema = z.lazy(() =>
 	z.strictObject({
-		downstack: z.boolean().default(false),
+		full: z.boolean().default(false),
 		yes: z.boolean().default(false),
 	}),
 );
@@ -121,8 +121,8 @@ export async function runGsRestackResolve(
 			});
 		}
 	} else {
-		if (request.downstack) {
-			return usageError("--downstack cannot change an active rebase scope.", data);
+		if (request.full) {
+			return usageError("--full cannot change an active rebase scope.", data);
 		}
 		if (before.unmergedPaths.length > 0) {
 			return negative("The rebase has unresolved paths.", {
@@ -149,7 +149,7 @@ export async function runGsRestackResolve(
 	const mutation =
 		mode === "continue"
 			? await context.restack.continue()
-			: await context.restack.start(request.downstack ? "downstack" : "full");
+			: await context.restack.start(request.full ? "full" : "downstack");
 	const after = await context.git.inspect();
 	if (!after.ok) {
 		return failure("restack-protocol-failed", "Could not inspect Git after `gh stack rebase`.", {
@@ -243,7 +243,7 @@ function resultData(
 	return {
 		outcome: "refused",
 		mode,
-		requestedScope: request.downstack ? "downstack" : "full",
+		requestedScope: request.full ? "full" : "downstack",
 		observedVersion,
 		currentOperation: state?.operation ?? "none",
 		branch:

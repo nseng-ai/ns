@@ -67,7 +67,7 @@ describe("official gh-stack v0.1.0 no-remote smoke", () => {
 				git: new RealGsRestackGitGateway(overlayCommands, cwd),
 			},
 			{ isInteractive: () => false, confirm: async () => false },
-			{ downstack: false, yes: true },
+			{ full: false, yes: true },
 		);
 		expect(result).toMatchObject({ status: "success", data: { outcome: "completed" } });
 	});

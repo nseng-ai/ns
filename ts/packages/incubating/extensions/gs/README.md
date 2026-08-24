@@ -73,11 +73,12 @@ local refs and worktrees unchanged; they do not establish general rollback or tr
 
 ```bash
 ns gs restack-resolve --yes
-ns gs restack-resolve --downstack --yes
+ns gs restack-resolve --full --yes
 ```
 
 `ns gs restack-resolve` is a local inter-branch workflow pinned to exactly `gh stack` v0.1.0. A start
-uses public `gh stack rebase --no-trunk` and adds `--downstack` only when explicitly requested. An active,
+defaults to the narrower downstack scope (`gh stack rebase --no-trunk --downstack`) and widens to the
+full inter-branch scope (`gh stack rebase --no-trunk`) only when `--full` is explicitly requested. An active,
 resolved rebase with a staged resolution selects exactly one `gh stack rebase --continue`; there is no
 public `--continue` flag. Every gh-stack call disables prompts and editors with a per-command environment
 overlay. The command never uses `env`, `sync`, network APIs, raw Git continue/abort, or gh-stack
@@ -91,7 +92,7 @@ and leaves public gh-stack base facts stale until gh-stack reconciliation.
 
 Before starting, the command verifies the exact gh-stack version, a clean worktree, a named branch, no
 active Git operation, and Tier-2 authorization through `--yes`/`-y` or a TTY confirmation. Continuation
-requires an active rebase, no unresolved paths, at least one staged resolution, no `--downstack`, and the
+requires an active rebase, no unresolved paths, at least one staged resolution, no `--full`, and the
 same authorization. Other operations are refused. A non-interactive invocation without `--yes` is a
 usage error.
 

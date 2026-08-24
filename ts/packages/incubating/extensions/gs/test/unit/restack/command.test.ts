@@ -28,9 +28,9 @@ const interaction = {
 
 describe("GS restack-resolve", () => {
 	test("request and result schemas are strict", () => {
-		expect(
-			gsRestackRequestSchema.safeParse({ downstack: false, yes: true, extra: 1 }).success,
-		).toBe(false);
+		expect(gsRestackRequestSchema.safeParse({ full: false, yes: true, extra: 1 }).success).toBe(
+			false,
+		);
 		const result = resultData();
 		expect(gsRestackResultSchema.safeParse({ ...result, extra: 1 }).success).toBe(false);
 		expect(gsRestackResultSchema.safeParse(result).success).toBe(true);
@@ -39,7 +39,7 @@ describe("GS restack-resolve", () => {
 	test("refuses version drift before mutation", async () => {
 		const scenario = createScenario({ before: clean, version: "0.2.0" });
 		const result = await runGsRestackResolve(scenario.context, interaction, {
-			downstack: false,
+			full: false,
 			yes: true,
 		});
 		expect(result.status).toBe("negative");
@@ -54,7 +54,7 @@ describe("GS restack-resolve", () => {
 	])("guards unsafe start state", async (before, action) => {
 		const scenario = createScenario({ before });
 		const result = await runGsRestackResolve(scenario.context, interaction, {
-			downstack: false,
+			full: false,
 			yes: true,
 		});
 		expect(result.status).toBe("negative");
@@ -65,7 +65,7 @@ describe("GS restack-resolve", () => {
 	test("requires --yes noninteractively and prompts on a TTY", async () => {
 		const denied = createScenario({ before: clean });
 		const missing = await runGsRestackResolve(denied.context, interaction, {
-			downstack: false,
+			full: false,
 			yes: false,
 		});
 		expect(missing.status).toBe("usage-error");
@@ -82,20 +82,20 @@ describe("GS restack-resolve", () => {
 					return true;
 				},
 			},
-			{ downstack: false, yes: false },
+			{ full: false, yes: false },
 		);
 		expect(result.status).toBe("success");
 		expect(prompts).toBe(1);
-		expect(allowed.restack.mutations).toEqual(["start-full"]);
+		expect(allowed.restack.mutations).toEqual(["start-downstack"]);
 	});
 
 	test.each([
-		[false, "start-full"],
-		[true, "start-downstack"],
-	] as const)("completes one start mutation", async (downstack, mutation) => {
+		[false, "start-downstack"],
+		[true, "start-full"],
+	] as const)("completes one start mutation", async (full, mutation) => {
 		const scenario = createScenario({ before: clean, after: completed });
 		const result = await runGsRestackResolve(scenario.context, interaction, {
-			downstack,
+			full,
 			yes: true,
 		});
 		expect(result.status).toBe("success");
@@ -103,12 +103,12 @@ describe("GS restack-resolve", () => {
 		expect(scenario.restack.mutations).toEqual([mutation]);
 	});
 
-	test("requires a resolved and staged continuation and rejects downstack", async () => {
+	test("requires a resolved and staged continuation and rejects full", async () => {
 		const unresolved = createScenario({
 			before: { ...clean, branch: null, operation: "rebase", clean: false, unmergedPaths: ["a"] },
 		});
 		const stopped = await runGsRestackResolve(unresolved.context, interaction, {
-			downstack: false,
+			full: false,
 			yes: true,
 		});
 		expect(stopped.data).toMatchObject({ outcome: "conflict-stopped" });
@@ -119,7 +119,7 @@ describe("GS restack-resolve", () => {
 		expect(
 			(
 				await runGsRestackResolve(unstaged.context, interaction, {
-					downstack: false,
+					full: false,
 					yes: true,
 				})
 			).data,
@@ -131,7 +131,7 @@ describe("GS restack-resolve", () => {
 		expect(
 			(
 				await runGsRestackResolve(active.context, interaction, {
-					downstack: true,
+					full: true,
 					yes: true,
 				})
 			).status,
@@ -150,7 +150,7 @@ describe("GS restack-resolve", () => {
 			after: completed,
 		});
 		const result = await runGsRestackResolve(scenario.context, interaction, {
-			downstack: false,
+			full: false,
 			yes: true,
 		});
 		expect(result.status).toBe("success");
@@ -170,7 +170,7 @@ describe("GS restack-resolve", () => {
 			},
 		});
 		const result = await runGsRestackResolve(scenario.context, interaction, {
-			downstack: false,
+			full: false,
 			yes: true,
 		});
 		expect(result.status).toBe("negative");
@@ -191,7 +191,7 @@ describe("GS restack-resolve", () => {
 			},
 		});
 		const result = await runGsRestackResolve(scenario.context, interaction, {
-			downstack: false,
+			full: false,
 			yes: true,
 		});
 		expect(result.status).toBe("negative");

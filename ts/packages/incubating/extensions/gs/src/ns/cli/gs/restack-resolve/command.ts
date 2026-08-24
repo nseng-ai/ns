@@ -13,7 +13,7 @@ export async function command() {
 		schema: gsRestackRequestSchema,
 		resultSchema: gsRestackResultSchema,
 		options: {
-			downstack: {},
+			full: {},
 			yes: { short: "-y" },
 		},
 		renderHuman: renderGsRestackHuman,
