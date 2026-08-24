@@ -7,7 +7,10 @@ describe("InMemoryGsLocalInventoryGateway", () => {
 	it("copies constructor state and each returned inventory", async () => {
 		const branches = [{ name: "feature", pullRequest: null }];
 		const stacks = [{ number: null, base: "main", branches }];
-		const state: GsLocalInventoryResult = { ok: true, value: { stacks } };
+		const state: GsLocalInventoryResult = {
+			ok: true,
+			value: { providerWorktreeGitDir: "/repo/.git/worktrees/current", stacks },
+		};
 		const gateway = new InMemoryGsLocalInventoryGateway(state);
 
 		branches.push({ name: "constructor-mutation", pullRequest: null });
@@ -21,6 +24,7 @@ describe("InMemoryGsLocalInventoryGateway", () => {
 		expect(second).toEqual({
 			ok: true,
 			value: {
+				providerWorktreeGitDir: "/repo/.git/worktrees/current",
 				stacks: [
 					{
 						number: null,

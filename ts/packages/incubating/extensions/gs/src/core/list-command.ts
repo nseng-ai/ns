@@ -10,7 +10,7 @@ import type {
 import { gsLocalStackSummary } from "./local-state.ts";
 
 const DETAIL_MAX_CHARS = 500;
-const EMPTY_MESSAGE = "No local gh-stack stacks found.";
+const EMPTY_MESSAGE = "No current-worktree gh-stack stacks found.";
 
 export const gsListRequestSchema = z.lazy(() =>
 	z.strictObject({
@@ -21,6 +21,7 @@ export type GsListRequest = z.infer<typeof gsListRequestSchema>;
 
 export const gsListResultSchema = z.lazy(() =>
 	z.strictObject({
+		providerWorktreeGitDir: z.string().min(1),
 		stacks: z.array(
 			z.strictObject({
 				number: z.number().int().positive().nullable(),
@@ -62,6 +63,7 @@ export async function runGsList(
 	const result = await inventory.readLocalInventory({ cwd: invocation.cwd });
 	if (!result.ok) return localInventoryFailure(result.error);
 	const data: GsListResult = {
+		providerWorktreeGitDir: result.value.providerWorktreeGitDir,
 		stacks: result.value.stacks.map((stack) => ({
 			number: stack.number,
 			base: stack.base,
@@ -81,9 +83,10 @@ export async function runGsList(
 }
 
 export function renderGsListHuman(inventory: GsLocalInventory, verbose: boolean): string {
-	if (inventory.stacks.length === 0) return EMPTY_MESSAGE;
+	const provenance = `Provider worktree: ${inventory.providerWorktreeGitDir}`;
+	if (inventory.stacks.length === 0) return `${provenance}\n${EMPTY_MESSAGE}`;
 	if (verbose) {
-		return inventory.stacks
+		const stacks = inventory.stacks
 			.map((stack) => {
 				const heading = stack.number === null ? "(no number)" : String(stack.number);
 				const branches = stack.branches
@@ -93,9 +96,10 @@ export function renderGsListHuman(inventory: GsLocalInventory, verbose: boolean)
 				return `${heading}\n${branches}\n └─ ${stack.base} (base)`;
 			})
 			.join("\n\n");
+		return `${provenance}\n\n${stacks}`;
 	}
 
-	return renderTextTable({
+	const table = renderTextTable({
 		columns: [{ header: "NUMBER" }, { header: "STACK" }, { header: "BASE" }],
 		rows: inventory.stacks.map((stack) => [
 			stack.number === null ? "—" : String(stack.number),
@@ -103,6 +107,7 @@ export function renderGsListHuman(inventory: GsLocalInventory, verbose: boolean)
 			stack.base,
 		]),
 	});
+	return `${provenance}\n\n${table}`;
 }
 
 function localInventoryFailure(error: GsLocalInventoryFailure) {

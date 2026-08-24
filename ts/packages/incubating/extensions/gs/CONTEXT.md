@@ -1,15 +1,19 @@
 # gs context
 
-This context names the local-only inventory exposed by the gs ns extension.
+This context names the current-worktree inventory and provider-worktree boundary exposed by the gs ns extension.
 
 ## Language
 
-**Local gh-stack inventory**:
-The collection of Recorded stacks that have at least one recorded stack branch present as a local Git branch. It is evidence of what the repository knows locally, not evidence of current GitHub state.
-*Avoid*: active stack inventory, remote inventory, reconciled inventory
+**Current-worktree gh-stack inventory**:
+The collection of Recorded stacks read from the invoking worktree's provider state that have at least one recorded stack branch present as a repository-shared local Git branch. It is one provider-worktree view, not a repository aggregate or evidence of current GitHub state.
+*Avoid*: Local gh-stack inventory, active stack inventory, repository inventory, remote inventory, reconciled inventory
+
+**Provider worktree provenance**:
+The canonical worktree Git directory derived from Git's absolute `--git-path gh-stack` result and returned as `providerWorktreeGitDir`. It identifies the private provider view inspected by `ns gs list`, including when that view has no state file. It does not establish lifecycle ownership, branch occupancy, or agreement with peer worktrees.
+*Avoid*: repository root, Git common directory, stack owner, shared provider state
 
 **Recorded stack**:
-One stack entry preserved from local gh-stack state. A Recorded stack remains in the Local gh-stack inventory while at least one of its recorded stack branches exists locally; its complete recorded branch shape is preserved even when some branches were deleted. The base branch alone does not retain it.
+One stack entry preserved from current-worktree gh-stack state. A Recorded stack remains in the Current-worktree gh-stack inventory while at least one of its recorded stack branches exists as a repository-shared local branch; its complete recorded branch shape is preserved even when some branches were deleted. The base branch alone does not retain it.
 *Avoid*: active stack, deduplicated stack
 
 **Recorded PR**:
@@ -25,7 +29,7 @@ A recorded branch with no local pull-request identity. It makes no claim about w
 *Avoid*: unpushed, no PR exists
 
 **GS command face**:
-The provider-branded `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory; its `restack-resolve` operation starts or advances one local provider restack step. The latter has a thin `/ns:gs:restack-resolve` Pi mirror through the separate GS Pi restack router.
+The provider-branded `ns gs` command group. Its `list` operation exposes the Current-worktree gh-stack inventory with Provider worktree provenance; its `restack-resolve` operation starts or advances one local provider restack step. The latter has a thin `/ns:gs:restack-resolve` Pi mirror through the separate GS Pi restack router.
 *Avoid*: `ns flow gs`, generic stack command
 
 **Restack start**:
@@ -52,6 +56,6 @@ The bounded, kebab-case machine action and concise instruction returned with eve
 The minimal stable metadata and strict Clinkr envelope schema exported only through `@nseng-ai/gs/api` for host adapters. It exposes command identity and result interpretation, not private orchestration.
 *Avoid*: orchestration API, root export, Pi policy
 
-**Local-only inventory**:
-The command contract that resolves Git's common directory, consumes gh-stack's local state file, and checks local Git branch refs. It does not require provider installation, GitHub authentication, or network access.
-*Avoid*: fallback mode, partial remote inventory
+**Current-worktree-only inventory**:
+The command contract that asks Git for the invoking worktree's `--git-path gh-stack`, consumes exactly that private state file, and checks repository-shared local Git branch refs. It does not enumerate or merge peer worktree state and does not require provider installation, GitHub authentication, or network access.
+*Avoid*: Local-only inventory, common-directory inventory, repository-wide inventory, fallback mode, partial remote inventory

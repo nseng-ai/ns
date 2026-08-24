@@ -13,19 +13,21 @@ const VALID_STATE = JSON.stringify({
 });
 
 function createGateway(options: {
-	gitResult?: Awaited<ReturnType<Pick<GitGateway, "gitCommonDir">["gitCommonDir"]>>;
+	gitResult?: Awaited<ReturnType<Pick<GitGateway, "gitPath">["gitPath"]>>;
 	localBranchTipsResult?: Awaited<
 		ReturnType<Pick<GitGateway, "listLocalBranchTips">["listLocalBranchTips"]>
 	>;
 	readResult?: GsStateReadResult;
 }) {
 	const readPaths: string[] = [];
-	const git: Pick<GitGateway, "gitCommonDir" | "listLocalBranchTips"> = {
-		async gitCommonDir() {
+	const gitPathCalls: Array<{ cwd: string; relativePath: string }> = [];
+	const git: Pick<GitGateway, "gitPath" | "listLocalBranchTips"> = {
+		async gitPath(params) {
+			gitPathCalls.push(params);
 			return (
 				options.gitResult ?? {
 					ok: true,
-					value: "/repo/.git",
+					value: "/repo/.git/worktrees/current/gh-stack",
 				}
 			);
 		},
@@ -47,16 +49,18 @@ function createGateway(options: {
 	return {
 		gateway: new RealGsLocalInventoryGateway({ git, stateReader }),
 		readPaths,
+		gitPathCalls,
 	};
 }
 
 describe("RealGsLocalInventoryGateway", () => {
-	it("resolves and reads state from the Git common directory", async () => {
-		const { gateway, readPaths } = createGateway({});
+	it("resolves and reads state from the invoking worktree Git directory", async () => {
+		const { gateway, readPaths, gitPathCalls } = createGateway({});
 
 		await expect(gateway.readLocalInventory({ cwd: "/repo/worktree" })).resolves.toEqual({
 			ok: true,
 			value: {
+				providerWorktreeGitDir: "/repo/.git/worktrees/current",
 				stacks: [
 					{
 						number: null,
@@ -66,7 +70,8 @@ describe("RealGsLocalInventoryGateway", () => {
 				],
 			},
 		});
-		expect(readPaths).toEqual(["/repo/.git/gh-stack"]);
+		expect(gitPathCalls).toEqual([{ cwd: "/repo/worktree", relativePath: "gh-stack" }]);
+		expect(readPaths).toEqual(["/repo/.git/worktrees/current/gh-stack"]);
 	});
 
 	it("keeps a recorded stack when any contained branch exists locally", async () => {
@@ -98,6 +103,7 @@ describe("RealGsLocalInventoryGateway", () => {
 		await expect(gateway.readLocalInventory({ cwd: "/repo" })).resolves.toEqual({
 			ok: true,
 			value: {
+				providerWorktreeGitDir: "/repo/.git/worktrees/current",
 				stacks: [
 					{
 						number: 4,
@@ -121,7 +127,7 @@ describe("RealGsLocalInventoryGateway", () => {
 		});
 		await expect(gateway.readLocalInventory({ cwd: "/repo" })).resolves.toEqual({
 			ok: true,
-			value: { stacks: [] },
+			value: { providerWorktreeGitDir: "/repo/.git/worktrees/current", stacks: [] },
 		});
 	});
 
@@ -129,13 +135,13 @@ describe("RealGsLocalInventoryGateway", () => {
 		const { gateway } = createGateway({ readResult: { type: "missing" } });
 		await expect(gateway.readLocalInventory({ cwd: "/repo" })).resolves.toEqual({
 			ok: true,
-			value: { stacks: [] },
+			value: { providerWorktreeGitDir: "/repo/.git/worktrees/current", stacks: [] },
 		});
 	});
 
 	it("classifies a Git failure", async () => {
 		const { gateway } = createGateway({
-			gitResult: { ok: false, error: { code: "git_common_dir_failed", message: "not a repo" } },
+			gitResult: { ok: false, error: { code: "git_path_failed", message: "not a repo" } },
 		});
 		const result = await gateway.readLocalInventory({ cwd: "/not-repo" });
 		expect(result).toMatchObject({
