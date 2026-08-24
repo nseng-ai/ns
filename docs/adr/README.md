@@ -56,6 +56,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0058 | [Repository-Neutral Activation and Caller-Independent User Extensions](0058-repository-neutral-activation-and-caller-independent-user-extensions.md) |
 | 0059 | [Harness-Effective Required Skill Resolution](0059-harness-effective-required-skill-resolution.md)                                                   |
 | 0060 | [Safe Computed-Target Local Maintenance](0060-safe-computed-target-local-maintenance.md)                                                             |
+| 0061 | [GS-Native Lifecycle Ownership](0061-gs-native-lifecycle-ownership.md)                                                                               |
 
 ## Proposed
 
