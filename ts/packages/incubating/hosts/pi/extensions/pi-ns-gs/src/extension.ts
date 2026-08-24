@@ -1,8 +1,11 @@
 import process from "node:process";
 
 import {
+	GS_AUTOBRANCH_COMMAND,
 	GS_RESTACK_RESOLVE_COMMAND,
+	gsAutobranchEnvelopeSchema,
 	gsRestackResolveEnvelopeSchema,
+	type GsAutobranchEnvelope,
 	type GsRestackResolveEnvelope,
 } from "@nseng-ai/gs/api";
 import type { CliCommandExtensionSpec } from "@nseng-ai/pi-runtime/commands/cli-extension";
@@ -37,6 +40,19 @@ export interface GsExtensionOptions {
 export const gsExtensionParity = definePiSurfaceParity([
 	{
 		kind: "command",
+		surface: GS_AUTOBRANCH_COMMAND.piSurface,
+		workflow: "Move dirty work onto a GS child and checkpoint it",
+		parity: "FULL",
+		cli: `ns ${GS_AUTOBRANCH_COMMAND.displayName}`,
+		skill: GS_AUTOBRANCH_COMMAND.skillName,
+		ownerObjective: "cross-harness-parity",
+		sourcePackage: "@nseng-ai/pi-ns-gs",
+		sourceModule: "extension",
+		notes:
+			"Pi runs the fresh deterministic CLI and invokes the captured skill only for partial or ambiguous recovery.",
+	},
+	{
+		kind: "command",
 		surface: GS_RESTACK_RESOLVE_COMMAND.piSurface,
 		workflow: "Resolve a local gh-stack restack conflict",
 		parity: "FULL",
@@ -51,11 +67,153 @@ export const gsExtensionParity = definePiSurfaceParity([
 ] as const);
 
 export default function registerGsExtension(pi: GsExtensionAPI, options: GsExtensionOptions): void {
+	pi.registerCommand(GS_AUTOBRANCH_COMMAND.piSurface, {
+		description: GS_AUTOBRANCH_COMMAND.description,
+		argumentHint: "[--slug <slug>] [recovery context]",
+		handler: async (args, ctx) => handleAutobranch(pi, options, args, ctx),
+	});
 	pi.registerCommand(GS_RESTACK_RESOLVE_COMMAND.piSurface, {
 		description: GS_RESTACK_RESOLVE_COMMAND.description,
 		argumentHint: "[--downstack] [resolver context]",
 		handler: async (args, ctx) => handleRestackResolve(pi, options, args, ctx),
 	});
+}
+
+export function parseGsAutobranchRouterArgs(args: string): {
+	slug: string | undefined;
+	recoveryContext: string;
+} {
+	const tokens = args.trim().length === 0 ? [] : args.trim().split(/\s+/u);
+	let slug: string | undefined;
+	const context: string[] = [];
+	for (let index = 0; index < tokens.length; index += 1) {
+		const token = tokens[index]!;
+		if (token === "--slug") {
+			const value = tokens[index + 1];
+			if (value !== undefined) {
+				slug = value;
+				index += 1;
+			} else context.push(token);
+		} else context.push(token);
+	}
+	return { slug, recoveryContext: context.join(" ") };
+}
+
+async function handleAutobranch(
+	pi: GsExtensionAPI,
+	options: GsExtensionOptions,
+	rawArgs: string,
+	ctx: GsCommandContext,
+): Promise<void> {
+	let requiredSkill;
+	try {
+		requiredSkill = captureRequiredEffectiveSkill(
+			ctx,
+			GS_AUTOBRANCH_COMMAND.skillName,
+			options.readSkillTextFile === undefined ? {} : { readTextFile: options.readSkillTextFile },
+		);
+	} catch (error) {
+		report(ctx, errorMessage(error));
+		return;
+	}
+	const parsedArgs = parseGsAutobranchRouterArgs(rawArgs);
+	const argv = [
+		...GS_AUTOBRANCH_COMMAND.argvPrefix,
+		"--format",
+		"json",
+		"--yes",
+		...(parsedArgs.slug === undefined ? [] : ["--slug", parsedArgs.slug]),
+	];
+	let stdout = "";
+	let stderr = "";
+	let processExitCode: number;
+	try {
+		processExitCode = await options.runCli(argv, {
+			cwd: ctx.cwd,
+			env: process.env,
+			stdout: (text) => {
+				stdout += text;
+			},
+			stderr: (text) => {
+				stderr += text;
+			},
+			isInteractive: () => false,
+			confirm: () => ({ type: "declined" }),
+			select: () => ({ type: "cancelled" }),
+		});
+	} catch (error) {
+		report(ctx, `Could not run ns gs autobranch: ${errorMessage(error)}`);
+		return;
+	}
+	const decoded = parseAutobranchEnvelope(stdout);
+	if (decoded.type === "invalid") {
+		report(ctx, decoded.message);
+		return;
+	}
+	const envelope = decoded.envelope;
+	if (processExitCode !== envelope.exitCode) {
+		report(
+			ctx,
+			`ns gs autobranch process exited with code ${processExitCode}, but its envelope reported ${envelope.exitCode}.`,
+		);
+		return;
+	}
+	if (envelope.status === "success" && envelope.data.outcome === "completed") {
+		ctx.ui.notify("GS autobranch completed.", "info");
+		return;
+	}
+	if (envelope.status === "negative" && envelope.data.outcome === "refused") {
+		report(ctx, `GS autobranch refused: ${envelope.message}`);
+		return;
+	}
+	if (
+		envelope.status !== "negative" ||
+		!["known-partial-failure", "ambiguous-failure"].includes(envelope.data.outcome)
+	) {
+		report(
+			ctx,
+			`GS autobranch did not produce trustworthy recovery evidence.${stderr.trim().length === 0 ? "" : `\n${stderr.trim()}`}`,
+		);
+		return;
+	}
+	let skill;
+	try {
+		skill = await requiredSkill.load();
+	} catch (error) {
+		report(ctx, errorMessage(error));
+		return;
+	}
+	await ctx.waitForIdle();
+	ctx.ui.notify("GS autobranch needs forward recovery; invoking the captured skill.", "warning");
+	await pi.sendUserMessage(
+		buildAutobranchRecoveryPrompt(skill.block, envelope, parsedArgs.recoveryContext),
+	);
+}
+
+function parseAutobranchEnvelope(
+	stdout: string,
+): { type: "valid"; envelope: GsAutobranchEnvelope } | { type: "invalid"; message: string } {
+	let decoded: unknown;
+	try {
+		decoded = JSON.parse(stdout);
+	} catch (error) {
+		return {
+			type: "invalid",
+			message: `ns gs autobranch returned malformed JSON: ${errorMessage(error)}`,
+		};
+	}
+	const parsed = gsAutobranchEnvelopeSchema.safeParse(decoded);
+	return parsed.success
+		? { type: "valid", envelope: parsed.data }
+		: { type: "invalid", message: "ns gs autobranch returned an invalid Clinkr envelope." };
+}
+
+export function buildAutobranchRecoveryPrompt(
+	skillBlock: string,
+	envelope: GsAutobranchEnvelope,
+	recoveryContext: string,
+): string {
+	return `${skillBlock}\n\nRun the captured ${GS_AUTOBRANCH_COMMAND.skillName} recovery workflow now. The exact envelope below is authoritative. Do not replay branch creation, checkpointing, provider init/add, or mutate peers. Do not roll back, delete branches, manage Slots, push, or mutate GitHub.\n\n\`\`\`json\n${JSON.stringify(envelope, null, 2)}\n\`\`\`\n\nUser recovery context:\n\n\`\`\`text\n${recoveryContext.length === 0 ? "(none supplied)" : recoveryContext}\n\`\`\``;
 }
 
 interface ParsedRouterArgs {

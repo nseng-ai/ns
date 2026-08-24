@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+	GS_AUTOBRANCH_COMMAND,
 	GS_PACKAGE_NAME,
 	GS_RESTACK_RESOLVE_COMMAND,
 	gsRestackResolveEnvelopeSchema,
@@ -11,7 +12,12 @@ describe("gs package scaffold", () => {
 		expect(GS_PACKAGE_NAME).toBe("@nseng-ai/gs");
 	});
 
-	it("exports the stable restack-resolve command descriptor and strict envelope", () => {
+	it("exports stable command descriptors and strict envelopes", () => {
+		expect(GS_AUTOBRANCH_COMMAND).toMatchObject({
+			piSurface: "ns:gs:autobranch",
+			skillName: "ns-gs-autobranch",
+			argvPrefix: ["gs", "autobranch"],
+		});
 		expect(GS_RESTACK_RESOLVE_COMMAND).toMatchObject({
 			piSurface: "ns:gs:restack-resolve",
 			skillName: "ns-gs-restack-resolve",

@@ -52,15 +52,7 @@ Every command is also available in the Pi harness. Graphite-dependent workflows 
 direct lifecycle discovery while delegating Flow behavior through `@nseng-ai/flow/api` and the
 CLI. Pi is optional; the CLI commands do not require the Pi host.
 
-The provisional `/ns:flow:gs:autobranch` and `/ns:flow:gs:autoslot` surfaces are different: the
-Internal generic Skill-Backed Command registry loads the exact effective `ns-flow-gs-autobranch` or
-`ns-flow-gs-autoslot` skill. They are explicit experimental github/gh-stack (`gs`) workflows for
-dirty cached trunk or dirty tracked-top state. Autoslot contains the complete autobranch procedure,
-then runs `ns slot checkout --current` only after provider state, checkpoint success, and a clean
-worktree are verified. A Slot failure preserves the committed provider child as a partial failure.
-There is no `ns flow gs` CLI command, GS latest-commit workflow, or engineered GS transaction in
-this package. The skills refuse unsupported states before mutation and preserve ambiguous
-post-mutation state for inspection rather than guessing rollback.
+GS-native autobranch now belongs to `@nseng-ai/gs` through `ns gs autobranch` and `/ns:gs:autobranch`; the duplicate provisional `/ns:flow:gs:autobranch` registration is retired. The provisional `/ns:flow:gs:autoslot` remains an Internal generic Skill-Backed Command over the exact effective `ns-flow-gs-autoslot` skill because destination provider establishment is not yet settled. It retains an embedded v0.1.0 autobranch procedure and runs `ns slot checkout --current` only after provider state, checkpoint success, and cleanliness are verified. There is no `ns flow gs` CLI route or GS latest-commit workflow. Flow's Graphite behavior is unchanged.
 
 ### Latest-commit extraction policy
 

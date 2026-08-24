@@ -3,10 +3,7 @@
 Provider-branded ns workflows for the official
 [`github/gh-stack`](https://github.com/github/gh-stack) provider.
 
-Today the package implements local inventory through `ns gs list` and one state-driven local mutation
-through `ns gs restack-resolve`. The lifecycle contract below governs later preparation, reconciliation,
-publication, inventory-generation, and landing commands. Unimplemented workflows are not available
-commands or compatibility promises.
+Today the package implements current-worktree inventory through `ns gs list`, local conflict advancement through `ns gs restack-resolve`, and dirty-work stack creation through `ns gs autobranch`. The lifecycle contract below governs later preparation, reconciliation, publication, inventory-generation, and landing commands. Unimplemented workflows are not available commands or compatibility promises.
 
 ## Supported provider baseline
 
@@ -19,6 +16,8 @@ The reproducible baseline and unresolved experiments are recorded in
 [`docs/research/gh-stack-v0.1.0-workflow-baseline.md`](../../../../../docs/research/gh-stack-v0.1.0-workflow-baseline.md).
 The linked-worktree inventory storage evidence is recorded in
 [`docs/research/gh-stack-v0.1.0-linked-worktree-inventory.md`](../../../../../docs/research/gh-stack-v0.1.0-linked-worktree-inventory.md).
+The dirty-work initialization, extension, and recovery evidence is recorded in
+[`docs/research/gh-stack-v0.1.0-autobranch-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-autobranch-contract.md).
 The architecture boundary is accepted in
 [ADR 0061](../../../../../docs/adr/0061-gs-native-lifecycle-ownership.md).
 
@@ -120,6 +119,26 @@ protocol failures, malformed envelopes, process/envelope exit mismatch, and proc
 Neither the skill nor Pi adapter adds provider mechanics or edits/loops on Pi's behalf. This slice
 explicitly excludes trunk integration, push or GitHub mutation, Slot release, and automatic abort. Reproducible observations and rejected alternatives are recorded in
 [`docs/research/gh-stack-v0.1.0-restack-resolve-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-restack-resolve-contract.md).
+
+### Implemented command: autobranch
+
+```bash
+ns gs autobranch --yes
+ns gs autobranch --slug add-specific-change --yes
+```
+
+`ns gs autobranch` is a Tier-2 local mutation pinned to exactly gh-stack v0.1.0. A TTY user receives a prepared preview and confirmation; a non-interactive caller must pass `--yes`/`-y`. `--slug`/`-s` is optional. GS derives a bounded conservative slug through the shared `slug` model operation and drafts the checkpoint through the GS-owned `gs.checkpoint` operation. Explicit invalid or colliding child names are refused; the command does not silently suffix them.
+
+Preflight requires a named HEAD, readable source SHA, nonempty porcelain including untracked files, no active Git operation, and cached `refs/remotes/origin/HEAD`. It never fetches. Pending work can be staged, unstaged, untracked, or mixed; the checkpoint stages all pending work.
+
+The command supports exactly two paths:
+
+1. **dirty cached-trunk bootstrap:** ordinary Git creates and switches to the child, GS proves the dirty transfer, checkpoints it, proves trunk stayed fixed and the child advanced cleanly, then runs exactly `gh stack init <child>` and verifies a one-layer current-worktree provider view;
+2. **dirty tracked-top extension:** public `gh stack view --json` must prove the current non-trunk branch occurs exactly once and is current/topmost in the invoking worktree. GS runs exactly `gh stack add <child>`, reinspects even after provider failure, proves source/child adjacency and dirty transfer, then checkpoints and reverifies clean current/top facts.
+
+A branch tracked only by a peer worktree is refused as untracked in the invoking provider view. Runtime never enumerates peers. Results are `refused`, `completed`, `known-partial-failure`, or `ambiguous-failure`, with bounded effects, preserved SHA/dirtiness/provider facts, and one recovery action. There is no automatic retry, rollback, child deletion, `unstack`, provider-private state access, peer scan, Slot composition, push, or GitHub mutation.
+
+The native `/ns:gs:autobranch` Pi router captures the exact effective `ns-gs-autobranch` skill before mutation, runs a fresh JSON CLI with `--yes`, returns without an LM turn on verified completion, reports refusal, and invokes the captured skill only for known-partial or ambiguous forward recovery. The former duplicate `/ns:flow:gs:autobranch` mutation surface is retired; Graphite workflows and provisional autoslot remain separate.
 
 ### Optional Slots composition
 

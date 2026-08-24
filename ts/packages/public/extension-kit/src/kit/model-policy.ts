@@ -16,6 +16,7 @@ import { z } from "zod";
 export const MODEL_OPERATION_IDS = {
 	slug: "slug",
 	flowCheckpoint: "flow.checkpoint",
+	gsCheckpoint: "gs.checkpoint",
 	flowChanges: "flow.changes",
 	flowSubmitFailure: "flow.submit-failure",
 	flowPrInventory: "flow.pr-inventory",

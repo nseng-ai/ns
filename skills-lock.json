@@ -174,11 +174,6 @@
       "sourceType": "local",
       "computedHash": "8fd85a803ae22dfb6e0051fa5dc3f7c772a105d3a0f200ba006789bb84c00d98"
     },
-    "ns-flow-gs-autobranch": {
-      "source": "skills/incubating/flow/ns-flow-gs-autobranch",
-      "sourceType": "local",
-      "computedHash": "17283e396388975fad9d89e7b33bb95eeb504a4df527660ecc1c847607c290ee"
-    },
     "ns-flow-gs-autoslot": {
       "source": "skills/incubating/flow/ns-flow-gs-autoslot",
       "sourceType": "local",
@@ -397,6 +392,11 @@
       "source": "skills/incubating/gs/ns-gs-restack-resolve",
       "sourceType": "local",
       "computedHash": "8a7034c41bab6ba2ee37bb57d5971cc9a0fb0d45f5fae0c9a1943c1f6bd06cb4"
+    },
+    "ns-gs-autobranch": {
+      "source": "skills/incubating/gs/ns-gs-autobranch",
+      "sourceType": "local",
+      "computedHash": "4f4cbc4f2bafe9fe7020203c6e24eff6f50ec897f5879c24c8dcbafbe22b618f"
     }
   }
 }

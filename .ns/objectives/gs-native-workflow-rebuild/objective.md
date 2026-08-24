@@ -8,7 +8,7 @@ The target loop covers understanding and checkpointing work, creating or extendi
 
 The lifecycle model must preserve gh-stack v0.1.0's worktree boundary. Git branch refs are repository-shared, but gh-stack topology, recorded heads and bases, PR associations, checksums, and locks live under the invoking worktree's private Git directory. Provider observations and mutations are therefore scoped to one explicit provider worktree; moving a branch between worktrees does not move stack membership or coordinate provider locks.
 
-This Objective does not modify or retire Flow. Eventual Flow retirement motivates an independent GS design but belongs to later work after the GS workflow is proven.
+This Objective may modify Flow only to transfer and retire duplicate provisional GS-owned capabilities once their complete native GS replacement lands. Unrelated Flow behavior, including every Graphite workflow and the still-provisional autoslot workflow, remains unchanged. Broader Flow retirement belongs to later work after the GS workflow is proven.
 
 ## Scope
 
@@ -21,13 +21,13 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 - Implement an outcome-oriented `ns gs` surface for restack conflict resolution, changes, checkpointing, autobranch, optional autoslot, reconciliation, submission, PR-inventory generation, and landing. Exact names and grouping may change when provider evidence supports a better shape.
 - Preserve forward-only recovery for mutating workflows: distinguish refusal, completion, known partial failure, and ambiguous failure from observed Git, gh-stack, and GitHub state.
 - Keep Slots optional and compose them through their public command boundary without assuming branch checkout transfers provider state. Support destination establishment only through experimentally verified public provider operations; otherwise preserve one stable provider worktree and refuse unsupported movement.
-- Ship each settled CLI workflow with its portable GS skill and native `/ns:gs:*` Pi surface when applicable, so command, skill, and host behavior evolve as one vertical slice rather than through a deferred bulk cutover.
+- Ship each settled CLI workflow with its portable GS skill and native `/ns:gs:*` Pi surface when applicable, so command, skill, and host behavior evolve as one vertical slice rather than through a deferred bulk cutover; retire the duplicate provisional Flow registration in that same slice without changing unrelated Flow behavior.
 - Prove the complete GS everyday loop through repository-local package, scenario, integration, and Pi tests.
 - Keep GS context vocabulary, command documentation, and provider capability documentation synchronized with implemented ground truth.
 
 ## Non-Goals
 
-- Modify, deprecate, archive, delete, or otherwise retire Flow or its Pi surfaces in this Objective.
+- Modify, deprecate, archive, delete, or otherwise retire unrelated Flow behavior or Pi surfaces; the narrow transfer and retirement of a duplicate provisional GS-owned surface is allowed when its complete native GS replacement lands.
 - Preserve one-for-one Flow command parity. Graphite-shaped operations such as latest-commit extraction or stack squash are omitted unless GS usage establishes a native need.
 - Implement GS as an adapter beneath Flow or introduce a provider-neutral Flow compatibility layer.
 - Add a GS runtime import from `@nseng-ai/flow` or reuse Flow's private implementation modules.
@@ -50,7 +50,7 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 - Slots-absent operation is covered. Any supported Slot composition proves destination provider readiness after placement; unsupported multi-layer movement refuses safely; partial placement preserves and separately reports the shared branch/checkpoint, source provider state, and destination provider status.
 - Native `/ns:gs:*` Pi surfaces have command-routing and parity coverage.
 - Repository-local GS tests, relevant integration and Pi tests, TypeScript architecture checks, and the repository validation gate pass.
-- Flow source, commands, registrations, and documentation remain unchanged except for any narrowly unavoidable cross-reference that must acknowledge the accepted superseding ADR.
+- Flow source, commands, registrations, and documentation remain unchanged except for narrowly retiring or reconciling duplicate provisional GS-owned surfaces replaced by complete native GS slices and any unavoidable cross-reference; GT behavior remains unchanged.
 
 ## Metaprompt
 
