@@ -1,8 +1,5 @@
 import { formatGrillKickoffMarker } from "@nseng-ai/pi-runtime/grill/surfaces";
 
-import { formatGrillAskProgressLine, type GrillAskProgress } from "./progress.ts";
-import type { NormalizedGrillAskInput } from "./protocol.ts";
-
 export const GRILL_UI_CONTRACT = `<structured-grill-round-ui-contract>
 Preserve the grilling reasoning style. Model the subject as a design tree and work it in atomic rounds.
 
@@ -25,22 +22,6 @@ Protocol:
 - Do not fall back to prose questions if grill_ask_round is unavailable or fails. Explain that structured round UI is required and stop.
 - Do not ask routine validation-scope or test-coverage questions unless validation is itself a product requirement, release gate, or user-visible compatibility promise.
 </structured-grill-round-ui-contract>`;
-
-export function buildGrillAskSelectTitle(
-	input: NormalizedGrillAskInput,
-	progress: GrillAskProgress = { source: "unavailable" },
-): string {
-	const parts = [
-		formatGrillAskProgressLine(progress, input.estimatedRemaining),
-		`Question:\n${input.question}`,
-	];
-	if (input.context !== undefined) parts.push(`Context:\n${input.context}`);
-	parts.push(`Recommended answer:\n${input.recommended.answer}`);
-	if (input.recommended.rationale !== undefined) {
-		parts.push(`Recommendation rationale:\n${input.recommended.rationale}`);
-	}
-	return parts.join("\n\n");
-}
 
 export function buildGrillUiPrompt(skillBlock: string, target: string, attemptId: string): string {
 	return buildStructuredGrillPrompt(skillBlock, target, attemptId);

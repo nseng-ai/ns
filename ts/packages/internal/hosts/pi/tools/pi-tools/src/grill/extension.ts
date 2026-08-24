@@ -34,12 +34,7 @@ export {
 	type GrillRoundInlineRuntime,
 } from "./round-ui.ts";
 export { GRILL_UI_CONTRACT, buildGrillUiPrompt, buildGrillWithDocsUiPrompt } from "./prompts.ts";
-export type {
-	ExtensionAPI,
-	GrillUiCommandContext,
-	ToolDefinition,
-	ToolResult,
-} from "./protocol.ts";
+export type { ExtensionAPI, GrillUiCommandContext, ToolDefinition } from "./protocol.ts";
 export { handleGrillUiCommand, handleGrillWithDocsUiCommand } from "./runtime.ts";
 export {
 	GRILL_ASK_ROUND_TOOL_NAME,
@@ -77,7 +72,7 @@ export const grillUiParity = definePiSurfaceParity([
 
 export function registerGrillUiExtension(pi: ExtensionAPI): void {
 	registerGrillStatusLifecycle(pi);
-	registerGrillAskStartupDeactivation(pi);
+	registerGrillRoundStartupDeactivation(pi);
 
 	registerCommandWithImmediateAck({
 		host: pi,
@@ -109,7 +104,7 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 }
 
 /** Keep the round tool inactive until an explicit structured-grill command starts an attempt. */
-function registerGrillAskStartupDeactivation(pi: ExtensionAPI): void {
+function registerGrillRoundStartupDeactivation(pi: ExtensionAPI): void {
 	if (!isSessionLifecycleHost(pi)) return;
 	pi.on("session_start", () => deactivateGrillAskRoundTool(pi));
 }

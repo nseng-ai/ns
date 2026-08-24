@@ -49,7 +49,7 @@ function submitted(roundId: string, questionIds: readonly string[]): GrillRoundR
 
 describe("round tool activation", () => {
 	test("activates and deactivates only grill_ask_round while preserving order", () => {
-		let active = ["read", "grill_ask", "bash"];
+		let active = ["read", "unrelated_tool", "bash"];
 		const host = {
 			getActiveTools: () => [...active],
 			setActiveTools: (names: string[]) => {
@@ -57,11 +57,11 @@ describe("round tool activation", () => {
 			},
 		};
 		activateGrillAskRoundTool(host);
-		expect(active).toEqual(["read", "grill_ask", "bash", GRILL_ASK_ROUND_TOOL_NAME]);
+		expect(active).toEqual(["read", "unrelated_tool", "bash", GRILL_ASK_ROUND_TOOL_NAME]);
 		activateGrillAskRoundTool(host);
-		expect(active).toEqual(["read", "grill_ask", "bash", GRILL_ASK_ROUND_TOOL_NAME]);
+		expect(active).toEqual(["read", "unrelated_tool", "bash", GRILL_ASK_ROUND_TOOL_NAME]);
 		deactivateGrillAskRoundTool(host);
-		expect(active).toEqual(["read", "grill_ask", "bash"]);
+		expect(active).toEqual(["read", "unrelated_tool", "bash"]);
 	});
 });
 
