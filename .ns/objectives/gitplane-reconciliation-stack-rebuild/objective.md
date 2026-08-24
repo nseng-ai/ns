@@ -50,7 +50,7 @@ The five-boundary replacement was implemented and published as PRs #4132–#4136
 - Stack-tip accounting names cursor-diff, descent, merge rejection, initial-full, target-commit event collapse, and old repair naming as intentionally superseded differences from `09d75c3ae`; PR #4128's rationale remains historical evidence.
 - Required remote CI lanes, review checks, and Graphite mergeability are verified for the published replacement stack; the stack lands; prototype PR #4076 and superseded PR #4130 remain closed unmerged; completion is propagated to the parent `gitplane` Objective.
 
-## Metaprompt
+## Prompting Instructions
 
 Every prompt produced for this Objective must start with the `/ns:plan:grill-and-save` command so each slice receives a grilled, saved implementation plan before execution.
 

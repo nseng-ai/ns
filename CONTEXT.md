@@ -126,9 +126,9 @@ The prose-valued `blocked:` key in **Record Frontmatter**: presence means the re
 
 Objective state vocabulary clusters as: open vs. closed is the lifecycle state (the **Closure Marker** decides closed), present vs. deleted is ordinary source-controlled checkout state, and blocked — the presence of a **Blocked Sentence** — is a sub-state of open, not a third lifecycle state.
 
-**Metaprompt**:
-An optional prose `## Metaprompt` section in an **Objective**'s `objective.md` — with row-level `Metaprompt:` prose overriding it per roadmap row — carrying durable instructions for how prompts produced for that Objective are serialized; `objective-next` is the metaprompt in action, applying it when it emits a proposed prompt. It shapes serialization only, never step selection, and grants no execution permission; semantics live in the `objective` skill's `references/metaprompt.md`.
-*Avoid*: Prompt Guidance (retired name), prompt factory, prompt template schema, frontmatter key
+**Prompting Instructions**:
+An optional prose `## Prompting Instructions` section in an **Objective**'s `objective.md` — with row-level `Prompting:` prose overriding it per roadmap row — carrying durable instructions for how prompts produced for that Objective are serialized; `objective-next` applies it when it emits a proposed prompt. It shapes serialization only, never step selection, and grants no execution permission; semantics live in the `objective` skill's `references/prompting-instructions.md`.
+*Avoid*: Metaprompt (retired name), Prompt Guidance (retired name), prompt factory, prompt template schema, frontmatter key
 
 **Harness**:
 An assistant environment in which repository skills can be invoked, currently Claude Code, Codex, or Pi. Skill lifecycle is managed through `npx skills`; checked-in repository files directly define each harness's local topology and invocation metadata. This is distinct from **Runtime Harness**, which names program boot code that wires the vended API object.
