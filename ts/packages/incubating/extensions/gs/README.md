@@ -3,8 +3,9 @@
 Native ns workflows for
 [`github/gh-stack`](https://github.com/github/gh-stack).
 
-Today the package implements local inventory through `ns gs list` and one state-driven local mutation
-through `ns gs restack-resolve`. The lifecycle contract below governs later preparation, reconciliation,
+Today the package implements current-worktree inventory through `ns gs list`, local conflict
+advancement through `ns gs restack-resolve`, and dirty-work stack creation through
+`ns gs autobranch`. The lifecycle contract below governs later preparation, reconciliation,
 publication, inventory-generation, and landing commands. Unimplemented workflows are not available
 commands or compatibility promises.
 
@@ -126,23 +127,25 @@ explicitly excludes trunk integration, push or GitHub mutation, Slot release, an
 Reproducible observations and rejected alternatives are recorded in
 [`docs/research/gh-stack-v0.1.0-restack-resolve-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-restack-resolve-contract.md).
 
-### Proposed command: autobranch (provisional — not yet implemented)
+### Implemented command: autobranch
 
-> **Provisional.** This section is an accepted contract proposal only. `ns gs autobranch` is not a
-> registered or available command, and nothing in this section is a compatibility promise until an
-> implementation slice removes this marker.
+```bash
+ns gs autobranch --yes
+ns gs autobranch --slug add-specific-change --yes
+```
 
-Autobranch turns dirty pending work into a new gh-stack child branch. It is specified as a Tier-2
-local mutation pinned to exactly gh-stack v0.1.0. A TTY user receives a prepared preview and
-confirmation; a non-interactive caller must pass `--yes`/`-y`. `--slug`/`-s` is optional. Explicit
+`ns gs autobranch` is a Tier-2 local mutation pinned to exactly gh-stack v0.1.0. A TTY user
+receives a prepared preview and confirmation; a non-interactive caller must pass `--yes`/`-y`.
+`--slug`/`-s` is optional. GS derives a bounded conservative slug through the shared `slug` model
+operation and drafts the checkpoint through the GS-owned `gs.checkpoint` operation. Explicit
 invalid or colliding child names are refused; the command does not silently suffix them.
 
 Preflight requires a named HEAD, readable source SHA, nonempty porcelain including untracked files,
 no active Git operation, a valid absent child ref, and cached `refs/remotes/origin/HEAD`. It never
-fetches. Pending work can be staged, unstaged, untracked, or mixed; the checkpoint stages all pending
-work.
+fetches. Pending work can be staged, unstaged, untracked, or mixed; the checkpoint stages all
+pending work.
 
-The contract supports exactly two paths:
+The command supports exactly two paths:
 
 1. **dirty cached-trunk bootstrap:** ordinary Git creates and switches to the child, GS proves the
    dirty transfer, checkpoints all pending work, proves a clean committed child and an unchanged
@@ -161,8 +164,8 @@ provider facts, and one recovery action. There is no automatic retry, rollback, 
 `unstack`, provider-private state access or repair, peer scan, Slot movement, push, or GitHub
 mutation.
 
-The supporting provider evidence and the stable contract clause identifiers (`AB-*`) that later
-implementation slices cite are recorded in
+The supporting provider evidence and the stable contract clause identifiers (`AB-*`) cited by the
+implementation and its tests are recorded in
 [`docs/research/gh-stack-v0.1.0-autobranch-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-autobranch-contract.md).
 
 ### Optional Slots composition
