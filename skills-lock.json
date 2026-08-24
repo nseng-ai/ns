@@ -274,7 +274,7 @@
     "pr-make-accountable": {
       "source": "skills/public/prs/pr-make-accountable",
       "sourceType": "local",
-      "computedHash": "ceca391e3ae9dc39cb4566cd81960facca3cb3c62fa1d4afd4f07adce758f4ee"
+      "computedHash": "6d848d05db423e3b5332744e09f83f3c5af2bf1f1063a4a1cd976a6febe8b566"
     },
     "project-setup": {
       "source": "skills/internal/repository-operations/project-setup",

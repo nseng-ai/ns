@@ -102,7 +102,7 @@ Inventory:
 - apparent limitations and reviewer-risky or subtle areas;
 - material intent, constraints, and rejected alternatives unknowable from the
   evidence;
-- the PR's behavior classification, starting as internal-only; and
+- the PR's behavior classification, starting as implementation-only; and
 - when affirmative final-net-diff evidence supports reclassification as
   user-facing, that evidence and at least one candidate representative example:
   the intended user's action or public interaction, the directly observable
@@ -115,19 +115,19 @@ outcomes; UI behavior; public API requests or responses; user-controlled
 configuration behavior; diagnostics presented to users; or another public
 interaction contract.
 
-Keep the PR internal-only when the net diff changes only internal implementation
-behavior; agent or skill instructions; internal orchestration or workflow
-contracts; support disposition, file placement, registration, overlays, or lock
-metadata; refactoring, tests, or maintenance mechanics; documentation without a
-corresponding behavior change; or behavior visible only to another internal
-component or repository maintainer. Promoting or changing an internal reusable
-skill remains internal-only even when another extension consumes it, unless the
-same net diff changes behavior experienced by intended users. Record the
-internal-only classification without manufacturing a candidate example.
+Keep the PR implementation-only when the net diff changes implementation,
+refactoring, tests, maintenance mechanics, metadata, documentation, or internal
+component contracts without changing behavior that an intended user can
+observe. Classify the result by observability, not by whether the intended user
+is internal to an organization or whether the changed skill or product has a
+public, incubating, or internal support disposition. Changes to agent or skill
+instructions and internal workflows can be user-facing when an intended user
+observes a different invocation, output, error, or workflow result. Record an
+implementation-only classification without manufacturing a candidate example.
 
 Completion criterion: every material area is either understood from evidence or
 listed as an interview gap. The inventory is not complete until the PR remains
-internal-only or affirmative evidence reclassifies it as user-facing. A
+implementation-only or affirmative evidence reclassifies it as user-facing. A
 user-facing classification must record an intended user action or public
 interaction, its directly observable changed result, and candidate evidence for
 at least one representative example.
@@ -172,8 +172,8 @@ Apply these rules:
   result must enter the shared, evidence-consistent interview record before
   drafting. If no accurate representative example is yet supportable, keep this
   drafting prerequisite open and continue the interview or follow the approved
-  PR-change path instead of inventing content. For an internal-only change, do
-  not solicit a candidate example.
+  PR-change path instead of inventing content. For an implementation-only
+  change, do not solicit a candidate example.
 - If the interview exposes an undefended decision, unintended behavior, or
   scope that should change, record it and ask whether the author wants to amend
   the PR first. If yes, offer to make the change in the checked-out branch;
@@ -236,8 +236,8 @@ Preserve exact technical text, Markdown, and code-block formatting. The live
 draft for a user-facing PR is not complete until at least one example is
 present. Add more examples only when they clarify materially different user
 experiences and remain proportional to the change; they must not become an
-exhaustive tutorial or replace `## Changes`. For an internal-only PR, omit all
-examples, placeholders, and empty example sections.
+exhaustive tutorial or replace `## Changes`. For an implementation-only PR,
+omit all examples, placeholders, and empty example sections.
 
 In `## Changes`:
 
