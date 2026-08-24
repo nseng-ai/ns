@@ -4,7 +4,8 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
-		"./extension": "./src/extension.ts"
+		"./extension": "./src/extension.ts",
+		"./session-plan-discovery": "./src/session-plan-discovery.ts"
 	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
@@ -16,7 +17,8 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/pi-runtime": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",
-		"@nseng-ai/sdk": "workspace:*"
+		"@nseng-ai/sdk": "workspace:*",
+		"zod": "catalog:"
 	},
 	"ns": {
 		"tier": "host"

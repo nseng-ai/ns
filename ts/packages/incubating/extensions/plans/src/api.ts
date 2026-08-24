@@ -1,3 +1,4 @@
+export { validatePlanSlug } from "./plan-persistence.ts";
 export {
 	NoSavedPlanAvailableError,
 	buildRepoPlanStoreKey,

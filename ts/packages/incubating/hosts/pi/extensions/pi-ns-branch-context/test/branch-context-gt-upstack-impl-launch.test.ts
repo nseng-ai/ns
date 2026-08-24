@@ -56,6 +56,7 @@ class FakeGtUpstackImplContext implements BranchContextGtUpstackImplContext {
 		this.isSessionReplaced = true;
 		await options?.withSession?.({
 			cwd: this.cwd,
+			getSystemPromptOptions: () => ({ skills: [] }),
 			hasUI: this.hasUI,
 			ui: {
 				notify() {},

@@ -717,6 +717,7 @@ export function createContext(
 
 	const ctx: CommandContext = {
 		cwd: options.cwd ?? ROOT,
+		getSystemPromptOptions: () => ({ skills: [] }),
 		hasUI: options.hasUI ?? true,
 		ui,
 		async waitForIdle(): Promise<void> {

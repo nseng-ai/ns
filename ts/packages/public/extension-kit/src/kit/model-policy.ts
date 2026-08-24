@@ -21,6 +21,7 @@ export const MODEL_OPERATION_IDS = {
 	flowPrInventory: "flow.pr-inventory",
 	thermoCouncilSynthesis: "thermo-council.synthesis",
 	piFastDraft: "pi.fast-draft",
+	plansSessionDiscovery: "plans.session-discovery",
 	stackViewEnrichment: "stack-view.enrichment",
 	contextProfilerSegmentation: "context-profiler.segmentation",
 	contextProfilerEpisodeAnalysis: "context-profiler.episode-analysis",

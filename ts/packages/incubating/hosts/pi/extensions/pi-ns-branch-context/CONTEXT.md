@@ -11,3 +11,7 @@ The incubating `@nseng-ai/pi-ns-branch-context` package under `ts/packages/incub
 **Branch Context Pi command surface**:
 The preserved `/ns:branch-context:*` and `/ns:plan:*` commands registered by the **Branch Context Pi host adapter**. The adapter owns Pi registration, prompt/status wording, Saved Plan command orchestration, Grill activation, session replacement, and parity metadata; command names and implementation-command formatting are stable consumer metadata owned by `@nseng-ai/branch-context/api`.
 *Avoid*: Pi-owned Branch Context semantics, duplicated command-name literals, project-only Grill UI names in the Branch Context API
+
+**Session Plan discovery**:
+The Branch Context Pi host adapter's conservative classification of actionable plan material in a persisted Pi session. The adapter captures the exact effective `session-plan-discovery` skill, forks the persisted session into an isolated tool-less Pi process, and returns one of five bounded typed outcomes. Discovery owns evidence and candidate extraction, not Saved Plan selection or consumer fallback policy. Version 1 reasons over the fork's effective constructed context and does not inspect raw JSONL entries compacted out of that context.
+*Avoid*: deterministic Saved Plan selection, session transcript reconstruction, compaction-aware discovery, implicit current-plan authority

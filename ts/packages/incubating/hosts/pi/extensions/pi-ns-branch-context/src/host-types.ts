@@ -1,3 +1,4 @@
+import type { SystemPromptOptions } from "@nseng-ai/extension-kit/pi-types";
 import type {
 	BranchContextContextFactory,
 	BranchCreationMethod,
@@ -68,6 +69,7 @@ export interface BranchContextExtensionOptions {
 
 export interface CommandContext {
 	cwd: string;
+	getSystemPromptOptions(): SystemPromptOptions;
 	hasUI: boolean;
 	ui: {
 		notify(message: string, level?: NotifyLevel): void;
