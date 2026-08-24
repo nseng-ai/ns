@@ -44,9 +44,10 @@ improves the conceptual coherence of each change.
    placeholder.
 4. The agent writes the co-authored description to the PR, then the author
    reads every claim and requests any further edits (in chat or directly in
-   the GitHub UI). The agent then reports any remaining reviewability concerns,
-   open topics, and recurring policy that is not yet encoded, with a suggested
-   authoritative home.
+   the GitHub UI). A Requested reviewer focus section appears only when the
+   author explicitly opts into it during the interview. The agent then reports any
+   remaining reviewability concerns, open topics, and recurring policy that is
+   not yet encoded, with a suggested authoritative home.
 
 ## Provenance
 
