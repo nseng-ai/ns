@@ -4,26 +4,30 @@ import type { GsRestackGitGateway, GsRestackGitState } from "./git.ts";
 import { GS_RESTACK_VERSION, type GsRestackDiagnostic, type GsRestackGateway } from "./gateway.ts";
 
 const UNMERGED_PATH_LIMIT = 20;
-const diagnosticSchema = z.strictObject({
-	command: z.string(),
-	termination: z.string(),
-	stdout: z.string().max(1_100),
-	stderr: z.string().max(1_100),
-});
-const recoverySchema = z.strictObject({
-	action: z.enum([
-		"none",
-		"install-supported-gh-stack",
-		"clean-worktree",
-		"checkout-named-branch",
-		"finish-active-operation",
-		"resolve-conflicts",
-		"stage-resolution",
-		"authorize-rewrite",
-		"inspect-gh-stack-error",
-	]),
-	instruction: z.string().max(300),
-});
+const diagnosticSchema = z.lazy(() =>
+	z.strictObject({
+		command: z.string(),
+		termination: z.string(),
+		stdout: z.string().max(1_100),
+		stderr: z.string().max(1_100),
+	}),
+);
+const recoverySchema = z.lazy(() =>
+	z.strictObject({
+		action: z.enum([
+			"none",
+			"install-supported-gh-stack",
+			"clean-worktree",
+			"checkout-named-branch",
+			"finish-active-operation",
+			"resolve-conflicts",
+			"stage-resolution",
+			"authorize-rewrite",
+			"inspect-gh-stack-error",
+		]),
+		instruction: z.string().max(300),
+	}),
+);
 
 export const gsRestackRequestSchema = z.lazy(() =>
 	z.strictObject({
