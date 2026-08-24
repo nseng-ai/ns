@@ -20,7 +20,7 @@ export async function executeGrillAskRound(
 	if (!validation.ok) {
 		return result(`Invalid grill_ask_round input:\n${validation.errors.join("\n")}`, {
 			action: "invalid-tool-input",
-			errors: validation.errors,
+			errors: [...validation.errors],
 		});
 	}
 	const input = validation.input;
@@ -43,7 +43,7 @@ export async function executeGrillAskRound(
 	if (input.mode === "decision-round") {
 		if (evaluation.kickoff === undefined)
 			return uiFailure(input, "No valid grill kickoff evidence.");
-		if (evaluation.status !== "active" && evaluation.status !== "cancelled") {
+		if (evaluation.status !== "active") {
 			return terminalForUnavailableAttempt(input, evaluation.status);
 		}
 		if (evaluation.submittedRoundIds.has(input.roundId)) {
@@ -138,12 +138,12 @@ function outcomeResult(
 				action: "submitted",
 				mode: "decision-round",
 				roundId: input.roundId,
-				answers: outcome.answers,
+				answers: [...outcome.answers],
 				submittedRoundCount: submittedRoundCount + 1,
 				answeredDecisionCount: answeredDecisionCount + outcome.answers.length,
 			});
 		case "cancelled":
-			return result("Decision round paused; all drafts were discarded.", {
+			return result("Decision round cancelled; all drafts were discarded.", {
 				action: "cancelled",
 				mode: "decision-round",
 				roundId: input.roundId,

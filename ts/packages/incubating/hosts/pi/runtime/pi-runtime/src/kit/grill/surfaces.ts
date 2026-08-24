@@ -28,13 +28,21 @@ const grillKickoffEvidenceSchema = z.lazy(() =>
 export type GrillKickoffEvidence = z.infer<typeof grillKickoffEvidenceSchema>;
 
 const roundAnswerEvidenceSchema = z.lazy(() =>
-	z.strictObject({
-		questionId: z.string().trim().min(1),
-		kind: z.enum(["option", "freeform"]),
-		value: z.string().trim().min(1),
-		label: z.string().trim().min(1).optional(),
-		recommendation: z.enum(["retained", "changed"]),
-	}),
+	z.discriminatedUnion("kind", [
+		z.strictObject({
+			questionId: z.string().trim().min(1),
+			kind: z.literal("option"),
+			value: z.string().trim().min(1),
+			label: z.string().trim().min(1),
+			recommendation: z.enum(["retained", "changed"]),
+		}),
+		z.strictObject({
+			questionId: z.string().trim().min(1),
+			kind: z.literal("freeform"),
+			value: z.string().trim().min(1),
+			recommendation: z.literal("changed"),
+		}),
+	]),
 );
 
 const submittedRoundSchema = z.lazy(() =>
@@ -70,7 +78,7 @@ const invalidRoundInputSchema = z.lazy(() =>
 	}),
 );
 
-const grillRoundResultEvidenceSchema = z.lazy(() =>
+export const grillRoundResultEvidenceSchema = z.lazy(() =>
 	z.union([submittedRoundSchema, terminalRoundSchema, confirmationSchema, invalidRoundInputSchema]),
 );
 
@@ -110,8 +118,9 @@ export function formatGrillKickoffMarker(evidence: GrillKickoffEvidence): string
  * `getBranch()` supplies only the selected branch ancestry.
  */
 export function evaluateGrillAttempt(entries: readonly unknown[]): GrillAttemptEvaluation {
-	const kickoff = findLatestKickoff(entries);
+	const kickoff = findLatestKickoffBoundary(entries);
 	if (kickoff === undefined) return emptyEvaluation("none");
+	if (kickoff.evidence === undefined) return emptyEvaluation("invalid");
 
 	const roundIds = new Set<string>();
 	const questionIds = new Set<string>();
@@ -163,9 +172,9 @@ export function evaluateGrillAttempt(entries: readonly unknown[]): GrillAttemptE
 	};
 }
 
-function findLatestKickoff(
+function findLatestKickoffBoundary(
 	entries: readonly unknown[],
-): { index: number; evidence: GrillKickoffEvidence } | undefined {
+): { index: number; evidence?: GrillKickoffEvidence } | undefined {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const text = userMessageText(entries[index]);
 		if (text === undefined) continue;
@@ -173,14 +182,14 @@ function findLatestKickoff(
 		if (start < 0) continue;
 		const contentStart = start + GRILL_KICKOFF_MARKER_START.length;
 		const end = text.indexOf(GRILL_KICKOFF_MARKER_END, contentStart);
-		if (end < 0) continue;
+		if (end < 0) return { index };
 		try {
 			const evidence = grillKickoffEvidenceSchema.safeParse(
 				JSON.parse(text.slice(contentStart, end)),
 			);
-			if (evidence.success) return { index, evidence: evidence.data };
+			return evidence.success ? { index, evidence: evidence.data } : { index };
 		} catch {
-			// A malformed marker is ignored so an earlier valid kickoff remains the namespace owner.
+			return { index };
 		}
 	}
 	return undefined;

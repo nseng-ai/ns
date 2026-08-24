@@ -4,6 +4,7 @@ import {
 	GRILL_ASK_ROUND_TOOL_NAME,
 	evaluateGrillAttempt,
 	formatGrillKickoffMarker,
+	grillRoundResultEvidenceSchema,
 	type GrillRoundResultEvidence,
 } from "../src/kit/grill/surfaces.ts";
 
@@ -117,11 +118,25 @@ describe("evaluateGrillAttempt", () => {
 		expect(state.authorized).toBe(false);
 	});
 
-	test("ignores malformed kickoff candidates but malformed latest-attempt results deny authorization", () => {
+	test("treats a malformed latest kickoff as an invalid attempt boundary", () => {
 		const malformedKickoff = {
 			type: "message",
 			message: { role: "user", content: "<ns-grill-kickoff>{oops}</ns-grill-kickoff>" },
 		};
+		const state = evaluateGrillAttempt([
+			kickoff("old"),
+			result(submitted("old-round", ["old-q"])),
+			malformedKickoff,
+			result(submitted("new-round", ["new-q"])),
+			result({ action: "confirmed", mode: "confirmation" }),
+		]);
+		expect(state.kickoff).toBeUndefined();
+		expect(state.submittedRoundCount).toBe(0);
+		expect(state.status).toBe("invalid");
+		expect(state.authorized).toBe(false);
+	});
+
+	test("malformed latest-attempt results deny authorization", () => {
 		const malformedResult = {
 			type: "message",
 			message: {
@@ -132,7 +147,6 @@ describe("evaluateGrillAttempt", () => {
 		};
 		const state = evaluateGrillAttempt([
 			kickoff("valid"),
-			malformedKickoff,
 			result(submitted("round", ["q"])),
 			malformedResult,
 			result({ action: "confirmed", mode: "confirmation" }),
@@ -140,5 +154,41 @@ describe("evaluateGrillAttempt", () => {
 		expect(state.kickoff?.attemptId).toBe("valid");
 		expect(state.status).toBe("invalid");
 		expect(state.authorized).toBe(false);
+	});
+
+	test("rejects answer evidence that violates the kind-specific contract", () => {
+		const common = {
+			action: "submitted",
+			mode: "decision-round",
+			roundId: "round",
+			submittedRoundCount: 1,
+			answeredDecisionCount: 1,
+		};
+		expect(
+			grillRoundResultEvidenceSchema.safeParse({
+				...common,
+				answers: [
+					{
+						questionId: "q",
+						kind: "option",
+						value: "yes",
+						recommendation: "retained",
+					},
+				],
+			}).success,
+		).toBe(false);
+		expect(
+			grillRoundResultEvidenceSchema.safeParse({
+				...common,
+				answers: [
+					{
+						questionId: "q",
+						kind: "freeform",
+						value: "custom",
+						recommendation: "retained",
+					},
+				],
+			}).success,
+		).toBe(false);
 	});
 });

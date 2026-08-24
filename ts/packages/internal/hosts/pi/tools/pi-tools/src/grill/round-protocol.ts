@@ -1,3 +1,4 @@
+import type { GrillRoundResultEvidence } from "@nseng-ai/pi-runtime/grill/surfaces";
 import { z } from "zod";
 
 const roundOptionSchema = z.lazy(() =>
@@ -43,20 +44,9 @@ export type GrillDecisionRoundInput = Extract<GrillRoundInput, { mode: "decision
 export type GrillRoundQuestion = GrillDecisionRoundInput["questions"][number];
 export type GrillRoundOption = GrillRoundQuestion["options"][number];
 
-export type GrillRoundAnswer =
-	| {
-			questionId: string;
-			kind: "option";
-			value: string;
-			label: string;
-			recommendation: "retained" | "changed";
-	  }
-	| {
-			questionId: string;
-			kind: "freeform";
-			value: string;
-			recommendation: "changed";
-	  };
+type SubmittedRoundEvidence = Extract<GrillRoundResultEvidence, { action: "submitted" }>;
+
+export type GrillRoundAnswer = SubmittedRoundEvidence["answers"][number];
 
 export type GrillRoundUiOutcome =
 	| { action: "submitted"; answers: readonly GrillRoundAnswer[] }
@@ -65,25 +55,7 @@ export type GrillRoundUiOutcome =
 	| { action: "confirmed" }
 	| { action: "return-to-grilling" };
 
-export type GrillRoundDetails =
-	| {
-			action: "submitted";
-			mode: "decision-round";
-			roundId: string;
-			answers: readonly GrillRoundAnswer[];
-			submittedRoundCount: number;
-			answeredDecisionCount: number;
-	  }
-	| {
-			action: "cancelled" | "ended" | "ui-failed" | "cap-exhausted";
-			mode: "decision-round";
-			roundId: string;
-	  }
-	| {
-			action: "confirmed" | "return-to-grilling" | "ui-failed";
-			mode: "confirmation";
-	  }
-	| { action: "invalid-tool-input"; errors: readonly string[] };
+export type GrillRoundDetails = GrillRoundResultEvidence;
 
 export interface GrillRoundToolResult {
 	content: Array<{ type: "text"; text: string }>;

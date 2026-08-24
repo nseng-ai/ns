@@ -222,16 +222,33 @@ describe("executeGrillAskRound", () => {
 		expect(returned.details).toEqual({ action: "return-to-grilling", mode: "confirmation" });
 	});
 
-	test("confirmation fails closed after a cancelled decision round", async () => {
-		const input: GrillRoundInput = { mode: "confirmation", summary: "Resolved design" };
+	test("cancelled attempts reject later decision rounds and confirmation", async () => {
 		const cancelled = historyResult({
 			action: "cancelled",
 			mode: "decision-round",
 			roundId: "round-1",
 		});
-		const confirmation = await executeGrillAskRound(input, context([kickoff(), cancelled]), {
-			uiRunner: async () => ({ action: "confirmed" }),
+		let runnerCalled = false;
+		const decision = decisionRound();
+		decision.roundId = "round-2";
+		const resumed = await executeGrillAskRound(decision, context([kickoff(), cancelled]), {
+			uiRunner: async () => {
+				runnerCalled = true;
+				return { action: "submitted", answers: answersFor(decision) };
+			},
 		});
+		expect(runnerCalled).toBe(false);
+		expect(resumed.details).toEqual({
+			action: "ui-failed",
+			mode: "decision-round",
+			roundId: "round-2",
+		});
+
+		const confirmation = await executeGrillAskRound(
+			{ mode: "confirmation", summary: "Resolved design" },
+			context([kickoff(), cancelled]),
+			{ uiRunner: async () => ({ action: "confirmed" }) },
+		);
 		expect(confirmation.details).toEqual({ action: "ui-failed", mode: "confirmation" });
 	});
 
