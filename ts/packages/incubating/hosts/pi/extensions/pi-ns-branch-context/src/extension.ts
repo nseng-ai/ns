@@ -26,7 +26,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
 		notes:
-			"The portable Saved Plan save command and skill were deleted; Pi drives the retained typed saved-plan file tool.",
+			"The portable Saved Plan CLI writer remains deleted. Pi drives the retained typed saved-plan file tool for /ns:plan:save and exposes it to the separately invoked portable plan-grill-and-save skill.",
 	},
 	{
 		kind: "command",

@@ -126,10 +126,12 @@ seam-first testing), and generic duplication/progressive-disclosure wording in f
 ## Pocock-specific guidance
 
 - **Portable grilling.** `grill-me`, `grill-with-docs`, `grilling`, and
-  `domain-modeling` are the complete grilling and glossary-review surface. Invoke the
-  appropriate skill directly in every harness. For Saved Plans, finish the review first,
-  then use `/ns:plan:save` in Pi. Do not recreate a Pi-specific backend, question tool,
-  or combined grill-and-save command.
+  `domain-modeling` remain the portable interview and glossary-review skills. Invoke the
+  appropriate skill directly in every harness. Use the first-party
+  `plan-grill-and-save` skill when the review should end in a Saved Plan. It requires and
+  follows the installed `grilling` skill, uses ordinary agent and user messages, then calls
+  the available `write_saved_plan_file` tool. Do not recreate a Pi command wrapper,
+  Pi-specific grilling backend, structured question tool, or status UI.
 - **Validation-scope policy is ns-owned.** It lives in repo/project instructions and
   first-party Pi prompts; do not rely on upstream Matt wrappers to carry it.
 - **Code-first glossary synchronization is an ns-owned fork.** Upstream domain-modeling
