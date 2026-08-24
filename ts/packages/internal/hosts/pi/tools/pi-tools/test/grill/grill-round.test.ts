@@ -1,7 +1,3 @@
-import {
-	formatGrillKickoffMarker,
-	GRILL_ASK_ROUND_TOOL_NAME,
-} from "@nseng-ai/pi-runtime/grill/surfaces";
 import { describe, expect, test } from "vitest";
 
 import { GrillRoundController } from "../../src/grill/round-controller.ts";
@@ -9,7 +5,6 @@ import { executeGrillAskRound } from "../../src/grill/round-execution.ts";
 import type {
 	GrillDecisionRoundInput,
 	GrillRoundCustomComponent,
-	GrillRoundDetails,
 	GrillRoundInput,
 	GrillRoundToolContext,
 } from "../../src/grill/round-protocol.ts";
@@ -36,32 +31,10 @@ function decisionRound(questionCount = 2): GrillDecisionRoundInput {
 	};
 }
 
-function kickoff(savedPlan = false): unknown {
-	return {
-		type: "message",
-		message: {
-			role: "user",
-			content: formatGrillKickoffMarker({
-				version: 1,
-				attemptId: "attempt",
-				policy: savedPlan ? { kind: "saved-plan", maxDecisionRounds: 5 } : { kind: "general" },
-			}),
-		},
-	};
-}
-
-function historyResult(details: GrillRoundDetails): unknown {
-	return {
-		type: "message",
-		message: { role: "toolResult", toolName: GRILL_ASK_ROUND_TOOL_NAME, details },
-	};
-}
-
-function context(entries: readonly unknown[] = [kickoff()]): GrillRoundToolContext {
+function context(): GrillRoundToolContext {
 	return {
 		hasUI: true,
 		ui: { custom: async () => new Promise<never>(() => undefined) },
-		sessionManager: { getBranch: () => entries },
 	};
 }
 
@@ -152,37 +125,16 @@ describe("GrillRoundController", () => {
 });
 
 describe("executeGrillAskRound", () => {
-	test("submits ordered aggregate evidence with history-derived counts", async () => {
+	test("submits the complete round from the immediate UI result", async () => {
 		const input = decisionRound();
-		const prior = {
-			action: "submitted" as const,
-			mode: "decision-round" as const,
-			roundId: "round-0",
-			answers: [
-				{
-					questionId: "q-0",
-					kind: "option" as const,
-					value: "yes",
-					label: "Yes",
-					recommendation: "retained" as const,
-				},
-			],
-			submittedRoundCount: 1,
-			answeredDecisionCount: 1,
-		};
-		input.roundId = "round-2";
-		requireQuestion(input, 0).id = "q-2";
-		requireQuestion(input, 1).id = "q-3";
-		const result = await executeGrillAskRound(input, context([kickoff(), historyResult(prior)]), {
+		const result = await executeGrillAskRound(input, context(), {
 			uiRunner: async () => ({ action: "submitted", answers: answersFor(input) }),
 		});
 		expect(result.details).toEqual({
 			action: "submitted",
 			mode: "decision-round",
-			roundId: "round-2",
+			roundId: "round-1",
 			answers: answersFor(input),
-			submittedRoundCount: 2,
-			answeredDecisionCount: 3,
 		});
 	});
 
@@ -197,20 +149,12 @@ describe("executeGrillAskRound", () => {
 		expect(result.terminate === true).toBe(terminate);
 	});
 
-	test("fails closed when UI or kickoff evidence is unavailable", async () => {
-		const noUi = await executeGrillAskRound(decisionRound(), {
-			hasUI: false,
-			ui: {},
-			sessionManager: { getBranch: () => [kickoff()] },
-		});
-		expect(noUi.details).toMatchObject({ action: "ui-failed" });
-		const noHistory = await executeGrillAskRound(decisionRound(), context([]), {
-			uiRunner: async () => ({ action: "submitted", answers: [] }),
-		});
-		expect(noHistory.details).toMatchObject({ action: "ui-failed" });
+	test("fails closed when the UI is unavailable", async () => {
+		const result = await executeGrillAskRound(decisionRound(), { hasUI: false, ui: {} });
+		expect(result.details).toMatchObject({ action: "ui-failed" });
 	});
 
-	test("confirmation mode explicitly supports only return and accept", async () => {
+	test("confirmation mode trusts the immediate return or accept result", async () => {
 		const input: GrillRoundInput = { mode: "confirmation", summary: "Resolved design" };
 		const confirmed = await executeGrillAskRound(input, context(), {
 			uiRunner: async () => ({ action: "confirmed" }),
@@ -220,71 +164,6 @@ describe("executeGrillAskRound", () => {
 		});
 		expect(confirmed.details).toEqual({ action: "confirmed", mode: "confirmation" });
 		expect(returned.details).toEqual({ action: "return-to-grilling", mode: "confirmation" });
-	});
-
-	test("cancelled attempts reject later decision rounds and confirmation", async () => {
-		const cancelled = historyResult({
-			action: "cancelled",
-			mode: "decision-round",
-			roundId: "round-1",
-		});
-		let runnerCalled = false;
-		const decision = decisionRound();
-		decision.roundId = "round-2";
-		const resumed = await executeGrillAskRound(decision, context([kickoff(), cancelled]), {
-			uiRunner: async () => {
-				runnerCalled = true;
-				return { action: "submitted", answers: answersFor(decision) };
-			},
-		});
-		expect(runnerCalled).toBe(false);
-		expect(resumed.details).toEqual({
-			action: "ui-failed",
-			mode: "decision-round",
-			roundId: "round-2",
-		});
-
-		const confirmation = await executeGrillAskRound(
-			{ mode: "confirmation", summary: "Resolved design" },
-			context([kickoff(), cancelled]),
-			{ uiRunner: async () => ({ action: "confirmed" }) },
-		);
-		expect(confirmation.details).toEqual({ action: "ui-failed", mode: "confirmation" });
-	});
-
-	test("a sixth Saved Plan decision call produces terminal cap-exhausted evidence", async () => {
-		const entries: unknown[] = [kickoff(true)];
-		for (let index = 1; index <= 5; index += 1) {
-			entries.push(
-				historyResult({
-					action: "submitted",
-					mode: "decision-round",
-					roundId: `round-${index}`,
-					answers: [
-						{
-							questionId: `old-q-${index}`,
-							kind: "option",
-							value: "yes",
-							label: "Yes",
-							recommendation: "retained",
-						},
-					],
-					submittedRoundCount: index,
-					answeredDecisionCount: index,
-				}),
-			);
-		}
-		const input = decisionRound(1);
-		input.roundId = "round-6";
-		const result = await executeGrillAskRound(input, context(entries), {
-			uiRunner: async () => ({ action: "submitted", answers: answersFor(input) }),
-		});
-		expect(result.details).toEqual({
-			action: "cap-exhausted",
-			mode: "decision-round",
-			roundId: "round-6",
-		});
-		expect(result.terminate).toBe(true);
 	});
 });
 

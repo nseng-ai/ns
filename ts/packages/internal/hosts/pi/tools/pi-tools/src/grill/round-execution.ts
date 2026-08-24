@@ -1,5 +1,3 @@
-import { evaluateGrillAttempt } from "@nseng-ai/pi-runtime/grill/surfaces";
-
 import type {
 	GrillRoundDetails,
 	GrillRoundExecutionOptions,
@@ -24,52 +22,6 @@ export async function executeGrillAskRound(
 		});
 	}
 	const input = validation.input;
-	const history = readHistory(ctx);
-	const evaluation = evaluateGrillAttempt(history);
-	if (input.mode === "confirmation") {
-		if (evaluation.kickoff === undefined) {
-			return result("No valid grill kickoff evidence; shared understanding was not confirmed.", {
-				action: "ui-failed",
-				mode: "confirmation",
-			});
-		}
-		if (evaluation.status !== "active") {
-			return result(
-				`Grill attempt is not active (${evaluation.status}); shared understanding was not confirmed.`,
-				{ action: "ui-failed", mode: "confirmation" },
-			);
-		}
-	}
-	if (input.mode === "decision-round") {
-		if (evaluation.kickoff === undefined)
-			return uiFailure(input, "No valid grill kickoff evidence.");
-		if (evaluation.status !== "active") {
-			return terminalForUnavailableAttempt(input, evaluation.status);
-		}
-		if (evaluation.submittedRoundIds.has(input.roundId)) {
-			return invalidIds(`roundId ${input.roundId} was already submitted.`);
-		}
-		const duplicateQuestion = input.questions.find((question) =>
-			evaluation.submittedQuestionIds.has(question.id),
-		);
-		if (duplicateQuestion !== undefined) {
-			return invalidIds(`question id ${duplicateQuestion.id} was already submitted.`);
-		}
-		if (
-			evaluation.kickoff.policy.kind === "saved-plan" &&
-			evaluation.submittedRoundCount >= evaluation.kickoff.policy.maxDecisionRounds
-		) {
-			return result(
-				"Saved Plan decision-round cap exhausted; drafts were discarded.",
-				{
-					action: "cap-exhausted",
-					mode: "decision-round",
-					roundId: input.roundId,
-				},
-				true,
-			);
-		}
-	}
 
 	if (!ctx.hasUI || ctx.ui.custom === undefined) {
 		return input.mode === "decision-round"
@@ -91,12 +43,10 @@ export async function executeGrillAskRound(
 						mode: "confirmation",
 					});
 		}
-		return outcomeResult(
-			input,
-			outcome,
-			evaluation.submittedRoundCount,
-			evaluation.answeredDecisionCount,
-		);
+		// This primitive trusts the immediate result from its owned Pi UI. If a future
+		// consumer must authorize work after a resume, fork, or separate tool call,
+		// add durable attempt identity and validated result evidence at that boundary.
+		return outcomeResult(input, outcome);
 	} catch {
 		return input.mode === "decision-round"
 			? uiFailure(input, "Atomic grill round UI failed; no draft was submitted.")
@@ -107,12 +57,7 @@ export async function executeGrillAskRound(
 	}
 }
 
-function outcomeResult(
-	input: GrillRoundInput,
-	outcome: GrillRoundUiOutcome,
-	submittedRoundCount: number,
-	answeredDecisionCount: number,
-): GrillRoundToolResult {
+function outcomeResult(input: GrillRoundInput, outcome: GrillRoundUiOutcome): GrillRoundToolResult {
 	if (input.mode === "confirmation") {
 		if (outcome.action === "confirmed") {
 			return result("Shared understanding confirmed.", {
@@ -139,8 +84,6 @@ function outcomeResult(
 				mode: "decision-round",
 				roundId: input.roundId,
 				answers: [...outcome.answers],
-				submittedRoundCount: submittedRoundCount + 1,
-				answeredDecisionCount: answeredDecisionCount + outcome.answers.length,
 			});
 		case "cancelled":
 			return result("Decision round cancelled; all drafts were discarded.", {
@@ -164,24 +107,6 @@ function outcomeResult(
 	}
 }
 
-function terminalForUnavailableAttempt(
-	input: Extract<GrillRoundInput, { mode: "decision-round" }>,
-	status: ReturnType<typeof evaluateGrillAttempt>["status"],
-): GrillRoundToolResult {
-	if (status === "cap-exhausted") {
-		return result(
-			"Grill attempt is already cap-exhausted.",
-			{
-				action: "cap-exhausted",
-				mode: "decision-round",
-				roundId: input.roundId,
-			},
-			true,
-		);
-	}
-	return uiFailure(input, `Grill attempt is not active (${status}); no draft was submitted.`);
-}
-
 function invalidIds(message: string): GrillRoundToolResult {
 	return result(`Invalid grill_ask_round input:\n${message}`, {
 		action: "invalid-tool-input",
@@ -198,16 +123,6 @@ function uiFailure(
 		mode: "decision-round",
 		roundId: input.roundId,
 	});
-}
-
-function readHistory(ctx: GrillRoundToolContext): readonly unknown[] {
-	if (ctx.sessionManager === undefined) return [];
-	try {
-		const branch = ctx.sessionManager.getBranch();
-		return Array.isArray(branch) ? branch : [];
-	} catch {
-		return [];
-	}
 }
 
 function result(text: string, details: GrillRoundDetails, terminate = false): GrillRoundToolResult {

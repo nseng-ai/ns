@@ -1,42 +1,37 @@
-import type { GrillRoundResultEvidence } from "@nseng-ai/pi-runtime/grill/surfaces";
 import { z } from "zod";
 
-const roundOptionSchema = z.lazy(() =>
-	z.strictObject({
-		value: z.string().trim().min(1),
-		label: z.string().trim().min(1),
-		description: z.string().trim().min(1).optional(),
-	}),
-);
-
-const roundQuestionSchema = z.lazy(() =>
-	z.strictObject({
-		id: z.string().trim().min(1),
-		question: z.string().trim().min(1),
-		context: z.string().trim().min(1).optional(),
-		options: z.array(roundOptionSchema).min(2).max(5),
-		recommendedOptionValue: z.string().trim().min(1),
-		recommendationRationale: z.string().trim().min(1),
-	}),
-);
-
-const decisionRoundSchema = z.lazy(() =>
-	z.strictObject({
-		mode: z.literal("decision-round"),
-		roundId: z.string().trim().min(1),
-		questions: z.array(roundQuestionSchema).min(1),
-	}),
-);
-
-const confirmationRoundSchema = z.lazy(() =>
-	z.strictObject({
-		mode: z.literal("confirmation"),
-		summary: z.string().trim().min(1),
-	}),
-);
-
 export const grillRoundInputSchema = z.lazy(() =>
-	z.discriminatedUnion("mode", [decisionRoundSchema, confirmationRoundSchema]),
+	z.discriminatedUnion("mode", [
+		z.strictObject({
+			mode: z.literal("decision-round"),
+			roundId: z.string().trim().min(1),
+			questions: z
+				.array(
+					z.strictObject({
+						id: z.string().trim().min(1),
+						question: z.string().trim().min(1),
+						context: z.string().trim().min(1).optional(),
+						options: z
+							.array(
+								z.strictObject({
+									value: z.string().trim().min(1),
+									label: z.string().trim().min(1),
+									description: z.string().trim().min(1).optional(),
+								}),
+							)
+							.min(2)
+							.max(5),
+						recommendedOptionValue: z.string().trim().min(1),
+						recommendationRationale: z.string().trim().min(1),
+					}),
+				)
+				.min(1),
+		}),
+		z.strictObject({
+			mode: z.literal("confirmation"),
+			summary: z.string().trim().min(1),
+		}),
+	]),
 );
 
 export type GrillRoundInput = z.infer<typeof grillRoundInputSchema>;
@@ -44,9 +39,20 @@ export type GrillDecisionRoundInput = Extract<GrillRoundInput, { mode: "decision
 export type GrillRoundQuestion = GrillDecisionRoundInput["questions"][number];
 export type GrillRoundOption = GrillRoundQuestion["options"][number];
 
-type SubmittedRoundEvidence = Extract<GrillRoundResultEvidence, { action: "submitted" }>;
-
-export type GrillRoundAnswer = SubmittedRoundEvidence["answers"][number];
+export type GrillRoundAnswer =
+	| {
+			questionId: string;
+			kind: "option";
+			value: string;
+			label: string;
+			recommendation: "retained" | "changed";
+	  }
+	| {
+			questionId: string;
+			kind: "freeform";
+			value: string;
+			recommendation: "changed";
+	  };
 
 export type GrillRoundUiOutcome =
 	| { action: "submitted"; answers: readonly GrillRoundAnswer[] }
@@ -55,7 +61,23 @@ export type GrillRoundUiOutcome =
 	| { action: "confirmed" }
 	| { action: "return-to-grilling" };
 
-export type GrillRoundDetails = GrillRoundResultEvidence;
+export type GrillRoundDetails =
+	| {
+			action: "submitted";
+			mode: "decision-round";
+			roundId: string;
+			answers: GrillRoundAnswer[];
+	  }
+	| {
+			action: "cancelled" | "ended" | "ui-failed";
+			mode: "decision-round";
+			roundId: string;
+	  }
+	| {
+			action: "confirmed" | "return-to-grilling" | "ui-failed";
+			mode: "confirmation";
+	  }
+	| { action: "invalid-tool-input"; errors: string[] };
 
 export interface GrillRoundToolResult {
 	content: Array<{ type: "text"; text: string }>;
@@ -76,7 +98,6 @@ export interface GrillRoundToolContext {
 			options?: unknown,
 		): Promise<T>;
 	};
-	sessionManager?: { getBranch(): readonly unknown[] };
 }
 
 export interface GrillRoundCustomComponent {
