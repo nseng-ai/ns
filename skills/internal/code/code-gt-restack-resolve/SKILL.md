@@ -1,14 +1,14 @@
 ---
 name: code-gt-restack-resolve
 disable-model-invocation: true
-description: "Restack the current Graphite stack with conflict resolution — full stack by default like `gt restack`, downstack on request. Auto-merge mechanically-safe conflicts (verified with project checks), escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', 'downstack restack', or a restack expected to conflict."
+description: "Restack the current Graphite stack with conflict resolution — downstack by default, full stack on explicit request. Auto-merge mechanically-safe conflicts (verified with project checks), escalate ambiguous ones. Use for 'restack and resolve conflicts', 'intelligent/auto restack', 'full restack', 'whole-stack restack', 'downstack restack', or a restack expected to conflict."
 ---
 
 # code-gt-restack-resolve
 
 Drive a Graphite restack semi-autonomously with an explicit **scope**:
-**full stack** by default, matching plain `gt restack`, or **downstack** when
-the user asks for the narrower ancestors/current scope.
+**downstack** (ancestors + current) by default, or **full stack** when the
+user explicitly asks for the whole stack.
 
 This skill is a **parent-session driver**: the main agent session owns the
 restack workflow — preflight, scope, slot consolidation, starting or resuming
@@ -63,14 +63,14 @@ driver may apply without escalating.
 
 ## Scope and non-goals
 
-- **Scope must be explicit.** Default to **full** for generic restack requests,
-  matching plain `gt restack`; use **downstack** only when the user asks for the
-  narrower ancestors/current scope or confirms a prompt.
+- **Scope must be explicit.** Default to **downstack** for generic restack
+  requests; use **full** only when the user explicitly asks for the whole
+  stack or confirms a prompt.
 - **A single-PR (or tip) stack has no scope decision** — see the single-PR rule
   in **Choose scope**.
 - **Full scope:** operate on the current Graphite stack as `gt restack` does
-  (ancestors + current + descendants) — not every stack in the repo. This may
-  rewrite upstack descendants, but that is the expected default for this skill.
+  (ancestors + current + descendants) — not every stack in the repo. It may
+  rewrite upstack descendants, which is why it requires explicit intent.
 - **Downstack scope:** operate on the chain trunk → current (ancestors +
   current). Upstack is not touched.
 - **Never** `gt submit` / push / land.
@@ -111,17 +111,17 @@ wrapper context and does not bypass preflight.
 ### 1. Preflight and scope facts
 
 Unless step 0 confirmed a wrapper-originated interrupted rebase, first map the
-request to `REQUESTED_SCOPE`: generic or ambiguous restack intent is `full`;
-explicit ancestors/current-only intent is `downstack`. Gather all cleanliness,
+request to `REQUESTED_SCOPE`: generic or ambiguous restack intent is
+`downstack`; explicit whole-stack intent is `full`. Gather all cleanliness,
 tracking, interrupted-rebase, topology, and Slot occupancy facts in one call:
 
 ```bash
 ns slot gt exec restack-preflight --scope <full|downstack> --format json
 ```
 
-Always replace the placeholder explicitly: generic requests pass `--scope full`;
-explicit downstack requests pass `--scope downstack`. Do not rely on the
-command's downstack default when this skill means plain `gt restack` semantics.
+Always replace the placeholder explicitly: generic requests pass
+`--scope downstack`; explicit whole-stack requests pass `--scope full`. Pass
+the scope even when it matches the command's own default.
 
 Interpret the Clinkr envelope before acting:
 
@@ -163,10 +163,10 @@ Review all warnings before continuing.
 Set `RESTACK_SCOPE` from the explicit request and the returned scope facts before
 running any restack command.
 
-| User intent                                                                                    | Scope            | Slot consolidation command          | Restack command          |
-| ---------------------------------------------------------------------------------------------- | ---------------- | ----------------------------------- | ------------------------ |
-| Generic "restack and resolve", "restack", "intelligent/auto restack", or ambiguous request     | `full` (default) | `ns slot gt free-stack`             | `gt restack`             |
-| Explicit "downstack restack", "ancestors only", "rebase up to where I am", or confirmed prompt | `downstack`      | `ns slot gt free-stack --downstack` | `gt restack --downstack` |
+| User intent                                                                                | Scope                 | Slot consolidation command          | Restack command          |
+| ------------------------------------------------------------------------------------------ | --------------------- | ----------------------------------- | ------------------------ |
+| Generic "restack and resolve", "restack", "intelligent/auto restack", or ambiguous request | `downstack` (default) | `ns slot gt free-stack --downstack` | `gt restack --downstack` |
+| Explicit "full restack", "whole-stack restack", "restack everything", or confirmed prompt  | `full`                | `ns slot gt free-stack`             | `gt restack`             |
 
 Rules:
 

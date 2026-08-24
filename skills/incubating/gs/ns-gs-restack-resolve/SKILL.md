@@ -7,8 +7,8 @@ description: "Drive the local `ns gs restack-resolve` conflict-resolution workfl
 # ns-gs-restack-resolve
 
 Drive the local gh-stack restack-resolve workflow from the current worktree.
-Use **full inter-branch scope** by default; use **downstack inter-branch scope**
-only when the user explicitly asks for ancestors/current scope.
+Use **downstack inter-branch scope** by default; use **full inter-branch scope**
+only when the user explicitly asks for the whole stack.
 
 This skill is the parent-session **driver**: it owns the initial CLI run, scope
 narration, sequential subagent dispatch, interpretation of structured CLI and
@@ -22,10 +22,11 @@ abort policy apply as written there.
 
 ## Scope
 
-- Generic or ambiguous restack intent means `RESTACK_SCOPE=full`.
-- Explicit ancestors/current-only intent means `RESTACK_SCOPE=downstack`.
-- "Full" is the provider's full **local inter-branch** operation from the
-  current branch; "downstack" is its narrower local inter-branch operation.
+- Generic or ambiguous restack intent means `RESTACK_SCOPE=downstack`.
+- Explicit whole-stack intent means `RESTACK_SCOPE=full`.
+- "Downstack" is the provider's narrower **local inter-branch** operation from
+  the current branch (ancestors + current); "full" is its wider whole-stack
+  local inter-branch operation.
   Neither fetches, updates, or integrates trunk, and neither pushes or
   reconciles GitHub state.
 - Scope is selected once, before any mutation, and carried as narration for the
@@ -66,8 +67,8 @@ In the parent session, run exactly one structured command:
 
 ```bash
 ns gs restack-resolve --yes --format json
-# or, only for explicit downstack intent:
-ns gs restack-resolve --downstack --yes --format json
+# or, only for explicit whole-stack intent:
+ns gs restack-resolve --full --yes --format json
 ```
 
 Read the structured JSON envelope and branch on its `data`, not exit code
@@ -93,7 +94,7 @@ second start command.
 ### 3. Conflict loop
 
 Every continuation in this loop is `ns gs restack-resolve --yes --format json`
-— continuation resumes provider state and never takes `--downstack`. For each
+— continuation resumes provider state and never takes `--full`. For each
 observed conflict stop:
 
 1. In the parent, reconcile the latest structured CLI result with fresh
