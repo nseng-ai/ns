@@ -1,6 +1,3 @@
-import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
-
-import { formatRemainingEstimate } from "./progress.ts";
 import type {
 	GrillStatusEventContext,
 	GrillStatusLifecycleHost,
@@ -10,27 +7,17 @@ import { scanGrillBranchFromSessionManager } from "./status-state.ts";
 
 export const GRILL_STATUS_WIDGET_KEY = "grill-status";
 
-const QUESTION_PREVIEW_MAX_CHARS = 60;
-
-/** Pure widget-line renderer. `undefined` means the widget should be cleared. */
+/** Pure widget-line renderer. Terminal attempts clear the transient widget. */
 export function buildGrillStatusWidgetLines(state: GrillStatusState): string[] | undefined {
 	if (state.grill !== "active") return undefined;
-
-	const parts = [
-		"[grill]",
-		`${state.answeredCount} answered`,
-		formatRemainingEstimate(
-			state.remainingEstimate ?? state.pendingAsk?.estimatedRemaining,
-			"compact",
-		),
+	return [
+		[
+			"[grill rounds]",
+			`${state.submittedRoundCount} rounds submitted`,
+			`${state.answeredDecisionCount} decisions answered`,
+			"recomputing complete frontier",
+		].join(" · "),
 	];
-	if (state.pendingAsk !== undefined) {
-		parts.push(
-			`Q${state.answeredCount + 1} pending`,
-			`"${truncateSingleLine(state.pendingAsk.question, QUESTION_PREVIEW_MAX_CHARS)}"`,
-		);
-	}
-	return [parts.join(" · ")];
 }
 
 /** Register the history-derived status widget lifecycle when the host exposes Pi events. */
@@ -60,14 +47,6 @@ function setGrillStatusWidget(ctx: GrillStatusEventContext, lines: string[] | un
 	} catch {
 		// Widget updates are display-only and must not affect grill execution.
 	}
-}
-
-function truncateSingleLine(value: string, maxChars: number): string {
-	return truncateTextHead({
-		value: value.replace(/\s+/g, " ").trim(),
-		maxChars,
-		buildMarker: () => "…",
-	});
 }
 
 function isGrillStatusLifecycleHost(value: unknown): value is GrillStatusLifecycleHost {

@@ -43,7 +43,7 @@ export async function executeGrillAskRound(
 	if (input.mode === "decision-round") {
 		if (evaluation.kickoff === undefined)
 			return uiFailure(input, "No valid grill kickoff evidence.");
-		if (evaluation.status !== "active" && evaluation.status !== "cancelled") {
+		if (evaluation.status !== "active") {
 			return terminalForUnavailableAttempt(input, evaluation.status);
 		}
 		if (evaluation.submittedRoundIds.has(input.roundId)) {

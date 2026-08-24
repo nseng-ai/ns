@@ -1,25 +1,25 @@
 ---
 name: pi-grill-ui
 disable-model-invocation: true
-description: Internal backend skill for the Pi /pi:grill-me extension. Supplies grill-me interview behavior while the extension supplies structured grill_ask UI instructions.
+description: Internal backend for Pi /pi:grill-me. Supplies design-tree grilling behavior while the extension supplies atomic grill_ask_round UI.
 metadata:
   internal: true
 ---
 
 # pi-grill-ui
 
-This is the canonical Pi structured-UI backend for the portable `grilling` loop. `/pi:grill-me` requires this concrete repo skill before activating its UI or starting a model turn.
+This is the canonical Pi structured-UI backend for portable `grilling`. `/pi:grill-me` requires this effective skill before activating `grill_ask_round` or starting a model turn.
 
-Lineage: semantically melded from the upstream `grilling` skill (`mattpocock/skills`, upstream path `skills/productivity/grilling/`), re-expressed in Pi's structured `grill_ask` vocabulary. The canonical upstream pin and the melded-surfaces registry live in `docs/agents/matt-pocock-skills.md`; when the vendored `grilling` skill is refreshed, semantically merge behavior changes here rather than copying text. Sync sibling: `pi-grill-with-docs-ui` deliberately shares the interview charter, `grill_ask` protocol, `ui_unavailable` fallback, facts-vs-decisions rule, and validation-scope guardrail paragraphs with this file; update shared paragraphs in both files together.
+Lineage: semantically melded from upstream `grilling` (`mattpocock/skills`, path `skills/productivity/grilling/`). The pin and melded-surfaces registry live in `docs/agents/matt-pocock-skills.md`. On refresh, merge behavior semantically rather than copying text. Keep the shared frontier protocol synchronized with `pi-grill-with-docs-ui` and `GRILL_UI_CONTRACT`.
 
-Interview the user relentlessly about every aspect of this plan or design until you and the user reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer. Frame every question with uniform polarity: a plain "yes" must endorse your recommended answer — never a question whose recommended answer is "no" followed by "Do you agree?"; when recommending against something, restate the recommendation as a positive assertion of the behavior you do recommend. Do not enact the plan until the user confirms shared understanding has been reached.
+Map the subject as a **design tree**. Each unresolved decision branches into decisions that depend on it. The **frontier** is every unresolved decision whose prerequisites are settled. Finding facts is your job: inspect the environment or dispatch available research instead of asking the user. A running fact lookup remains an unsettled prerequisite only for its dependent branches; ask the rest of the frontier now.
 
-If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call. Include 2-5 affirmative, mutually exclusive options; your recommendation and rationale; `estimatedRemaining`; a freeform path; a status path; and an end-session path.
+Work in atomic rounds. Call `grill_ask_round` in `decision-round` mode with the complete current frontier, ordered by the design tree. Never send an arbitrary subset. Give every round and question a stable ID unique within the current kickoff namespace. For each question provide 2–5 affirmative, mutually exclusive choices, exactly one recommendation, its rationale, and freeform support. Frame it so accepting the recommendation has positive polarity. Defer a question if its answer depends on another unresolved decision.
 
-If `grill_ask` reports `status_request`, do not treat it as an answer. Summarize answered-question count, estimated questions remaining, resolved decisions, unresolved branches, current pending question, and current recommendation, then re-ask the same pending question through `grill_ask`.
+After a submitted round, use all ordered answers to reshape the tree. Report a compact between-round status: submitted rounds, answered decisions, resolved decisions, unresolved branches, and current recommendation. Then recompute and submit the whole new frontier. General grilling is unlimited; do not invent a round cap.
 
-If `grill_ask` is unavailable or reports `ui_unavailable`, ask the same one question in prose with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.
+When the frontier is empty, call `grill_ask_round` in `confirmation` mode with an explicit summary of resolved decisions, caveats, and final recommendation. The only confirmation choices are **Confirm shared understanding** and **Return to grilling**. If the user returns, reshape the tree and recompute the complete frontier.
 
-If a *fact* can be found by exploring the codebase, look it up instead of asking. Decisions belong to the user — put each one through `grill_ask` and wait for the answer.
+Cancel, End, UI failure, invalid or duplicate evidence, and an unavailable round tool fail closed. Do not fall back to prose questions, infer answers, or continue downstream. Do not enact or implement the result until explicit confirmation evidence authorizes it.
 
-Do not ask routine validation-scope or test-coverage questions such as which package checks should be mandatory before keeping implementation changes. That is an implementation-agent responsibility governed by project policy and changed-file judgment. Only ask about validation when it is itself a product/design requirement, an externally imposed release gate, or a user-visible compatibility promise. Otherwise, record validation guidance as: run relevant targeted validation, broaden when shared wrappers/workspace config are touched, and document commands run plus unrelated blockers.
+Do not ask routine validation-scope or test-coverage questions. Validation is an implementation-agent responsibility unless it is itself a product requirement, external release gate, or user-visible compatibility promise.

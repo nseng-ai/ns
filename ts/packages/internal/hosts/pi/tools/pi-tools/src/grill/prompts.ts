@@ -1,36 +1,30 @@
+import { formatGrillKickoffMarker } from "@nseng-ai/pi-runtime/grill/surfaces";
+
 import { formatGrillAskProgressLine, type GrillAskProgress } from "./progress.ts";
 import type { NormalizedGrillAskInput } from "./protocol.ts";
 
-export const GRILL_UI_CONTRACT = `<structured-grill-question-ui-contract>
-Preserve the grill-me behavior and reasoning style. The structured UI is only the interaction primitive for user-facing questions.
+export const GRILL_UI_CONTRACT = `<structured-grill-round-ui-contract>
+Preserve the grilling reasoning style. Model the subject as a design tree and work it in atomic rounds.
 
-When you need user input during this grill session:
-- Use the grill_ask tool for every user-facing grill question while it is available.
-- Do not ask grill questions in freeform prose while grill_ask is available.
-- Ask exactly one question per grill_ask call.
-- If a fact can be found by exploring the codebase, look it up instead of asking. Decisions belong to the user — put each one through grill_ask and wait for the answer.
-- Do not ask routine validation-scope or test-coverage questions; defer ordinary validation coverage to the implementing agent's project policy and changed-file judgment unless validation is itself a product/design requirement, release gate, or user-visible compatibility promise.
-- Avoid double negatives and ambiguous option labels.
-- Prefer affirmative, mutually exclusive options.
-- Frame questions and recommended answers with uniform polarity: a plain "yes" must always mean "adopt the recommendation." Never pair a question whose recommended answer is "no" with a trailing "Do you agree?". When recommending against something, state the recommendation as a positive assertion of the recommended behavior.
-- Provide 2–5 substantive choices, not counting automatic freeform/status/end choices.
-- Provide your recommended answer and rationale.
-- Provide estimatedRemaining on every grill_ask call. Use exact only when you know; otherwise use a range with a basis or unknown with a basis. Do not invent precision.
-- Always allow freeform unless there is a strong reason not to.
-- Always allow ending the grilling session.
-- Do not enact the plan until the user confirms shared understanding has been reached.
-- If grill_ask returns action: "end-grill", stop asking questions and summarize decisions, unresolved branches, and final recommendation.
-- If grill_ask returns action: "status-request", the user has not answered the current question. Produce a compact status report with answered count, estimated remaining questions, current pending question, resolved decisions, unresolved branches, and current recommendation. Then re-ask the exact same pending question with grill_ask; do not advance to a new question and do not count the status request as an answer.
-- If grill_ask is unavailable or returns action: "ui-unavailable", ask the same one question normally with numbered choices, including Other/freeform when allowed, Show current grill status, and End grilling session when allowed.
-</structured-grill-question-ui-contract>`;
-
-export function buildGrillUiPrompt(skillBlock: string, target: string): string {
-	return buildStructuredGrillPrompt(skillBlock, target);
-}
-
-export function buildGrillWithDocsUiPrompt(skillBlock: string, target: string): string {
-	return buildStructuredGrillPrompt(skillBlock, target);
-}
+Protocol:
+- Finding facts is your job. Explore the codebase or dispatch available research; never ask the user for a discoverable fact.
+- The frontier is every unresolved decision whose prerequisites are settled. Recompute it after each submitted round.
+- In decision-round mode call grill_ask_round once with the whole current frontier, in dependency/design-tree order. Never split an answerable frontier into arbitrary subsets.
+- Every attempt-scoped roundId and question id must be stable and unique. A kickoff starts a new ID namespace; never reuse IDs within it.
+- Each question must provide 2–5 substantive, affirmative, mutually exclusive choices, exactly one recommended choice, a concise recommendation rationale, and the UI's freeform path.
+- Frame each decision so accepting the recommendation has uniform positive polarity. Do not use double negatives or pair a recommended “no” with “Do you agree?”.
+- A decision whose answer depends on another unresolved decision is not on this frontier; defer it to a later round.
+- A submitted round is atomic. Use its ordered answers to reshape the tree, report a compact between-round status, then recompute the complete frontier.
+- Between-round status must state submitted round count, answered decision count, resolved decisions, unresolved branches, and current recommendation.
+- In docs-aware grilling, every between-round status and the final pre-confirmation report must include an exact \`Documentation updates:\` line describing proposed vocabulary, synchronized CONTEXT.md corrections, ADRs created/offered, or \`none yet\`.
+- General /pi grilling has no decision-round cap. Continue until the frontier is empty.
+- Cancel, End, UI failure, invalid/duplicate evidence, or any ambiguous terminal result fails closed. Stop the workflow; do not infer answers or take downstream action.
+- When the frontier is empty, call grill_ask_round in confirmation mode with an explicit summary of the shared understanding, resolved decisions, caveats, and final recommendation.
+- Final confirmation offers only “Confirm shared understanding” and “Return to grilling”. If the user returns, reshape the tree and recompute the whole frontier.
+- Do not enact, save, implement, or otherwise take downstream action unless the latest attempt has explicit confirmed evidence.
+- Do not fall back to prose questions if grill_ask_round is unavailable or fails. Explain that structured round UI is required and stop.
+- Do not ask routine validation-scope or test-coverage questions unless validation is itself a product requirement, release gate, or user-visible compatibility promise.
+</structured-grill-round-ui-contract>`;
 
 export function buildGrillAskSelectTitle(
 	input: NormalizedGrillAskInput,
@@ -40,9 +34,7 @@ export function buildGrillAskSelectTitle(
 		formatGrillAskProgressLine(progress, input.estimatedRemaining),
 		`Question:\n${input.question}`,
 	];
-	if (input.context !== undefined) {
-		parts.push(`Context:\n${input.context}`);
-	}
+	if (input.context !== undefined) parts.push(`Context:\n${input.context}`);
 	parts.push(`Recommended answer:\n${input.recommended.answer}`);
 	if (input.recommended.rationale !== undefined) {
 		parts.push(`Recommendation rationale:\n${input.recommended.rationale}`);
@@ -50,10 +42,31 @@ export function buildGrillAskSelectTitle(
 	return parts.join("\n\n");
 }
 
-function buildStructuredGrillPrompt(skillBlock: string, target: string): string {
+export function buildGrillUiPrompt(skillBlock: string, target: string, attemptId: string): string {
+	return buildStructuredGrillPrompt(skillBlock, target, attemptId);
+}
+
+export function buildGrillWithDocsUiPrompt(
+	skillBlock: string,
+	target: string,
+	attemptId: string,
+): string {
+	return buildStructuredGrillPrompt(skillBlock, target, attemptId);
+}
+
+function buildStructuredGrillPrompt(skillBlock: string, target: string, attemptId: string): string {
+	const kickoff = formatGrillKickoffMarker({
+		version: 1,
+		attemptId,
+		policy: { kind: "general" },
+	});
 	return `${skillBlock.trim()}
 
 ${GRILL_UI_CONTRACT}
+
+${kickoff}
+
+This kickoff resets the attempt-scoped round and question ID namespace. Its general policy is unlimited.
 
 <plan-or-design-to-grill>
 ${target.trim()}

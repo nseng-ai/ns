@@ -1,19 +1,18 @@
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import {
-	GRILL_ASK_TOOL_NAME,
+	GRILL_ASK_ROUND_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
-	deactivateGrillAskTool,
+	deactivateGrillAskRoundTool,
 } from "@nseng-ai/pi-runtime/grill/surfaces";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 
-import { executeGrillAsk } from "./execution.ts";
+import { executeGrillAskRound } from "./round-execution.ts";
+import { GRILL_ASK_ROUND_PARAMETERS } from "./round-protocol.ts";
 import type { ExtensionAPI } from "./protocol.ts";
 import { handleGrillUiCommand, handleGrillWithDocsUiCommand } from "./runtime.ts";
 import { registerGrillStatusLifecycle } from "./status.ts";
-import { GRILL_ASK_PARAMETERS } from "./validate.ts";
 
-export { executeGrillAsk } from "./execution.ts";
 export { executeGrillAskRound } from "./round-execution.ts";
 export {
 	grillRoundInputSchema,
@@ -34,39 +33,16 @@ export {
 	runGrillRoundInlineUiWithRuntime,
 	type GrillRoundInlineRuntime,
 } from "./round-ui.ts";
-export {
-	GRILL_UI_CONTRACT,
-	buildGrillAskSelectTitle,
-	buildGrillUiPrompt,
-	buildGrillWithDocsUiPrompt,
-} from "./prompts.ts";
+export { GRILL_UI_CONTRACT, buildGrillUiPrompt, buildGrillWithDocsUiPrompt } from "./prompts.ts";
 export type {
 	ExtensionAPI,
-	GrillAskCustomComponent,
-	GrillAskExecutionOptions,
-	GrillAskInput,
-	GrillAskOption,
-	GrillAskRecommendation,
-	GrillAskRemainingEstimate,
-	GrillAskToolContext,
-	GrillAskUiRunner,
 	GrillUiCommandContext,
-	NormalizedGrillAskInput,
 	ToolDefinition,
 	ToolResult,
 } from "./protocol.ts";
-export { type GrillAskDetails } from "./result.ts";
 export { handleGrillUiCommand, handleGrillWithDocsUiCommand } from "./runtime.ts";
 export {
-	GRILL_ASK_PARAMETERS,
-	RESERVED_GRILL_ASK_VALUES,
-	validateGrillAskInput,
-	type GrillAskValidationResult,
-} from "./validate.ts";
-
-export {
 	GRILL_ASK_ROUND_TOOL_NAME,
-	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
@@ -122,25 +98,20 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.registerTool({
-		name: GRILL_ASK_TOOL_NAME,
-		label: "Grill Ask",
+		name: GRILL_ASK_ROUND_TOOL_NAME,
+		label: "Grill Ask Round",
 		description:
-			"Ask exactly one grill-me question through a structured UI with explicit answer choices, an optional recommendation/rationale, an honest remaining-question estimate, and first-class freeform, status checkpoint, and end-session paths.",
-		parameters: GRILL_ASK_PARAMETERS,
-		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
-			executeGrillAsk(params, ctx, signal === undefined ? {} : { signal }),
+			"Run one atomic structured-grilling interaction. In decision-round mode provide the complete ordered current design-tree frontier with stable attempt-scoped IDs, 2–5 choices per decision, recommendations, rationales, and freeform support. After the frontier is empty, use confirmation mode with an explicit summary; it offers only Confirm shared understanding or Return to grilling.",
+		parameters: GRILL_ASK_ROUND_PARAMETERS,
+		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) =>
+			executeGrillAskRound(params, ctx),
 	});
 }
 
-/**
- * Make `grill_ask` inactive at each session start (new, resumed, forked, or reloaded).
- * The tool stays catalog-registered; an explicit structured-grill command activates it
- * for the remainder of the session. Removing only `grill_ask` preserves every other
- * extension's active-tool choices.
- */
+/** Keep the round tool inactive until an explicit structured-grill command starts an attempt. */
 function registerGrillAskStartupDeactivation(pi: ExtensionAPI): void {
 	if (!isSessionLifecycleHost(pi)) return;
-	pi.on("session_start", () => deactivateGrillAskTool(pi));
+	pi.on("session_start", () => deactivateGrillAskRoundTool(pi));
 }
 
 interface SessionLifecycleHost {

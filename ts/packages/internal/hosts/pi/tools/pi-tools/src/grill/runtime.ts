@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
+
 import { formatErrorMessage } from "@nseng-ai/foundation/primitives";
 import {
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_SKILL_NAME,
-	activateGrillAskTool,
+	activateGrillAskRoundTool,
 } from "@nseng-ai/pi-runtime/grill/surfaces";
 import type { NotifyLevel } from "@nseng-ai/pi-runtime/runtime/tool-types";
 import { captureRequiredEffectiveSkill } from "@nseng-ai/pi-runtime/skills/expansion";
@@ -14,7 +16,7 @@ interface StructuredGrillCommandOptions {
 	skillName: string;
 	emptyTargetMessage: string;
 	editorTitle: string;
-	buildPrompt(skillBlock: string, target: string): string;
+	buildPrompt(skillBlock: string, target: string, attemptId: string): string;
 }
 
 export async function handleGrillUiCommand(
@@ -73,8 +75,8 @@ async function handleStructuredGrillCommand(
 	}
 
 	// Activate only after both required inputs are ready and skill content is loaded.
-	activateGrillAskTool(pi);
-	pi.sendUserMessage(options.buildPrompt(skillBlock, target));
+	activateGrillAskRoundTool(pi);
+	pi.sendUserMessage(options.buildPrompt(skillBlock, target, randomUUID()));
 }
 
 async function resolveGrillTarget(

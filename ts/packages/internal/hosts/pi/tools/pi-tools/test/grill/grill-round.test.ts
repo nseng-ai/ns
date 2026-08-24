@@ -209,17 +209,31 @@ describe("executeGrillAskRound", () => {
 		expect(returned.details).toEqual({ action: "return-to-grilling", mode: "confirmation" });
 	});
 
-	test("confirmation fails closed after a cancelled decision round", async () => {
-		const input: GrillRoundInput = { mode: "confirmation", summary: "Resolved design" };
+	test("confirmation and later decision rounds fail closed after cancellation", async () => {
+		const confirmationInput: GrillRoundInput = {
+			mode: "confirmation",
+			summary: "Resolved design",
+		};
 		const cancelled = historyResult({
 			action: "cancelled",
 			mode: "decision-round",
 			roundId: "round-1",
 		});
-		const confirmation = await executeGrillAskRound(input, context([kickoff(), cancelled]), {
+		const cancelledContext = context([kickoff(), cancelled]);
+		const confirmation = await executeGrillAskRound(confirmationInput, cancelledContext, {
 			uiRunner: async () => ({ action: "confirmed" }),
 		});
+		const resumedRound = decisionRound();
+		resumedRound.roundId = "round-2";
+		const resumed = await executeGrillAskRound(resumedRound, cancelledContext, {
+			uiRunner: async () => ({ action: "submitted", answers: answersFor(resumedRound) }),
+		});
 		expect(confirmation.details).toEqual({ action: "ui-failed", mode: "confirmation" });
+		expect(resumed.details).toEqual({
+			action: "ui-failed",
+			mode: "decision-round",
+			roundId: "round-2",
+		});
 	});
 
 	test("a sixth Saved Plan decision call produces terminal cap-exhausted evidence", async () => {

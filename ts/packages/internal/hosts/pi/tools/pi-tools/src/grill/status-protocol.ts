@@ -1,5 +1,3 @@
-import type { GrillAskRemainingEstimate } from "./protocol.ts";
-
 export interface GrillStatusSessionManagerLike {
 	getBranch(): readonly unknown[];
 }
@@ -30,18 +28,10 @@ export interface GrillStatusLifecycleHost {
 	): void;
 }
 
-export interface PendingGrillAsk {
-	question: string;
-	toolCallId?: string;
-	estimatedRemaining?: GrillAskRemainingEstimate;
-}
-
 export type GrillStatusState =
 	| { grill: "none" }
-	| { grill: "ended"; answeredCount: number }
 	| {
-			grill: "active";
-			answeredCount: number;
-			remainingEstimate?: GrillAskRemainingEstimate;
-			pendingAsk?: PendingGrillAsk;
+			grill: "active" | "confirmed" | "ended" | "failed";
+			submittedRoundCount: number;
+			answeredDecisionCount: number;
 	  };

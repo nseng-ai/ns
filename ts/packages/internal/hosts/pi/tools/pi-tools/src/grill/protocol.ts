@@ -2,7 +2,6 @@ import type { SystemPromptOptions } from "@nseng-ai/pi-runtime/runtime/extension
 import type { NotifyLevel } from "@nseng-ai/pi-runtime/runtime/tool-types";
 
 import type { GrillAskOutcome } from "./controller.ts";
-import type { GrillAskDetails } from "./result.ts";
 
 export type { NotifyLevel };
 
@@ -127,7 +126,7 @@ export interface ToolDefinition {
 		signal: AbortSignal | undefined,
 		onUpdate: ((update: Partial<ToolResult>) => void) | undefined,
 		ctx: GrillAskToolContext,
-	): Promise<ToolResult<GrillAskDetails>> | ToolResult<GrillAskDetails>;
+	): Promise<ToolResult> | ToolResult;
 }
 
 export interface ExtensionAPI {

@@ -1,54 +1,50 @@
 ---
 name: pi-grill-with-docs-ui
 disable-model-invocation: true
-description: Internal backend skill for the Pi /pi:grill-with-docs extension. Supplies docs-aware grill-with-docs behavior while the extension supplies structured grill_ask UI instructions.
+description: Internal backend for Pi /pi:grill-with-docs. Supplies docs-aware design-tree grilling while the extension supplies atomic grill_ask_round UI.
 metadata:
   internal: true
 ---
 
 # pi-grill-with-docs-ui
 
-This is the canonical Pi structured-UI backend for portable `grilling` plus `domain-modeling`. `/pi:grill-with-docs` requires this concrete repo skill before activating its UI or starting a model turn.
+This is the canonical Pi structured-UI backend for portable `grilling` plus `domain-modeling`. `/pi:grill-with-docs` requires this effective skill before activating `grill_ask_round` or starting a model turn.
 
-<!-- Lineage: semantically melded from upstream grilling + domain-modeling (mattpocock/skills, upstream paths skills/productivity/grilling/ and skills/engineering/domain-modeling/), re-expressed in Pi's structured grill_ask vocabulary; pin + melded-surfaces registry: docs/agents/matt-pocock-skills.md. When those vendored skills are refreshed, semantically merge behavior changes here rather than copying text. Sync sibling: pi-grill-ui deliberately shares the interview charter, grill_ask protocol, ui_unavailable fallback, facts-vs-decisions rule, and validation-scope guardrail paragraphs with this file; update shared paragraphs in both files together. -->
+<!-- Lineage: semantically melded from upstream grilling + domain-modeling (mattpocock/skills, paths skills/productivity/grilling/ and skills/engineering/domain-modeling/); pin + registry: docs/agents/matt-pocock-skills.md. Keep the shared frontier protocol synchronized with pi-grill-ui and GRILL_UI_CONTRACT. -->
 
-Interview the user relentlessly about every aspect of this plan or design until you and the user reach shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one by one. Ask exactly one user-facing question at a time, and include your recommended answer. Frame every question with uniform polarity: a plain "yes" must endorse your recommended answer — never a question whose recommended answer is "no" followed by "Do you agree?"; when recommending against something, restate the recommendation as a positive assertion of the behavior you do recommend. Do not enact the plan until the user confirms shared understanding has been reached.
+## Docs-first preflight
 
-If `grill_ask` is available, use it for every user-facing grill question instead of asking in prose. Ask exactly one question per tool call. Include 2-5 affirmative, mutually exclusive options; your recommendation and rationale; `estimatedRemaining`; a freeform path; a status path; and an end-session path.
+Before the first round, do a bounded pass:
 
-If `grill_ask` reports `status_request`, follow the *Docs-aware status checkpoints* section below.
+1. Use `CONTEXT-MAP.md`, if present, to route domain language.
+2. Read the root and relevant nested `CONTEXT.md` files.
+3. Read relevant ADRs under `docs/adr/`, including context ADR directories identified by the map or subject.
+4. Inspect code when the subject names an area or a current-behavior claim needs verification.
 
-If `grill_ask` is unavailable or reports `ui_unavailable`, ask the same one question in prose with numbered choices, including Other/freeform, Show current grill status, and End grilling session when applicable.
+Finding facts is your job. During planning, retain proposed vocabulary in the plan or discussion. Do not update `CONTEXT.md` before corresponding code or other authoritative ground truth changes. Documentation-only corrections may repair drift from already-existing ground truth.
 
-## Bounded docs-first preflight
+## Complete-frontier rounds
 
-Before the first user-facing question, do a bounded exploration pass:
+Map the subject as a **design tree**. The **frontier** is every unresolved decision whose prerequisites are settled. A running fact lookup remains an unsettled prerequisite only for dependent branches; ask the rest now.
 
-1. Check `CONTEXT-MAP.md` if present to route to the relevant domain language.
-2. Check the root `CONTEXT.md` and any relevant nested `CONTEXT.md` identified by the map or by the plan's named area.
-3. Check relevant ADRs under `docs/adr/`, including nested context ADR directories when the map or plan points to them.
-4. Inspect code only when the plan names a concrete area, or when a user claim or documented claim needs verification.
+Call `grill_ask_round` in `decision-round` mode with the complete current frontier, ordered by the tree. Never send an arbitrary subset. Use stable attempt-scoped round and question IDs. Each question has 2–5 affirmative, mutually exclusive choices, exactly one recommendation, a rationale, and freeform support. Frame it so accepting the recommendation has positive polarity. Defer decisions that depend on an unresolved answer.
 
-If a *fact* can be found by exploring the codebase, look it up instead of asking. Decisions belong to the user — put each one through `grill_ask` and wait for the answer. During planning, record proposed vocabulary in the plan or discussion; do not update `CONTEXT.md` until the corresponding code or other authoritative ground truth changes.
+After each submitted round, use all ordered answers to reshape the tree and report:
 
-Do not ask routine validation-scope or test-coverage questions such as which package checks should be mandatory before keeping implementation changes. That is an implementation-agent responsibility governed by project policy and changed-file judgment. Only ask about validation when it is itself a product/design requirement, an externally imposed release gate, or a user-visible compatibility promise. Otherwise, record validation guidance as: run relevant targeted validation, broaden when shared wrappers/workspace config are touched, and document commands run plus unrelated blockers.
+- submitted rounds and answered decisions;
+- resolved decisions, unresolved branches, and current recommendation;
+- `Documentation updates:` proposed vocabulary retained in discussion, synchronized `CONTEXT.md` corrections, ADRs created or offered, or `none yet`.
 
-## During the session
+Then recompute and submit the whole new frontier. General grilling is unlimited.
 
-Challenge terminology against the glossary immediately. If the glossary defines a term one way and the plan appears to use it another way, surface the conflict and ask which meaning should win.
+When the frontier is empty, report `Documentation updates:` again, then call `grill_ask_round` in `confirmation` mode with an explicit summary of resolved decisions, caveats, final recommendation, and documentation disposition. The only choices are **Confirm shared understanding** and **Return to grilling**. Returning reshapes the tree and requires a newly computed complete frontier.
 
-Sharpen fuzzy or overloaded language into canonical project terms. Do not write newly resolved terms to `CONTEXT.md` ahead of implementation. Once the corresponding code or other authoritative ground truth changes, update the relevant `CONTEXT.md` in the same change so they stay synchronized. Documentation-only corrections may repair drift from already-existing ground truth.
+Cancel, End, UI failure, invalid or duplicate evidence, and an unavailable round tool fail closed. Do not fall back to prose questions, infer answers, write docs, or take downstream action. Explicit confirmation evidence is required.
 
-Keep `CONTEXT.md` a glossary only: one or two sentence definitions of project-specific concepts, with `_Avoid_:` lines for rejected synonyms. Do not add implementation details, specs, scratch notes, decision records, or declarations of future behavior to `CONTEXT.md`.
+## Domain-modeling discipline
 
-Stress-test domain relationships with concrete scenarios and edge cases. When claims about current behavior are checkable, cross-reference the code and surface contradictions.
+Challenge glossary conflicts immediately and sharpen fuzzy language into canonical terms. Keep `CONTEXT.md` glossary-only: concise definitions and `_Avoid_:` aliases, not implementation details, specs, scratch notes, or future declarations. Stress-test relationships with concrete scenarios and verify claims against code.
 
-Offer ADR creation sparingly and explicitly. Only offer an ADR when all three are true: the decision is hard to reverse, surprising without context, and the result of a real trade-off. ADRs live under `docs/adr/`, are numbered `0001-slug.md`, `0002-slug.md`, and can be as small as a title plus a one-to-three sentence context/decision/why paragraph.
+Offer an ADR only when the decision is hard to reverse, surprising without context, and a real trade-off. ADRs live under `docs/adr/` and can be concise.
 
-## Docs-aware status checkpoints
-
-When `grill_ask` returns `status_request`, include a compact status report with the normal grill status fields — answered-question count, estimated questions remaining, resolved decisions, unresolved branches, current pending question, and current recommendation — plus:
-
-`Documentation updates:` summarize proposed vocabulary retained in the plan or discussion, synchronized `CONTEXT.md` corrections (if any), ADRs created or offered, or say `none yet`.
-
-After the status report, re-ask the exact same pending question with `grill_ask`; do not advance and do not count the status request as an answer.
+Do not ask routine validation-scope or test-coverage questions unless validation is itself a product requirement, external release gate, or user-visible compatibility promise.

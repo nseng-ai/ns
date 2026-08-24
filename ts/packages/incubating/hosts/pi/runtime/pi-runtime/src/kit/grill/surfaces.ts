@@ -2,9 +2,9 @@ import { z } from "zod";
 
 export const GRILL_UI_COMMAND_NAME = "pi:grill-me";
 export const GRILL_WITH_DOCS_UI_COMMAND_NAME = "pi:grill-with-docs";
-export const GRILL_ASK_TOOL_NAME = "grill_ask";
-/** Additive protocol name. It is intentionally not registered until the command cutover. */
 export const GRILL_ASK_ROUND_TOOL_NAME = "grill_ask_round";
+/** @deprecated Transitional Saved Plan-only activation surface; remove with its round cutover. */
+export const GRILL_ASK_TOOL_NAME = "grill_ask";
 export const GRILL_UI_SKILL_NAME = "pi-grill-ui";
 export const GRILL_WITH_DOCS_UI_SKILL_NAME = "pi-grill-with-docs-ui";
 export const GRILL_KICKOFF_VERSION = 1;
@@ -261,27 +261,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Narrow host contract for reading and replacing the active model-visible tool set. */
-export interface GrillAskActiveToolsHost {
+export interface GrillAskRoundActiveToolsHost {
 	getActiveTools(): string[];
 	setActiveTools(names: string[]): void;
 }
 
-/**
- * Idempotently add `grill_ask` to the host's active tool set, preserving every
- * currently active tool and their order. No-op when already active.
- */
-export function activateGrillAskTool(host: GrillAskActiveToolsHost): void {
-	const active = host.getActiveTools();
-	if (active.includes(GRILL_ASK_TOOL_NAME)) return;
-	host.setActiveTools([...active, GRILL_ASK_TOOL_NAME]);
+/** Idempotently activate the atomic round tool while preserving active-tool order. */
+export function activateGrillAskRoundTool(host: GrillAskRoundActiveToolsHost): void {
+	activateTool(host, GRILL_ASK_ROUND_TOOL_NAME);
 }
 
-/**
- * Idempotently remove only `grill_ask` from the host's active tool set,
- * preserving every other active tool. No-op when already inactive.
- */
-export function deactivateGrillAskTool(host: GrillAskActiveToolsHost): void {
+/** Idempotently deactivate only the atomic round tool. */
+export function deactivateGrillAskRoundTool(host: GrillAskRoundActiveToolsHost): void {
+	deactivateTool(host, GRILL_ASK_ROUND_TOOL_NAME);
+}
+
+/** @deprecated Transitional Saved Plan-only helper; remove with its round cutover. */
+export function activateGrillAskTool(host: GrillAskRoundActiveToolsHost): void {
+	activateTool(host, GRILL_ASK_TOOL_NAME);
+}
+
+function activateTool(host: GrillAskRoundActiveToolsHost, name: string): void {
 	const active = host.getActiveTools();
-	if (!active.includes(GRILL_ASK_TOOL_NAME)) return;
-	host.setActiveTools(active.filter((name) => name !== GRILL_ASK_TOOL_NAME));
+	if (active.includes(name)) return;
+	host.setActiveTools([...active, name]);
+}
+
+function deactivateTool(host: GrillAskRoundActiveToolsHost, name: string): void {
+	const active = host.getActiveTools();
+	if (!active.includes(name)) return;
+	host.setActiveTools(active.filter((activeName) => activeName !== name));
 }

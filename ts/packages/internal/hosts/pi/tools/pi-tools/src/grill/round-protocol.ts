@@ -38,6 +38,92 @@ export const grillRoundInputSchema = z.lazy(() =>
 	z.discriminatedUnion("mode", [decisionRoundSchema, confirmationRoundSchema]),
 );
 
+export const GRILL_ASK_ROUND_PARAMETERS = {
+	type: "object",
+	description:
+		"One atomic grill interaction: either the complete ordered decision frontier or final shared-understanding confirmation.",
+	oneOf: [
+		{
+			type: "object",
+			description:
+				"Present the complete currently answerable frontier in design-tree order. Submit all answers atomically.",
+			properties: {
+				mode: { type: "string", const: "decision-round" },
+				roundId: {
+					type: "string",
+					description: "Stable attempt-scoped ID, unique across submitted rounds.",
+				},
+				questions: {
+					type: "array",
+					minItems: 1,
+					description:
+						"The complete ordered frontier of currently answerable decisions; never an arbitrary subset.",
+					items: {
+						type: "object",
+						properties: {
+							id: {
+								type: "string",
+								description: "Stable attempt-scoped decision ID, never reused.",
+							},
+							question: { type: "string", description: "One user decision in affirmative form." },
+							context: { type: "string", description: "Optional concise decision context." },
+							options: {
+								type: "array",
+								minItems: 2,
+								maxItems: 5,
+								description:
+									"Two to five substantive, mutually exclusive choices. The UI also provides freeform.",
+								items: {
+									type: "object",
+									properties: {
+										value: { type: "string", description: "Stable machine-readable choice ID." },
+										label: { type: "string", description: "Affirmative user-facing choice." },
+										description: { type: "string", description: "Optional choice rationale." },
+									},
+									required: ["value", "label"],
+									additionalProperties: false,
+								},
+							},
+							recommendedOptionValue: {
+								type: "string",
+								description: "Value of exactly one listed recommended choice.",
+							},
+							recommendationRationale: {
+								type: "string",
+								description: "Concise rationale for the recommendation.",
+							},
+						},
+						required: [
+							"id",
+							"question",
+							"options",
+							"recommendedOptionValue",
+							"recommendationRationale",
+						],
+						additionalProperties: false,
+					},
+				},
+			},
+			required: ["mode", "roundId", "questions"],
+			additionalProperties: false,
+		},
+		{
+			type: "object",
+			description: "Final confirmation after the frontier is empty.",
+			properties: {
+				mode: { type: "string", const: "confirmation" },
+				summary: {
+					type: "string",
+					description:
+						"Explicit summary of resolved decisions, remaining non-decision caveats, and recommendation. The UI offers only Confirm shared understanding or Return to grilling.",
+				},
+			},
+			required: ["mode", "summary"],
+			additionalProperties: false,
+		},
+	],
+} as const;
+
 export type GrillRoundInput = z.infer<typeof grillRoundInputSchema>;
 export type GrillDecisionRoundInput = Extract<GrillRoundInput, { mode: "decision-round" }>;
 export type GrillRoundQuestion = GrillDecisionRoundInput["questions"][number];

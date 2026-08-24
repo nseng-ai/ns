@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 
 import {
 	GRILL_ASK_ROUND_TOOL_NAME,
+	activateGrillAskRoundTool,
+	deactivateGrillAskRoundTool,
 	evaluateGrillAttempt,
 	formatGrillKickoffMarker,
 	type GrillRoundResultEvidence,
@@ -44,6 +46,24 @@ function submitted(roundId: string, questionIds: readonly string[]): GrillRoundR
 		answeredDecisionCount: 999,
 	};
 }
+
+describe("round tool activation", () => {
+	test("activates and deactivates only grill_ask_round while preserving order", () => {
+		let active = ["read", "grill_ask", "bash"];
+		const host = {
+			getActiveTools: () => [...active],
+			setActiveTools: (names: string[]) => {
+				active = [...names];
+			},
+		};
+		activateGrillAskRoundTool(host);
+		expect(active).toEqual(["read", "grill_ask", "bash", GRILL_ASK_ROUND_TOOL_NAME]);
+		activateGrillAskRoundTool(host);
+		expect(active).toEqual(["read", "grill_ask", "bash", GRILL_ASK_ROUND_TOOL_NAME]);
+		deactivateGrillAskRoundTool(host);
+		expect(active).toEqual(["read", "grill_ask", "bash"]);
+	});
+});
 
 describe("evaluateGrillAttempt", () => {
 	test("uses the latest valid kickoff and derives aggregate counts instead of trusting snapshots", () => {

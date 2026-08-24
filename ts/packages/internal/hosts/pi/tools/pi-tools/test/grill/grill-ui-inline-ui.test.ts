@@ -23,7 +23,7 @@ import type {
 	GrillAskCustomComponent,
 	GrillAskToolContext,
 	NormalizedGrillAskInput,
-} from "../../src/grill/extension.ts";
+} from "../../src/grill/protocol.ts";
 
 function normalizedInput(
 	overrides: Partial<NormalizedGrillAskInput> = {},

@@ -3,10 +3,19 @@ import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 
 import { withTempRepoSkill } from "@nseng-ai/foundation/test-kit";
+import { evaluateGrillAttempt } from "@nseng-ai/pi-runtime/grill/surfaces";
 
+import { executeGrillAsk } from "../../src/grill/execution.ts";
+import type {
+	GrillAskInput,
+	GrillAskToolContext,
+	GrillAskUiRunner,
+	GrillUiCommandContext,
+	ToolResult,
+} from "../../src/grill/protocol.ts";
 import { buildGrillAskRows } from "../../src/grill/view.ts";
 import {
-	GRILL_ASK_TOOL_NAME,
+	GRILL_ASK_ROUND_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_UI_SKILL_NAME,
 	GRILL_WITH_DOCS_UI_COMMAND_NAME,
@@ -14,15 +23,9 @@ import {
 	GRILL_UI_CONTRACT,
 	buildGrillUiPrompt,
 	buildGrillWithDocsUiPrompt,
-	executeGrillAsk,
 	registerGrillUiExtension,
 	type ExtensionAPI,
-	type GrillAskInput,
-	type GrillAskUiRunner,
-	type GrillAskToolContext,
-	type GrillUiCommandContext,
 	type ToolDefinition,
-	type ToolResult,
 } from "../../src/grill/extension.ts";
 
 const ROOT = resolve(import.meta.dirname, "../../../../../../../../..");
@@ -98,7 +101,7 @@ function register(pi = new FakePi()): {
 	registerGrillUiExtension(pi);
 	const grillCommand = pi.commands.get(GRILL_UI_COMMAND_NAME);
 	const docsCommand = pi.commands.get(GRILL_WITH_DOCS_UI_COMMAND_NAME);
-	const tool = pi.tools.get(GRILL_ASK_TOOL_NAME);
+	const tool = pi.tools.get(GRILL_ASK_ROUND_TOOL_NAME);
 	expect(grillCommand).toBeDefined();
 	expect(docsCommand).toBeDefined();
 	expect(tool).toBeDefined();
@@ -155,7 +158,7 @@ function grillAskToolResult(details: unknown): unknown {
 		type: "message",
 		message: {
 			role: "toolResult",
-			toolName: GRILL_ASK_TOOL_NAME,
+			toolName: "grill_ask",
 			details,
 		},
 	};
@@ -196,39 +199,31 @@ function commandContext(
 describe("grill-ui prompt", () => {
 	test("includes the expanded grill UI skill block when provided", () => {
 		const skillBlock = `<skill name="${GRILL_UI_SKILL_NAME}">Ask one relentless question.</skill>`;
-		const prompt = buildGrillUiPrompt(skillBlock, "Design target");
+		const prompt = buildGrillUiPrompt(skillBlock, "Design target", "attempt-general");
 
 		expect(prompt).toContain(skillBlock);
 		expect(prompt).toContain("Design target");
-		expect(prompt).toContain("Use the grill_ask tool for every user-facing grill question");
-		expect(prompt).toContain("Ask exactly one question per grill_ask call");
-		expect(prompt).toContain("Provide estimatedRemaining on every grill_ask call");
+		expect(prompt).toContain("whole current frontier");
+		expect(prompt).toContain("decision-round mode");
+		expect(prompt).toContain("General /pi grilling has no decision-round cap");
 		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
-		expect(prompt).toContain("Frame questions and recommended answers with uniform polarity");
-		expect(prompt).toContain('If grill_ask returns action: "status-request"');
-		expect(prompt).toContain(
-			"If a fact can be found by exploring the codebase, look it up instead of asking",
-		);
-		expect(prompt).toContain("Decisions belong to the user");
-		expect(prompt).toContain(
-			"Do not enact the plan until the user confirms shared understanding has been reached",
-		);
+		expect(prompt).toContain("Final confirmation offers only");
+		expect(prompt).toContain('"attemptId":"attempt-general"');
 	});
 });
 
 describe("grill-with-docs-ui prompt", () => {
 	test("includes the expanded docs-aware skill block when provided", () => {
 		const skillBlock = `<skill name="${GRILL_WITH_DOCS_UI_SKILL_NAME}">Run docs-aware preflight and update CONTEXT.md.</skill>`;
-		const prompt = buildGrillWithDocsUiPrompt(skillBlock, "Docs-aware target");
+		const prompt = buildGrillWithDocsUiPrompt(skillBlock, "Docs-aware target", "attempt-docs");
 
 		expect(prompt).toContain(skillBlock);
 		expect(prompt).toContain("Docs-aware target");
-		expect(prompt).toContain("Use the grill_ask tool for every user-facing grill question");
+		expect(prompt).toContain("whole current frontier");
 		expect(prompt).toContain("CONTEXT.md");
 		expect(prompt).toContain("docs-aware preflight");
-		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
-		expect(prompt).toContain("Frame questions and recommended answers with uniform polarity");
-		expect(prompt).toContain('If grill_ask returns action: "status-request"');
+		expect(prompt).toContain("docs-aware preflight");
+		expect(prompt).toContain('"attemptId":"attempt-docs"');
 	});
 });
 
@@ -240,8 +235,11 @@ describe("/pi:grill-me command", () => {
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain("A short design prompt");
-		expect(pi.sentUserMessages[0]).toContain("structured-grill-question-ui-contract");
-		expect(pi.sentUserMessages[0]).toContain("grill_ask");
+		expect(pi.sentUserMessages[0]).toContain("structured-grill-round-ui-contract");
+		expect(pi.sentUserMessages[0]).toContain("grill_ask_round");
+		expect(pi.sentUserMessages[0]).toMatch(
+			/<ns-grill-kickoff>\{"version":1,"attemptId":"[^"]+","policy":\{"kind":"general"\}\}<\/ns-grill-kickoff>/u,
+		);
 	});
 
 	test("expands the pi-grill-ui skill when available", async () => {
@@ -312,11 +310,11 @@ describe("/pi:grill-with-docs command", () => {
 
 		expect(pi.sentUserMessages).toHaveLength(1);
 		expect(pi.sentUserMessages[0]).toContain("A docs-aware design prompt");
-		expect(pi.sentUserMessages[0]).toContain("structured-grill-question-ui-contract");
-		expect(pi.sentUserMessages[0]).toContain("grill_ask");
-		expect(pi.sentUserMessages[0]).toContain("docs-first preflight");
+		expect(pi.sentUserMessages[0]).toContain("structured-grill-round-ui-contract");
+		expect(pi.sentUserMessages[0]).toContain("grill_ask_round");
+		expect(pi.sentUserMessages[0]).toContain("Docs-first preflight");
 		expect(pi.sentUserMessages[0]).toContain("CONTEXT.md");
-		expect(pi.sentUserMessages[0]).toContain("Offer ADR creation sparingly");
+		expect(pi.sentUserMessages[0]).toContain("Offer an ADR only when");
 		expect(pi.sentUserMessages[0]).toContain("Documentation updates");
 	});
 
@@ -828,7 +826,7 @@ describe("grill_ask execution", () => {
 });
 
 describe("registerGrillUiExtension", () => {
-	test("registers plain and docs-aware grill commands and one grill_ask tool", () => {
+	test("registers plain and docs-aware commands and only the atomic round tool", () => {
 		const { pi, tool } = register();
 		const schema = tool.parameters as {
 			type?: string;
@@ -840,17 +838,15 @@ describe("registerGrillUiExtension", () => {
 			GRILL_UI_COMMAND_NAME,
 			GRILL_WITH_DOCS_UI_COMMAND_NAME,
 		]);
-		expect([...pi.tools.keys()]).toEqual([GRILL_ASK_TOOL_NAME]);
+		expect([...pi.tools.keys()]).toEqual([GRILL_ASK_ROUND_TOOL_NAME]);
 		expect(schema.type).toBe("object");
-		expect(schema.required).toEqual(["question", "recommended", "options"]);
-		expect(schema.additionalProperties).toBe(false);
+		expect(schema.required).toBeUndefined();
+		expect(schema).toHaveProperty("oneOf");
 		// The grill contract lives in the self-contained kickoff prompts; the tool
 		// definition must not carry active-only global prompt metadata.
 		expect(tool.promptSnippet).toBeUndefined();
 		expect(tool.promptGuidelines).toBeUndefined();
-		expect(
-			(schema as { properties?: Record<string, unknown> }).properties?.estimatedRemaining,
-		).toBeDefined();
+		expect(pi.tools.has("grill_ask")).toBe(false);
 
 		const removedTerms = FORMER_PREFIX_INPUTS.map((input) => input.split(":")[0]);
 		const metadata = JSON.stringify({
@@ -863,18 +859,18 @@ describe("registerGrillUiExtension", () => {
 	});
 });
 
-describe("grill_ask activation lifecycle", () => {
-	test("session_start removes only grill_ask from the active set", () => {
-		const pi = new FakePi(["read", GRILL_ASK_TOOL_NAME, "bash"]);
+describe("grill_ask_round activation lifecycle", () => {
+	test("session_start removes only grill_ask_round from the active set", () => {
+		const pi = new FakePi(["read", GRILL_ASK_ROUND_TOOL_NAME, "bash"]);
 		register(pi);
 
 		pi.emitSessionStart();
 
-		expect(pi.tools.has(GRILL_ASK_TOOL_NAME)).toBe(true);
+		expect(pi.tools.has(GRILL_ASK_ROUND_TOOL_NAME)).toBe(true);
 		expect(pi.getActiveTools()).toEqual(["read", "bash"]);
 	});
 
-	test("session_start is a no-op when grill_ask is already inactive", () => {
+	test("session_start is a no-op when grill_ask_round is already inactive", () => {
 		const pi = new FakePi(["read", "bash"]);
 		register(pi);
 
@@ -912,7 +908,7 @@ describe("grill_ask activation lifecycle", () => {
 		]);
 	});
 
-	test("/pi:grill-me skill-expanded path activates grill_ask before sending", async () => {
+	test("/pi:grill-me skill-expanded path activates grill_ask_round before sending", async () => {
 		await withTempRepoSkill(
 			{
 				skillName: GRILL_UI_SKILL_NAME,
@@ -935,20 +931,20 @@ describe("grill_ask activation lifecycle", () => {
 					}),
 				);
 
-				expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_TOOL_NAME]);
-				expect(pi.events).toEqual([`set-active:read,${GRILL_ASK_TOOL_NAME}`, "send"]);
+				expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_ROUND_TOOL_NAME]);
+				expect(pi.events).toEqual([`set-active:read,${GRILL_ASK_ROUND_TOOL_NAME}`, "send"]);
 			},
 		);
 	});
 
-	test("/pi:grill-with-docs activates grill_ask before sending", async () => {
+	test("/pi:grill-with-docs activates grill_ask_round before sending", async () => {
 		const pi = new FakePi(["read"]);
 		const { docsCommand } = register(pi);
 
 		await docsCommand.handler("Docs target", commandContext({ hasUI: false }));
 
-		expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_TOOL_NAME]);
-		expect(pi.events).toEqual([`set-active:read,${GRILL_ASK_TOOL_NAME}`, "send"]);
+		expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_ROUND_TOOL_NAME]);
+		expect(pi.events).toEqual([`set-active:read,${GRILL_ASK_ROUND_TOOL_NAME}`, "send"]);
 	});
 
 	test("repeated grill commands keep activation idempotent", async () => {
@@ -958,10 +954,15 @@ describe("grill_ask activation lifecycle", () => {
 		await command.handler("Target one", commandContext({ hasUI: false }));
 		await docsCommand.handler("Target two", commandContext({ hasUI: false }));
 
-		expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_TOOL_NAME]);
+		expect(pi.getActiveTools()).toEqual(["read", GRILL_ASK_ROUND_TOOL_NAME]);
 		expect(pi.events.filter((event) => event.startsWith("set-active"))).toEqual([
-			`set-active:read,${GRILL_ASK_TOOL_NAME}`,
+			`set-active:read,${GRILL_ASK_ROUND_TOOL_NAME}`,
 		]);
+		const first = evaluateGrillAttempt([userMessage(pi.sentUserMessages[0])]);
+		const second = evaluateGrillAttempt([userMessage(pi.sentUserMessages[1])]);
+		expect(first.kickoff?.policy).toEqual({ kind: "general" });
+		expect(second.kickoff?.policy).toEqual({ kind: "general" });
+		expect(first.kickoff?.attemptId).not.toBe(second.kickoff?.attemptId);
 	});
 
 	test("blank/cancelled grill target does not activate grill_ask", async () => {

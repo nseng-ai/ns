@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 
+import { formatGrillKickoffMarker } from "@nseng-ai/pi-runtime/grill/surfaces";
+
 import type { GrillStatusEventContext } from "../../src/grill/status-protocol.ts";
 import {
 	buildGrillStatusWidgetLines,
@@ -10,54 +12,27 @@ import {
 } from "../../src/grill/status.ts";
 
 describe("buildGrillStatusWidgetLines", () => {
-	test("no grill or ended grill clears the widget", () => {
+	test("terminal and absent attempts clear the widget", () => {
 		expect(buildGrillStatusWidgetLines({ grill: "none" })).toBeUndefined();
-		expect(buildGrillStatusWidgetLines({ grill: "ended", answeredCount: 4 })).toBeUndefined();
+		expect(
+			buildGrillStatusWidgetLines({
+				grill: "confirmed",
+				submittedRoundCount: 2,
+				answeredDecisionCount: 5,
+			}),
+		).toBeUndefined();
 	});
 
-	test("active state shows progress, estimate, and pending preview", () => {
-		const lines = buildGrillStatusWidgetLines({
-			grill: "active",
-			answeredCount: 2,
-			pendingAsk: {
-				question: "How should the cache invalidate entries across worktrees?",
-				toolCallId: "call-3",
-				estimatedRemaining: { kind: "range", min: 2, max: 4, basis: "two open branches" },
-			},
-		});
-
-		expect(lines).toEqual([
-			'[grill] · 2 answered · Remaining 2–4 (rough: two open branches) · Q3 pending · "How should the cache invalidate entries across worktrees?"',
-		]);
-	});
-
-	test("active state without a pending call shows an ordinary estimate", () => {
+	test("active state reports between-round frontier progress", () => {
 		expect(
 			buildGrillStatusWidgetLines({
 				grill: "active",
-				answeredCount: 10,
-				remainingEstimate: { kind: "exact", count: 2, basis: "two decisions" },
+				submittedRoundCount: 2,
+				answeredDecisionCount: 5,
 			}),
-		).toEqual(["[grill] · 10 answered · Remaining 2 (basis: two decisions)"]);
-	});
-
-	test("active state without an estimate reports unknown", () => {
-		expect(buildGrillStatusWidgetLines({ grill: "active", answeredCount: 0 })).toEqual([
-			"[grill] · 0 answered · Remaining unknown (estimate not supplied)",
+		).toEqual([
+			"[grill rounds] · 2 rounds submitted · 5 decisions answered · recomputing complete frontier",
 		]);
-	});
-
-	test("long multiline questions are compacted and truncated", () => {
-		const lines = buildGrillStatusWidgetLines({
-			grill: "active",
-			answeredCount: 1,
-			pendingAsk: { question: `Should we\n${"really ".repeat(30)}do this?` },
-		});
-		const line = lines?.[0];
-		if (line === undefined) throw new Error("Expected one grill status line");
-		expect(line.length).toBeLessThan(180);
-		expect(line).not.toContain("\n");
-		expect(line).toContain("…");
 	});
 });
 
@@ -93,8 +68,14 @@ function widgetContext(options: {
 const ACTIVE_BRANCH = [
 	{
 		type: "message",
-		id: "kickoff",
-		message: { role: "user", content: "<structured-grill-question-ui-contract>" },
+		message: {
+			role: "user",
+			content: formatGrillKickoffMarker({
+				version: 1,
+				attemptId: "widget-attempt",
+				policy: { kind: "general" },
+			}),
+		},
 	},
 ];
 
@@ -105,7 +86,9 @@ describe("grill status widget updates", () => {
 		expect(active.calls).toEqual([
 			{
 				key: GRILL_STATUS_WIDGET_KEY,
-				lines: ["[grill] · 0 answered · Remaining unknown (estimate not supplied)"],
+				lines: [
+					"[grill rounds] · 0 rounds submitted · 0 decisions answered · recomputing complete frontier",
+				],
 				placement: "belowEditor",
 			},
 		]);
@@ -117,17 +100,15 @@ describe("grill status widget updates", () => {
 		]);
 	});
 
-	test("clear always removes the grill-status widget", () => {
-		const { ctx, calls } = widgetContext({ branch: ACTIVE_BRANCH });
-		clearGrillStatusWidget(ctx);
-		expect(calls).toEqual([{ key: "grill-status", lines: undefined, placement: "belowEditor" }]);
-	});
-
-	test("skips no-UI updates and swallows widget failures", () => {
+	test("clear, no-UI, and display failures remain harmless", () => {
+		const recording = widgetContext({ branch: ACTIVE_BRANCH });
+		clearGrillStatusWidget(recording.ctx);
+		expect(recording.calls).toEqual([
+			{ key: "grill-status", lines: undefined, placement: "belowEditor" },
+		]);
 		const noUi = widgetContext({ branch: ACTIVE_BRANCH, hasUI: false });
 		refreshGrillStatusWidget(noUi.ctx);
 		expect(noUi.calls).toEqual([]);
-
 		const throwing = widgetContext({
 			branch: ACTIVE_BRANCH,
 			setWidget: () => {
@@ -135,7 +116,6 @@ describe("grill status widget updates", () => {
 			},
 		});
 		expect(() => refreshGrillStatusWidget(throwing.ctx)).not.toThrow();
-		expect(() => clearGrillStatusWidget(throwing.ctx)).not.toThrow();
 	});
 });
 
@@ -148,14 +128,17 @@ describe("registerGrillStatusLifecycle", () => {
 			},
 		});
 		expect([...handlers.keys()]).toEqual(["turn_end", "session_start", "session_shutdown"]);
-
 		const recording = widgetContext({ branch: ACTIVE_BRANCH });
 		handlers.get("session_start")?.({}, recording.ctx);
 		handlers.get("turn_end")?.({}, recording.ctx);
 		handlers.get("session_shutdown")?.({}, recording.ctx);
 		expect(recording.calls.map((call) => call.lines)).toEqual([
-			["[grill] · 0 answered · Remaining unknown (estimate not supplied)"],
-			["[grill] · 0 answered · Remaining unknown (estimate not supplied)"],
+			[
+				"[grill rounds] · 0 rounds submitted · 0 decisions answered · recomputing complete frontier",
+			],
+			[
+				"[grill rounds] · 0 rounds submitted · 0 decisions answered · recomputing complete frontier",
+			],
 			undefined,
 		]);
 	});
