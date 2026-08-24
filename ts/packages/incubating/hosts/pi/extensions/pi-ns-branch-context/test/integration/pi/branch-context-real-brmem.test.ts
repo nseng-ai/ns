@@ -68,22 +68,12 @@ class StdinDroppingPi implements ExtensionAPI {
 	readonly sentMessages: CustomMessage[] = [];
 	readonly sentUserMessages: string[] = [];
 	readonly delegate = new NodeCommandExecApi();
-	private readonly activeTools: string[] = [];
-
 	registerCommand(name: string, options: RegisteredCommand): void {
 		this.commands.set(name, options);
 	}
 
 	registerTool(definition: ToolDefinition): void {
 		this.tools.set(definition.name, definition);
-	}
-
-	getActiveTools(): string[] {
-		return [...this.activeTools];
-	}
-
-	setActiveTools(names: string[]): void {
-		this.activeTools.splice(0, this.activeTools.length, ...names);
 	}
 
 	async exec(

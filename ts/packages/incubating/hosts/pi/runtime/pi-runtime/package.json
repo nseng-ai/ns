@@ -10,7 +10,6 @@
 		"./commands/events": "./src/commands/events.ts",
 		"./commands/helpers": "./src/commands/helpers.ts",
 		"./commands/io": "./src/commands/io.ts",
-		"./grill/surfaces": "./src/kit/grill/surfaces.ts",
 		"./models/call": "./src/kit/models/call.ts",
 		"./models/lm-json": "./src/kit/models/lm-json.ts",
 		"./parity/check": "./src/parity/check.ts",

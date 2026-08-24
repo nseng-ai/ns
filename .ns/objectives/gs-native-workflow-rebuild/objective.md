@@ -54,9 +54,9 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 
 ## Metaprompt
 
-When `objective-next` proposes implementation work for this Objective, serialize the inner proposed prompt as a directly invocable Pi planning command: its first line must begin with `/ns:plan:grill-and-save`, one space, and then the implementation-planning request. Keep the remaining prompt cold-start safe with the selected roadmap row, durable starting references, bounded scope, constraints, and completion evidence. This prefix applies to implementation proposals only; research, decision, grilling, and other non-implementation steps keep their natural prompt form.
+When `objective-next` proposes implementation work for this Objective, serialize the inner proposed prompt as a directly invocable `grill-me` skill request. Its first line must begin with `/skill:grill-me`, one space, and then the implementation-planning request. Keep the remaining prompt cold-start safe with the selected roadmap row, durable starting references, bounded scope, constraints, and completion evidence. This prefix applies to implementation proposals only; research, decision, and other non-implementation steps keep their natural prompt form.
 
-The command should produce a reviewed Saved plan before implementation rather than authorizing implementation directly. This serialization rule does not change step selection or grant execution permission.
+The skill should settle requirements for a reviewed Saved plan before implementation rather than authorize implementation directly. After the grill, save the reviewed plan with `/ns:plan:save`. This serialization rule does not change step selection or grant execution permission.
 
 ## Assumptions and Risks
 

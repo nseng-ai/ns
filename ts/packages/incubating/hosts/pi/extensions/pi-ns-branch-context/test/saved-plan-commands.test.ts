@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import registerBranchContextExtension, {
-	buildWriteGrilledPlanPrompt,
-	buildWritePlanPrompt,
-} from "../src/extension.ts";
+import registerBranchContextExtension, { buildWritePlanPrompt } from "../src/extension.ts";
 
 import {
 	FakePi,
@@ -24,13 +21,11 @@ describe("enriched-plan-commands", () => {
 			"ns:branch-context:from-plan",
 			"ns:branch-context:impl-attached-plan",
 			"ns:branch-context:upstack-impl-from-plan",
-			"ns:plan:grill-and-save",
 			"ns:plan:impl-saved-plan",
 			"ns:plan:save",
 		]);
 		expect([...pi.commands.keys()].filter((name) => name.startsWith("ns:plan:"))).toEqual([
 			"ns:plan:save",
-			"ns:plan:grill-and-save",
 			"ns:plan:impl-saved-plan",
 		]);
 		expect(pi.commands.has("ns:plan:impl-current")).toBe(false);
@@ -38,99 +33,6 @@ describe("enriched-plan-commands", () => {
 		expect([...pi.commands.keys()].some((name) => name.startsWith("branch-context:"))).toBe(false);
 		expect(pi.tools.has("write_saved_plan_file")).toBe(true);
 		expect([...pi.tools.keys()]).toEqual(["write_saved_plan_file"]);
-	});
-
-	test("ns:plan:grill-and-save waits for idle and dispatches embedded prompt without prompt resolution", async () => {
-		const events: string[] = [];
-		const pi = new FakePi([], events);
-		registerBranchContextExtension(pi);
-		const command = pi.commands.get("ns:plan:grill-and-save");
-		expect(command).toBeDefined();
-		const context = createContext(events);
-
-		await command?.handler("  plan the grilled command variant  ", context.ctx);
-
-		pi.assertDone();
-		expect(context.waits()).toBe(1);
-		expect(events).toContain("wait");
-		expect(events.at(-1)).toBe("send");
-		expect(pi.execCalls).toEqual([]);
-		expect(pi.sentUserMessages).toEqual([
-			buildWriteGrilledPlanPrompt("plan the grilled command variant"),
-		]);
-		expect(pi.sentUserMessages[0]).toContain("grill_ask");
-		expect(pi.sentUserMessages[0]).toContain("uniform polarity");
-		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
-		expect(context.notifications).toEqual([
-			{ message: "Starting /ns:plan:grill-and-save planning grill…", level: "info" },
-		]);
-	});
-
-	test("ns:plan:grill-and-save with empty args still sends a prompt with none steering", async () => {
-		const pi = new FakePi();
-		registerBranchContextExtension(pi);
-		const command = pi.commands.get("ns:plan:grill-and-save");
-		const context = createContext();
-
-		await command?.handler("   ", context.ctx);
-
-		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([buildWriteGrilledPlanPrompt("")]);
-		expect(pi.sentUserMessages[0]).toContain("User steering for this planning request: (none)");
-	});
-
-	test("ns:plan:grill-and-save activates grill_ask before sending, preserving other active tools", async () => {
-		const events: string[] = [];
-		const pi = new FakePi([], events);
-		pi.seedActiveTools(["read", "bash"]);
-		registerBranchContextExtension(pi);
-		const command = pi.commands.get("ns:plan:grill-and-save");
-		const context = createContext(events);
-
-		await command?.handler("grill this plan", context.ctx);
-
-		pi.assertDone();
-		expect(pi.getActiveTools()).toEqual(["read", "bash", "grill_ask"]);
-		const waitIndex = events.indexOf("wait");
-		const activateIndex = events.indexOf("set-active:read,bash,grill_ask");
-		const sendIndex = events.indexOf("send");
-		expect(waitIndex).toBeGreaterThanOrEqual(0);
-		expect(activateIndex).toBeGreaterThan(waitIndex);
-		expect(sendIndex).toBeGreaterThan(activateIndex);
-	});
-
-	test("ns:plan:grill-and-save activation is idempotent across repeated invocations", async () => {
-		const events: string[] = [];
-		const pi = new FakePi([], events);
-		pi.seedActiveTools(["read"]);
-		registerBranchContextExtension(pi);
-		const command = pi.commands.get("ns:plan:grill-and-save");
-
-		await command?.handler("first grill", createContext(events).ctx);
-		await command?.handler("second grill", createContext(events).ctx);
-
-		pi.assertDone();
-		expect(pi.getActiveTools()).toEqual(["read", "grill_ask"]);
-		expect(events.filter((event) => event.startsWith("set-active"))).toEqual([
-			"set-active:read,grill_ask",
-		]);
-	});
-
-	test("ns:plan:save does not activate grill_ask", async () => {
-		const events: string[] = [];
-		const repoRoot = await makeRepoPrompt();
-		const pi = new FakePi([gitRootStep(repoRoot)], events);
-		pi.seedActiveTools(["read"]);
-		registerBranchContextExtension(pi);
-		const command = pi.commands.get("ns:plan:save");
-		expect(command).toBeDefined();
-		const context = createContext(events, { cwd: repoRoot });
-
-		await command?.handler("plain plan save", context.ctx);
-
-		pi.assertDone();
-		expect(pi.getActiveTools()).toEqual(["read"]);
-		expect(events.filter((event) => event.startsWith("set-active"))).toEqual([]);
 	});
 
 	test("ns:plan:save waits for idle, reads repo prompt, and dispatches the generated prompt", async () => {

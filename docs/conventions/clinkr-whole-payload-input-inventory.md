@@ -17,7 +17,7 @@ Clinkr owns the reusable JSON-input operation through `@nseng-ai/clinkr/app`: it
 
 The former `enriched-plan exec save` command and `enriched-plan-save` skill were the only shared-style arbitrary-text consumer and have been deleted. The retained `enriched-plan` CLI supports Saved Plan listing and resolution only.
 
-Pi `/ns:plan:save`, `/ns:plan:grill-and-save`, `write_saved_plan_file`, and `writeSavedPlanFile()` receive complete content as command/tool/domain arguments and are not stdin consumers.
+Pi `/ns:plan:save`, `write_saved_plan_file`, and `writeSavedPlanFile()` receive complete content as command, tool, or domain arguments and are not stdin consumers. Users can review a plan with the portable grilling and domain-modeling skills before invoking `/ns:plan:save`.
 
 ## Command-owned non-JSON payloads outside the shared seam
 

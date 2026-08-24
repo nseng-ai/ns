@@ -126,8 +126,6 @@ describe("skill-backed command registry", () => {
 		expect(skillNames).not.toContain("objective-close");
 		expect(skillNames).not.toContain("objective-create");
 		expect(skillNames).not.toContain("code-gt-restack-resolve");
-		expect(skillNames).not.toContain("pi-grill-ui");
-		expect(skillNames).not.toContain("pi-grill-with-docs-ui");
 		expect(skillNames).not.toContain("pr-address");
 		expect(skillNames).not.toContain("typescript-fake-driven-testing");
 		expect(skillNames).not.toContain("typescript-style");
@@ -150,7 +148,6 @@ describe("skill-backed command registry", () => {
 				"objective-next",
 				"objective-close",
 				"objective-autorun",
-				"pi-grill-ui",
 				"ns-flow-gt-autobranch",
 			]),
 		);
@@ -158,7 +155,6 @@ describe("skill-backed command registry", () => {
 			expect(specializedSurfaces).toContain(surface);
 		}
 		expect(specializedSurfaces).toContain("ns:handoff:create");
-		expect(specializedSurfaces).toContain("pi:grill-me");
 		expect(specializedSurfaces).not.toContain("code:workflows");
 	});
 
@@ -174,8 +170,6 @@ describe("skill-backed command registry", () => {
 		expect(surfaces).toContain("ns:flow:gs:autobranch");
 		expect(surfaces).toContain("ns:flow:gs:autoslot");
 		expect(surfaces).toContain("ns:handoff:create");
-		expect(surfaces).toContain("pi:grill-me");
-		expect(surfaces).toContain("pi:grill-with-docs");
 		expect(surfaces).not.toContain("skill:x");
 		expect(surfaces).not.toContain("foo:bar-baz");
 		expect(surfaces).not.toContain("pr:address");
@@ -183,8 +177,6 @@ describe("skill-backed command registry", () => {
 		expect(surfaces).not.toContain("code:gh");
 		expect(surfaces).not.toContain("typescript:fake-driven-testing");
 		expect(surfaces).not.toContain("typescript:style");
-		expect(surfaces).not.toContain("grill:me");
-		expect(surfaces).not.toContain("grill:with-docs");
 	});
 });
 
@@ -252,8 +244,6 @@ describe("genericSkillBackedCommandSpecs", () => {
 		expect(surfaces).not.toContain("code:gh");
 		expect(surfaces).not.toContain("typescript:fake-driven-testing");
 		expect(surfaces).not.toContain("typescript:style");
-		expect(surfaces).not.toContain("grill:me");
-		expect(surfaces).not.toContain("grill:with-docs");
 		expect(surfaces).not.toContain("ns:objective:close");
 		expect(surfaces).not.toContain("ns:objective:create");
 		expect(surfaces).not.toContain("objective:current");

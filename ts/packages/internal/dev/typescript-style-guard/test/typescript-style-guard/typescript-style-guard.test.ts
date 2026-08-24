@@ -706,7 +706,7 @@ describe("TypeScript style guard internal-space admission rules", () => {
 
 describe("TypeScript style guard package tier layering rules", () => {
 	const syntheticPackages = new Set([
-		"@internal/pi-tools/grill",
+		"@internal/pi-tools/context-profiler",
 		"@internal/ns-pi-subagents/runner-subagents",
 		"@nseng-ai/vibechk",
 		"@nseng-ai/slots",
@@ -719,7 +719,7 @@ describe("TypeScript style guard package tier layering rules", () => {
 		"@nseng-ai/slots",
 	]);
 	const baseTiers = new Map<string, SyntheticTier>([
-		["@internal/pi-tools/grill", "internal-tool"],
+		["@internal/pi-tools/context-profiler", "internal-tool"],
 		["@internal/ns-pi-subagents/runner-subagents", "internal-tool"],
 		["@nseng-ai/vibechk", "standalone-tool"],
 		["@nseng-ai/slots", "extension"],
@@ -774,24 +774,27 @@ describe("TypeScript style guard package tier layering rules", () => {
 		},
 		{
 			name: "internal tool to host is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/pi-runtime" }],
+			edges: [{ from: "@internal/pi-tools/context-profiler", to: "@nseng-ai/pi-runtime" }],
 			expectedViolation: false,
 		},
 		{
 			name: "internal tool to internal tool is allowed",
 			edges: [
-				{ from: "@internal/pi-tools/grill", to: "@internal/ns-pi-subagents/runner-subagents" },
+				{
+					from: "@internal/pi-tools/context-profiler",
+					to: "@internal/ns-pi-subagents/runner-subagents",
+				},
 			],
 			expectedViolation: false,
 		},
 		{
 			name: "internal tool to standalone tool is allowed",
-			edges: [{ from: "@internal/pi-tools/grill", to: "@nseng-ai/vibechk" }],
+			edges: [{ from: "@internal/pi-tools/context-profiler", to: "@nseng-ai/vibechk" }],
 			expectedViolation: false,
 		},
 		{
 			name: "standalone tool to internal tool is rejected",
-			edges: [{ from: "@nseng-ai/vibechk", to: "@internal/pi-tools/grill" }],
+			edges: [{ from: "@nseng-ai/vibechk", to: "@internal/pi-tools/context-profiler" }],
 			expectedTextIncludes: "standalone-tool-must-not-depend-on-internal-tool",
 		},
 		{

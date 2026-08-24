@@ -61,7 +61,6 @@ export interface BasePiSurfaceParity {
 		| "@internal/pi-tools/skill-backed-commands"
 		| "@internal/pi-tools/code-workflows"
 		| "@internal/pi-tools/context-profiler"
-		| "@internal/pi-tools/grill"
 		| "@internal/pi-tools/pr-feedback-watch"
 		| "@internal/pi-tools/stack-view"
 		| "@internal/pi-tools/thermo-council"

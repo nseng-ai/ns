@@ -84,12 +84,6 @@ const SKILL_BACKED_COMMAND_REGISTRY = [
 		surface: "ns:objective:refresh",
 		kind: "generic-backing-skill",
 	},
-	{ skillName: "pi-grill-ui", surface: "pi:grill-me", kind: "specialized-command" },
-	{
-		skillName: "pi-grill-with-docs-ui",
-		surface: "pi:grill-with-docs",
-		kind: "specialized-command",
-	},
 	{ skillName: "refactor-swarm", surface: "refactor:swarm", kind: "generic-backing-skill" },
 	{
 		skillName: "reinvented-abstractions-tripwire",
