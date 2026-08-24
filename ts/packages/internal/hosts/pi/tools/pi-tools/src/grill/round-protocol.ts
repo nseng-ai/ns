@@ -1,0 +1,172 @@
+import { z } from "zod";
+
+const roundOptionSchema = z.lazy(() =>
+	z.strictObject({
+		value: z.string().trim().min(1),
+		label: z.string().trim().min(1),
+		description: z.string().trim().min(1).optional(),
+	}),
+);
+
+const roundQuestionSchema = z.lazy(() =>
+	z.strictObject({
+		id: z.string().trim().min(1),
+		question: z.string().trim().min(1),
+		context: z.string().trim().min(1).optional(),
+		options: z.array(roundOptionSchema).min(2).max(5),
+		recommendedOptionValue: z.string().trim().min(1),
+		recommendationRationale: z.string().trim().min(1),
+	}),
+);
+
+const decisionRoundSchema = z.lazy(() =>
+	z.strictObject({
+		mode: z.literal("decision-round"),
+		roundId: z.string().trim().min(1),
+		questions: z.array(roundQuestionSchema).min(1),
+	}),
+);
+
+const confirmationRoundSchema = z.lazy(() =>
+	z.strictObject({
+		mode: z.literal("confirmation"),
+		summary: z.string().trim().min(1),
+	}),
+);
+
+export const grillRoundInputSchema = z.lazy(() =>
+	z.discriminatedUnion("mode", [decisionRoundSchema, confirmationRoundSchema]),
+);
+
+export type GrillRoundInput = z.infer<typeof grillRoundInputSchema>;
+export type GrillDecisionRoundInput = Extract<GrillRoundInput, { mode: "decision-round" }>;
+export type GrillRoundQuestion = GrillDecisionRoundInput["questions"][number];
+export type GrillRoundOption = GrillRoundQuestion["options"][number];
+
+export type GrillRoundAnswer =
+	| {
+			questionId: string;
+			kind: "option";
+			value: string;
+			label: string;
+			recommendation: "retained" | "changed";
+	  }
+	| {
+			questionId: string;
+			kind: "freeform";
+			value: string;
+			recommendation: "changed";
+	  };
+
+export type GrillRoundUiOutcome =
+	| { action: "submitted"; answers: readonly GrillRoundAnswer[] }
+	| { action: "cancelled" }
+	| { action: "ended" }
+	| { action: "confirmed" }
+	| { action: "return-to-grilling" };
+
+export type GrillRoundDetails =
+	| {
+			action: "submitted";
+			mode: "decision-round";
+			roundId: string;
+			answers: readonly GrillRoundAnswer[];
+			submittedRoundCount: number;
+			answeredDecisionCount: number;
+	  }
+	| {
+			action: "cancelled" | "ended" | "ui-failed" | "cap-exhausted";
+			mode: "decision-round";
+			roundId: string;
+	  }
+	| {
+			action: "confirmed" | "return-to-grilling" | "ui-failed";
+			mode: "confirmation";
+	  }
+	| { action: "invalid-tool-input"; errors: readonly string[] };
+
+export interface GrillRoundToolResult {
+	content: Array<{ type: "text"; text: string }>;
+	details: GrillRoundDetails;
+	terminate?: boolean;
+}
+
+export interface GrillRoundToolContext {
+	hasUI: boolean;
+	ui: {
+		custom?<T>(
+			factory: (
+				tui: unknown,
+				theme: unknown,
+				keybindings: unknown,
+				done: (value: T) => void,
+			) => GrillRoundCustomComponent,
+			options?: unknown,
+		): Promise<T>;
+	};
+	sessionManager?: { getBranch(): readonly unknown[] };
+}
+
+export interface GrillRoundCustomComponent {
+	render(width: number): string[];
+	handleInput?(data: string): void;
+	invalidate(): void;
+	isFocused?: boolean;
+	dispose?(): void;
+}
+
+export interface GrillRoundExecutionOptions {
+	uiRunner?: (
+		input: GrillRoundInput,
+		ctx: GrillRoundToolContext,
+	) => Promise<GrillRoundUiOutcome | undefined>;
+}
+
+export type GrillRoundValidation =
+	| { ok: true; input: GrillRoundInput; oversized: boolean }
+	| { ok: false; errors: readonly string[] };
+
+/** Validate the complete round atomically, including cross-field identities. */
+export function validateGrillRoundInput(value: unknown): GrillRoundValidation {
+	const parsed = grillRoundInputSchema.safeParse(value);
+	if (!parsed.success) {
+		return { ok: false, errors: parsed.error.issues.map(formatIssue) };
+	}
+	if (parsed.data.mode === "confirmation") {
+		return { ok: true, input: parsed.data, oversized: false };
+	}
+
+	const errors: string[] = [];
+	const questionIds = new Set<string>();
+	for (const [index, question] of parsed.data.questions.entries()) {
+		if (questionIds.has(question.id))
+			errors.push(`questions[${index}].id duplicates ${question.id}.`);
+		questionIds.add(question.id);
+		const values = new Set<string>();
+		for (const [optionIndex, option] of question.options.entries()) {
+			if (values.has(option.value)) {
+				errors.push(
+					`questions[${index}].options[${optionIndex}].value duplicates ${option.value}.`,
+				);
+			}
+			values.add(option.value);
+		}
+		const mappings = question.options.filter(
+			(option) => option.value === question.recommendedOptionValue,
+		);
+		if (mappings.length !== 1) {
+			errors.push(`questions[${index}].recommendedOptionValue must map to exactly one option.`);
+		}
+	}
+	if (errors.length > 0) return { ok: false, errors };
+	return {
+		ok: true,
+		input: parsed.data,
+		oversized: parsed.data.questions.length > 8,
+	};
+}
+
+function formatIssue(issue: z.core.$ZodIssue): string {
+	const path = issue.path.length === 0 ? "input" : issue.path.join(".");
+	return `${path}: ${issue.message}`;
+}

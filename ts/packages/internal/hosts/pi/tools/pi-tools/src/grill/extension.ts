@@ -14,6 +14,26 @@ import { registerGrillStatusLifecycle } from "./status.ts";
 import { GRILL_ASK_PARAMETERS } from "./validate.ts";
 
 export { executeGrillAsk } from "./execution.ts";
+export { executeGrillAskRound } from "./round-execution.ts";
+export {
+	grillRoundInputSchema,
+	validateGrillRoundInput,
+	type GrillDecisionRoundInput,
+	type GrillRoundAnswer,
+	type GrillRoundDetails,
+	type GrillRoundInput,
+	type GrillRoundToolContext,
+	type GrillRoundToolResult,
+	type GrillRoundUiOutcome,
+	type GrillRoundValidation,
+} from "./round-protocol.ts";
+export { GrillRoundController, type GrillRoundView } from "./round-controller.ts";
+export {
+	grillRoundInlineRuntimeFromModule,
+	runGrillRoundInlineUi,
+	runGrillRoundInlineUiWithRuntime,
+	type GrillRoundInlineRuntime,
+} from "./round-ui.ts";
 export {
 	GRILL_UI_CONTRACT,
 	buildGrillAskSelectTitle,
@@ -45,6 +65,7 @@ export {
 } from "./validate.ts";
 
 export {
+	GRILL_ASK_ROUND_TOOL_NAME,
 	GRILL_ASK_TOOL_NAME,
 	GRILL_UI_COMMAND_NAME,
 	GRILL_UI_SKILL_NAME,
