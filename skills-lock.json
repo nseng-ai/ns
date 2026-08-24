@@ -365,6 +365,12 @@
       "sourceType": "local",
       "computedHash": "314c32ed33349af246789f3343e058b13ea762fe473d6e214c7398e71a443c2e"
     },
+    "unslop": {
+      "source": "cursor/plugins",
+      "sourceType": "github",
+      "skillPath": "pstack/skills/unslop/SKILL.md",
+      "computedHash": "3dfc2afeda677e12c6065497a40df7d895859de1c7d1cffb899b1559d129fe4f"
+    },
     "wait-what": {
       "source": "mattpocock/skills",
       "sourceType": "github",
