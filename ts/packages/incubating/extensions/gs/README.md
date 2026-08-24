@@ -3,10 +3,10 @@
 Provider-branded ns workflows for the official
 [`github/gh-stack`](https://github.com/github/gh-stack) provider.
 
-Today the package implements only local, read-only inventory through `ns gs list`. The lifecycle
-contract below governs the preparation, reconciliation, publication, inventory-generation, and landing
-commands as they are added. Unimplemented workflows are not available commands or compatibility
-promises.
+The package implements local, read-only inventory through `ns gs list` and the local inter-branch
+`ns gs restack-resolve` lifecycle workflow. The remaining lifecycle contract below governs preparation,
+reconciliation, publication, inventory-generation, and landing commands as they are added. Unimplemented
+workflows are not available commands or compatibility promises.
 
 ## Supported provider baseline
 
@@ -37,12 +37,11 @@ The intended outcome loop is:
 7. prepare or apply GS PR inventories; and
 8. land a verified stack or prefix and reconcile the result.
 
-Only the local inspection step is implemented today. Before any later mutating step is implemented, its
-focused provider experiment must settle the supported starting states, public provider operations,
-observed postconditions, refusals, partial effects, and recovery guidance. The first settled but still
-unimplemented slice is the local, inter-branch `restack-resolve` contract below. The v0.1.0 help text for
-`sync`, `submit`, `link`, and `merge` describes candidate capabilities; its remote effects, rollback,
-atomicity, and failure boundaries are not yet ns guarantees.
+Local inspection and the local, inter-branch `restack-resolve` slice are implemented. Before any later
+mutating step is implemented, its focused provider experiment must settle the supported starting states,
+public provider operations, observed postconditions, refusals, partial effects, and recovery guidance.
+The v0.1.0 help text for `sync`, `submit`, `link`, and `merge` describes candidate capabilities; its
+remote effects, rollback, atomicity, and failure boundaries are not yet ns guarantees.
 
 Lifecycle code uses only supported public gh-stack commands. It never reads or mutates
 `<git-common-dir>/gh-stack`; the existing inventory reader is a separately justified local inspection
@@ -70,9 +69,13 @@ GS does not blindly retry, infer rollback, delete a branch, run whole-stack `uns
 provider-private metadata. No-remote experiments show only that v0.1.0 preflight failures left tested
 local refs and worktrees unchanged; they do not establish general rollback or transactionality.
 
-### Settled contract: restack-resolve
+### Implemented command: restack-resolve
 
-`ns gs restack-resolve` is approved for implementation as a local inter-branch workflow pinned to
+```bash
+ns gs restack-resolve [--downstack] [--dry-run|-n] [--yes|-y]
+```
+
+`ns gs restack-resolve` is a local inter-branch workflow pinned to
 `gh stack` v0.1.0. It uses public `gh stack rebase --no-trunk` for full scope and adds `--downstack` only
 when the user explicitly requests the narrower trunk-side/current scope. It resumes a provider-started
 conflict with one `gh stack rebase --continue` per accepted conflict stop. It never calls `sync`, fetches,
@@ -97,6 +100,15 @@ at a time, stages only an accepted resolution, runs relevant project checks, and
 once before observing the next state. Ambiguous resolutions escalate and remain stopped. GS never
 implicitly aborts, skips, replays the start command, or switches a provider-started operation to raw Git;
 `gh stack rebase --abort` requires explicit user authorization.
+
+The command selects start or continuation from observed Git state; it has no public `--continue` flag.
+`--dry-run` reports the known range without provider mutation. A non-interactive advancing invocation
+requires `--yes`; an interactive invocation prompts once. `--downstack` is rejected during an active
+rebase because the provider has already established continuation scope. Unmerged paths and a continuation
+with no staged resolution return structured negative results. Each accepted invocation advances the
+provider at most once and reports `dry-run`, `completed`, `refused`, `conflict-stopped`, or `ambiguous`
+evidence plus one recovery action. All `gh stack` subprocesses disable provider, Git terminal, and editor
+prompts while preserving the caller's remaining environment.
 
 The CLI owns deterministic version, topology, cleanliness, and worktree preflight; provider invocation;
 structured outcome classification; and Git/provider postcondition evidence. The portable skill owns

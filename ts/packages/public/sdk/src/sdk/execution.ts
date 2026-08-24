@@ -13,6 +13,8 @@ import type { TextGenerator } from "./text-generation.ts";
 export interface NsExecOptions {
 	timeoutMs?: number;
 	cwd?: ExplicitUndefined<"public-api-compatibility", string>;
+	/** Environment values overlaid on the host's child-process environment for this command. */
+	env?: ExplicitUndefined<"public-api-compatibility", Readonly<Record<string, string | undefined>>>;
 	stdin?: ExplicitUndefined<"public-api-compatibility", string>;
 	onStdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	onStderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;

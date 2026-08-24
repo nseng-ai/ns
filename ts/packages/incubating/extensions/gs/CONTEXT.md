@@ -31,3 +31,23 @@ The provider-branded `ns gs` command group. Its `list` operation exposes the Loc
 **Local-only inventory**:
 The command contract that resolves Git's common directory, consumes gh-stack's local state file, and checks local Git branch refs. It does not require provider installation, GitHub authentication, or network access.
 *Avoid*: fallback mode, partial remote inventory
+
+**Local restack scope**:
+The bottom-to-top branch range selected by `ns gs restack-resolve`: current-through-top by default, or bottom-through-current with explicit `--downstack`. A read-only Base anchor can sit immediately below the rewrite range.
+*Avoid*: whole repository, remote stack scope, trunk integration
+
+**Conflict stop**:
+A resumable Git rebase state left after one provider advancement reaches an unresolved path. The initiating worktree and observed partial ref movement are preserved.
+*Avoid*: failed transaction, automatic rollback
+
+**Restack continuation**:
+Exactly one public `gh stack rebase --continue` invocation after all unmerged paths are resolved and an accepted resolution is staged. The provider-established original range remains unknown while detached.
+*Avoid*: raw Git continuation, replayed restack
+
+**Observed restack completion**:
+Completion established from fresh Git checkout, cleanliness, operation, ancestry, local ref, and public gh-stack topology facts rather than provider process success alone.
+*Avoid*: command succeeded, assumed completion
+
+**Recovery action**:
+The one structured next step returned with every restack-resolve result, such as resolve conflicts, stage a resolution, fix a precondition, or inspect ambiguous facts.
+*Avoid*: recovery script, automatic repair
