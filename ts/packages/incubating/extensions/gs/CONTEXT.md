@@ -33,8 +33,24 @@ A recorded branch with no local pull-request identity. It makes no claim about w
 *Avoid*: unpushed, no PR exists
 
 **GS command face**:
-The gh-stack-native `ns gs` command group. Its `list` operation exposes the Current-worktree gh-stack inventory with Provider worktree provenance; its `restack-resolve` operation starts or advances one local gh-stack restack step. The latter has a thin `/ns:gs:restack-resolve` Pi mirror through the separate GS Pi restack router.
+The gh-stack-native `ns gs` command group. `list` exposes Current-worktree gh-stack inventory with Provider worktree provenance; `restack-resolve` starts or advances one local gh-stack restack step and has a thin `/ns:gs:restack-resolve` Pi mirror through the separate GS Pi restack router; and `autobranch` moves dirty cached trunk or the invoking view's tracked top onto a checkpointed child.
 *Avoid*: `ns flow gs`, generic stack command
+
+**GS autobranch**:
+The Tier-2 `ns gs autobranch` outcome that supports Dirty trunk bootstrap and Dirty tracked-top extension only. It prepares a child and checkpoint before authorization, uses cached trunk without fetch, and reports completion only from observed shared Git refs plus invoking-worktree public provider facts.
+*Avoid*: Flow autobranch, generic provider autobranch, latest-commit extraction, transaction
+
+**Dirty trunk bootstrap**:
+The mutation order ordinary child creation → checkpoint → public `gh stack init`, followed by Git and invoking-worktree provider observation. Provider failure preserves the committed child.
+*Avoid*: initialize-before-checkpoint, existing-branch adoption
+
+**Dirty tracked-top extension**:
+The mutation order public `gh stack add` → observed dirty child attachment → checkpoint, allowed only when the source occurs exactly once as current/topmost in the invoking provider view.
+*Avoid*: peer-authorized extension, tracked-anywhere extension
+
+**Forward autobranch recovery**:
+A bounded known-partial or ambiguous result that preserves observed branch, SHA, dirtiness, effects, and provider relationship without retry, rollback, deletion, private-state repair, peer mutation, Slots, push, or GitHub mutation.
+*Avoid*: rollback plan, retry transaction
 
 **Restack start**:
 One authorized `gh stack rebase --no-trunk` invocation, scoped downstack by default and widened to full inter-branch scope only by explicit `--full`. It requires exact gh-stack version 0.1.0, a clean worktree, a named branch, and no active Git operation.

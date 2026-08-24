@@ -44,6 +44,15 @@ describe("ns gs list public route", () => {
 		expect(await list.exit).toBe(0);
 		expect(list.stdout.join(" ")).toContain("-v, --verbose");
 		expect(fixture.context.execCalls).toEqual([]);
+		const autobranch = runScenario(["gs", "autobranch", "--help"], fixture);
+		expect(await autobranch.exit).toBe(0);
+		expect(autobranch.stdout.join(" ")).toContain("-s, --slug");
+		expect(autobranch.stdout.join(" ")).toContain("-y, --yes");
+		const autobranchSchema = runScenario(["gs", "autobranch", "--json-schema"], fixture);
+		expect(await autobranchSchema.exit).toBe(0);
+		expect(JSON.parse(autobranchSchema.stdout.join(""))).toHaveProperty(
+			"machineEnvelopeJsonSchema",
+		);
 		const restack = runScenario(["gs", "restack-resolve", "--help"], fixture);
 		expect(await restack.exit).toBe(0);
 		expect(restack.stdout.join(" ")).toContain("--full");
