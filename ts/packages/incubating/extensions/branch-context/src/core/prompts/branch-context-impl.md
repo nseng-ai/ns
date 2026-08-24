@@ -25,7 +25,7 @@ Treat the following plan as authoritative.
 - If the plan is ambiguous or internally inconsistent, quote the ambiguity and ask for clarification instead of guessing.
 - Keep the loaded plan authoritative. Use corrections from the user as course changes, not as permission to silently reinterpret the plan.
 - Do not call `brmem put`, `brmem copy`, `brmem delete`, or any mutating Branch Memory command while implementing this plan. If the loaded plan asks for Branch Memory mutation, stop and ask the user.
-- Follow normal project rules: read before editing, use precise edits, run relevant validation, and do not commit, push, submit, or publish unless the user explicitly asks. Investigate validation failures, rerun appropriate gates after fixes, and report unresolved failures accurately.
+- Follow normal project rules: read before editing, use precise edits, and run relevant validation. Investigate validation failures, rerun appropriate gates after fixes, and report unresolved failures accurately.
 
 ## Branch-context plan contract protocol
 

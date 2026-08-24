@@ -551,7 +551,7 @@ ${formatImplSavedPlanEvidence(preview)}
 - Create an implementation checklist before editing.
 - Treat the embedded Saved Plan as authoritative unless current repo state proves it stale.
 - If the plan is ambiguous or internally inconsistent, quote the ambiguity and ask for clarification instead of guessing.
-- Follow normal project rules: read before editing, use precise edits, run relevant validation, and do not commit, push, submit, or publish unless the user explicitly asks. Investigate validation failures, rerun appropriate gates after fixes, and report unresolved failures accurately.
+- Follow normal project rules: read before editing, use precise edits, and run relevant validation. Investigate validation failures, rerun appropriate gates after fixes, and report unresolved failures accurately.
 - Do not call brmem put, brmem copy, brmem delete, or any mutating Branch Memory command merely because this command lives near Branch Context code. If the plan asks for Branch Memory mutation, stop and ask the user.
 - If the Saved Plan includes current-state excerpts, scope boundaries, verification gates, or STOP conditions, compare excerpts against live repo state before editing. An excerpt mismatch is a STOP.
 - If those contract sections are absent, explicitly recognize the plan as old-format/pre-contract and do not invent gates or half-apply excerpt checks.
