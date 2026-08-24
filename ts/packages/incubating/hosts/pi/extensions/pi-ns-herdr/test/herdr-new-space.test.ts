@@ -48,7 +48,7 @@ describe("Herdr new space", () => {
 			herdr,
 			labelDeriver: {
 				async deriveLabel(input) {
-					derivations.push(input);
+					derivations.push({ description: input.description, cwd: input.cwd });
 					return "review-brmem-contract";
 				},
 			},
@@ -72,6 +72,29 @@ describe("Herdr new space", () => {
 					label: "s4:review-brmem-contract",
 				},
 			},
+		]);
+	});
+
+	test("presents one label-policy warning before label derivation completes", async () => {
+		const ctx = new FakeCommandContext();
+		const herdr = new FakeHerdrGateway();
+
+		await handleHerdrNewSpace({
+			herdr,
+			labelDeriver: {
+				async deriveLabel(input) {
+					input.onModelPolicyWarning?.("using built-in model policy");
+					expect(herdr.createWorkspaceCalls).toEqual([]);
+					return "review-brmem-contract";
+				},
+			},
+			args: "review the public brmem API",
+			ctx,
+			notifyProgress: () => {},
+		});
+
+		expect(ctx.notifications.filter((notification) => notification.level === "warning")).toEqual([
+			{ message: "using built-in model policy", level: "warning" },
 		]);
 	});
 

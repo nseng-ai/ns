@@ -24,6 +24,8 @@ function lastStderrOutput(
 	return entries.findLast((entry) => entry.stream === "stderr")?.text ?? "";
 }
 
+const FALLBACK_WARNING =
+	"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.";
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const INHERITED_TTY_RENDER_CAPABILITIES = {
 	canEmitAnsi: false,
@@ -1374,6 +1376,7 @@ describe("project-local submit extension", () => {
 	test("unknown dry-run failure uses model-primary message and writes a raw log", async () => {
 		const logRoot = await mkdtemp(join(tmpdir(), "ns-submit-test-"));
 		const run = runWithFakes({
+			modelPolicyToml: null,
 			env: {
 				NS_SUBMIT_FAILURE_LOG_DIR: logRoot,
 			},
@@ -1409,6 +1412,7 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("```");
 		expect(error).not.toContain("----- stdout -----");
 		expect(error).not.toContain("mystery graphite failure");
+		expect(error.split(FALLBACK_WARNING)).toHaveLength(2);
 
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);

@@ -290,6 +290,50 @@ describe("tracked branch payload public API", () => {
 		expect(git.createBranchAtStartPointCalls).toEqual([]);
 	});
 
+	test("presents one built-in warning before tracked-branch model execution", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "tracked-branch-fallback-"));
+		directories.push(repoRoot);
+		const prompt = "Implement the feature";
+		const commands = new FakeCommands([
+			{
+				command: "pi",
+				args: buildRawTextModelArgs(
+					buildTrackedBranchSlugPrompt({ kind: "task", content: prompt }),
+					TEST_MODEL_SELECTION,
+				),
+				result: exited({ stdout: "implement-feature\n" }),
+			},
+			{
+				command: "git",
+				args: ["show-ref", "--verify", "--quiet", "refs/heads/implement-feature"],
+				result: exited({ code: 1 }),
+			},
+			{
+				command: "gt",
+				args: ["track", "implement-feature", "--parent", "main", "--no-interactive"],
+				result: exited(),
+			},
+		]);
+		const warnings: string[] = [];
+
+		await createTrackedBranchFromResolvedParent(
+			{ pi: commands, git: new InMemoryGitGateway({ repoRoot }) },
+			{
+				cwd: repoRoot,
+				prompt,
+				parentBranch: "main",
+				startPoint: "def456",
+				onModelPolicyWarning: (warning) => {
+					expect(commands.calls).toHaveLength(0);
+					warnings.push(warning);
+				},
+			},
+		);
+
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0]).toContain("using built-in");
+	});
+
 	test("returns the semantic slug for a non-colliding resolved trunk branch", async () => {
 		const prompt = "Implement the trunk feature";
 		const commands = new FakeCommands([

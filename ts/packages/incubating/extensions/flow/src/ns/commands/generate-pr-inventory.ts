@@ -26,7 +26,7 @@ import {
 	type PrMetadataReplacementResult,
 } from "../../submit/index.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
-import { resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
 
 const generatePrInventorySchema = z.object({
 	yes: z
@@ -110,6 +110,7 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 						}),
 					);
 				}
+				createFlowModelWarningEmitter(ctx).emit(model);
 
 				io.phase("Preparing complete PR metadata replacement…");
 				const prepared: PrMetadataReplacementResult =

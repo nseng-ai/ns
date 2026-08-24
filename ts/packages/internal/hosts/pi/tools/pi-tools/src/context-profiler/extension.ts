@@ -10,6 +10,7 @@
  */
 
 import {
+	formatModelPolicyFallbackWarning,
 	loadModelPolicy,
 	MODEL_OPERATION_IDS,
 	resolveModelOperation,
@@ -229,9 +230,16 @@ function openProfiler(options: OpenProfilerOptions): void {
 			registry: ctx.modelRegistry,
 			projectConfigGateway,
 		});
-		if (analysis.type === "unavailable" && !warnedPolicyErrors.has(analysis.message)) {
-			warnedPolicyErrors.add(analysis.message);
-			ctx.ui.notify(`Context profiler analysis unavailable: ${analysis.message}`, "warning");
+		const policyWarning =
+			analysis.type === "unavailable" ? analysis.message : analysis.modelPolicyWarning;
+		if (policyWarning !== undefined && !warnedPolicyErrors.has(policyWarning)) {
+			warnedPolicyErrors.add(policyWarning);
+			ctx.ui.notify(
+				analysis.type === "unavailable"
+					? `Context profiler analysis unavailable: ${policyWarning}`
+					: policyWarning,
+				"warning",
+			);
 		}
 		const work = startProfilerWork({
 			store: bundleStore,
@@ -337,6 +345,9 @@ export function resolveContextProfilerAnalysisStartup(options: {
 		MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
 	);
 	if (!episodeAnalysis.ok) return { type: "unavailable", message: episodeAnalysis.error.message };
+	const modelPolicyWarning =
+		formatModelPolicyFallbackWarning(segmentation.value) ??
+		formatModelPolicyFallbackWarning(episodeAnalysis.value);
 	return {
 		type: "available",
 		gateway: createAnalysisModelGateway({
@@ -344,6 +355,7 @@ export function resolveContextProfilerAnalysisStartup(options: {
 			segmentationSelection: segmentation.value.selection,
 			episodeAnalysisSelection: episodeAnalysis.value.selection,
 		}),
+		...(modelPolicyWarning === undefined ? {} : { modelPolicyWarning }),
 	};
 }
 

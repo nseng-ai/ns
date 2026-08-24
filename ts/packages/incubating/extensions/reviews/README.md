@@ -40,7 +40,9 @@ Applicability patterns must be globs, not git pathspecs; keep them repo-relative
 
 ## Model profiles and harnesses
 
-Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared `[models.profiles]` repository policy. Any configured alias is valid; omitted `model_profile` uses the required `fast` profile. There is no built-in model fallback:
+Reviews resolves `model_profile` and `--model-profile` directly as aliases in the shared model policy. Any configured alias is valid. Omitted `model_profile` uses `fast`. When Project configuration omits `fast`, ns supplies `openai-codex/gpt-5.6-luna` with `minimal` thinking and warns once before the review invocation uses it. A Project `fast` profile replaces that built-in selection, including when it names the same model. Other Project profiles extend the policy. Explicit malformed model configuration, invalid references, and unknown profile selections still fail.
+
+For example, a repository can replace `fast` and add more profiles:
 
 ```toml
 [models.profiles.fast]

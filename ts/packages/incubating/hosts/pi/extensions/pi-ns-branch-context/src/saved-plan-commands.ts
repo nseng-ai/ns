@@ -302,6 +302,7 @@ export function buildWriteSavedPlanFileTool(
 						content: toolParams.content,
 						cwd: ctx.cwd,
 						...optionalEntry("signal", signal),
+						onModelPolicyWarning: (warning) => ctx.ui?.notify?.(warning, "warning"),
 					});
 				} finally {
 					if (slugProgressInterval !== undefined) {

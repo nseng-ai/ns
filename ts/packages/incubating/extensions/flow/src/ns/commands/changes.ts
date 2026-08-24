@@ -5,7 +5,7 @@ import { renderCapabilitiesForTerminal } from "@nseng-ai/clinkr/legacy";
 import { defineCommand, failure, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
 import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,
@@ -75,6 +75,7 @@ export const flowChangesCommand: NsCommand = defineCommand({
 			io.phase("Resolving changes model policy…");
 			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowChanges);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+			createFlowModelWarningEmitter(ctx).emit(model);
 			io.phase("Generating changes summary…");
 			const summary = await prepareFlowChangesSummary(
 				{ ...ctx, modelSelection: model.modelSelection },

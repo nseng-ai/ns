@@ -30,6 +30,10 @@ const slugProjectConfig: ProjectConfigGateway = {
 	}),
 	pathExists: () => ({ type: "missing" }),
 };
+const missingProjectConfig: ProjectConfigGateway = {
+	readTextFile: () => ({ type: "missing" }),
+	pathExists: () => ({ type: "missing" }),
+};
 
 class FakeSlugCommands implements CommandExecApi {
 	readonly calls: Array<{ command: string; args: string[] }> = [];
@@ -211,6 +215,31 @@ describe("handoff ns command objects", () => {
 		expect(sourceReader.fileReadCount).toBe(0);
 	});
 
+	test("derived create warns once before model execution when config is missing", async () => {
+		const commands = new FakeSlugCommands();
+		const warnings: string[] = [];
+		const api = createFakeHandoffNsApi({
+			brmem: new FakeBrmemGateway(),
+			git: new InMemoryGitGateway({
+				currentBranch: "feat/x",
+				existingBranches: ["feat/x"],
+				repoRoot: "/work",
+			}),
+			sourceReader: new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" }),
+			commands,
+			projectConfig: missingProjectConfig,
+			stderr: (warning) => {
+				expect(commands.calls).toHaveLength(0);
+				warnings.push(warning);
+			},
+		});
+
+		await runHandoffCommand(handoffCreateNsCommand, {}, { api });
+
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0]).toContain("using built-in");
+	});
+
 	test("derived create reads a file once and stores its exact content", async () => {
 		const brmem = new FakeBrmemGateway();
 		const git = new InMemoryGitGateway({
@@ -361,6 +390,26 @@ describe("handoff ns command objects", () => {
 		expect(
 			await getHandoffContent(brmem, { key: "continue-auth-token-refresh.md", branch: "main" }),
 		).toBeUndefined();
+	});
+
+	test("exec derive-slug warns once before model execution when config is missing", async () => {
+		const commands = new FakeSlugCommands();
+		const warnings: string[] = [];
+		const api = createFakeHandoffNsApi({
+			git: new InMemoryGitGateway({ repoRoot: "/work" }),
+			commands,
+			projectConfig: missingProjectConfig,
+			sourceReader: new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" }),
+			stderr: (warning) => {
+				expect(commands.calls).toHaveLength(0);
+				warnings.push(warning);
+			},
+		});
+
+		await runHandoffCommand(handoffExecDeriveSlugNsCommand, {}, { api });
+
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0]).toContain("using built-in");
 	});
 
 	test("create stores stdin content on the current branch without invoking slug derivation", async () => {

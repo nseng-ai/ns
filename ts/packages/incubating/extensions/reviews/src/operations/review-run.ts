@@ -7,6 +7,7 @@ import {
 	parseModelRef,
 	type ModelSelection,
 } from "@nseng-ai/foundation/model-slug";
+import { formatModelProfileFallbackWarning } from "@nseng-ai/extension-kit/model-policy";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
@@ -70,6 +71,7 @@ export interface RunReviewProgress {
 interface ResolvedReviewModel {
 	readonly modelProfile: string;
 	readonly modelSelection: ModelSelection;
+	readonly usesBuiltInProfile: boolean;
 }
 
 interface ReviewLogMetadata {
@@ -104,6 +106,11 @@ export async function runReview(
 	const resolved = resolveReviewModel(request, definition, config);
 	if (!resolved.ok) return { type: "failed", error: resolved.error };
 	const model = resolved.value;
+	const modelPolicyWarning =
+		request.model === undefined && model.usesBuiltInProfile
+			? formatModelProfileFallbackWarning(model.modelSelection, "built-in")
+			: undefined;
+	if (modelPolicyWarning !== undefined) ctx.stderr(`${modelPolicyWarning}\n`);
 
 	const modelRef = formatModelRef(model.modelSelection);
 	const progress: RunReviewProgress = {
@@ -241,6 +248,16 @@ function resolveReviewModel(
 			},
 		};
 	}
+	const profileSource = config.modelPolicy.profileSources[profile];
+	if (profileSource === undefined) {
+		return {
+			ok: false,
+			error: {
+				code: "project-config-invalid",
+				message: `Reviews model profile ${JSON.stringify(profile)} has no policy provenance.`,
+			},
+		};
+	}
 	let selection = configuredModel;
 	if (request.model !== undefined) {
 		const modelRef = request.model.trim();
@@ -263,7 +280,11 @@ function resolveReviewModel(
 	if (!resolved.ok) return resolved;
 	return {
 		ok: true,
-		value: { modelProfile: profile, modelSelection: resolved.value.selection },
+		value: {
+			modelProfile: profile,
+			modelSelection: resolved.value.selection,
+			usesBuiltInProfile: profileSource === "built-in",
+		},
 	};
 }
 

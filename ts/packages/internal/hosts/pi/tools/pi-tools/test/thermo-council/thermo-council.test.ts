@@ -179,7 +179,10 @@ interface FakeCommandContext {
 	waitForIdle(): Promise<void>;
 }
 
-function fakeContext(cwd = DEFAULT_REPO_ROOT): FakeCommandContext {
+function fakeContext(
+	cwd = DEFAULT_REPO_ROOT,
+	onNotify?: (message: string, level?: "info" | "warning" | "error") => void,
+): FakeCommandContext {
 	const statuses: string[] = [];
 	return {
 		cwd,
@@ -188,7 +191,9 @@ function fakeContext(cwd = DEFAULT_REPO_ROOT): FakeCommandContext {
 			setStatus(_key, value) {
 				statuses.push(value ?? "<cleared>");
 			},
-			notify() {},
+			notify(message, level) {
+				onNotify?.(message, level);
+			},
 		},
 		async waitForIdle() {},
 	};
@@ -565,6 +570,28 @@ describe("thermo council extension", () => {
 		expect(configured.runnerCalls[3]?.args).toContain("acme");
 		expect(configured.runnerCalls[3]?.args).toContain("synthesis");
 		expect(configured.runnerCalls[3]?.args).not.toContain("gpt-5.6-luna");
+	});
+
+	test("warns once before final synthesis dispatch when config is missing", async () => {
+		const repoRoot = await mkdtemp(join(tmpdir(), "thermo-policy-fallback-"));
+		const execResults = successfulScopeExecResults();
+		execResults.set("git rev-parse --show-toplevel", { stdout: `${repoRoot}\n` });
+		const pi = new FakePi({ execResults, runnerResult: completedRunnerResult() });
+		const warnings: string[] = [];
+		thermoCouncilExtension(pi);
+
+		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler(
+			"origin/master",
+			fakeContext(repoRoot, (message, level) => {
+				if (level !== "warning") return;
+				expect(pi.runnerCalls).toHaveLength(3);
+				warnings.push(message);
+			}),
+		);
+
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0]).toContain("using built-in");
+		expect(pi.runnerCalls).toHaveLength(4);
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {

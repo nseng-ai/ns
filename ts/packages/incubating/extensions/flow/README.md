@@ -152,11 +152,27 @@ thinking = "minimal"
 ```
 
 `models.profiles` maps profile names to qualified provider/model references and required
-thinking policies. `[models.profiles.fast]` is required; there is no built-in model fallback.
-`models.operations` maps operation IDs to profiles. Omitted operations resolve to the configured
-`fast` profile. Flow uses `slug` for generated branch names, `flow.checkpoint` for checkpoint
-messages, and `flow.pr-inventory` for an Assembled PR inventory. There is no environment override
-ladder or model inspection command.
+thinking policies. When Project configuration omits `fast`, ns supplies this built-in profile:
+
+```toml
+[models.profiles.fast]
+model = "openai-codex/gpt-5.6-luna"
+thinking = "minimal"
+```
+
+A Project `fast` profile replaces the built-in profile. Other Project profiles extend the policy.
+`models.operations` maps operation IDs to profiles, and omitted operations resolve to `fast`. Flow
+uses `slug` for generated branch names, `flow.checkpoint` for checkpoint messages, and
+`flow.pr-inventory` for an Assembled PR inventory. A command that selects the built-in profile warns
+once before model execution. Explicit malformed model configuration, invalid references, and
+operation mappings to unknown profiles still fail instead of falling back. There is no environment
+override ladder or model inspection command.
+
+After upgrading from a version that failed `ns flow cp` because `fast` was absent, rerun the command
+on the existing dirty child branch. It should warn once and checkpoint the pending work without a
+repository `ns.toml`. For an interrupted autobranch workflow, verify that checkpointing succeeded and
+that `git status --porcelain` is empty before initializing or attaching stack-provider state. Do not
+initialize that state while the checkpoint is missing or the worktree remains dirty.
 
 This is a clean breaking cutover. The old `flow.pr-description` operation configuration is
 ignored; because `flow.pr-inventory` is then omitted, selection falls through to the configured

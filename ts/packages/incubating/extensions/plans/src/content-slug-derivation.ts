@@ -9,6 +9,7 @@ import {
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
+	formatModelPolicyFallbackWarning,
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -30,6 +31,7 @@ export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
 	signal?: AbortSignal;
+	onModelPolicyWarning?: (warning: string) => void;
 }
 
 export type { ContentSlugEvidence };
@@ -49,9 +51,16 @@ export async function deriveContentSlug(
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
+	const modelPolicyWarning = formatModelPolicyFallbackWarning(model.value);
+	if (modelPolicyWarning !== undefined) input.onModelPolicyWarning?.(modelPolicyWarning);
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },
-		{ ...input, modelSelection: model.value.selection },
+		{
+			content: input.content,
+			cwd: input.cwd,
+			...(input.signal === undefined ? {} : { signal: input.signal }),
+			modelSelection: model.value.selection,
+		},
 		toKitContentSlugVariant(variant),
 	);
 }

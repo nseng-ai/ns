@@ -10,6 +10,7 @@
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
+	formatModelPolicyFallbackWarning,
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -232,6 +233,8 @@ async function handleStackViewCommand(
 		sendSnapshotMessage(session, model);
 		return;
 	}
+	const modelPolicyWarning = formatModelPolicyFallbackWarning(enrichmentModel.value);
+	if (modelPolicyWarning !== undefined) ctx.ui.notify(modelPolicyWarning, "warning");
 
 	// One engine per invocation, reused across refreshes: its store-memoized keys
 	// make reuse cheap, and the model is passed per `ensureRow` call. Abort in the

@@ -114,6 +114,7 @@ export async function runThermoCouncilCommand(
 			outcomes,
 			deterministicReport,
 			...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+			onModelPolicyWarning: (warning) => ctx.ui?.notify?.(warning, "warning"),
 		});
 		const report =
 			synthesisResult.type === "completed"

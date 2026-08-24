@@ -1,4 +1,5 @@
 import {
+	formatModelRef,
 	parseModelRef,
 	modelThinkingSchema,
 	type ModelSelection,
@@ -29,8 +30,12 @@ export const MODEL_OPERATION_IDS = {
 export type ModelOperationId = string;
 export type ModelProfileName = string;
 
+export type ModelProfileSource = "built-in" | "project";
+export type ModelOperationSource = "default" | "project";
+
 export interface ModelPolicy {
 	readonly profiles: Readonly<Record<ModelProfileName, ModelSelection>>;
+	readonly profileSources: Readonly<Record<ModelProfileName, ModelProfileSource>>;
 	readonly operations: Readonly<Record<ModelOperationId, ModelProfileName>>;
 }
 
@@ -38,7 +43,8 @@ export interface ResolvedModelOperation {
 	readonly operationId: ModelOperationId;
 	readonly profile: ModelProfileName;
 	readonly selection: ModelSelection;
-	readonly source: "project-profile" | "project-operation";
+	readonly profileSource: ModelProfileSource;
+	readonly operationSource: ModelOperationSource;
 }
 
 export type ModelPolicyErrorCode = "invalid-toml" | "invalid-model-policy" | "missing-profile";
@@ -47,6 +53,12 @@ export interface ModelPolicyError {
 	readonly message: string;
 }
 export type ModelPolicyResult<T> = Result<T, ModelPolicyError>;
+
+const BUILT_IN_FAST_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal",
+} as const satisfies ModelSelection;
 
 const modelRefSchema = z.string().trim().min(1);
 const profileNameSchema = z.string().trim().min(1);
@@ -107,17 +119,37 @@ export function resolveModelOperation(
 			`Model operation ${JSON.stringify(operationId)} references missing profile ${JSON.stringify(selectedProfile)}.`,
 		);
 	}
-	const source =
-		policy.operations[operationId] === undefined ? "project-profile" : "project-operation";
+	const profileSource = policy.profileSources[selectedProfile];
+	if (profileSource === undefined) {
+		return resultErrOf(
+			"invalid-model-policy",
+			`Model profile ${JSON.stringify(selectedProfile)} has no provenance.`,
+		);
+	}
 	return {
 		ok: true,
 		value: {
 			operationId,
 			profile: selectedProfile,
 			selection,
-			source,
+			profileSource,
+			operationSource: policy.operations[operationId] === undefined ? "default" : "project",
 		},
 	};
+}
+
+export function formatModelProfileFallbackWarning(
+	selection: ModelSelection,
+	profileSource: ModelProfileSource,
+): string | undefined {
+	if (profileSource !== "built-in") return undefined;
+	return `No configured fast model profile was found; using built-in ${formatModelRef(selection)} with ${selection.thinking} thinking.`;
+}
+
+export function formatModelPolicyFallbackWarning(
+	resolved: ResolvedModelOperation,
+): string | undefined {
+	return formatModelProfileFallbackWarning(resolved.selection, resolved.profileSource);
 }
 
 function modelPolicyFromSettings(
@@ -128,7 +160,8 @@ function modelPolicyFromSettings(
 		  }
 		| undefined,
 ): ModelPolicyResult<ModelPolicy> {
-	const profiles: Record<string, ModelSelection> = {};
+	const profiles: Record<string, ModelSelection> = { fast: BUILT_IN_FAST_SELECTION };
+	const profileSources: Record<string, ModelProfileSource> = { fast: "built-in" };
 	for (const [name, profile] of Object.entries(settings?.profiles ?? {})) {
 		const parsed = parseModelRef(profile.model, profile.thinking);
 		if (parsed === undefined)
@@ -137,12 +170,7 @@ function modelPolicyFromSettings(
 				`Model profile ${JSON.stringify(name)} must be a qualified provider/model reference.`,
 			);
 		profiles[name] = parsed;
-	}
-	if (profiles.fast === undefined) {
-		return resultErrOf(
-			"missing-profile",
-			'Model profile "fast" is required in ns.toml at [models.profiles.fast].',
-		);
+		profileSources[name] = "project";
 	}
 	const operations = settings?.operations ?? {};
 	for (const [operationId, profile] of Object.entries(operations)) {
@@ -153,7 +181,7 @@ function modelPolicyFromSettings(
 			);
 		}
 	}
-	return { ok: true, value: { profiles, operations } };
+	return { ok: true, value: { profiles, profileSources, operations } };
 }
 
 function modelPolicyErrorFromDiagnostics(

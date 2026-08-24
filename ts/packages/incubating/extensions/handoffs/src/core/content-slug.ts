@@ -7,6 +7,7 @@ import {
 	type ContentSlugEvidence,
 } from "@nseng-ai/extension-kit/content-slug";
 import {
+	formatModelPolicyFallbackWarning,
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -68,7 +69,12 @@ const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
 
 export async function deriveHandoffContentSlug(
 	context: HandoffContentSlugContext,
-	input: { content: string; cwd: string; signal?: AbortSignal },
+	input: {
+		content: string;
+		cwd: string;
+		signal?: AbortSignal;
+		onModelPolicyWarning?: (warning: string) => void;
+	},
 ): Promise<HandoffContentSlugEvidence> {
 	const repository = await context.git.optionalRepoRoot({ cwd: input.cwd });
 	if (repository.type !== "found")
@@ -77,9 +83,16 @@ export async function deriveHandoffContentSlug(
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
+	const modelPolicyWarning = formatModelPolicyFallbackWarning(model.value);
+	if (modelPolicyWarning !== undefined) input.onModelPolicyWarning?.(modelPolicyWarning);
 	return deriveKitContentSlug(
 		context.commands,
-		{ ...input, modelSelection: model.value.selection },
+		{
+			content: input.content,
+			cwd: input.cwd,
+			...(input.signal === undefined ? {} : { signal: input.signal }),
+			modelSelection: model.value.selection,
+		},
 		HANDOFF_CONTENT_SLUG_VARIANT,
 	);
 }

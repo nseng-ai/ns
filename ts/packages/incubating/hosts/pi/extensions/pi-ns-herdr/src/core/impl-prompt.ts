@@ -125,7 +125,11 @@ async function createCurrentPromptBranch(
 	options.notifyProgress("Generating branch name…");
 	return createTrackedBranchForPrompt(
 		{ pi: context.commands, git: context.git },
-		{ cwd: context.pi.cwd, prompt },
+		{
+			cwd: context.pi.cwd,
+			prompt,
+			onModelPolicyWarning: (warning) => context.pi.ui.notify(warning, "warning"),
+		},
 	);
 }
 
@@ -142,6 +146,7 @@ async function createTrunkPromptBranch(
 			cwd: context.pi.cwd,
 			prompt,
 			notify: options.notifyProgress,
+			onModelPolicyWarning: (warning) => context.pi.ui.notify(warning, "warning"),
 		},
 	);
 }

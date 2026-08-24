@@ -26,7 +26,12 @@ import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundat
 import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
-import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
+import {
+	formatModelPolicyFallbackWarning,
+	MODEL_OPERATION_IDS,
+	loadModelPolicy,
+	resolveModelOperation,
+} from "./model-policy.ts";
 import { runJsonExecCommand } from "./machine-envelope-exec.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-impl";
@@ -82,6 +87,7 @@ export interface TrackedBranchCreationContext extends ResolvedTrackedBranchCreat
 export interface CreateTrackedBranchForPromptOptions {
 	cwd: string;
 	prompt: string;
+	onModelPolicyWarning?: (warning: string) => void;
 }
 
 export interface CreateTrackedBranchFromResolvedParentOptions {
@@ -90,6 +96,7 @@ export interface CreateTrackedBranchFromResolvedParentOptions {
 	parentBranch: string;
 	startPoint: string;
 	createFailureContext?: string;
+	onModelPolicyWarning?: (warning: string) => void;
 }
 
 export interface LocalGraphiteTrunkPreparationContext {
@@ -107,6 +114,7 @@ export type TrackedBranchFromLocalTrunkCreationContext = LocalGraphiteTrunkPrepa
 
 export interface CreateTrackedBranchFromLocalTrunkForPromptOptions extends PrepareLocalGraphiteTrunkOptions {
 	prompt: string;
+	onModelPolicyWarning?: (warning: string) => void;
 }
 
 export interface TrackedBranchPayloadStorageContext {
@@ -147,6 +155,9 @@ export async function createTrackedBranchForPrompt(
 		prompt: options.prompt,
 		parentBranch: parent.branch,
 		startPoint: startPoint.value,
+		...(options.onModelPolicyWarning === undefined
+			? {}
+			: { onModelPolicyWarning: options.onModelPolicyWarning }),
 	});
 }
 
@@ -159,6 +170,7 @@ export async function createTrackedBranchFromResolvedParent(
 		context.git,
 		options.cwd,
 		options.prompt,
+		options.onModelPolicyWarning,
 	);
 	if (!slug.ok) return { error: slug.message };
 	const branchName = await chooseAvailableBranchName(context.pi, options.cwd, slug.text);
@@ -233,6 +245,9 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(
 		parentBranch: prepared.trunkBranch,
 		startPoint: prepared.startPoint,
 		createFailureContext: `from local trunk ${prepared.trunkBranch}`,
+		...(options.onModelPolicyWarning === undefined
+			? {}
+			: { onModelPolicyWarning: options.onModelPolicyWarning }),
 	});
 }
 
@@ -371,6 +386,7 @@ async function generateTrackedBranchSlug(
 	git: Pick<GitGateway, "repoRoot">,
 	cwd: string,
 	content: string,
+	onModelPolicyWarning?: (warning: string) => void,
 ): Promise<TextResult> {
 	const repository = await git.repoRoot({ cwd });
 	if (!repository.ok) {
@@ -388,6 +404,8 @@ async function generateTrackedBranchSlug(
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
+	const modelPolicyWarning = formatModelPolicyFallbackWarning(model.value);
+	if (modelPolicyWarning !== undefined) onModelPolicyWarning?.(modelPolicyWarning);
 	const prompt = buildTrackedBranchSlugPrompt({ kind: "task", content });
 	const result = await generateRawTextWithModel({
 		cwd,

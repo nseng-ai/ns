@@ -8,7 +8,12 @@ import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 export interface HerdrResourceLabelDeriver {
-	deriveLabel(input: { description: string; cwd: string; signal?: AbortSignal }): Promise<string>;
+	deriveLabel(input: {
+		description: string;
+		cwd: string;
+		signal?: AbortSignal;
+		onModelPolicyWarning?: (warning: string) => void;
+	}): Promise<string>;
 }
 
 export interface HandleHerdrNewSpaceOptions {
@@ -25,12 +30,13 @@ export async function handleHerdrNewSpace(options: HandleHerdrNewSpaceOptions): 
 	if (description.length > 0) {
 		options.notifyProgress("Deriving a semantic label for the new Herdr space…");
 		try {
-			const semanticLabel = await options.labelDeriver.deriveLabel({
+			const derived = await options.labelDeriver.deriveLabel({
 				description,
 				cwd: options.ctx.cwd,
+				onModelPolicyWarning: (warning) => options.ctx.ui.notify(warning, "warning"),
 			});
 			label = formatHerdrResourceLabel({
-				semanticLabel,
+				semanticLabel: derived,
 				...slotLabelInput(options.ctx.cwd),
 			});
 		} catch (error) {

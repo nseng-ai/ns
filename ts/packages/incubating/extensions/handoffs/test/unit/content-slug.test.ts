@@ -78,8 +78,15 @@ class FakeSlugPi implements CommandExecApi {
 	}
 }
 
-function slugContext(commands: CommandExecApi) {
-	return { commands, git: new InMemoryGitGateway({ repoRoot: CWD }), projectConfig };
+function slugContext(
+	commands: CommandExecApi,
+	configGateway: ProjectConfigGateway = projectConfig,
+) {
+	return {
+		commands,
+		git: new InMemoryGitGateway({ repoRoot: CWD }),
+		projectConfig: configGateway,
+	};
 }
 
 function expectNoFallback(error: unknown): void {
@@ -113,6 +120,27 @@ describe("deriveHandoffContentSlug", () => {
 			buildRawTextModelArgs(buildHandoffContentSlugPrompt(HANDOFF_CONTENT), TEST_MODEL_SELECTION),
 		);
 		expect(pi.calls[0]?.options).toMatchObject({ cwd: CWD, timeout: 60_000 });
+	});
+
+	test("presents the built-in model warning before execution", async () => {
+		const events: string[] = [];
+		const pi = new FakeSlugPi({ result: { stdout: "associate-sessions-with-branches\n" } });
+		const missingConfig: ProjectConfigGateway = {
+			readTextFile: () => ({ type: "missing" }),
+			pathExists: () => ({ type: "missing" }),
+		};
+
+		await deriveHandoffContentSlug(slugContext(pi, missingConfig), {
+			content: HANDOFF_CONTENT,
+			cwd: CWD,
+			onModelPolicyWarning: (warning) => {
+				expect(pi.calls).toHaveLength(0);
+				events.push(warning);
+			},
+		});
+
+		expect(events).toHaveLength(1);
+		expect(events[0]).toContain("using built-in");
 	});
 
 	test("markdown and code-fenced output normalizes correctly", async () => {

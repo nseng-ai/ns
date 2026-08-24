@@ -17,6 +17,8 @@ import {
 	type ScriptedExecResponse,
 } from "../scenario/ns-cli-fakes.ts";
 
+const FALLBACK_WARNING =
+	"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.\n";
 const PR_URL = "https://github.com/acme/repo/pull/123";
 const ansiCaps: Caps = {
 	isTty: true,
@@ -109,7 +111,7 @@ describe("checked-in flow ns extension loading", () => {
 	});
 
 	test("real loader reaches a simple cp invocation path", async () => {
-		const cwd = await createFlowProject();
+		const cwd = await createFlowProject({ includeModels: false });
 		const run = runWithRealFlowExtension({
 			args: ["flow", "cp"],
 			cwd,
@@ -135,6 +137,12 @@ describe("checked-in flow ns extension loading", () => {
 		);
 		expect(formattedExecCalls(run.context)).toContain("git add -A");
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
+		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
+		});
+		expect(run.stderr).toEqual([FALLBACK_WARNING]);
 	});
 
 	test("real loader transfers inherited TTY progress presentation to its host", async () => {
@@ -494,14 +502,16 @@ describe("checked-in flow ns extension loading", () => {
 	});
 });
 
-async function createFlowProject(): Promise<string> {
+async function createFlowProject(options: { includeModels?: boolean } = {}): Promise<string> {
 	const directory = await mkdtemp(join(tmpdir(), "ns-flow-extension-project-"));
 	tempDirs.push(directory);
 	installCheckedInFlowExtension(directory);
-	await appendFile(
-		join(directory, "ns.toml"),
-		'\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
-	);
+	if (options.includeModels !== false) {
+		await appendFile(
+			join(directory, "ns.toml"),
+			'\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		);
+	}
 	return directory;
 }
 

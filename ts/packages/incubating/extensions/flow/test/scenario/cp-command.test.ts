@@ -5,6 +5,9 @@ import type { NsProgress, NsProgressPhaseEvent } from "@nseng-ai/sdk";
 import { runFlowCpCommandWithFakes } from "./flow-command-fakes.ts";
 import { formattedExecCalls, type ScriptedExecResponse } from "./ns-cli-fakes.ts";
 
+const FALLBACK_WARNING =
+	"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.\n";
+
 // A non-tty transient line, as routed to onOutput (the Pi widget path / captured liveOutput).
 function transient(text: string): { stream: "stderr"; text: string } {
 	return { stream: "stderr", text: `${text}\n` };
@@ -121,6 +124,58 @@ describe("project-local cp extension behavior", () => {
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(
 			"## git diff HEAD\n\ndiff --git a/src/app.ts b/src/app.ts",
 		);
+	});
+
+	test("uses the built-in model and warns once when ns.toml is absent", async () => {
+		const run = runCpWithFakes({ modelPolicyToml: null });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual([FALLBACK_WARNING]);
+		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
+		});
+		expect(run.liveOutput.join("\n")).not.toContain(FALLBACK_WARNING.trim());
+	});
+
+	test("dry-run uses the same built-in fallback and warning path", async () => {
+		const run = runCpWithFakes({ request: { dryRun: true }, modelPolicyToml: null });
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual([FALLBACK_WARNING]);
+		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
+		});
+		expect(formattedExecCalls(run.context)).not.toContain("git add -A");
+	});
+
+	test("live structured progress does not duplicate the fallback warning", async () => {
+		const events: NsProgressPhaseEvent[] = [];
+		const run = runCpWithFakes({
+			modelPolicyToml: "",
+			progress: { isLive: true, phase: (event) => events.push(event) },
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual([FALLBACK_WARNING]);
+		expect(events.some((event) => event.type === "phase-started")).toBe(true);
+	});
+
+	test("configured project fast profile suppresses the fallback warning", async () => {
+		const run = runCpWithFakes({
+			modelPolicyToml: '[models.profiles.fast]\nmodel = "project/quick"\nthinking = "medium"\n',
+		});
+
+		expect(await run.exit).toBe(0);
+		expect(run.stderr).toEqual([]);
+		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
+			provider: "project",
+			modelId: "quick",
+			thinking: "medium",
+		});
 	});
 
 	test("live structured progress owns presentation despite inherited TTY caps", async () => {

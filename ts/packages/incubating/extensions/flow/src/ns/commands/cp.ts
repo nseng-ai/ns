@@ -20,7 +20,7 @@ import {
 } from "../../checkpoint/checkpoint.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 const cpResultSchema = z.discriminatedUnion("type", [
@@ -55,6 +55,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 		if (request.dryRun) {
 			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+			createFlowModelWarningEmitter(ctx).emit(model);
 			const result = await runCpCore({
 				cwd: ctx.cwd,
 				env: ctx.env,
@@ -70,6 +71,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 
 		const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
+		createFlowModelWarningEmitter(ctx).emit(model);
 		const caps = resolveFlowStreamCaps(ctx);
 		return await runSettledPhaseStream({
 			caps,

@@ -1,4 +1,5 @@
 import {
+	formatModelPolicyFallbackWarning,
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -25,6 +26,7 @@ export interface SynthesizeThermoCouncilFinalReportOptions extends ThermoCouncil
 	readonly fleetRegistry: SubagentFleetRegistry;
 	readonly outcomes: readonly ThermoCouncilReviewerOutcome[];
 	readonly deterministicReport: string;
+	readonly onModelPolicyWarning?: (warning: string) => void;
 }
 
 export type FinalSynthesisResult =
@@ -45,6 +47,7 @@ export async function synthesizeThermoCouncilFinalReport({
 	deterministicReport,
 	reviewGuidance,
 	fleetRegistry,
+	onModelPolicyWarning,
 }: SynthesizeThermoCouncilFinalReportOptions): Promise<FinalSynthesisResult> {
 	if (!outcomes.some((outcome) => outcome.type === "completed")) {
 		return { type: "completed", report: deterministicReport };
@@ -57,6 +60,8 @@ export async function synthesizeThermoCouncilFinalReport({
 	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
 	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
 	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };
+	const modelPolicyWarning = formatModelPolicyFallbackWarning(resolved.value);
+	if (modelPolicyWarning !== undefined) onModelPolicyWarning?.(modelPolicyWarning);
 	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi,
 		ctx: toRunnerSubagentContext(ctx),

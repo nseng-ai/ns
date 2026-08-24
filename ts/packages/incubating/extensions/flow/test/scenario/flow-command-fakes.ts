@@ -47,6 +47,7 @@ afterEach(() => {
 
 export interface RunFlowCommandWithFakesOptions {
 	request?: unknown;
+	modelPolicyToml?: string | null;
 	state?: TestState;
 	cwd?: string;
 	env?: Record<string, string | undefined>;
@@ -624,10 +625,11 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 	const repoRoot = fixture.options.cwd ?? cwd;
 	if (fixture.requiresModelPolicy === true && fixture.options.cwd === undefined) {
 		mkdirSync(repoRoot, { recursive: true });
-		writeFileSync(
-			join(repoRoot, "ns.toml"),
-			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
-		);
+		const modelPolicyToml =
+			fixture.options.modelPolicyToml === undefined
+				? '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n'
+				: fixture.options.modelPolicyToml;
+		if (modelPolicyToml !== null) writeFileSync(join(repoRoot, "ns.toml"), modelPolicyToml);
 	}
 	const homeDir = fixture.options.homeDir ?? join(stateRoot, "home");
 	const context = new ScriptedNsTestContext(fixture.options.state, {

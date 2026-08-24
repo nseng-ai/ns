@@ -397,7 +397,7 @@ async function runMissingEpisodeAnalysis(
 }
 
 export type AnalysisStartup =
-	| { type: "available"; gateway: AnalysisModelGateway }
+	| { type: "available"; gateway: AnalysisModelGateway; modelPolicyWarning?: string }
 	| { type: "unavailable"; message: string };
 
 export interface StartProfilerWorkOptions {

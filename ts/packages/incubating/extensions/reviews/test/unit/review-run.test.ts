@@ -55,6 +55,36 @@ const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 };
 
 describe("runReview", () => {
+	test("warns before running a review with the built-in fast profile", async () => {
+		const repoRoot = await tempRepoRoot();
+		const events: string[] = [];
+		const reviewRunner = new FakeReviewRunnerGateway();
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
+				gitGateway: gitGateway(repoRoot),
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+				}),
+				reviewRunner: {
+					runReview: async (request, options) => {
+						events.push("run");
+						return reviewRunner.runReview(request, options);
+					},
+				},
+				stderr: (text) => events.push(text.trim()),
+				cwd: repoRoot,
+			}),
+		);
+
+		const outcome = await runReview(ctx, { key: "typescript-style" });
+
+		expect(outcome.type).toBe("completed");
+		expect(events).toEqual([
+			"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.",
+			"run",
+		]);
+	});
+
 	test("runs the shared review operation, resolves model profiles, threads excludes, and logs success", async () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(

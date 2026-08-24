@@ -40,6 +40,27 @@ describe("Herdr tab resources", () => {
 		]);
 	});
 
+	test("tab:new presents one label-policy warning before label derivation completes", async () => {
+		const herdr = new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w-1") });
+		const ctx = new FakeCommandContext();
+		await handleHerdrNewTab({
+			herdr,
+			labelDeriver: {
+				async deriveLabel(input) {
+					input.onModelPolicyWarning?.("using built-in model policy");
+					expect(herdr.createTabCalls).toEqual([]);
+					return "review-api";
+				},
+			},
+			args: "review the API",
+			ctx,
+			notifyProgress: () => {},
+		});
+		expect(ctx.notifications.filter((notification) => notification.level === "warning")).toEqual([
+			{ message: "using built-in model policy", level: "warning" },
+		]);
+	});
+
 	test("tab:new without a description creates an unlabeled focused tab", async () => {
 		let derivations = 0;
 		const herdr = new FakeHerdrGateway({ callerPaneResult: resolvedCallerPane("w-1") });

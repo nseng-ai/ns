@@ -9,7 +9,7 @@ import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-r
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { createAutobranchDispatchEnv } from "../worktree.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
 
 const branchLatestCommitResultSchema = z.object({ cwd: z.string(), summary: z.string() });
 
@@ -49,6 +49,7 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 						body: model.error,
 					}),
 				);
+			createFlowModelWarningEmitter(ctx).emit(model);
 			const dispatched = await dispatchAutobranchCheckpoint(
 				{ mode: "require-clean" },
 				createAutobranchDispatchEnv(ctx, args, model.modelSelection),

@@ -79,6 +79,7 @@ export interface ToolContext {
 	cwd: string;
 	hasUI?: boolean;
 	ui?: {
+		notify?(message: string, level?: NotifyLevel): void;
 		setStatus?(key: string, value: string | undefined): void;
 	};
 }

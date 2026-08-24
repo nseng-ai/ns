@@ -1,12 +1,21 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	formatModelPolicyFallbackWarning,
 	loadModelPolicy,
 	MODEL_OPERATION_IDS,
 	parseModelPolicyToml,
 	resolveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+
+const BUILT_IN_FAST_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
+const FALLBACK_WARNING =
+	"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.";
 
 describe("model policy", () => {
 	test("publishes stable operation identifiers", () => {
@@ -18,21 +27,49 @@ describe("model policy", () => {
 		expect(MODEL_OPERATION_IDS).not.toHaveProperty("flowPrDescription");
 	});
 
-	test("requires the fast profile with zero config", () => {
-		expect(parseModelPolicyToml("")).toMatchObject({
-			ok: false,
-			error: {
-				code: "missing-profile",
-				message: expect.stringContaining("[models.profiles.fast]"),
+	test("uses the built-in fast profile with zero config", () => {
+		const policy = parseModelPolicyToml("");
+		expect(policy).toEqual({
+			ok: true,
+			value: {
+				profiles: { fast: BUILT_IN_FAST_SELECTION },
+				profileSources: { fast: "built-in" },
+				operations: {},
+			},
+		});
+		if (!policy.ok) return;
+
+		const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+		expect(resolved).toEqual({
+			ok: true,
+			value: {
+				operationId: MODEL_OPERATION_IDS.slug,
+				profile: "fast",
+				selection: BUILT_IN_FAST_SELECTION,
+				profileSource: "built-in",
+				operationSource: "default",
+			},
+		});
+		if (resolved.ok)
+			expect(formatModelPolicyFallbackWarning(resolved.value)).toBe(FALLBACK_WARNING);
+	});
+
+	test("uses the built-in fast profile when ns.toml is missing", () => {
+		const missing: ProjectConfigGateway = {
+			readTextFile: () => ({ type: "missing" }),
+			pathExists: () => ({ type: "missing" }),
+		};
+		expect(loadModelPolicy({ repoRoot: "/repo", gateway: missing })).toMatchObject({
+			ok: true,
+			value: {
+				profiles: { fast: BUILT_IN_FAST_SELECTION },
+				profileSources: { fast: "built-in" },
 			},
 		});
 	});
 
-	test("allows redefining fast and named profiles", () => {
+	test("keeps the built-in fast profile when only a non-fast profile is configured", () => {
 		const policy = parseModelPolicyToml(`
-[models.profiles.fast]
-model = "acme/quick"
-thinking = "minimal"
 [models.profiles.deep]
 model = "acme/deep"
 thinking = "high"
@@ -41,50 +78,84 @@ thinking = "high"
 			ok: true,
 			value: {
 				profiles: {
-					fast: { provider: "acme", thinking: "minimal" as const },
-					deep: { modelId: "deep", thinking: "high" },
+					fast: BUILT_IN_FAST_SELECTION,
+					deep: { provider: "acme", modelId: "deep", thinking: "high" },
 				},
+				profileSources: { fast: "built-in", deep: "project" },
 			},
 		});
 	});
 
-	test("defaults independent operations to fast", () => {
-		const policy = parseModelPolicyToml(
-			'[models.profiles.fast]\nmodel = "acme/quick"\nthinking = "medium"',
-		);
+	test("replaces the built-in fast profile with the project fast profile", () => {
+		const policy = parseModelPolicyToml(`
+[models.profiles.fast]
+model = "acme/quick"
+thinking = "medium"
+[models.profiles.deep]
+model = "acme/deep"
+thinking = "high"
+`);
+		expect(policy).toMatchObject({
+			ok: true,
+			value: {
+				profiles: {
+					fast: { provider: "acme", modelId: "quick", thinking: "medium" },
+					deep: { provider: "acme", modelId: "deep", thinking: "high" },
+				},
+				profileSources: { fast: "project", deep: "project" },
+			},
+		});
+		if (!policy.ok) return;
+
+		const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+		expect(resolved).toMatchObject({
+			ok: true,
+			value: { profileSource: "project", operationSource: "default" },
+		});
+		if (resolved.ok) expect(formatModelPolicyFallbackWarning(resolved.value)).toBeUndefined();
+	});
+
+	test("allows a project operation override to select the built-in fast profile", () => {
+		const policy = parseModelPolicyToml(`
+[models.profiles.deep]
+model = "acme/deep"
+thinking = "high"
+[models.operations]
+custom = "fast"
+`);
 		expect(policy.ok).toBe(true);
 		if (!policy.ok) return;
 
-		for (const operationId of [
-			MODEL_OPERATION_IDS.contextProfilerSegmentation,
-			MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
-		]) {
-			expect(resolveModelOperation(policy.value, operationId)).toEqual({
-				ok: true,
-				value: {
-					operationId,
-					profile: "fast",
-					selection: { provider: "acme", modelId: "quick", thinking: "medium" },
-					source: "project-profile",
-				},
-			});
-		}
+		const resolved = resolveModelOperation(policy.value, "custom");
+		expect(resolved).toEqual({
+			ok: true,
+			value: {
+				operationId: "custom",
+				profile: "fast",
+				selection: BUILT_IN_FAST_SELECTION,
+				profileSource: "built-in",
+				operationSource: "project",
+			},
+		});
+		if (resolved.ok)
+			expect(formatModelPolicyFallbackWarning(resolved.value)).toBe(FALLBACK_WARNING);
 	});
 
-	test("resolves operation overrides and accepts unknown operation keys", () => {
-		const policy = parseModelPolicyToml(
-			'[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "acme/deep"\nthinking = "high"\n[models.operations]\ncustom = "deep"',
-		);
+	test("does not warn for an identical fast tuple explicitly configured by the project", () => {
+		const policy = parseModelPolicyToml(`
+[models.profiles.fast]
+model = "openai-codex/gpt-5.6-luna"
+thinking = "minimal"
+`);
 		expect(policy.ok).toBe(true);
-		if (policy.ok)
-			expect(resolveModelOperation(policy.value, "custom")).toMatchObject({
-				ok: true,
-				value: {
-					profile: "deep",
-					selection: { provider: "acme", modelId: "deep", thinking: "high" },
-					source: "project-operation",
-				},
-			});
+		if (!policy.ok) return;
+
+		const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+		expect(resolved).toMatchObject({
+			ok: true,
+			value: { selection: BUILT_IN_FAST_SELECTION, profileSource: "project" },
+		});
+		if (resolved.ok) expect(formatModelPolicyFallbackWarning(resolved.value)).toBeUndefined();
 	});
 
 	test("rejects empty operation keys and invalid or empty profile names", () => {
@@ -106,7 +177,7 @@ thinking = "high"
 		});
 	});
 
-	test("rejects dangling profiles, malformed tables, and malformed refs", () => {
+	test("rejects dangling overrides and malformed model policy input", () => {
 		expect(parseModelPolicyToml('[models.operations]\nfoo = "missing"')).toMatchObject({
 			ok: false,
 			error: { code: "missing-profile" },
@@ -125,6 +196,14 @@ thinking = "high"
 			ok: false,
 			error: { code: "invalid-model-policy" },
 		});
+		expect(
+			parseModelPolicyToml(
+				'[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\nextra = true',
+			),
+		).toMatchObject({
+			ok: false,
+			error: { code: "invalid-model-policy" },
+		});
 	});
 
 	test("loads model settings without validating unrelated point installations", () => {
@@ -139,21 +218,8 @@ thinking = "high"
 		expect(loadModelPolicy({ repoRoot: "/repo", gateway })).toMatchObject({
 			ok: true,
 			value: {
-				profiles: { fast: { provider: "acme", modelId: "fast", thinking: "minimal" as const } },
-			},
-		});
-	});
-
-	test("returns a clear error when ns.toml is missing", () => {
-		const missing: ProjectConfigGateway = {
-			readTextFile: () => ({ type: "missing" }),
-			pathExists: () => ({ type: "missing" }),
-		};
-		expect(loadModelPolicy({ repoRoot: "/repo", gateway: missing })).toMatchObject({
-			ok: false,
-			error: {
-				code: "missing-profile",
-				message: expect.stringContaining("[models.profiles.fast]"),
+				profiles: { fast: { provider: "acme", modelId: "fast", thinking: "minimal" } },
+				profileSources: { fast: "project" },
 			},
 		});
 	});

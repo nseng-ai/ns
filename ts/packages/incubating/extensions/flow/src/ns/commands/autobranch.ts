@@ -8,7 +8,7 @@ import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
@@ -50,6 +50,7 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 			MODEL_OPERATION_IDS.flowCheckpoint,
 		);
 		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
+		createFlowModelWarningEmitter(ctx).emit(slugModel, checkpointModel);
 		const io = commandIoFromNsExtensionApi(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
 			const result = await dispatchAutobranchCheckpoint(

@@ -34,10 +34,12 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 	if (description.length > 0) {
 		options.notifyProgress("Deriving a semantic label for the new Herdr tab…");
 		try {
-			label = await options.labelDeriver.deriveLabel({
+			const derived = await options.labelDeriver.deriveLabel({
 				description,
 				cwd: options.ctx.cwd,
+				onModelPolicyWarning: (warning) => options.ctx.ui.notify(warning, "warning"),
 			});
+			label = derived;
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
 			options.ctx.ui.notify(
@@ -105,7 +107,9 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
+	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal, (warning) => {
+		if (options.ctx.hasUI !== false) options.ctx.ui.notify(warning, "warning");
+	});
 	if (!slug.ok) {
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
 		return;
