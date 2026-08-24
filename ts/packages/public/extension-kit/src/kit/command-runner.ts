@@ -5,6 +5,7 @@ import type {
 	ExecResult,
 	StdinCapableCommandExecApi,
 } from "@nseng-ai/foundation/exec";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/sdk";
 
@@ -39,6 +40,7 @@ function convertExecOptions(options: ExecOptions | undefined): NsExecOptions | u
 	if (options === undefined) return undefined;
 	return {
 		...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
+		...optionalEntry("env", options.env === undefined ? undefined : { ...options.env }),
 		...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
 		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),
