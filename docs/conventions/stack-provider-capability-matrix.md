@@ -5,7 +5,7 @@ This matrix records the evidence behind [ADR 0049](../adr/0049-opt-in-provider-n
 ## Evidence baseline
 
 - **Graphite:** current `@nseng-ai/extension-kit/graphite` adapters, Flow submit/land behavior, and the repository's `gt` workflow as of this document.
-- **gh-stack:** locally installed official `github/gh-stack` extension v0.1.0, verified through `gh stack version`, `add`/`init`/`view` help, and a disposable-repository `init` plus `view --json` observation. The local file contract was revalidated from the provider source before building `@nseng-ai/gs`'s local-only inspection adapter. It is pre-1.0 and may drift.
+- **gh-stack:** locally installed official `github/gh-stack` extension v0.1.0, verified through `gh stack --version`, `add`/`init`/`view` help, and a disposable-repository `init` plus `view --json` observation. The local file contract was revalidated from the provider source before building `@nseng-ai/gs`'s local-only inspection adapter. It is pre-1.0 and may drift.
 - **Jujutsu:** colocated-mode findings in [`docs/research/vcs-evaluation-jujutsu.md`](../research/vcs-evaluation-jujutsu.md), explored 2026-06-14. Jujutsu is a contract-shape constraint only.
 
 ## Capability matrix
