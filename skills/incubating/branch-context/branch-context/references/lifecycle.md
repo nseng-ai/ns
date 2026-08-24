@@ -50,8 +50,7 @@ Pi slash commands and ns CLI commands are equal first-class workflow surfaces ov
 
 Pi surfaces:
 
-- `/ns:plan:save`
-- `/ns:plan:grill-and-save` (Pi-only structured UI over the same Saved plan artifact)
+- `/ns:plan:save`. Review the plan first with the portable `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` skill when needed.
 - `/ns:plan:impl-saved-plan` directly implements a selected Saved plan in a fresh Pi session on the current branch without attaching Branch Context or writing Branch Memory. With no path it prefers current-session Saved Plan evidence, then the newest branch-scoped local-store plan; an explicit path selects that file even when it is older.
 - `/ns:branch-context:from-plan`
 - `/ns:branch-context:upstack-impl-from-plan`

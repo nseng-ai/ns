@@ -25,7 +25,7 @@ Create the Objective through the normal objective-create workflow, then fill the
 Run the readme-driven-development loop with these bindings:
 
 - **Canonical README** = `references/README-draft.md`. Decisions settle there; roadmap rows point at it, not the reverse.
-- **Grilling** uses `grill_ask` when available; otherwise the grilling loop's numbered-prose fallback.
+- **Grilling** invokes the portable `grilling` skill directly and uses its numbered-prose interaction loop. Use `grill-with-docs` when the README and related documentation need review together.
 - **Execution state** goes to `roadmap.md`, never into the README.
 - **Pass report** additionally names the created Objective slug and the roadmap rows added.
 

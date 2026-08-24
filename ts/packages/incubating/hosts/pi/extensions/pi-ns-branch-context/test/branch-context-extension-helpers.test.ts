@@ -12,7 +12,6 @@ import {
 	CREATE_BRANCH_CONTEXT_USAGE,
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
 	GT_UPSTACK_IMPL_USAGE,
-	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	formatCreateBranchContextPreview,
 	parseCreateBranchContextArgs,
@@ -265,38 +264,6 @@ describe("buildWritePlanPrompt", () => {
 		);
 		expect(checkedInContent).toContain("trust-nothing closeout");
 		expect(checkedInContent).toContain("changed tests/assertions");
-	});
-});
-describe("buildWriteGrilledPlanPrompt", () => {
-	test("includes structured grill requirements and save/no-save contract", () => {
-		const prompt = buildWriteGrilledPlanPrompt("plan the grilled command variant");
-
-		expect(prompt).toContain("/ns:plan:grill-and-save");
-		expect(prompt).toContain("plan the grilled command variant");
-		expect(prompt).toContain("write_saved_plan_file");
-		expect(prompt).toContain("grill_ask");
-		expect(prompt).toContain("up to 12");
-		expect(prompt).toContain("may not require any user-facing questions");
-		expect(prompt).toContain("Inspect repository evidence before asking");
-		expect(prompt).toContain("If grill_ask is unavailable");
-		expect(prompt).toContain("ui_unavailable");
-		expect(prompt).toContain("status_request");
-		expect(prompt).toContain("end_grill");
-		expect(prompt).toContain("do not call write_saved_plan_file");
-		expect(prompt).toContain("material requirements remain unresolved");
-		expect(prompt).toContain("Do not ask routine validation-scope or test-coverage questions");
-		expect(prompt).toContain("validation guidance");
-		expect(prompt).not.toContain("validation scope");
-		expect(prompt).toContain("do not save");
-		expect(prompt).toContain("Do not include a full Q&A transcript or special Q&A section");
-		expect(prompt).toContain("Do not create a branch or write Branch Memory");
-		expect(prompt).not.toContain("GRILL_UI_CONTRACT");
-	});
-
-	test("renders empty steering as none", () => {
-		expect(buildWriteGrilledPlanPrompt("   ")).toContain(
-			"User steering for this planning request: (none)",
-		);
 	});
 });
 describe("formatCreateBranchContextPreview", () => {

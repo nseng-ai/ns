@@ -3,7 +3,6 @@ import {
 	IMPL_SAVED_PLAN_COMMAND_NAME,
 } from "@nseng-ai/branch-context/api";
 import {
-	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
 	registerSavedPlanCommandsAndTools,
 } from "./saved-plan-commands.ts";
@@ -28,19 +27,6 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		sourceModule: "branch-context-extension",
 		notes:
 			"The portable Saved Plan save command and skill were deleted; Pi drives the retained typed saved-plan file tool.",
-	},
-	{
-		kind: "command",
-		surface: WRITE_GRILLED_PLAN_COMMAND_NAME,
-		workflow: "Write and save a grilled implementation plan using structured requirements UI",
-		parity: "WAIVED",
-		fallback:
-			"Use grill-me or grill-with-docs to settle requirements, then use /ns:plan:save to write the reviewed plan.",
-		ownerObjective: "cross-harness-parity",
-		sourcePackage: "@nseng-ai/pi-ns-branch-context",
-		sourceModule: "branch-context-extension",
-		notes:
-			"Structured grill UI is Pi-native; the saved-plan storage path is accounted by write_saved_plan_file.",
 	},
 	{
 		kind: "command",
@@ -99,12 +85,9 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 
 export {
 	DEFAULT_WRITE_PLAN_PROMPT_BODY,
-	WRITE_GRILLED_PLAN_COMMAND_NAME,
 	WRITE_PLAN_COMMAND_NAME,
-	buildWriteGrilledPlanPrompt,
 	buildWritePlanPrompt,
 	buildWriteSavedPlanFileTool,
-	handleWriteGrilledPlanCommand,
 	handleWritePlanCommand,
 } from "./saved-plan-commands.ts";
 export {

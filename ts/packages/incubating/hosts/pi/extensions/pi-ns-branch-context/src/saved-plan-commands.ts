@@ -19,10 +19,7 @@ import {
 	type PromptPointContentReader,
 } from "@nseng-ai/sdk/project-config/prompt-content";
 import { systemTimerScheduler } from "@nseng-ai/foundation/time";
-import {
-	WRITE_GRILLED_PLAN_COMMAND_NAME,
-	WRITE_PLAN_COMMAND_NAME,
-} from "@nseng-ai/branch-context/api";
+import { WRITE_PLAN_COMMAND_NAME } from "@nseng-ai/branch-context/api";
 import { sendCommandProgressOrNotify } from "@nseng-ai/pi-runtime/commands/ack";
 import {
 	WRITE_SAVED_PLAN_FILE_TOOL_NAME,
@@ -32,7 +29,6 @@ import {
 	type SavedPlanFileEvidence,
 } from "@nseng-ai/plans/api";
 import { isRecord } from "@nseng-ai/pi-runtime/runtime/primitives";
-import { GRILL_ASK_TOOL_NAME, activateGrillAskTool } from "@nseng-ai/pi-runtime/grill/surfaces";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
@@ -44,10 +40,7 @@ import type {
 } from "./host-types.ts";
 import type { BranchContextPiCommandApi } from "./pi-command-api.ts";
 
-export {
-	WRITE_GRILLED_PLAN_COMMAND_NAME,
-	WRITE_PLAN_COMMAND_NAME,
-} from "@nseng-ai/branch-context/api";
+export { WRITE_PLAN_COMMAND_NAME } from "@nseng-ai/branch-context/api";
 const WRITE_PLAN_TOOL_STATUS_KEY = WRITE_PLAN_COMMAND_NAME;
 
 interface WriteSavedPlanFileToolParams {
@@ -87,38 +80,6 @@ export function buildWritePlanPrompt(
 ${formatSteeringBlock(steering)}
 
 ${promptBody}`;
-}
-
-export function buildWriteGrilledPlanPrompt(steering: string): string {
-	return `This is a /${WRITE_GRILLED_PLAN_COMMAND_NAME} request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
-
-${formatSteeringBlock(steering)}
-
-Plan audience and target inference:
-- Treat the saved Markdown plan as self-contained context for a completely fresh downstream implementation session.
-- User steering may be empty. Infer the planning target from explicit steering, nearby conversation/session context, and repository evidence, such as a just-produced objective summary or prototype plan.
-- Inspect repository evidence before asking. Do not ask questions answerable from local files, docs, or commands.
-
-Structured grilling contract:
-- Use ${GRILL_ASK_TOOL_NAME} for every user-facing grilling question.
-- Ask exactly one question per ${GRILL_ASK_TOOL_NAME} call.
-- Each question must include 2–5 affirmative, mutually exclusive options and a recommendation with concise rationale.
-- Frame each question and recommendation with uniform polarity: agreeing with the recommendation must be an affirmative answer — never a question whose recommended answer is "no" followed by "Do you agree?".
-- Use up to 12 high-leverage questions. Some plans are simple and may not require any user-facing questions; stop early when requirements are resolved, and exceed that budget only if the user explicitly asks to continue.
-- If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, summarize current status, and do not call write_saved_plan_file.
-- If ${GRILL_ASK_TOOL_NAME} returns status_request, provide a compact status report and re-ask the same pending question; do not count it as an answer.
-- If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop, summarize resolved decisions, unresolved branches, and final recommendation, and do not call write_saved_plan_file.
-
-Save/no-save decision:
-- If material requirements remain unresolved after the budget, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, compatibility expectations, and irreversible migration or data-safety choices.
-- Do not ask routine validation-scope or test-coverage questions. Ordinary validation coverage is the downstream implementation agent's responsibility, guided by project policy and changed-file judgment.
-- If only non-blocking assumptions remain, fold them into the normal saved plan sections and proceed.
-- Do not include a full Q&A transcript or special Q&A section in the saved plan.
-
-Final plan requirements:
-- Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation guidance, risks/assumptions/open questions, and review/remediation.
-- Review the final Markdown plan for completeness, then call write_saved_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
-- Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
 }
 
 async function resolveWritePlanPromptBody(
@@ -217,24 +178,6 @@ export async function handleWritePlanCommand(
 	pi.sendUserMessage(buildWritePlanPrompt(steering, promptBody.body));
 }
 
-export async function handleWriteGrilledPlanCommand(
-	pi: BranchContextPiCommandApi,
-	args: string,
-	ctx: CommandContext,
-): Promise<void> {
-	const steering = args.trim();
-	sendCommandProgressOrNotify({
-		host: pi,
-		ctx,
-		message: `Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
-	});
-	await ctx.waitForIdle();
-	// The grilled prompt requires grill_ask; activate it (session-long, idempotent,
-	// additive) so the first model request for this message sees the tool.
-	activateGrillAskTool(pi);
-	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
-}
-
 export function buildWriteSavedPlanFileTool(
 	pi: BranchContextPiCommandApi,
 	options: BranchContextExtensionOptions,
@@ -247,7 +190,7 @@ export function buildWriteSavedPlanFileTool(
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`).",
 		promptGuidelines: [
-			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` and \`/${WRITE_GRILLED_PLAN_COMMAND_NAME}\` after producing a reviewed final Markdown plan.`,
+			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` after producing a reviewed final Markdown plan.`,
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
 			"write_saved_plan_file writes the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`); it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
@@ -485,15 +428,6 @@ export function registerSavedPlanCommandsAndTools(
 		commandDefinition: {
 			description: "Write and save a reviewed implementation plan in the local plan store.",
 			handler: async (args, ctx) => handleWritePlanCommand(pi, args, ctx),
-		},
-	});
-
-	registerCommandWithImmediateAck({
-		host: pi,
-		commandName: WRITE_GRILLED_PLAN_COMMAND_NAME,
-		commandDefinition: {
-			description: "Write and save a grilled implementation plan using structured requirements UI.",
-			handler: async (args, ctx) => handleWriteGrilledPlanCommand(pi, args, ctx),
 		},
 	});
 

@@ -65,7 +65,7 @@ Each deliberate shortcut preserves a named future path where applicable:
 
 ## Prompt Guidance
 
-Every prompt produced for this Objective must begin with the exact first token `/ns:plan:grill-and-save`, with the complete self-contained task text immediately after it on the same line or subsequent lines. This applies unconditionally to every produced prompt — implementation slices, discussion, research, and contract review alike — and is stated once here rather than repeated as row-level `Prompt:` prose.
+Every prompt produced for this Objective must begin with the exact first token `/skill:grill-me`, with the complete self-contained task text immediately after it on the same line or subsequent lines. This applies unconditionally to every produced prompt, including implementation slices, discussion, research, and contract review. After the grill settles requirements, save the reviewed plan with `/ns:plan:save` when the step needs an implementation plan.
 
 Every produced prompt should carry these standing anchors: `references/README-draft.md` and `references/SPEC-draft.md` as the governing user-facing and normative contract, `roadmap.md` as slice ordering, incubating package placement under `ts/packages/` (`@nseng-ai/gitplane` and `@nseng-ai/gitplane-sqlite`), and `just` as the repo validation gate.
 

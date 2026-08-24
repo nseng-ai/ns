@@ -95,7 +95,6 @@ describe("Node runtime import smoke", () => {
 				".pi/extensions/skill-backed-commands.ts",
 				".pi/extensions/context-profiler.ts",
 				".pi/extensions/agents.ts",
-				".pi/extensions/grill-ui.ts",
 				".pi/extensions/pr.ts",
 				".pi/extensions/thermo-council.ts",
 			]),

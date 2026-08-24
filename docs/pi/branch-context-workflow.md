@@ -13,7 +13,7 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 
 ## Public workflow surface
 
-1. Save a source-branch plan with Pi `/ns:plan:save` or `/ns:plan:grill-and-save`.
+1. Review the plan with the portable `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` skill when needed, then save the source-branch plan with Pi `/ns:plan:save`.
 2. Create a branch and attach its branch context with `/ns:branch-context:from-plan` or `ns branch-context exec from-plan`.
 3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
 4. Load and implement with `/ns:branch-context:impl-attached-plan` or `ns branch-context exec load`.
@@ -30,7 +30,7 @@ Pi users run `/ns:plan:save`. The static planning-policy body lives at:
 
 For `/ns:plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
 
-The structured grilling variant is `/ns:plan:grill-and-save`. It uses Pi's structured `grill_ask` UI and writes the same Saved plan artifact through `write_saved_plan_file`. The `grill_ask` tool is inactive by default in a fresh session; invoking `/ns:plan:grill-and-save` (or a `/pi:grill-*` command) activates it before the kickoff prompt is sent, and it stays active for the rest of that session rather than depending on global availability. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
+When a plan needs review, invoke the portable `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` skill directly. Resolve product and design requirements there, then run `/ns:plan:save`. Routine test and check scope remains the downstream implementation agent's responsibility under project policy and changed-file judgment.
 
 Saved plans are written to:
 
@@ -230,6 +230,6 @@ brmem get <key> --namespace branch-context --branch <branch>
 
 ## Related surfaces
 
-- Pi commands: `/ns:plan:save`, `/ns:plan:grill-and-save`, `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`.
+- Pi commands: `/ns:plan:save`, `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`.
 - CLIs: `enriched-plan`, `branch-context`, and low-level `brmem`.
-- Agent skills: `branch-context`, `branch-context-from-plan`, and `branch-context-impl`.
+- Agent skills: `branch-context`, `branch-context-from-plan`, and `branch-context-impl`; use `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` directly when a plan needs review before saving.

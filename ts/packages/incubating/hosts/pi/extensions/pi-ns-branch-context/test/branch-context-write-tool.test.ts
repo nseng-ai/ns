@@ -42,7 +42,7 @@ describe("write_saved_plan_file tool", () => {
 		expect(tool.promptSnippet).toContain("local plan store");
 		expect(tool.promptSnippet).toContain("self-contained");
 		expect(tool.promptGuidelines?.join("\n")).toContain("/ns:plan:save");
-		expect(tool.promptGuidelines?.join("\n")).toContain("/ns:plan:grill-and-save");
+		expect(tool.promptGuidelines?.join("\n")).not.toContain("grill-and-save");
 		expect(tool.promptGuidelines?.join("\n")).toContain("Do not generate or pass");
 		expect(tool.promptGuidelines?.join("\n")).toContain("fresh downstream implementation session");
 		expect(tool.promptGuidelines?.join("\n")).toContain("external/off-repo research");
