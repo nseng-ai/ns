@@ -25,7 +25,7 @@
 		"zod": "catalog:"
 	},
 	"ns": {
-		"description": "Inspect authoritative local-only gh-stack state.",
+		"description": "Inspect and maintain authoritative local gh-stack state.",
 		"tier": "extension",
 		"subpackages": [
 			"api",

@@ -10,13 +10,13 @@ function expectParsed(input: unknown) {
 }
 
 describe("parseGsLocalState", () => {
-	it("tolerates an unfamiliar schema version and additive provider fields", () => {
+	it("tolerates an unfamiliar schema version and additive restack fields", () => {
 		const inventory = expectParsed({
 			schemaVersion: 999,
 			repository: "owner/repo",
 			stacks: [
 				{
-					id: "provider-id",
+					id: "restack-id",
 					number: 42,
 					future: true,
 					trunk: { branch: "main", repository: "owner/repo" },

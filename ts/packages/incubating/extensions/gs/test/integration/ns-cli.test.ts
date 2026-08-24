@@ -6,7 +6,12 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS } from "@nseng-ai/foundation/git";
-import { noopNsCommandIo, noopNsProgress, type ExecResult } from "@nseng-ai/sdk";
+import {
+	noopNsCommandIo,
+	noopNsProgress,
+	type ExecResult,
+	type NsExecOptions,
+} from "@nseng-ai/sdk";
 import { runCli, type NsCliBaseContext } from "@nseng-ai/sdk/cli";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
@@ -30,15 +35,41 @@ describe("ns gs list public route", () => {
 		},
 	);
 
-	test("publishes local-only help and verbose option", async () => {
+	test("publishes local help and command options", async () => {
 		const fixture = await createFixture();
 		const group = runScenario(["gs", "--help"], fixture);
 		expect(await group.exit).toBe(0);
-		expect(group.stdout.join(" ")).toContain("Inspect local-only gh-stack state.");
+		expect(group.stdout.join(" ")).toContain("Inspect and maintain local gh-stack state.");
 		const list = runScenario(["gs", "list", "--help"], fixture);
 		expect(await list.exit).toBe(0);
 		expect(list.stdout.join(" ")).toContain("-v, --verbose");
 		expect(fixture.context.execCalls).toEqual([]);
+		const restack = runScenario(["gs", "restack-resolve", "--help"], fixture);
+		expect(await restack.exit).toBe(0);
+		expect(restack.stdout.join(" ")).toContain("--full");
+		expect(restack.stdout.join(" ")).toContain("-y, --yes");
+		expect(restack.stdout.join(" ")).not.toContain("--continue");
+		const schema = runScenario(["gs", "restack-resolve", "--json-schema"], fixture);
+		expect(await schema.exit).toBe(0);
+		expect(JSON.parse(schema.stdout.join(""))).toHaveProperty("machineEnvelopeJsonSchema");
+		expect(fixture.context.execCalls).toEqual([]);
+	});
+
+	test("runs one exact-v0.1.0 no-remote restack mutation with command overlays", async () => {
+		const fixture = await createFixture({ restack: true });
+		const run = runScenario(["gs", "restack-resolve", "--yes", "--format", "json"], fixture);
+		expect(await run.exit).toBe(0);
+		expect(JSON.parse(run.stdout.join(""))).toMatchObject({
+			status: "success",
+			data: { outcome: "completed", observedVersion: "0.1.0" },
+		});
+		const ghCalls = fixture.context.execCalls.filter((call) => call.command === "gh");
+		expect(ghCalls.map((call) => call.args)).toEqual([
+			["stack", "--version"],
+			["stack", "rebase", "--no-trunk", "--downstack"],
+		]);
+		expect(ghCalls.every((call) => call.options?.env?.GH_PROMPT_DISABLED === "1")).toBe(true);
+		expect(ghCalls.every((call) => call.options?.env?.GIT_SEQUENCE_EDITOR === "true")).toBe(true);
 	});
 
 	test("renders compact and verbose state and preserves exact JSON data", async () => {
@@ -115,7 +146,7 @@ interface Fixture {
 }
 
 async function createFixture(
-	options: { state?: unknown; withoutState?: boolean; gitFailure?: string } = {},
+	options: { state?: unknown; withoutState?: boolean; gitFailure?: string; restack?: boolean } = {},
 ): Promise<Fixture> {
 	if (options.withoutState === true && "state" in options) {
 		throw new Error("Fixture cannot define state when withoutState is true.");
@@ -144,7 +175,13 @@ async function createFixture(
 					};
 	if (state !== undefined) await writeFile(join(commonDir, "gh-stack"), JSON.stringify(state));
 	await writeFile(join(cwd, "ns.toml"), `extensions = [${JSON.stringify(packageRoot)}]\n`);
-	return { cwd, context: new ScenarioContext(cwd, commonDir, options.gitFailure) };
+	return {
+		cwd,
+		context: new ScenarioContext(cwd, commonDir, {
+			...(options.gitFailure === undefined ? {} : { gitFailure: options.gitFailure }),
+			...(options.restack === undefined ? {} : { restack: options.restack }),
+		}),
+	};
 }
 
 function runScenario(args: readonly string[], fixture: Fixture) {
@@ -166,10 +203,19 @@ function runScenario(args: readonly string[], fixture: Fixture) {
 	};
 }
 
+interface ScenarioContextOptions {
+	readonly gitFailure?: string;
+	readonly restack?: boolean;
+}
+
 class ScenarioContext implements NsCliBaseContext {
 	readonly cwd: string;
 	readonly env: Record<string, string | undefined>;
-	readonly execCalls: Array<{ command: string; args: readonly string[] }> = [];
+	readonly execCalls: Array<{
+		command: string;
+		args: readonly string[];
+		options?: NsExecOptions;
+	}> = [];
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
@@ -181,11 +227,13 @@ class ScenarioContext implements NsCliBaseContext {
 	promptCalls = 0;
 	private readonly commonDir: string;
 	private readonly gitFailure: string | undefined;
+	private readonly restack: boolean;
 
-	constructor(cwd: string, commonDir: string, gitFailure?: string) {
+	constructor(cwd: string, commonDir: string, options: ScenarioContextOptions = {}) {
 		this.cwd = cwd;
 		this.commonDir = commonDir;
-		this.gitFailure = gitFailure;
+		this.gitFailure = options.gitFailure;
+		this.restack = options.restack ?? false;
 		this.env = { HOME: cwd };
 	}
 
@@ -199,8 +247,26 @@ class ScenarioContext implements NsCliBaseContext {
 		throw new Error("Unexpected prompt in gh-stack scenario.");
 	};
 
-	async exec(command: string, args: string[]): Promise<ExecResult> {
-		this.execCalls.push({ command, args: [...args] });
+	async exec(command: string, args: string[], options?: NsExecOptions): Promise<ExecResult> {
+		this.execCalls.push({
+			command,
+			args: [...args],
+			...(options === undefined ? {} : { options }),
+		});
+		if (this.restack) {
+			if (command === "gh" && args.join(" ") === "stack --version") {
+				return exited(0, "gh stack version 0.1.0\n", "");
+			}
+			if (command === "gh" && args.join(" ") === "stack rebase --no-trunk --downstack") {
+				return exited(0, "", "");
+			}
+			if (command === "git" && args.join(" ") === "symbolic-ref --quiet --short HEAD") {
+				return exited(0, "feature\n", "");
+			}
+			if (command === "git" && args.join(" ") === "status --porcelain=v1 -z") {
+				return exited(0, "", "");
+			}
+		}
 		if (command !== "git") {
 			return exited(99, "", `unexpected command: ${command} ${args.join(" ")}`);
 		}
