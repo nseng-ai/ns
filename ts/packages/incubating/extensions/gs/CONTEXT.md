@@ -1,8 +1,12 @@
 # gs context
 
-This context names the local-only inventory exposed by the gs ns extension.
+This context names the gh-stack workflows exposed by the GS ns extension.
 
 ## Language
+
+**GS**:
+The ns extension for the [`github/gh-stack`](https://github.com/github/gh-stack) tool. In this context, GS means gh-stack and does not name a generic stack-tool abstraction.
+*Avoid*: generic stack backend
 
 **Local gh-stack inventory**:
 The collection of Recorded stacks that have at least one recorded stack branch present as a local Git branch. It is evidence of what the repository knows locally, not evidence of current GitHub state.
@@ -17,7 +21,7 @@ Pull-request identity stored on a recorded branch by gh-stack. Its presence does
 *Avoid*: open PR, current PR
 
 **Recorded merged**:
-The merged flag stored with a Recorded PR, defaulting to false when the provider omitted it. It describes recorded local evidence, not a live GitHub query.
+The merged flag stored with a Recorded PR, defaulting to false when gh-stack omitted it. It describes recorded local evidence, not a live GitHub query.
 *Avoid*: merged on GitHub, current merged state
 
 **No PR recorded**:
@@ -25,9 +29,29 @@ A recorded branch with no local pull-request identity. It makes no claim about w
 *Avoid*: unpushed, no PR exists
 
 **GS command face**:
-The provider-branded `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory for humans and agents and has no Pi mirror.
+The gh-stack-native `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory; its `restack-resolve` operation starts or advances one local gh-stack restack step. Neither has a Pi mirror yet.
 *Avoid*: `ns flow gs`, generic stack command
 
+**Restack start**:
+One authorized `gh stack rebase --no-trunk` invocation, optionally scoped downstack. It requires exact gh-stack version 0.1.0, a clean worktree, a named branch, and no active Git operation.
+*Avoid*: sync, trunk update, restack transaction
+
+**Conflict stop**:
+A restack outcome where Git still has an active rebase and bounded unresolved paths after gh-stack advancement. It is durable forward-recovery state, not command failure to roll back automatically.
+*Avoid*: failed transaction, automatic abort
+
+**Restack continuation**:
+One authorized `gh stack rebase --continue` invocation after all conflicts are resolved and at least one resolution is staged. The command infers it from Git state; it is not a public flag.
+*Avoid*: raw Git continuation, `--continue` option
+
+**Observed restack completion**:
+A gh-stack advancement followed by minimal Git state showing no active operation and a clean worktree. It does not claim topology, ancestry, range, remote, or GitHub reconciliation.
+*Avoid*: verified stack transaction, reconciled stack
+
+**Restack recovery action**:
+The bounded, kebab-case machine action and concise instruction returned with every outcome. Human rendering places it last.
+*Avoid*: postcondition array, recovery plan
+
 **Local-only inventory**:
-The command contract that resolves Git's common directory, consumes gh-stack's local state file, and checks local Git branch refs. It does not require provider installation, GitHub authentication, or network access.
+The command contract that resolves Git's common directory, consumes gh-stack's local state file, and checks local Git branch refs. It does not require gh-stack installation, GitHub authentication, or network access.
 *Avoid*: fallback mode, partial remote inventory
