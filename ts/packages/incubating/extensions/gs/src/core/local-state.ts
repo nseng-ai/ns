@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { GsLocalInventory, GsLocalStack } from "./local-inventory.ts";
+import type { GsLocalStack, GsRecordedStacks } from "./local-inventory.ts";
 
 const localPullRequestSchema = z.lazy(() =>
 	z.looseObject({
@@ -33,7 +33,7 @@ const localStateSchema = z.lazy(() =>
 );
 
 export type GsLocalStateParseResult =
-	| { readonly ok: true; readonly value: GsLocalInventory }
+	| { readonly ok: true; readonly value: GsRecordedStacks }
 	| { readonly ok: false; readonly message: string };
 
 export function parseGsLocalState(input: unknown): GsLocalStateParseResult {
@@ -66,7 +66,7 @@ export function parseGsLocalState(input: unknown): GsLocalStateParseResult {
 	};
 }
 
-export function sortGsLocalInventory(inventory: GsLocalInventory): GsLocalInventory {
+export function sortGsLocalInventory(inventory: GsRecordedStacks): GsRecordedStacks {
 	return {
 		stacks: inventory.stacks.toSorted(compareStacks),
 	};

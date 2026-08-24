@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname } from "node:path";
 
 import type { GitGateway } from "@nseng-ai/foundation/git";
 
@@ -10,7 +10,7 @@ import type {
 } from "./local-inventory.ts";
 import { parseGsLocalState } from "./local-state.ts";
 
-export type GsLocalInventoryGitGateway = Pick<GitGateway, "gitCommonDir" | "listLocalBranchTips">;
+export type GsLocalInventoryGitGateway = Pick<GitGateway, "gitPath" | "listLocalBranchTips">;
 
 export type GsStateReadResult =
 	| { readonly type: "found"; readonly contents: string }
@@ -36,21 +36,24 @@ export class RealGsLocalInventoryGateway implements GsLocalInventoryGateway {
 	}
 
 	async readLocalInventory(options: GsLocalInventoryOptions): Promise<GsLocalInventoryResult> {
-		let commonDirResult;
+		let statePathResult;
 		try {
-			commonDirResult = await this.git.gitCommonDir({ cwd: options.cwd });
+			statePathResult = await this.git.gitPath({ cwd: options.cwd, relativePath: "gh-stack" });
 		} catch (error) {
 			return gitUnavailable(messageFromUnknown(error));
 		}
-		if (!commonDirResult.ok) return gitUnavailable(commonDirResult.error.message);
+		if (!statePathResult.ok) return gitUnavailable(statePathResult.error.message);
+		const worktreeGitDir = dirname(statePathResult.value);
 
 		let stateRead;
 		try {
-			stateRead = await this.stateReader.readState(join(commonDirResult.value, "gh-stack"));
+			stateRead = await this.stateReader.readState(statePathResult.value);
 		} catch (error) {
 			return stateReadFailed(messageFromUnknown(error));
 		}
-		if (stateRead.type === "missing") return { ok: true, value: { stacks: [] } };
+		if (stateRead.type === "missing") {
+			return { ok: true, value: { worktreeGitDir, stacks: [] } };
+		}
 		if (stateRead.type === "failure") return stateReadFailed(stateRead.message);
 
 		let rawState: unknown;
@@ -76,6 +79,7 @@ export class RealGsLocalInventoryGateway implements GsLocalInventoryGateway {
 		return {
 			ok: true,
 			value: {
+				worktreeGitDir,
 				stacks: parsed.value.stacks.filter((stack) =>
 					stack.branches.some((branch) => localBranches.has(branch.name)),
 				),
