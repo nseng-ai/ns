@@ -13,7 +13,7 @@ Branch Memory is the lower storage adapter for attached branch context entries. 
 
 ## Public workflow surface
 
-1. Review the plan with the portable `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` skill when needed, then save the source-branch plan with Pi `/ns:plan:save`.
+1. Save the source-branch plan with Pi `/ns:plan:save`, or invoke the portable `plan-grill-and-save` skill when material requirements need review first. The skill requires `grilling`, uses its ordinary question workflow, and saves through the same Saved Plan writer.
 2. Create a branch and attach its branch context with `/ns:branch-context:from-plan` or `ns branch-context exec from-plan`.
 3. Attach the plan to Branch Memory namespace `branch-context` under the named Markdown key for that workflow, on the implementation branch.
 4. Load and implement with `/ns:branch-context:impl-attached-plan` or `ns branch-context exec load`.
@@ -30,7 +30,7 @@ Pi users run `/ns:plan:save`. The static planning-policy body lives at:
 
 For `/ns:plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
 
-When a plan needs review, invoke the portable `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` skill directly. Resolve product and design requirements there, then run `/ns:plan:save`. Routine test and check scope remains the downstream implementation agent's responsibility under project policy and changed-file judgment.
+When a plan needs review, either invoke `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` and then run `/ns:plan:save`, or invoke the portable `plan-grill-and-save` skill with the planning target. The latter inspects repository evidence, requires and follows the installed `grilling` skill, stops when material requirements are resolved, reviews a self-contained implementation plan, and saves it through `write_saved_plan_file`. It fails closed when `grilling` is unavailable and has no Pi command wrapper or custom structured UI. Routine test and check scope remains the downstream implementation agent's responsibility under project policy and changed-file judgment.
 
 Saved plans are written to:
 
@@ -232,4 +232,4 @@ brmem get <key> --namespace branch-context --branch <branch>
 
 - Pi commands: `/ns:plan:save`, `/ns:branch-context:from-plan`, `/ns:branch-context:upstack-impl-from-plan`, `/ns:branch-context:impl-attached-plan`.
 - CLIs: `enriched-plan`, `branch-context`, and low-level `brmem`.
-- Agent skills: `branch-context`, `branch-context-from-plan`, and `branch-context-impl`; use `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` directly when a plan needs review before saving.
+- Agent skills: `branch-context`, `branch-context-from-plan`, `branch-context-impl`, and `plan-grill-and-save`; use `grill-me`, `grill-with-docs`, `grilling`, or `domain-modeling` directly when review should remain separate from saving.
