@@ -1,10 +1,13 @@
 import type {
+	GrillConfirmationUiOutcome,
+	GrillDecisionRoundInput,
+	GrillDecisionRoundUiOutcome,
+	GrillRoundAnswer,
 	GrillRoundDetails,
 	GrillRoundExecutionOptions,
 	GrillRoundInput,
 	GrillRoundToolContext,
 	GrillRoundToolResult,
-	GrillRoundUiOutcome,
 } from "./round-protocol.ts";
 import { validateGrillRoundInput } from "./round-protocol.ts";
 import { runGrillRoundInlineUi } from "./round-ui.ts";
@@ -32,21 +35,28 @@ export async function executeGrillAskRound(
 				});
 	}
 
-	const runner = options.uiRunner ?? runGrillRoundInlineUi;
 	try {
+		if (input.mode === "decision-round") {
+			const runner = options.decisionUiRunner ?? runGrillRoundInlineUi;
+			const outcome = await runner(input, ctx);
+			if (outcome === undefined) {
+				return uiFailure(
+					input,
+					"Atomic grill round UI closed without a result; no draft was submitted.",
+				);
+			}
+			return decisionOutcomeResult(input, outcome);
+		}
+
+		const runner = options.confirmationUiRunner ?? runGrillRoundInlineUi;
 		const outcome = await runner(input, ctx);
 		if (outcome === undefined) {
-			return input.mode === "decision-round"
-				? uiFailure(input, "Atomic grill round UI closed without a result; no draft was submitted.")
-				: result("Confirmation UI closed without a result.", {
-						action: "ui-failed",
-						mode: "confirmation",
-					});
+			return result("Confirmation UI closed without a result.", {
+				action: "ui-failed",
+				mode: "confirmation",
+			});
 		}
-		// This primitive trusts the immediate result from its owned Pi UI. If a future
-		// consumer must authorize work after a resume, fork, or separate tool call,
-		// add durable attempt identity and validated result evidence at that boundary.
-		return outcomeResult(input, outcome);
+		return confirmationOutcomeResult(outcome);
 	} catch {
 		return input.mode === "decision-round"
 			? uiFailure(input, "Atomic grill round UI failed; no draft was submitted.")
@@ -57,29 +67,28 @@ export async function executeGrillAskRound(
 	}
 }
 
-function outcomeResult(input: GrillRoundInput, outcome: GrillRoundUiOutcome): GrillRoundToolResult {
-	if (input.mode === "confirmation") {
-		if (outcome.action === "confirmed") {
+function confirmationOutcomeResult(outcome: GrillConfirmationUiOutcome): GrillRoundToolResult {
+	switch (outcome.action) {
+		case "confirmed":
 			return result("Shared understanding confirmed.", {
 				action: "confirmed",
 				mode: "confirmation",
 			});
-		}
-		if (outcome.action === "return-to-grilling") {
+		case "return-to-grilling":
 			return result("Return to grilling and recompute the complete frontier.", {
 				action: "return-to-grilling",
 				mode: "confirmation",
 			});
-		}
-		return result("Return to grilling and recompute the complete frontier.", {
-			action: "return-to-grilling",
-			mode: "confirmation",
-		});
 	}
+}
 
+function decisionOutcomeResult(
+	input: GrillDecisionRoundInput,
+	outcome: GrillDecisionRoundUiOutcome,
+): GrillRoundToolResult {
 	switch (outcome.action) {
 		case "submitted":
-			return result(`Submitted ${outcome.answers.length} decisions atomically.`, {
+			return result(formatSubmittedAnswers(outcome.answers), {
 				action: "submitted",
 				mode: "decision-round",
 				roundId: input.roundId,
@@ -101,17 +110,18 @@ function outcomeResult(input: GrillRoundInput, outcome: GrillRoundUiOutcome): Gr
 				},
 				true,
 			);
-		case "confirmed":
-		case "return-to-grilling":
-			return invalidIds(`Outcome ${outcome.action} is not valid for decision-round mode.`);
 	}
 }
 
-function invalidIds(message: string): GrillRoundToolResult {
-	return result(`Invalid grill_ask_round input:\n${message}`, {
-		action: "invalid-tool-input",
-		errors: [message],
-	});
+function formatSubmittedAnswers(answers: readonly GrillRoundAnswer[]): string {
+	return [
+		`Submitted ${answers.length} decisions atomically:`,
+		...answers.map((answer, index) => {
+			const answerText =
+				answer.kind === "option" ? `${answer.label} (${answer.value})` : answer.value;
+			return `${index + 1}. ${answer.questionId}: ${answerText} [${answer.recommendation}]`;
+		}),
+	].join("\n");
 }
 
 function uiFailure(

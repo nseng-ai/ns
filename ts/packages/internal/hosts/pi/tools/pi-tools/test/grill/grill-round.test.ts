@@ -61,8 +61,8 @@ function requireOption(input: GrillDecisionRoundInput, questionIndex: number, op
 }
 
 describe("atomic grill round validation", () => {
-	test("accepts stable IDs, 2–5 options, exact recommendation mappings, and oversized frontiers", () => {
-		expect(validateGrillRoundInput(decisionRound(9))).toMatchObject({ ok: true, oversized: true });
+	test("accepts stable IDs, 2–5 options, exact recommendation mappings, and large frontiers", () => {
+		expect(validateGrillRoundInput(decisionRound(9))).toMatchObject({ ok: true });
 		for (const count of [2, 3, 4, 5]) {
 			const input = decisionRound(1);
 			const question = requireQuestion(input, 0);
@@ -128,7 +128,7 @@ describe("executeGrillAskRound", () => {
 	test("submits the complete round from the immediate UI result", async () => {
 		const input = decisionRound();
 		const result = await executeGrillAskRound(input, context(), {
-			uiRunner: async () => ({ action: "submitted", answers: answersFor(input) }),
+			decisionUiRunner: async () => ({ action: "submitted", answers: answersFor(input) }),
 		});
 		expect(result.details).toEqual({
 			action: "submitted",
@@ -136,6 +136,7 @@ describe("executeGrillAskRound", () => {
 			roundId: "round-1",
 			answers: answersFor(input),
 		});
+		expect(result.content[0]?.text).toContain("q-1: Recommended (recommended) [retained]");
 	});
 
 	test.each([
@@ -143,7 +144,7 @@ describe("executeGrillAskRound", () => {
 		["ended", true],
 	] as const)("%s discards drafts and differs by termination", async (action, terminate) => {
 		const result = await executeGrillAskRound(decisionRound(), context(), {
-			uiRunner: async () => ({ action }),
+			decisionUiRunner: async () => ({ action }),
 		});
 		expect(result.details).toMatchObject({ action });
 		expect(result.terminate === true).toBe(terminate);
@@ -157,10 +158,10 @@ describe("executeGrillAskRound", () => {
 	test("confirmation mode trusts the immediate return or accept result", async () => {
 		const input: GrillRoundInput = { mode: "confirmation", summary: "Resolved design" };
 		const confirmed = await executeGrillAskRound(input, context(), {
-			uiRunner: async () => ({ action: "confirmed" }),
+			confirmationUiRunner: async () => ({ action: "confirmed" }),
 		});
 		const returned = await executeGrillAskRound(input, context(), {
-			uiRunner: async () => ({ action: "return-to-grilling" }),
+			confirmationUiRunner: async () => ({ action: "return-to-grilling" }),
 		});
 		expect(confirmed.details).toEqual({ action: "confirmed", mode: "confirmation" });
 		expect(returned.details).toEqual({ action: "return-to-grilling", mode: "confirmation" });
@@ -170,11 +171,18 @@ describe("executeGrillAskRound", () => {
 describe("round-owning custom UI", () => {
 	test("one custom call owns status return, review, and atomic completion with oversized warning", async () => {
 		const input = decisionRound(9);
+		requireOption(input, 0, 0).description = "Recommended option details.";
 		let customCalls = 0;
 		let component: GrillRoundCustomComponent;
 		const runtime: GrillRoundInlineRuntime = {
 			Editor: class {
 				onSubmit?: (value: string) => void;
+				constructor(_tui: unknown, theme: unknown) {
+					expect(theme).toMatchObject({
+						borderColor: expect.any(Function),
+						selectList: expect.objectContaining({ selectedText: expect.any(Function) }),
+					});
+				}
 				setText(): void {}
 				render(): string[] {
 					return ["editor"];
@@ -200,7 +208,11 @@ describe("round-owning custom UI", () => {
 						customCalls += 1;
 						return new Promise<T>((resolve) => {
 							component = factory({ requestRender() {} }, {}, {}, resolve);
-							expect(component.render(120).join("\n")).toContain("large frontier");
+							component.focused = true;
+							expect(component.focused).toBe(true);
+							const questionView = component.render(120).join("\n");
+							expect(questionView).toContain("large frontier");
+							expect(questionView).toContain("Recommended option details.");
 							component.handleInput?.("s");
 							expect(component.render(120).join("\n")).toContain("Return to the same draft");
 							component.handleInput?.("b");
@@ -215,5 +227,45 @@ describe("round-owning custom UI", () => {
 		);
 		await expect(outcome).resolves.toMatchObject({ action: "submitted" });
 		expect(customCalls).toBe(1);
+	});
+
+	test("confirmation does not construct the decision-round editor", async () => {
+		const runtime: GrillRoundInlineRuntime = {
+			Editor: class {
+				constructor() {
+					throw new Error("confirmation must not construct Editor");
+				}
+				setText(): void {}
+				render(): string[] {
+					return [];
+				}
+				handleInput(): void {}
+			},
+			matchesKey: (data, key) => data === key,
+			truncateToWidth: (value) => value,
+		};
+		const outcome = runGrillRoundInlineUiWithRuntime(
+			{ mode: "confirmation", summary: "Resolved design" },
+			{
+				hasUI: true,
+				ui: {
+					custom: async <T>(
+						factory: (
+							tui: unknown,
+							theme: unknown,
+							keybindings: unknown,
+							done: (value: T) => void,
+						) => GrillRoundCustomComponent,
+					) =>
+						new Promise<T>((resolve) => {
+							const component = factory({}, {}, {}, resolve);
+							expect(component.render(80).join("\n")).toContain("Resolved design");
+							component.handleInput?.("enter");
+						}),
+				},
+			},
+			runtime,
+		);
+		await expect(outcome).resolves.toEqual({ action: "confirmed" });
 	});
 });

@@ -1,5 +1,8 @@
 import { GrillRoundController } from "./round-controller.ts";
 import type {
+	GrillConfirmationUiOutcome,
+	GrillDecisionRoundInput,
+	GrillDecisionRoundUiOutcome,
 	GrillRoundCustomComponent,
 	GrillRoundInput,
 	GrillRoundToolContext,
@@ -25,6 +28,14 @@ export interface GrillRoundInlineRuntime {
 }
 
 /** One custom call owns every draft, navigation state, status view, review, and completion. */
+export function runGrillRoundInlineUi(
+	input: GrillDecisionRoundInput,
+	ctx: GrillRoundToolContext,
+): Promise<GrillDecisionRoundUiOutcome | undefined>;
+export function runGrillRoundInlineUi(
+	input: Extract<GrillRoundInput, { mode: "confirmation" }>,
+	ctx: GrillRoundToolContext,
+): Promise<GrillConfirmationUiOutcome | undefined>;
 export async function runGrillRoundInlineUi(
 	input: GrillRoundInput,
 	ctx: GrillRoundToolContext,
@@ -41,9 +52,15 @@ export function runGrillRoundInlineUiWithRuntime(
 	runtime: GrillRoundInlineRuntime,
 ): Promise<GrillRoundUiOutcome | undefined> {
 	if (!ctx.hasUI || ctx.ui.custom === undefined) return Promise.resolve(undefined);
-	return ctx.ui.custom<GrillRoundUiOutcome>(
+	if (input.mode === "confirmation") {
+		return ctx.ui.custom<GrillConfirmationUiOutcome>(
+			(_tui, _theme, _keybindings, done) =>
+				new GrillConfirmationInlineUi(input.summary, runtime, done),
+		);
+	}
+	return ctx.ui.custom<GrillDecisionRoundUiOutcome>(
 		(tui, theme, _keybindings, done) =>
-			new GrillRoundInlineUi({ input, runtime, tui, theme, done }),
+			new GrillDecisionRoundInlineUi({ input, runtime, tui, theme, done }),
 	);
 }
 
@@ -65,18 +82,18 @@ export function grillRoundInlineRuntimeFromModule(value: unknown): GrillRoundInl
 }
 
 interface GrillRoundInlineUiOptions {
-	input: GrillRoundInput;
+	input: GrillDecisionRoundInput;
 	runtime: GrillRoundInlineRuntime;
 	tui: unknown;
 	theme: unknown;
-	done: (outcome: GrillRoundUiOutcome) => void;
+	done: (outcome: GrillDecisionRoundUiOutcome) => void;
 }
 
-class GrillRoundInlineUi implements GrillRoundCustomComponent {
-	private readonly input: GrillRoundInput;
+class GrillDecisionRoundInlineUi implements GrillRoundCustomComponent {
+	private readonly input: GrillDecisionRoundInput;
 	private readonly runtime: GrillRoundInlineRuntime;
 	private readonly tui: unknown;
-	private readonly done: (outcome: GrillRoundUiOutcome) => void;
+	private readonly done: (outcome: GrillDecisionRoundUiOutcome) => void;
 	private readonly controller: GrillRoundController;
 	private readonly editor: EditorLike;
 	private focusedValue = false;
@@ -87,30 +104,23 @@ class GrillRoundInlineUi implements GrillRoundCustomComponent {
 		this.tui = options.tui;
 		this.done = options.done;
 		this.controller = new GrillRoundController(options.input);
-		this.editor = new options.runtime.Editor(options.tui, options.theme);
+		this.editor = new options.runtime.Editor(options.tui, editorTheme(options.theme));
 		this.editor.onSubmit = (value) => {
 			if (this.controller.submitFreeform(value)) this.editor.setText("");
 			this.requestRender();
 		};
 	}
 
-	get isFocused(): boolean {
+	get focused(): boolean {
 		return this.focusedValue;
 	}
 
-	set isFocused(value: boolean) {
+	set focused(value: boolean) {
 		this.focusedValue = value;
 		this.editor.focused = value;
 	}
 
 	handleInput(data: string): void {
-		if (this.input.mode === "confirmation") {
-			if (matches(this.runtime, data, "enter") || data === "c") this.done({ action: "confirmed" });
-			else if (data === "r" || matches(this.runtime, data, "escape")) {
-				this.done({ action: "return-to-grilling" });
-			}
-			return;
-		}
 		if (this.controller.view === "freeform") {
 			if (matches(this.runtime, data, "escape")) {
 				this.controller.returnToQuestion();
@@ -145,10 +155,12 @@ class GrillRoundInlineUi implements GrillRoundCustomComponent {
 	}
 
 	render(width: number): string[] {
-		const lines =
-			this.input.mode === "confirmation"
-				? renderConfirmation(this.input.summary)
-				: renderDecisionRound(this.input, this.controller, this.editor, Math.max(1, width - 2));
+		const lines = renderDecisionRound(
+			this.input,
+			this.controller,
+			this.editor,
+			Math.max(1, width - 2),
+		);
 		return lines.map((line) => this.runtime.truncateToWidth(line, Math.max(1, width)));
 	}
 
@@ -163,15 +175,40 @@ class GrillRoundInlineUi implements GrillRoundCustomComponent {
 	}
 }
 
-function renderConfirmation(summary: string): string[] {
-	return [
-		"Confirm shared understanding",
-		"",
-		...summary.split("\n"),
-		"",
-		"Enter/c  Confirm shared understanding",
-		"r/Esc    Return to grilling",
-	];
+class GrillConfirmationInlineUi implements GrillRoundCustomComponent {
+	private readonly summary: string;
+	private readonly runtime: GrillRoundInlineRuntime;
+	private readonly done: (outcome: GrillConfirmationUiOutcome) => void;
+
+	constructor(
+		summary: string,
+		runtime: GrillRoundInlineRuntime,
+		done: (outcome: GrillConfirmationUiOutcome) => void,
+	) {
+		this.summary = summary;
+		this.runtime = runtime;
+		this.done = done;
+	}
+
+	handleInput(data: string): void {
+		if (matches(this.runtime, data, "enter") || data === "c") this.done({ action: "confirmed" });
+		else if (data === "r" || matches(this.runtime, data, "escape")) {
+			this.done({ action: "return-to-grilling" });
+		}
+	}
+
+	render(width: number): string[] {
+		return [
+			"Confirm shared understanding",
+			"",
+			...this.summary.split("\n"),
+			"",
+			"Enter/c  Confirm shared understanding",
+			"r/Esc    Return to grilling",
+		].map((line) => this.runtime.truncateToWidth(line, Math.max(1, width)));
+	}
+
+	invalidate(): void {}
 }
 
 function renderDecisionRound(
@@ -223,18 +260,41 @@ function renderDecisionRound(
 		...oversized,
 		question.question,
 		...(question.context === undefined ? [] : [question.context]),
-		...question.options.map((option, index) => {
+		...question.options.flatMap((option, index) => {
 			const selected =
 				controller.currentAnswer?.kind === "option" &&
 				controller.currentAnswer.value === option.value;
 			const recommended = option.value === question.recommendedOptionValue;
-			return `${index + 1}. ${selected ? "●" : "○"} ${option.label}${recommended ? " ★ recommended" : ""}`;
+			const optionLine = `${index + 1}. ${selected ? "●" : "○"} ${option.label}${recommended ? " ★ recommended" : ""}`;
+			return option.description === undefined
+				? [optionLine]
+				: [optionLine, `   ${option.description}`];
 		}),
-		...(question.recommendationRationale === undefined
-			? []
-			: [`Why: ${question.recommendationRationale}`]),
+		`Why: ${question.recommendationRationale}`,
 		"←→/h/l navigate • 1–5 choose • f freeform • s status • v review • e end • Esc cancel",
 	];
+}
+
+function editorTheme(value: unknown): unknown {
+	const fg = themeForeground(value);
+	return {
+		borderColor: (text: string) => fg("accent", text),
+		selectList: {
+			selectedPrefix: (text: string) => fg("accent", text),
+			selectedText: (text: string) => fg("accent", text),
+			description: (text: string) => fg("muted", text),
+			scrollInfo: (text: string) => fg("dim", text),
+			noMatch: (text: string) => fg("warning", text),
+		},
+	};
+}
+
+function themeForeground(value: unknown): (color: string, text: string) => string {
+	if (!isRecord(value) || typeof value.fg !== "function") {
+		return (_color, text) => text;
+	}
+	const fg = value.fg;
+	return (color, text) => fg.call(value, color, text) as string;
 }
 
 function matches(

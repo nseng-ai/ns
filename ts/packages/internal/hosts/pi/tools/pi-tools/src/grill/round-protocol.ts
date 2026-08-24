@@ -54,12 +54,14 @@ export type GrillRoundAnswer =
 			recommendation: "changed";
 	  };
 
-export type GrillRoundUiOutcome =
+export type GrillDecisionRoundUiOutcome =
 	| { action: "submitted"; answers: readonly GrillRoundAnswer[] }
 	| { action: "cancelled" }
-	| { action: "ended" }
-	| { action: "confirmed" }
-	| { action: "return-to-grilling" };
+	| { action: "ended" };
+
+export type GrillConfirmationUiOutcome = { action: "confirmed" } | { action: "return-to-grilling" };
+
+export type GrillRoundUiOutcome = GrillDecisionRoundUiOutcome | GrillConfirmationUiOutcome;
 
 export type GrillRoundDetails =
 	| {
@@ -104,19 +106,23 @@ export interface GrillRoundCustomComponent {
 	render(width: number): string[];
 	handleInput?(data: string): void;
 	invalidate(): void;
-	isFocused?: boolean;
+	focused?: boolean;
 	dispose?(): void;
 }
 
 export interface GrillRoundExecutionOptions {
-	uiRunner?: (
-		input: GrillRoundInput,
+	decisionUiRunner?: (
+		input: GrillDecisionRoundInput,
 		ctx: GrillRoundToolContext,
-	) => Promise<GrillRoundUiOutcome | undefined>;
+	) => Promise<GrillDecisionRoundUiOutcome | undefined>;
+	confirmationUiRunner?: (
+		input: Extract<GrillRoundInput, { mode: "confirmation" }>,
+		ctx: GrillRoundToolContext,
+	) => Promise<GrillConfirmationUiOutcome | undefined>;
 }
 
 export type GrillRoundValidation =
-	| { ok: true; input: GrillRoundInput; oversized: boolean }
+	| { ok: true; input: GrillRoundInput }
 	| { ok: false; errors: readonly string[] };
 
 /** Validate the complete round atomically, including cross-field identities. */
@@ -126,7 +132,7 @@ export function validateGrillRoundInput(value: unknown): GrillRoundValidation {
 		return { ok: false, errors: parsed.error.issues.map(formatIssue) };
 	}
 	if (parsed.data.mode === "confirmation") {
-		return { ok: true, input: parsed.data, oversized: false };
+		return { ok: true, input: parsed.data };
 	}
 
 	const errors: string[] = [];
@@ -152,11 +158,7 @@ export function validateGrillRoundInput(value: unknown): GrillRoundValidation {
 		}
 	}
 	if (errors.length > 0) return { ok: false, errors };
-	return {
-		ok: true,
-		input: parsed.data,
-		oversized: parsed.data.questions.length > 8,
-	};
+	return { ok: true, input: parsed.data };
 }
 
 function formatIssue(issue: z.core.$ZodIssue): string {

@@ -1,22 +1,20 @@
 import type {
 	GrillDecisionRoundInput,
+	GrillDecisionRoundUiOutcome,
 	GrillRoundAnswer,
-	GrillRoundInput,
-	GrillRoundUiOutcome,
 } from "./round-protocol.ts";
 
-export type GrillRoundView = "question" | "freeform" | "status" | "review" | "confirmation";
+export type GrillRoundView = "question" | "freeform" | "status" | "review";
 
 export class GrillRoundController {
-	readonly input: GrillRoundInput;
+	readonly input: GrillDecisionRoundInput;
 	private questionIndexValue = 0;
-	private viewValue: GrillRoundView;
+	private viewValue: GrillRoundView = "question";
 	private readonly answers: GrillRoundAnswer[];
 
-	constructor(input: GrillRoundInput) {
+	constructor(input: GrillDecisionRoundInput) {
 		this.input = input;
-		this.viewValue = input.mode === "confirmation" ? "confirmation" : "question";
-		this.answers = input.mode === "confirmation" ? [] : recommendedAnswers(input);
+		this.answers = recommendedAnswers(input);
 	}
 
 	get view(): GrillRoundView {
@@ -36,7 +34,6 @@ export class GrillRoundController {
 	}
 
 	selectOption(optionIndex: number): void {
-		if (this.input.mode !== "decision-round") return;
 		const question = this.input.questions[this.questionIndexValue];
 		const option = question?.options[optionIndex];
 		if (question === undefined || option === undefined) return;
@@ -50,11 +47,10 @@ export class GrillRoundController {
 	}
 
 	openFreeform(): void {
-		if (this.input.mode === "decision-round") this.viewValue = "freeform";
+		this.viewValue = "freeform";
 	}
 
 	submitFreeform(value: string): boolean {
-		if (this.input.mode !== "decision-round") return false;
 		const question = this.input.questions[this.questionIndexValue];
 		const trimmed = value.trim();
 		if (question === undefined || trimmed.length === 0) return false;
@@ -69,7 +65,6 @@ export class GrillRoundController {
 	}
 
 	move(delta: number): void {
-		if (this.input.mode !== "decision-round") return;
 		this.viewValue = "question";
 		this.questionIndexValue = Math.max(
 			0,
@@ -78,19 +73,19 @@ export class GrillRoundController {
 	}
 
 	showStatus(): void {
-		if (this.input.mode === "decision-round") this.viewValue = "status";
+		this.viewValue = "status";
 	}
 
 	showReview(): void {
-		if (this.input.mode === "decision-round") this.viewValue = "review";
+		this.viewValue = "review";
 	}
 
 	returnToQuestion(): void {
-		if (this.input.mode === "decision-round") this.viewValue = "question";
+		this.viewValue = "question";
 	}
 
-	submit(): GrillRoundUiOutcome | undefined {
-		if (this.input.mode !== "decision-round" || this.viewValue !== "review") return undefined;
+	submit(): GrillDecisionRoundUiOutcome | undefined {
+		if (this.viewValue !== "review") return undefined;
 		return { action: "submitted", answers: this.draftAnswers };
 	}
 }
