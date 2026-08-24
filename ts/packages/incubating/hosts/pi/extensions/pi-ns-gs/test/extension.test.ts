@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
 
+import type {
+	CliCommandExtensionAPI,
+	CommandContext,
+} from "@nseng-ai/pi-runtime/commands/cli-extension";
 import type { EffectiveSkillInfo } from "@nseng-ai/pi-runtime/runtime/extension-types";
 import registerGsExtension, {
 	buildConflictResolverPrompt,
@@ -21,15 +25,26 @@ const resultData = {
 	diagnostic: null,
 };
 
+type RegisteredCommand = Parameters<GsExtensionAPI["registerCommand"]>[1];
+type CustomMessage = Parameters<NonNullable<CliCommandExtensionAPI["sendMessage"]>>[0];
+type MessageRenderer = Parameters<
+	NonNullable<CliCommandExtensionAPI["registerMessageRenderer"]>
+>[1];
+
 class FakeHost implements GsExtensionAPI {
-	command: Parameters<GsExtensionAPI["registerCommand"]>[1] | undefined;
+	command: RegisteredCommand | undefined;
 	readonly userMessages: string[] = [];
-	registerCommand(_name: string, command: Parameters<GsExtensionAPI["registerCommand"]>[1]): void {
+	readonly outputMessages: CustomMessage[] = [];
+	registerCommand(_name: string, command: RegisteredCommand): void {
 		this.command = command;
 	}
-	sendUserMessage(content: string): void {
+	registerMessageRenderer = (_customType: string, _renderer: MessageRenderer): void => {};
+	sendMessage = (message: CustomMessage): void => {
+		this.outputMessages.push(message);
+	};
+	sendUserMessage = (content: string): void => {
 		this.userMessages.push(content);
-	}
+	};
 }
 
 function skill(filePath = "/skills/ns-gs-restack-resolve/SKILL.md"): EffectiveSkillInfo {
@@ -41,9 +56,12 @@ function context(skills: readonly EffectiveSkillInfo[]) {
 	return {
 		ctx: {
 			cwd: "/repo",
+			hasUI: true,
 			ui: { notify: (message: string, level?: string) => notifications.push({ message, level }) },
 			getSystemPromptOptions: () => ({ skills }),
 			waitForIdle: async () => {},
+		} satisfies CommandContext & {
+			getSystemPromptOptions(): { skills: readonly EffectiveSkillInfo[] };
 		},
 		notifications,
 	};
@@ -105,7 +123,7 @@ describe("GS Pi restack router", () => {
 		const state = await run({ stdout: JSON.stringify(envelope("success")), exitCode: 0 });
 		expect(state.calls).toEqual([["gs", "restack-resolve", "--format", "json", "--yes"]]);
 		expect(state.host.userMessages).toEqual([]);
-		expect(state.notifications).toContainEqual({ message: "GS restack completed.", level: "info" });
+		expect(state.host.outputMessages).toHaveLength(1);
 	});
 
 	test("hands a trustworthy conflict and user context to the exact captured skill", async () => {
@@ -121,10 +139,11 @@ describe("GS Pi restack router", () => {
 		const state = await run({ args: "--downstack prefer generated file", skills: [] });
 		expect(state.calls).toEqual([]);
 		expect(state.host.userMessages).toEqual([]);
-		expect(state.notifications).toContainEqual({
-			message: "--downstack is not accepted; GS restack already defaults to downstack scope.",
-			level: "error",
-		});
+		expect(state.host.outputMessages[0]?.content).toContain(
+			"--downstack is not accepted; GS restack already defaults to downstack scope.",
+		);
+		expect(state.host.outputMessages[0]?.details).toMatchObject({ level: "error" });
+		expect(state.notifications).toEqual([]);
 	});
 
 	test("hands off a pre-existing interrupted rebase without changing provider scope", async () => {
@@ -144,7 +163,7 @@ describe("GS Pi restack router", () => {
 		const state = await run({ skills });
 		expect(state.calls).toEqual([]);
 		expect(state.host.userMessages).toEqual([]);
-		expect(state.notifications[0]?.level).toBe("error");
+		expect(state.host.outputMessages[0]?.details).toMatchObject({ level: "error" });
 	});
 
 	test.each([
@@ -154,13 +173,18 @@ describe("GS Pi restack router", () => {
 	] as const)("fails closed for %s CLI output", async (_name, stdout, exitCode) => {
 		const state = await run({ stdout, exitCode });
 		expect(state.host.userMessages).toEqual([]);
-		expect(state.notifications.at(-1)?.level).toBe("error");
+		if (_name === "refused") {
+			expect(state.notifications).toEqual([]);
+		} else {
+			expect(state.notifications.at(-1)?.level).toBe("warning");
+		}
 	});
 
 	test("fails closed when the fresh CLI process throws", async () => {
 		const state = await run({ processError: new Error("loader failed") });
 		expect(state.host.userMessages).toEqual([]);
-		expect(state.notifications.at(-1)?.message).toContain("loader failed");
+		expect(state.host.outputMessages[0]?.content).toContain("loader failed");
+		expect(state.notifications).toEqual([]);
 	});
 
 	test("builds an evidence-first resolver prompt with collision-safe fences", () => {

@@ -2,9 +2,9 @@
 
 Incubating Pi host adapter for [`@nseng-ai/gs`](../../../../extensions/gs/README.md).
 
-It directly discovers `/ns:gs:restack-resolve`, loads a fresh ns CLI module for every invocation,
-and delegates deterministic local mutation to `ns gs restack-resolve --format json --yes`. Completion
-returns without an LM turn. A trustworthy conflict stop invokes exactly the effective
+It registers `/ns:gs:restack-resolve` through the shared Pi CLI command bridge, loads a fresh ns CLI
+module for every invocation, and delegates deterministic local mutation to
+`ns gs restack-resolve --format json --yes`. Completion returns without an LM turn. A trustworthy conflict stop invokes exactly the effective
 `ns-gs-restack-resolve` skill captured before mutation, with structured CLI evidence and the user's
 resolver context.
 
