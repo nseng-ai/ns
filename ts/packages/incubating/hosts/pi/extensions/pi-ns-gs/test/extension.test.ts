@@ -23,11 +23,17 @@ const resultData = {
 
 class FakeHost implements GsExtensionAPI {
 	command: Parameters<GsExtensionAPI["registerCommand"]>[1] | undefined;
+	readonly events: string[] = [];
 	readonly userMessages: string[] = [];
 	registerCommand(_name: string, command: Parameters<GsExtensionAPI["registerCommand"]>[1]): void {
 		this.command = command;
 	}
+	registerMessageRenderer(): void {}
+	sendMessage(message: { customType: string }): void {
+		this.events.push(`message:${message.customType}`);
+	}
 	sendUserMessage(content: string): void {
+		this.events.push("user-message");
 		this.userMessages.push(content);
 	}
 }
@@ -36,14 +42,16 @@ function skill(filePath = "/skills/ns-gs-restack-resolve/SKILL.md"): EffectiveSk
 	return { name: "ns-gs-restack-resolve", filePath, baseDir: "/skills/ns-gs-restack-resolve" };
 }
 
-function context(skills: readonly EffectiveSkillInfo[]) {
+function context(host: FakeHost, skills: readonly EffectiveSkillInfo[]) {
 	const notifications: Array<{ message: string; level: string | undefined }> = [];
 	return {
 		ctx: {
 			cwd: "/repo",
 			ui: { notify: (message: string, level?: string) => notifications.push({ message, level }) },
 			getSystemPromptOptions: () => ({ skills }),
-			waitForIdle: async () => {},
+			waitForIdle: async () => {
+				host.events.push("idle");
+			},
 		},
 		notifications,
 	};
@@ -77,13 +85,14 @@ async function run(options: {
 	registerGsExtension(host, {
 		readSkillTextFile: async () => "---\nname: ns-gs-restack-resolve\n---\nResolve carefully.",
 		runCli: async (args, deps) => {
+			host.events.push("cli");
 			calls.push([...args]);
 			if (options.processError !== undefined) throw options.processError;
 			deps.stdout(options.stdout ?? JSON.stringify(envelope()));
 			return options.exitCode ?? 1;
 		},
 	});
-	const state = context(options.skills ?? [skill()]);
+	const state = context(host, options.skills ?? [skill()]);
 	if (host.command === undefined) throw new Error("command not registered");
 	await host.command.handler(options.args ?? "", state.ctx);
 	return { host, calls, notifications: state.notifications };
@@ -104,13 +113,14 @@ describe("GS Pi restack router", () => {
 		expect(state.notifications).toContainEqual({ message: "GS restack completed.", level: "info" });
 	});
 
-	test("hands a trustworthy conflict and user context to the exact captured skill", async () => {
+	test("acknowledges before CLI and idle when handing a trustworthy conflict to the exact captured skill", async () => {
 		const state = await run({ args: "--downstack prefer generated file" });
 		expect(state.calls[0]).toContain("--downstack");
 		expect(state.host.userMessages).toHaveLength(1);
 		expect(state.host.userMessages[0]).toContain("Resolve carefully.");
 		expect(state.host.userMessages[0]).toContain('"outcome": "conflict-stopped"');
 		expect(state.host.userMessages[0]).toContain("prefer generated file");
+		expect(state.host.events).toEqual(["message:ns-command-ack", "cli", "idle", "user-message"]);
 	});
 
 	test("hands off a pre-existing interrupted rebase without changing provider scope", async () => {

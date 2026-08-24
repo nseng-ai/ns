@@ -4,10 +4,10 @@
 
 Getting to: deliver command-sized vertical slices from one explicit provider worktree, verifying repository-shared Git refs, invoking-worktree gh-stack facts, and GitHub authority separately before shipping each CLI, portable skill, and Pi surface.
 
-What you see now: gh-stack v0.1.0 stores topology and locks in each worktree's private Git directory while branch refs are shared. GS inventory now reports only Git's canonical current-worktree provider view with explicit provenance; provisional autoslot still moves a branch without moving provider membership.
+What you see now: gh-stack v0.1.0 stores topology and locks in each worktree's private Git directory while branch refs are shared. GS inventory reports the current-worktree view, and native autobranch now bootstraps dirty cached trunk or extends only the invoking view's tracked top. Provisional autoslot still moves a branch without moving provider membership.
 
 Keep GS independent of Flow. Keep Slots optional. Treat one stack as owned by one stable worktree unless public provider commands prove safe destination establishment and source disposition. Preserve forward-only recovery.
 
-Avoid private-state copying or mutation, repository-global claims from one worktree's provider view, cross-worktree concurrency assumptions, universal provider interfaces, and Flow retirement under this Objective.
+Avoid private-state copying or mutation, repository-global claims from one worktree's provider view, cross-worktree concurrency assumptions, universal provider interfaces, and changes to unrelated Flow behavior. A complete native GS slice may retire only its duplicate provisional GS-owned Flow surface.
 
-Active slice: finish provider-worktree architecture evidence by revalidating `restack-resolve` wrong-worktree, independent-lock concurrency, initiating-worktree recovery, and Slot composition. The corrected `ns gs list` storage premise and thin `/ns:gs:restack-resolve` Pi router now exist, but they do not settle those mutating-workflow questions.
+Active slice: finish provider-worktree architecture evidence by revalidating `restack-resolve` wrong-worktree, independent-lock concurrency, initiating-worktree recovery, and Slot composition, then settle preparation/autoslot destination establishment. Native autobranch does not settle those broader mutating-workflow questions.
