@@ -25,7 +25,7 @@ A recorded branch with no local pull-request identity. It makes no claim about w
 *Avoid*: unpushed, no PR exists
 
 **GS command face**:
-The provider-branded `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory; its `restack-resolve` operation starts or advances one local provider restack step. Neither has a Pi mirror yet.
+The provider-branded `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory; its `restack-resolve` operation starts or advances one local provider restack step. The latter has a thin `/ns:gs:restack-resolve` Pi mirror through the separate GS Pi restack router.
 *Avoid*: `ns flow gs`, generic stack command
 
 **Restack start**:
@@ -47,6 +47,10 @@ A provider advancement followed by minimal Git state showing no active operation
 **Restack recovery action**:
 The bounded, kebab-case machine action and concise instruction returned with every outcome. Human rendering places it last.
 *Avoid*: postcondition array, recovery plan
+
+**GS command-surface descriptor**:
+The minimal stable metadata and strict Clinkr envelope schema exported only through `@nseng-ai/gs/api` for host adapters. It exposes command identity and result interpretation, not private orchestration.
+*Avoid*: orchestration API, root export, Pi policy
 
 **Local-only inventory**:
 The command contract that resolves Git's common directory, consumes gh-stack's local state file, and checks local Git branch refs. It does not require provider installation, GitHub authentication, or network access.
