@@ -72,9 +72,9 @@
       "computedHash": "d5012388686587b7e3a9411709d0aa24adad81e1ceedc21c0dc4bc36bbf584f6"
     },
     "code-resolve-merge-conflicts": {
-      "source": "skills/internal/code/code-resolve-merge-conflicts",
+      "source": "skills/incubating/code/code-resolve-merge-conflicts",
       "sourceType": "local",
-      "computedHash": "85feaff839e3eb38bda634d58e1cbbb1ae5f5d451f3f72eb8bfeeda13e3cecb9"
+      "computedHash": "8907ebd90d34fa17992bceca735355ba3dabaa5ef7ee3ce7670a9446b7cd7538"
     },
     "code-smush": {
       "source": "skills/internal/code/code-smush",

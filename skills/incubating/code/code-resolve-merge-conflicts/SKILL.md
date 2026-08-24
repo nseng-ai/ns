@@ -135,11 +135,14 @@ leftover conflict markers cannot be continued accidentally.
 
 ### 4. Verify before continuing
 
-When any auto-resolved file is **code**, run the scoped project check before
-the continue command — the narrowest `just` gate for the conflicted file types
-per `docs/conventions/just-gate-map.md` (for example `just ts-check`,
-optionally `just ts-test`, for `ts/**`-only conflicts). When mixed or
-uncertain, run `just check`. Docs/markdown-only conflicts need no check.
+When any auto-resolved file is **code**, run the narrowest authoritative
+project validation for the touched files before the continue command. Use the
+repository's documented validation entrypoint and file- or package-scoped
+checks when available. If the scope is mixed or uncertain, run the project's
+authoritative default validation. Documentation-only conflicts need no code
+check. In ns itself, `just ts-check` (optionally `just ts-test`) is one
+non-normative example for `ts/**`-only conflicts, and `just check` is the mixed
+or uncertain fallback.
 
 - **Pass** → `git add` the resolved files (3c's pre-stage marker sweep must
   have run) → run the continue command.
