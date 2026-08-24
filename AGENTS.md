@@ -90,6 +90,7 @@ Treat authoritative plans and handoffs as evidence caches: start from their supp
 
 ## Skills
 
+- **Never run `npx skills check`.** In the currently resolved skills CLI, that invocation performs a broad remote refresh, mutates vendored overlays and `skills-lock.json`, may create `.pi/skills/`, and can fail on unrelated upstream skills. It is not a validation command. Validate focused skill changes with `npx skills list --json`, exact overlay/lock inspection, bounded reference searches, and the repository gates instead.
 - Use a skill when the user names it or the task matches its description. Multiple named skills mean use all; do not carry skills across turns unless re-mentioned.
 - Read the skill's `SKILL.md` progressively; resolve relative paths from the skill directory; load only needed `references/`; prefer scripts/assets/templates over retyping large blocks.
 - `skills/README.md` is authoritative for first-party skill topology. Resolve a known first-party identity through the flat Harness Overlay at `.agents/skills/<name>/SKILL.md`, then use its nested canonical source for edits or management. Real vendored directories also resolve at `.agents/skills/<name>/SKILL.md`. If the explicit overlay is absent, report the missing skill rather than searching or guessing.

@@ -14,7 +14,6 @@ allowed-tools:
   - "Bash(cat skills-lock.json)"
   - "Bash(cat .claude/skills/*)"
   - "Bash(rg *)"
-  - "Bash(npx skills check)"
   - "Bash(git add *)"
   - "Bash(git mv *)"
   - "Bash(git rm -r -- skills/public/*)"
@@ -29,12 +28,19 @@ Manage project skills with `npx skills`. This skill covers repo-local first-part
 skills, third-party GitHub-sourced vendored skills, their flat harness overlays,
 and `skills-lock.json`.
 
-`npx skills` owns acquisition, installation, listing, checking, update, removal,
-and `skills-lock.json`. Repository files own canonical topology, flat overlays,
+`npx skills` owns acquisition, installation, listing, update, removal, and
+`skills-lock.json`. Repository files own canonical topology, flat overlays,
 frontmatter, Codex sidecars, and Pi exclusions. Maintain and review checked-in
 invocation metadata directly; `npx skills` does not create Pi exclusions or all
 metadata. There is no ns skill-management, provisioning, reconciliation, or
 catalog command surface.
+
+Never run `npx skills check`. In the currently resolved CLI it performs a broad
+remote refresh rather than a read-only validation: it mutates vendored overlays
+and `skills-lock.json`, may create `.pi/skills/`, and can fail because of
+unrelated upstream skills. Validate focused work with `npx skills list --json`,
+exact overlay and lock inspection, bounded reference searches, and repository
+gates.
 
 The authoritative topology contract lives in `skills/README.md`. Use its
 approved destination rules; never infer a first-party destination from its
