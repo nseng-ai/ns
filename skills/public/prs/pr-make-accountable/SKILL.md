@@ -1,7 +1,7 @@
 ---
 name: pr-make-accountable
 disable-model-invocation: true
-description: Interview a PR author to establish shared understanding of intent and design decisions, then co-author the What / Why / Changes / Reviewer focus PR body.
+description: Interview a PR author to establish shared understanding of intent and design decisions, then co-author the What / Why / Changes PR body with opt-in Requested reviewer focus.
 ---
 
 # pr-make-accountable
@@ -30,9 +30,7 @@ each stated in one sentence. A rationale thread that spans several changes
 may instead be carried once by a short prose paragraph. Defer code-visible
 detail to the diff.
 
-## Reviewer focus
-
-Anything you'd especially like reviewers to pay attention to.
+<!-- Include a ## Requested reviewer focus section here only when the author explicitly opted into it during the interview. -->
 
 **PR:** [#<number>](url)
 
@@ -169,8 +167,13 @@ Apply these rules:
   the PR first. If yes, offer to make the change in the checked-out branch;
   after approval, edit, validate, commit, resubmit, and restart at inventory.
   The author may instead make the change externally. If no, represent the
-  current PR honestly and route the item to a limitation, reviewer focus, or
-  the consumability report.
+  current PR honestly and route the item to a limitation or the consumability
+  report.
+- Treat requested reviewer focus as opt-in. Before drafting, ask whether the
+  author wants a `## Requested reviewer focus` section unless they have already
+  requested one. Record opt-in only from an explicit affirmative answer or
+  request during the interview; discussing a hotspot does not opt the author in.
+  If the author ends questioning before opting in, omit the section.
 
 Classify interview material separately from its resolution status:
 
@@ -242,9 +245,10 @@ In `## Changes`:
   decision bullets, and keep the affected bullets to one-line pointers into
   it. Use this instead of repeating or splitting the rationale across bullets.
 - Route content at the wrong altitude out of the section: motivation belongs
-  in `## Why`; hotspots the reviewer must scrutinize belong in
-  `## Reviewer focus`; rationale already recorded in the diff (for example in
-  an ADR) gets a one-clause pointer, not a restatement.
+  in `## Why`; when the author opted into `## Requested reviewer focus`,
+  requested hotspots belong there; other hotspots remain in the consumability report;
+  rationale already recorded in the diff (for example in an ADR) gets a
+  one-clause pointer, not a restatement.
 - Defer lookupable, code-visible facts to the diff — error-code lists,
   type/state plumbing, dependency removals, test updates. Mention such a fact
   only when it embodies a deliberate design decision, and then in one short
@@ -274,8 +278,10 @@ complete draft:
 - After the pass, compare the edited draft with the source draft. Restore any
   meaningful information or context that the editing pass removed or obscured.
 
-Omit `## Reviewer focus` when empty; the written heading never carries an
-`(optional)` marker. End every draft with this
+Include `## Requested reviewer focus` only when the shared interview record
+contains the author's explicit opt-in and the section has content. Otherwise omit the heading
+and section. The written heading never carries an `(optional)` marker. End every
+draft with this
 provenance footer, separated from the description by a horizontal rule:
 
 ```markdown
@@ -328,7 +334,8 @@ each axis:
 - **Size and cohesion** — reviewable and focused, or better split?
 - **Title honesty** — does the live substantive title accurately summarize the net diff?
 - **Narrative** — does the body establish the right model before code?
-- **Focus** — are interview-discovered hotspots in `## Reviewer focus`?
+- **Focus** — when the author opted into `## Requested reviewer focus`, does it
+  contain the requested hotspots? Otherwise, does this report identify the hotspots?
 
 Include deferred PR-change items from the interview.
 
