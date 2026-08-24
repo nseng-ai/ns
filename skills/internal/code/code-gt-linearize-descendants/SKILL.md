@@ -14,7 +14,7 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 - Ask for confirmation before any mutation.
 - Require a clean worktree before mutation.
 - Create timestamped local backup refs for all affected branches before mutation.
-- Never close GitHub PRs automatically; only report close candidates.
+- Never close GitHub PRs automatically. Preserve superseded PRs for context and prefix their titles with `[superseded-pr]` only after confirmation.
 
 ## Procedure
 
@@ -57,16 +57,17 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
    - keep a descendant in the target stack when its diff is a coherent continuation of the target branch;
    - move a descendant to trunk or another parent when it is independent of the target branch;
    - reorder descendants when dependency direction is clear from commits/diffs;
-   - mark duplicates as report-only close candidates when another branch already contains the same effective change;
+   - mark duplicates as `[superseded-pr]` title-prefix candidates when another branch already contains the same effective change;
+   - mark an original PR as a `[superseded-pr]` title-prefix candidate when its effective change has been divided among multiple replacement PRs;
    - escalate to manual consolidation when diffs overlap but intent is ambiguous.
 4. Render a compact proposal for the user:
    - evidence sources consulted;
    - proposed final stack shape;
    - action per descendant branch: keep in stack, move to trunk, reorder under another branch, drop duplicate, or manual consolidation;
    - essential evidence and risk notes;
-   - duplicate/superseded PR close candidates, clearly marked as report-only;
+   - PRs whose titles will receive the `[superseded-pr]` prefix and the complete set of replacement PRs for each one;
    - submit consequences: after the local rewrite, `gt submit --no-interactive` will force-push the rewritten branches and update their PRs; list the affected PR numbers/URLs explicitly.
-5. Ask for one explicit confirmation before mutating; the confirmation covers both the local rewrite and the submit/force-push listed in the proposal.
+5. Ask for one explicit confirmation before mutating; the confirmation covers the local rewrite, the submit/force-push, and the `[superseded-pr]` title changes listed in the proposal.
 6. If confirmed, verify `git status --short` is clean. If dirty, stop and ask the user to checkpoint/stash/use another worktree.
 7. Create local backup refs for every affected branch in one call:
 
@@ -91,4 +92,12 @@ Linearize descendant PRs above a named Graphite stack branch. This workflow is s
 gt submit --no-interactive
 ```
 
-11. Report final stack, updated PR URLs from submit output, backup ref prefix, close candidates, and any deviations from the confirmed proposal.
+11. After submit succeeds, preserve each confirmed superseded PR and prefix its existing title instead of closing it:
+
+```bash
+gh pr edit <superseded-pr-number> --title "[superseded-pr] <existing-title>"
+```
+
+Read the current title first and preserve it verbatim after the prefix. If the title already starts with `[superseded-pr]`, do not add the prefix again. Do not retitle a PR unless the proposal names its complete replacement set explicitly; for a split, this means every replacement PR. If retitling fails, stop retitling further PRs and report the partial result; do not close any PR as a fallback.
+
+12. Report final stack, updated PR URLs from submit output, backup ref prefix, retitled superseded PRs and their complete replacement sets, and any deviations from the confirmed proposal.
