@@ -73,6 +73,7 @@ export type TrackedBranchPayloadLoadResult =
 export interface ResolvedTrackedBranchCreationContext {
 	pi: CommandExecApi;
 	git: Pick<GitGateway, "repoRoot" | "createBranchAtStartPoint">;
+	presentModelWarning: (message: string) => void;
 }
 
 export interface TrackedBranchCreationContext extends ResolvedTrackedBranchCreationContext {
@@ -154,12 +155,7 @@ export async function createTrackedBranchFromResolvedParent(
 	context: ResolvedTrackedBranchCreationContext,
 	options: CreateTrackedBranchFromResolvedParentOptions,
 ): Promise<TrackedBranchEvidence | { error: string }> {
-	const slug = await generateTrackedBranchSlug(
-		context.pi,
-		context.git,
-		options.cwd,
-		options.prompt,
-	);
+	const slug = await generateTrackedBranchSlug(context, options.cwd, options.prompt);
 	if (!slug.ok) return { error: slug.message };
 	const branchName = await chooseAvailableBranchName(context.pi, options.cwd, slug.text);
 	const create = await context.git.createBranchAtStartPoint({
@@ -367,12 +363,11 @@ export function formatTrackedBranchPayloadStorageFailure(
 }
 
 async function generateTrackedBranchSlug(
-	pi: CommandExecApi,
-	git: Pick<GitGateway, "repoRoot">,
+	context: Pick<ResolvedTrackedBranchCreationContext, "pi" | "git" | "presentModelWarning">,
 	cwd: string,
 	content: string,
 ): Promise<TextResult> {
-	const repository = await git.repoRoot({ cwd });
+	const repository = await context.git.repoRoot({ cwd });
 	if (!repository.ok) {
 		return {
 			ok: false,
@@ -385,7 +380,9 @@ async function generateTrackedBranchSlug(
 	});
 	if (!policy.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug, {
+		presentWarning: context.presentModelWarning,
+	});
 	if (!model.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
 	const prompt = buildTrackedBranchSlugPrompt({ kind: "task", content });
@@ -393,7 +390,7 @@ async function generateTrackedBranchSlug(
 		cwd,
 		prompt,
 		modelSelection: model.value.selection,
-		exec: (command, args, execOptions) => pi.exec(command, args, execOptions),
+		exec: (command, args, execOptions) => context.pi.exec(command, args, execOptions),
 	});
 	if (!result.ok) return { ok: false, message: formatRawTextModelFailure(result.failure) };
 	const slug = sanitizeBranchName(result.evidence.rawOutput.trim()) || sanitizeBranchName(content);

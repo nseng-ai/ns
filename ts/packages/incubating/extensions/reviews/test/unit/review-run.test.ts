@@ -179,16 +179,43 @@ describe("runReview", () => {
 		expect(reviewRunner.calls()).toEqual([]);
 	});
 
-	test("retains a qualified OpenAI override in progress, results, runner input, and logs", async () => {
+	test("warns when the selected Reviews profile is the built-in fallback", async () => {
+		const repoRoot = await tempRepoRoot();
+		const stderr: string[] = [];
+		const ctx = createReviewsRuntime(
+			fakeReviewsContext({
+				gitGateway: gitGateway(repoRoot),
+				reviewCatalog: new FakeReviewCatalogGateway({
+					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
+				}),
+				cwd: repoRoot,
+				stderr: (text) => stderr.push(text),
+			}),
+		);
+
+		const outcome = await runReview(ctx, { key: "typescript-style" });
+
+		expect(outcome.type).toBe("completed");
+		expect(stderr).toEqual([
+			"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.\n",
+		]);
+	});
+
+	test("retains a qualified OpenAI override without warning for the built-in profile", async () => {
+		const repoRoot = await tempRepoRoot();
+		const stderr: string[] = [];
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const reviewLog = new FakeReviewLogGateway();
 		const ctx = createReviewsRuntime(
 			fakeReviewsContext({
+				gitGateway: gitGateway(repoRoot),
 				reviewCatalog: new FakeReviewCatalogGateway({
 					reviewSourcesByKey: { "typescript-style": REVIEW_SOURCE },
 				}),
 				reviewRunner,
 				reviewLog,
+				cwd: repoRoot,
+				stderr: (text) => stderr.push(text),
 			}),
 		);
 
@@ -207,6 +234,7 @@ describe("runReview", () => {
 			thinking: "minimal",
 		});
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("openai/gpt-5.6-luna");
+		expect(stderr).toEqual([]);
 	});
 
 	test("rejects an unqualified one-run model override before invoking the runner", async () => {

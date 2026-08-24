@@ -8,7 +8,7 @@ import { defineCommand, failure, negative, ok, z, type NsCommand } from "@nseng-
 import { renderAutobranchFailureResultBlock } from "../presentation/autobranch-result-block.ts";
 import { prepareFlowCheckpointMessage } from "../model-generation.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelWarningPresenter, resolveFlowModelSelection } from "../model-policy.ts";
 import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-result.ts";
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
@@ -43,11 +43,17 @@ export const flowAutobranchCommand: NsCommand<typeof autobranchRequestSchema> = 
 	handler: async (ctx, request: AutobranchRequest) => {
 		const caps = resolveFlowStreamCaps(ctx);
 		const args: ParsedAutobranchArgs = request.slug === undefined ? {} : { slug: request.slug };
-		const slugModel = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.slug);
+		const presentModelWarning = createFlowModelWarningPresenter(ctx);
+		const slugModel = await resolveFlowModelSelection(
+			ctx,
+			MODEL_OPERATION_IDS.slug,
+			presentModelWarning,
+		);
 		if (!slugModel.ok) return failure(FLOW_COMMAND_FAILED, slugModel.error);
 		const checkpointModel = await resolveFlowModelSelection(
 			ctx,
 			MODEL_OPERATION_IDS.flowCheckpoint,
+			presentModelWarning,
 		);
 		if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 		const io = commandIoFromNsExtensionApi(ctx);

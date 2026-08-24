@@ -124,7 +124,11 @@ async function createCurrentPromptBranch(
 	}
 	options.notifyProgress("Generating branch name…");
 	return createTrackedBranchForPrompt(
-		{ pi: context.commands, git: context.git },
+		{
+			pi: context.commands,
+			git: context.git,
+			presentModelWarning: (message) => context.pi.ui.notify(message, "warning"),
+		},
 		{ cwd: context.pi.cwd, prompt },
 	);
 }
@@ -137,7 +141,12 @@ async function createTrunkPromptBranch(
 	const resolution = await resolveRepoTrunkBranch(context.git, { cwd: context.pi.cwd });
 	if (resolution.type === "failed") return { error: resolution.message };
 	return createTrackedBranchFromLocalTrunkForPrompt(
-		{ pi: context.commands, trunkBranch: resolution.branch, git: context.git },
+		{
+			pi: context.commands,
+			trunkBranch: resolution.branch,
+			git: context.git,
+			presentModelWarning: (message) => context.pi.ui.notify(message, "warning"),
+		},
 		{
 			cwd: context.pi.cwd,
 			prompt,

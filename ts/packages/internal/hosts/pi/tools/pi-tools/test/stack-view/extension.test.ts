@@ -276,7 +276,7 @@ describe("stack-view extension enrichment wiring", () => {
 		expect(host.sentMessages).toHaveLength(1); // the plain snapshot
 	});
 
-	test("degrades to a snapshot with a clear warning when the fast profile is missing", async () => {
+	test("uses the built-in fast profile with a clear warning", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
 		const missingConfigGateway: ProjectConfigGateway = {
@@ -294,10 +294,10 @@ describe("stack-view extension enrichment wiring", () => {
 
 		await host.command().handler("", ctx);
 
-		expect(engines).toHaveLength(0);
-		expect(host.sentMessages).toHaveLength(1);
+		expect(engines).toHaveLength(1);
 		expect(notifications).toContainEqual({
-			message: expect.stringContaining("[models.profiles.fast]"),
+			message:
+				"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.",
 			level: "warning",
 		});
 	});

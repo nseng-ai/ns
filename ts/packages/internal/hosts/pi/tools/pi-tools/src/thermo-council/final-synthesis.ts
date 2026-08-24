@@ -55,7 +55,9 @@ export async function synthesizeThermoCouncilFinalReport({
 		gateway: createNodeProjectConfigGateway(),
 	});
 	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
-	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
+	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis, {
+		presentWarning: (message) => ctx.ui?.notify?.(message, "warning"),
+	});
 	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };
 	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi,

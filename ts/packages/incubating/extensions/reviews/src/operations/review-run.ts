@@ -7,6 +7,7 @@ import {
 	parseModelRef,
 	type ModelSelection,
 } from "@nseng-ai/foundation/model-slug";
+import { resolveModelOperation } from "@nseng-ai/extension-kit/model-policy";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
@@ -101,7 +102,9 @@ export async function runReview(
 	const { source, definition, config, diff } = loaded.value;
 	const reviewDiff = filterLocalDiffForReviewApplicability(diff, definition.applicability);
 
-	const resolved = resolveReviewModel(request, definition, config);
+	const resolved = resolveReviewModel(request, definition, config, (message) =>
+		ctx.stderr(`${message}\n`),
+	);
 	if (!resolved.ok) return { type: "failed", error: resolved.error };
 	const model = resolved.value;
 
@@ -228,6 +231,7 @@ function resolveReviewModel(
 	request: RunReviewRequest,
 	definition: ReviewDefinition,
 	config: ReviewsProjectConfig,
+	presentWarning: (message: string) => void,
 ): ReviewResult<ResolvedReviewModel> {
 	const profile = (request.modelProfile ?? definition.modelProfile).trim();
 	const configuredModel = config.modelPolicy.profiles[profile];
@@ -242,7 +246,21 @@ function resolveReviewModel(
 		};
 	}
 	let selection = configuredModel;
-	if (request.model !== undefined) {
+	if (request.model === undefined) {
+		const operationId = `reviews.${request.key}`;
+		const policy = {
+			...config.modelPolicy,
+			operations: { ...config.modelPolicy.operations, [operationId]: profile },
+		};
+		const resolved = resolveModelOperation(policy, operationId, { presentWarning });
+		if (!resolved.ok) {
+			return {
+				ok: false,
+				error: { code: "project-config-invalid", message: resolved.error.message },
+			};
+		}
+		selection = resolved.value.selection;
+	} else {
 		const modelRef = request.model.trim();
 		const parsed = parseModelRef(modelRef, configuredModel.thinking);
 		if (parsed === undefined) {
@@ -263,7 +281,10 @@ function resolveReviewModel(
 	if (!resolved.ok) return resolved;
 	return {
 		ok: true,
-		value: { modelProfile: profile, modelSelection: resolved.value.selection },
+		value: {
+			modelProfile: profile,
+			modelSelection: resolved.value.selection,
+		},
 	};
 }
 

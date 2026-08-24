@@ -210,7 +210,7 @@ describe("tracked branch payload public API", () => {
 			headCommit: "abc123",
 		});
 		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
+			{ pi: commands, git, presentModelWarning: () => undefined },
 			{ cwd: REPO_ROOT, prompt },
 		);
 
@@ -234,7 +234,7 @@ describe("tracked branch payload public API", () => {
 		const git = new InMemoryGitGateway({ currentBranch: { type: "detached" } });
 
 		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
+			{ pi: commands, git, presentModelWarning: () => undefined },
 			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
 		);
 
@@ -255,7 +255,7 @@ describe("tracked branch payload public API", () => {
 		});
 
 		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
+			{ pi: commands, git, presentModelWarning: () => undefined },
 			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
 		);
 
@@ -279,7 +279,7 @@ describe("tracked branch payload public API", () => {
 		});
 
 		const result = await createTrackedBranchForPrompt(
-			{ pi: commands, git },
+			{ pi: commands, git, presentModelWarning: () => undefined },
 			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
 		);
 
@@ -315,7 +315,7 @@ describe("tracked branch payload public API", () => {
 
 		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
 		const result = await createTrackedBranchFromResolvedParent(
-			{ pi: commands, git },
+			{ pi: commands, git, presentModelWarning: () => undefined },
 			{
 				cwd: REPO_ROOT,
 				prompt,
@@ -384,7 +384,7 @@ describe("tracked branch payload public API", () => {
 
 		const git = new InMemoryGitGateway({ repoRoot: REPO_ROOT });
 		const result = await createTrackedBranchFromResolvedParent(
-			{ pi: commands, git },
+			{ pi: commands, git, presentModelWarning: () => undefined },
 			{
 				cwd: REPO_ROOT,
 				prompt,

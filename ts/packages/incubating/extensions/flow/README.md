@@ -152,9 +152,10 @@ thinking = "minimal"
 ```
 
 `models.profiles` maps profile names to qualified provider/model references and required
-thinking policies. `[models.profiles.fast]` is required; there is no built-in model fallback.
-`models.operations` maps operation IDs to profiles. Omitted operations resolve to the configured
-`fast` profile. Flow uses `slug` for generated branch names, `flow.checkpoint` for checkpoint
+thinking policies. If `[models.profiles.fast]` is absent, Flow uses the built-in
+`openai-codex/gpt-5.6-luna` profile with minimal thinking and warns. A configured `fast` profile
+replaces it. `models.operations` maps operation IDs to profiles. Omitted operations resolve to the
+effective `fast` profile. Flow uses `slug` for generated branch names, `flow.checkpoint` for checkpoint
 messages, and `flow.pr-inventory` for an Assembled PR inventory. There is no environment override
 ladder or model inspection command.
 

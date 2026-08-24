@@ -49,6 +49,7 @@ export async function generateWorkspaceGoalSlug(
 	pi: HerdrPiCommandApi,
 	cwd: string,
 	goal: string,
+	presentModelWarning: (message: string) => void,
 ): Promise<TextResult> {
 	const repository = await new RealGitGateway(pi).repoRoot({ cwd });
 	if (!repository.ok) {
@@ -65,7 +66,9 @@ export async function generateWorkspaceGoalSlug(
 	if (!policy.ok) {
 		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
 	}
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug, {
+		presentWarning: presentModelWarning,
+	});
 	if (!model.ok) {
 		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
 	}
@@ -109,7 +112,9 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
+	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal, (message) =>
+		options.ctx.ui.notify(message, "warning"),
+	);
 	if (!slug.ok) {
 		notify(options.ctx, slug.message, "error");
 		return;

@@ -48,7 +48,7 @@ describe("Herdr new space", () => {
 			herdr,
 			labelDeriver: {
 				async deriveLabel(input) {
-					derivations.push(input);
+					derivations.push({ description: input.description, cwd: input.cwd });
 					return "review-brmem-contract";
 				},
 			},
