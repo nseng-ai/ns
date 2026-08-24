@@ -4,7 +4,7 @@
 
 Build a cohesive everyday stacked-development workflow in `@nseng-ai/gs`, designed around the official `github/gh-stack` provider's own primitives and failure modes. Use the existing Flow workflows only as evidence for useful user outcomes; do not reproduce Graphite rituals, force command parity, introduce a universal stack-provider abstraction, or make GS depend on Flow.
 
-The target loop covers understanding and checkpointing work, creating or extending a gh-stack, optionally moving work into a Slot, reconciling provider state, submitting pull requests, generating PR inventories, and landing the stack. The user-facing GS README is the evolving contract: each mutating workflow begins with revalidation of the pinned pre-1.0 gh-stack baseline and settles its semantics before implementation.
+The target loop covers understanding and checkpointing work, creating or extending a gh-stack, resolving restack conflicts, optionally moving work into a Slot, reconciling provider state, submitting pull requests, generating PR inventories, and landing the stack. Build it as command-sized vertical slices: each slice starts from an actual user workflow, revalidates the pinned pre-1.0 gh-stack behavior it needs, settles the user-facing contract in the GS README, and then adds only the provider infrastructure, CLI behavior, portable skill, and Pi surface that workflow proves necessary.
 
 This Objective does not modify or retire Flow. Eventual Flow retirement motivates an independent GS design but belongs to later work after the GS workflow is proven.
 
@@ -13,11 +13,11 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 - Revalidate the installed pre-1.0 gh-stack version and experimentally characterize the provider operations needed by each workflow.
 - Supersede the affected parts of ADR 0049 so GS owns gh-stack-native lifecycle workflows while preserving explicit provider selection, provider-private state isolation, and observed Git/GitHub postconditions.
 - Evolve the GS README into the canonical user-facing workflow contract before each implementation slice.
-- Build GS-owned, fake-driven modules for the required supported gh-stack commands and semantic provider facts without a runtime dependency on Flow.
-- Implement an outcome-oriented `ns gs` surface for changes, checkpointing, autobranch, optional autoslot, reconciliation, submission, PR-inventory generation, and landing. Exact names and grouping may change when provider evidence supports a better shape.
+- Build provider infrastructure incrementally inside command-sized vertical slices rather than as a standalone provider-module phase; keep each GS-owned, fake-driven adapter and semantic fact narrow to a proven workflow need and independent of Flow.
+- Implement an outcome-oriented `ns gs` surface for restack conflict resolution, changes, checkpointing, autobranch, optional autoslot, reconciliation, submission, PR-inventory generation, and landing. Exact names and grouping may change when provider evidence supports a better shape.
 - Preserve forward-only recovery for mutating workflows: distinguish refusal, completion, known partial failure, and ambiguous failure from observed Git, gh-stack, and GitHub state.
 - Keep Slots optional and compose it through its public command boundary only after GS state is durable and verified.
-- Add native `/ns:gs:*` Pi mirrors and parity coverage after CLI contracts stabilize.
+- Ship each settled CLI workflow with its portable GS skill and native `/ns:gs:*` Pi surface when applicable, so command, skill, and host behavior evolve as one vertical slice rather than through a deferred bulk cutover.
 - Prove the complete GS everyday loop through repository-local package, scenario, integration, and Pi tests.
 - Keep GS context vocabulary, command documentation, and provider capability documentation synchronized with implemented ground truth.
 
@@ -37,7 +37,7 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 - An accepted ADR supersedes the affected Flow-owned provider-neutral direction in ADR 0049 and records GS-native workflow ownership and architecture constraints.
 - The GS README truthfully specifies the implemented everyday loop, supported gh-stack version, starting states, provider operations, postconditions, refusal classes, partial effects, and recovery guidance.
 - GS has no runtime dependency on Flow and does not expose a universal GT/GS provider transaction.
-- The implemented command surface supports the complete outcome loop: inspect and checkpoint work, bootstrap or extend a gh-stack, optionally enter a Slot, reconcile, submit, generate PR inventories, and land.
+- The implemented command surface supports the complete outcome loop: inspect and checkpoint work, bootstrap or extend a gh-stack, resolve restack conflicts, optionally enter a Slot, reconcile, submit, generate PR inventories, and land.
 - Each mutating workflow verifies effects with the relevant combination of Git, supported gh-stack output, and GitHub facts instead of trusting process success alone.
 - Tests cover staged, unstaged, untracked, and mixed work where applicable; unsupported states; version drift; provider-command failure; known partial mutation; ambiguous mutation; and recovery facts.
 - Slots-absent operation is covered, and autoslot failure preserves the already verified GS branch, checkpoint, and provider state.
@@ -63,10 +63,13 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 - Reusing Flow vocabulary or architecture by habit could produce a disguised Graphite adapter rather than a deep GS module.
 - Optional Slots composition may encounter extension-discovery or command-boundary limitations and must not create a hard GS-to-Slots package dependency without a new decision.
 - Repository-local proof may miss packaging or external-installation defects; cold-consumer qualification remains follow-up work rather than being implied by closure.
+- A command-first implementation can still over-generalize from Graphite precedent. Each vertical slice must separate reusable user outcomes from provider-specific mechanics and extract shared GS infrastructure only after the command demonstrates the need.
 - The broad everyday-loop scope may need resequencing as provider experiments reveal hard semantic dependencies.
 
 ## Open Questions
 
+- Can gh-stack v0.1.0 support a safe `ns gs restack-resolve` workflow through public commands, or does `sync` couple local restacking to fetch, push, or GitHub mutations too tightly for that outcome?
+- Which parts of `code-gt-restack-resolve` express provider-independent conflict-resolution policy, and which Graphite-specific assumptions must not carry into the GS skill?
 - Should reconciliation be an explicit `ns gs sync` workflow, an internal submit/land phase, or both?
 - Does `gh stack sync` have acceptable mutation and recovery semantics for automatic composition?
 - Does normal GS publication need only `gh stack submit`, or does an outcome require `gh stack link`?
