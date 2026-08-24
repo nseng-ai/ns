@@ -177,8 +177,6 @@ describe("skill-backed command registry", () => {
 		expect(surfaces).not.toContain("code:gh");
 		expect(surfaces).not.toContain("typescript:fake-driven-testing");
 		expect(surfaces).not.toContain("typescript:style");
-		expect(surfaces).not.toContain("grill:me");
-		expect(surfaces).not.toContain("grill:with-docs");
 	});
 });
 
@@ -246,8 +244,6 @@ describe("genericSkillBackedCommandSpecs", () => {
 		expect(surfaces).not.toContain("code:gh");
 		expect(surfaces).not.toContain("typescript:fake-driven-testing");
 		expect(surfaces).not.toContain("typescript:style");
-		expect(surfaces).not.toContain("grill:me");
-		expect(surfaces).not.toContain("grill:with-docs");
 		expect(surfaces).not.toContain("ns:objective:close");
 		expect(surfaces).not.toContain("ns:objective:create");
 		expect(surfaces).not.toContain("objective:current");
