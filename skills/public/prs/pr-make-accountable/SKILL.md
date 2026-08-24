@@ -19,7 +19,7 @@ A one or two sentence summary of what this change is.
 
 Why is this change needed? What problem does it solve?
 
-<!-- When the final net diff changes externally visible behavior, insert at least one concise, representative example here. Show the user's action and resulting behavior as an invocation/output block, before/after pair, request/response pair, or short workflow. Add more examples only when they clarify materially different user experiences and remain proportional to the change. Omit this instruction and all example content when the change is internal-only. -->
+<!-- When the final net diff changes user-facing behavior, insert at least one concise, representative example here. Show the user's action and resulting behavior as an invocation/output block, before/after pair, request/response pair, or short workflow. Add more examples only when they clarify materially different user experiences and remain proportional to the change. Omit this instruction and all example content when the change is internal-only. -->
 
 ## Changes
 
@@ -95,19 +95,35 @@ Inventory:
 - apparent limitations and reviewer-risky or subtle areas;
 - material intent, constraints, and rejected alternatives unknowable from the
   evidence;
-- whether the final net diff changes anything from a user's viewpoint, including
-  CLI syntax or output, UI behavior, API request or response behavior,
-  configuration behavior, diagnostics, workflows, or another user-facing
-  contract; and
-- for an externally visible change, evidence for at least one candidate
-  representative example: the user's action, the resulting behavior, and any
-  exact text or values that the implementation supports. For an internal-only
-  change, record that classification without manufacturing a candidate.
+- the PR's behavior classification, starting as internal-only; and
+- when affirmative final-net-diff evidence supports reclassification as
+  user-facing, that evidence and at least one candidate representative example:
+  the intended user's action or public interaction, the directly observable
+  changed result, and any exact text or values that the implementation supports.
+
+Reclassify the PR as user-facing only when the final net diff changes behavior
+directly observable by an intended user of the changed product or public
+interface. Evidence can include changed CLI syntax, output, errors, or workflow
+outcomes; UI behavior; public API requests or responses; user-controlled
+configuration behavior; diagnostics presented to users; or another public
+interaction contract.
+
+Keep the PR internal-only when the net diff changes only internal implementation
+behavior; agent or skill instructions; internal orchestration or workflow
+contracts; support disposition, file placement, registration, overlays, or lock
+metadata; refactoring, tests, or maintenance mechanics; documentation without a
+corresponding behavior change; or behavior visible only to another internal
+component or repository maintainer. Promoting or changing an internal reusable
+skill remains internal-only even when another extension consumes it, unless the
+same net diff changes behavior experienced by intended users. Record the
+internal-only classification without manufacturing a candidate example.
 
 Completion criterion: every material area is either understood from evidence or
-listed as an interview gap. The inventory is not complete until it includes the
-externally visible or internal-only classification and, for an externally visible
-change, candidate evidence for at least one representative example.
+listed as an interview gap. The inventory is not complete until the PR remains
+internal-only or affirmative evidence reclassifies it as user-facing. A
+user-facing classification must record an intended user action or public
+interaction, its directly observable changed result, and candidate evidence for
+at least one representative example.
 
 Present a condensed inventory summary: what the PR appears to do, where it
 lives, and notable decisions. Invite correction. Then ask: **“Why is this
@@ -139,14 +155,15 @@ Apply these rules:
 - If an answer conflicts with evidence, cite the file/line and investigate until
   either your reading or the author's model is corrected. Accept
   incomplete-but-correct answers without adding inventory detail.
-- For an externally visible change, resolve material uncertainty about each
+- For a user-facing behavior change, resolve material uncertainty about each
   candidate example's values, behavior, or context. Do not ask for facts that
   repository or PR evidence already establishes; ask only for missing rationale
   or confirmation needed for accuracy. Each representative user action and
   result must enter the shared, evidence-consistent interview record before
   drafting. If no accurate representative example is yet supportable, keep this
   drafting prerequisite open and continue the interview or follow the approved
-  PR-change path instead of inventing content.
+  PR-change path instead of inventing content. For an internal-only change, do
+  not solicit a candidate example.
 - If the interview exposes an undefended decision, unintended behavior, or
   scope that should change, record it and ask whether the author wants to amend
   the PR first. If yes, offer to make the change in the checked-out branch;
@@ -192,7 +209,7 @@ with `**PR:** [#<number>](<url>)`, replacing the placeholders with the PR number
 and canonical URL from the inventory. Put this link immediately before the
 horizontal rule and provenance footer.
 
-When the final net diff changes externally visible behavior, insert at least one
+When the final net diff changes user-facing behavior, insert at least one
 concise, representative example after the motivation in `## Why` and before
 `## Changes`. Choose the clearest suitable form: an invocation and its output, a
 before/after behavior pair, a request and response, or a short user workflow.
@@ -201,12 +218,11 @@ that behavior changed is not an example. Use only implementation-supported
 commands, output, errors, paths, API fields, behavior, and values confirmed by
 the shared interview record. Never invent sample values, output, or behavior.
 Preserve exact technical text, Markdown, and code-block formatting. The live
-draft for an externally visible PR is not complete until at least one example is
+draft for a user-facing PR is not complete until at least one example is
 present. Add more examples only when they clarify materially different user
 experiences and remain proportional to the change; they must not become an
-exhaustive tutorial or replace `## Changes`. Omit examples and every placeholder
-or empty example section only when the final net diff has no externally visible
-effect.
+exhaustive tutorial or replace `## Changes`. For an internal-only PR, omit all
+examples, placeholders, and empty example sections.
 
 In `## Changes`:
 
