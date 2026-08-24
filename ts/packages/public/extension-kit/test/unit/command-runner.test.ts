@@ -23,11 +23,14 @@ describe("ns command runner adapter", () => {
 		const runner = createNsCommandRunner(api);
 		const args = ["status"];
 
+		const env = { GIT_EDITOR: "true", REMOVE_ME: undefined };
 		const result = await runner("git", args, {
 			timeout: 42,
+			env,
 			stdin: "input",
 			onStdout: () => {},
 		});
+		env.GIT_EDITOR = "changed-after-call";
 
 		expect(result).toBe(success);
 		expect(calls).toHaveLength(1);
@@ -35,6 +38,8 @@ describe("ns command runner adapter", () => {
 		expect(calls[0]?.args).toEqual(["status"]);
 		expect(calls[0]?.args).not.toBe(args);
 		expect(calls[0]?.options?.timeoutMs).toBe(42);
+		expect(calls[0]?.options?.env).toEqual({ GIT_EDITOR: "true", REMOVE_ME: undefined });
+		expect(calls[0]?.options?.env).not.toBe(env);
 		expect(calls[0]?.options?.stdin).toBe("input");
 		expect(calls[0]?.options?.onStdout).toBeTypeOf("function");
 	});
