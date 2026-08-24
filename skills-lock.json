@@ -398,6 +398,11 @@
       "source": "skills/incubating/flow/ns-flow-gt-branch-latest-commit",
       "sourceType": "local",
       "computedHash": "f0c02d3e3908295f38bc76fe381957fd16c35a8d2c8bb5ab2f666a0bb9d91cbd"
+    },
+    "ns-gs-restack-resolve": {
+      "source": "skills/incubating/gs/ns-gs-restack-resolve",
+      "sourceType": "local",
+      "computedHash": "8a7034c41bab6ba2ee37bb57d5971cc9a0fb0d45f5fae0c9a1943c1f6bd06cb4"
     }
   }
 }
