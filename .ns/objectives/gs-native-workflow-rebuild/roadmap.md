@@ -2,8 +2,8 @@
 
 ## Work
 
-- [ ] Architecture and contract baseline — revalidate the installed gh-stack version and current provider behavior; write the ADR superseding the affected parts of ADR 0049; reshape the GS README around the target everyday loop, explicit version policy, observed-postcondition rule, failure vocabulary, and Flow-independence boundary.
-  - Evidence: focused disposable-repository observations are captured in the contract or supporting references, the ADR is accepted, and documentation does not promise unsettled mutation behavior.
+- [x] Architecture and contract baseline — revalidated gh-stack v0.1.0, accepted ADR 0061's GS-native ownership boundary, and reshaped the GS README around the everyday loop, exact version policy, observed postconditions, outcome classes, forward recovery, and Flow independence.
+  - Evidence: `docs/research/gh-stack-v0.1.0-workflow-baseline.md` captures reproducible help and disposable-repository observations; networked `sync`, `submit`, `link`, and `merge` behavior remains explicitly unsettled rather than promised.
 - [ ] GS provider module — add narrow, GS-owned command adapters, schemas, semantic facts, in-memory fakes, and real-adapter coverage for the supported subset of `view`, `init`, `add`, `sync`, `submit`, and `link` that the contract selects. Do not create a monolithic or provider-neutral stack interface.
   - Evidence: fake-driven tests cover malformed output, version drift, process failure, and disagreement between provider claims and observed Git facts.
 - [ ] Native autobranch — promote the proven dirty-trunk bootstrap and dirty-tracked-top extension outcomes from the provisional skill evidence into `ns gs`, with typed refusals, forward-only partial/ambiguous failures, checkpoint composition, and verified Git/provider postconditions.

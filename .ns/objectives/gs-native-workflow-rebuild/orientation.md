@@ -10,4 +10,4 @@ Keep new GS lifecycle modules independent of Flow. Keep Slots optional and compo
 
 Avoid command parity, private gh-stack state mutation, universal stack-provider interfaces, and changes that deprecate, archive, delete, or otherwise retire Flow under this Objective.
 
-Active slice: see this objective's roadmap.md.
+Active slice: build the narrow GS provider module for the exact v0.1.0 baseline; keep networked mutation semantics unsettled until their focused roadmap experiments.

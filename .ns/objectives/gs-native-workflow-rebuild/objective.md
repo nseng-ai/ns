@@ -49,7 +49,7 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 
 **Assumptions**
 
-- The official pre-1.0 gh-stack command surface can support a coherent everyday loop through some combination of `view`, `init`, `add`, `sync`, `submit`, and possibly `link`.
+- The revalidated gh-stack v0.1.0 command surface appears capable of supporting the everyday loop through `view`, `init`, `add`, `sync`, `submit`, `link`, and `merge`, but networked mutation and recovery semantics remain unverified workflow by workflow.
 - The existing GS autobranch and autoslot skills contain useful operational evidence, but their procedures are not permanent interfaces and require revalidation.
 - Git and GitHub observations can establish the postconditions that provider command output cannot establish reliably.
 - Repository-local fake-driven, scenario, integration, and Pi coverage is sufficient for this incubating Objective's closure gate.
@@ -57,7 +57,7 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 
 **Risks**
 
-- gh-stack is pre-1.0 and may change commands, JSON output, private behavior, or failure boundaries while implementation is in progress. Pinning and evidence-gated widening mitigate but do not eliminate this risk.
+- gh-stack is pre-1.0 and may change commands, JSON output, private behavior, or failure boundaries while implementation is in progress. The initial lifecycle baseline is pinned to exactly v0.1.0; evidence-gated widening mitigates but does not eliminate this risk.
 - `gh stack sync` may combine fetching, rebasing, pushing, and PR linking in ways that make automatic composition unsafe or make a direct replacement for `pull-trunk` undesirable.
 - Submit and land may expose provider/GitHub inconsistencies or partial mutations that require a different workflow shape than Flow's.
 - Reusing Flow vocabulary or architecture by habit could produce a disguised Graphite adapter rather than a deep GS module.
@@ -67,7 +67,6 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 
 ## Open Questions
 
-- Which exact gh-stack version becomes the initial supported baseline after revalidation?
 - Should reconciliation be an explicit `ns gs sync` workflow, an internal submit/land phase, or both?
 - Does `gh stack sync` have acceptable mutation and recovery semantics for automatic composition?
 - Does normal GS publication need only `gh stack submit`, or does an outcome require `gh stack link`?
