@@ -3,8 +3,6 @@ import { z } from "zod";
 export const GRILL_UI_COMMAND_NAME = "pi:grill-me";
 export const GRILL_WITH_DOCS_UI_COMMAND_NAME = "pi:grill-with-docs";
 export const GRILL_ASK_ROUND_TOOL_NAME = "grill_ask_round";
-/** @deprecated Transitional Saved Plan-only activation surface; remove with its round cutover. */
-export const GRILL_ASK_TOOL_NAME = "grill_ask";
 export const GRILL_UI_SKILL_NAME = "pi-grill-ui";
 export const GRILL_WITH_DOCS_UI_SKILL_NAME = "pi-grill-with-docs-ui";
 export const GRILL_KICKOFF_VERSION = 1;
@@ -128,9 +126,12 @@ export function evaluateGrillAttempt(entries: readonly unknown[]): GrillAttemptE
 			malformedResult = true;
 			continue;
 		}
-		if (snapshot.action === "invalid-tool-input") continue;
+		if (snapshot.action === "invalid-tool-input") {
+			if (kickoff.evidence.policy.kind === "saved-plan") status = "invalid";
+			continue;
+		}
 		if (snapshot.mode === "decision-round" && snapshot.action === "submitted") {
-			if (isTerminalStatus(status)) continue;
+			if (isTerminalStatus(status, kickoff.evidence.policy.kind)) continue;
 			if (roundIds.has(snapshot.roundId)) hasDuplicateIds = true;
 			roundIds.add(snapshot.roundId);
 			const localQuestionIds = new Set<string>();
@@ -146,7 +147,10 @@ export function evaluateGrillAttempt(entries: readonly unknown[]): GrillAttemptE
 			status = "active";
 			continue;
 		}
-		if (!isTerminalStatus(status)) status = statusFromResult(snapshot.action);
+		if (status === "cancelled" && snapshot.mode === "confirmation") continue;
+		if (!isTerminalStatus(status, kickoff.evidence.policy.kind)) {
+			status = statusFromResult(snapshot.action);
+		}
 	}
 
 	if (hasDuplicateIds || malformedResult) status = "invalid";
@@ -180,7 +184,7 @@ function findLatestKickoff(
 			);
 			if (evidence.success) return { index, evidence: evidence.data };
 		} catch {
-			// A malformed marker is ignored so an earlier valid kickoff remains the namespace owner.
+			// Malformed markers are not valid kickoffs and do not replace the latest valid attempt.
 		}
 	}
 	return undefined;
@@ -214,14 +218,17 @@ function statusFromResult(action: GrillRoundResultEvidence["action"]): GrillAtte
 	}
 }
 
-function isTerminalStatus(status: GrillAttemptStatus): boolean {
+function isTerminalStatus(
+	status: GrillAttemptStatus,
+	policyKind: GrillKickoffEvidence["policy"]["kind"],
+): boolean {
 	return (
 		status === "confirmed" ||
 		status === "ended" ||
-		status === "cancelled" ||
 		status === "ui-failed" ||
 		status === "cap-exhausted" ||
-		status === "invalid"
+		status === "invalid" ||
+		(policyKind === "saved-plan" && status === "cancelled")
 	);
 }
 
@@ -274,11 +281,6 @@ export function activateGrillAskRoundTool(host: GrillAskRoundActiveToolsHost): v
 /** Idempotently deactivate only the atomic round tool. */
 export function deactivateGrillAskRoundTool(host: GrillAskRoundActiveToolsHost): void {
 	deactivateTool(host, GRILL_ASK_ROUND_TOOL_NAME);
-}
-
-/** @deprecated Transitional Saved Plan-only helper; remove with its round cutover. */
-export function activateGrillAskTool(host: GrillAskRoundActiveToolsHost): void {
-	activateTool(host, GRILL_ASK_TOOL_NAME);
 }
 
 function activateTool(host: GrillAskRoundActiveToolsHost, name: string): void {

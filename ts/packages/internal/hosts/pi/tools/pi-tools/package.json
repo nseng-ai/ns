@@ -34,6 +34,9 @@
 		"@nseng-ai/pi-runtime": "workspace:*",
 		"zod": "catalog:"
 	},
+	"devDependencies": {
+		"@nseng-ai/pi-ns-branch-context": "workspace:*"
+	},
 	"scripts": {
 		"check": "tsc -p tsconfig.json",
 		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/internal/hosts/pi/tools/pi-tools/test"

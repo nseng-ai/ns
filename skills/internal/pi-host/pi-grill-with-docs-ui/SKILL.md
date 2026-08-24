@@ -39,7 +39,7 @@ Then recompute and submit the whole new frontier. General grilling is unlimited.
 
 When the frontier is empty, report `Documentation updates:` again, then call `grill_ask_round` in `confirmation` mode with an explicit summary of resolved decisions, caveats, final recommendation, and documentation disposition. The only choices are **Confirm shared understanding** and **Return to grilling**. Returning reshapes the tree and requires a newly computed complete frontier.
 
-Cancel, End, UI failure, invalid or duplicate evidence, and an unavailable round tool fail closed. Do not fall back to prose questions, infer answers, write docs, or take downstream action. Explicit confirmation evidence is required.
+Cancel pauses the current general attempt and discards the pending round draft; do not confirm, write docs, or continue downstream from the cancelled state. A later decision round may resume the same attempt. End terminates it. UI failure, duplicate evidence, and an unavailable round tool fail closed. Invalid calls reserve no IDs and may be repaired. Do not fall back to prose questions or infer answers. Explicit confirmation evidence is required.
 
 ## Domain-modeling discipline
 

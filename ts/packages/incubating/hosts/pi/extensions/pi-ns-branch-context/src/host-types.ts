@@ -77,6 +77,7 @@ export interface BranchContextExtensionOptions {
 
 export interface ToolContext {
 	cwd: string;
+	sessionManager?: SessionManagerLike;
 	hasUI?: boolean;
 	ui?: {
 		setStatus?(key: string, value: string | undefined): void;

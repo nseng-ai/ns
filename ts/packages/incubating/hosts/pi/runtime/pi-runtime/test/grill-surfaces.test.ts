@@ -102,27 +102,55 @@ describe("evaluateGrillAttempt", () => {
 		expect(evaluateGrillAttempt([kickoff("attempt"), result(terminal)]).status).toBe(expected);
 	});
 
-	test("cancelled attempts cannot later become confirmed or authorized", () => {
-		const state = evaluateGrillAttempt([
+	test("cancel pauses a general attempt but blocks immediate confirmation", () => {
+		const paused = evaluateGrillAttempt([
 			kickoff("attempt"),
 			result({ action: "cancelled", mode: "decision-round", roundId: "round-1" }),
 			result({ action: "confirmed", mode: "confirmation" }),
 		]);
+		expect(paused.status).toBe("cancelled");
+		expect(paused.authorized).toBe(false);
+
+		const resumed = evaluateGrillAttempt([
+			kickoff("attempt"),
+			result({ action: "cancelled", mode: "decision-round", roundId: "round-1" }),
+			result(submitted("round-2", ["q-1"])),
+		]);
+		expect(resumed.status).toBe("active");
+		expect(resumed.submittedRoundCount).toBe(1);
+	});
+
+	test("Saved Plan cancellation is terminal for its attempt", () => {
+		const state = evaluateGrillAttempt([
+			kickoff("attempt", "saved-plan"),
+			result({ action: "cancelled", mode: "decision-round", roundId: "round-1" }),
+			result(submitted("round-2", ["q-1"])),
+			result({ action: "confirmed", mode: "confirmation" }),
+		]);
 		expect(state.status).toBe("cancelled");
+		expect(state.submittedRoundCount).toBe(0);
 		expect(state.authorized).toBe(false);
 	});
 
-	test("invalid calls do not count, reserve IDs, or poison later authorization", () => {
-		const state = evaluateGrillAttempt([
-			kickoff("attempt"),
+	test("invalid calls do not count or reserve IDs, with policy-specific recovery", () => {
+		const general = evaluateGrillAttempt([
+			kickoff("general"),
 			result({ action: "invalid-tool-input", errors: ["bad question"] }),
 			result(submitted("round-1", ["q-1"])),
 			result({ action: "confirmed", mode: "confirmation" }),
 		]);
-		expect(state.status).toBe("confirmed");
-		expect(state.submittedRoundCount).toBe(1);
-		expect(state.submittedQuestionIds.has("q-1")).toBe(true);
-		expect(state.authorized).toBe(true);
+		expect(general.status).toBe("confirmed");
+		expect(general.submittedRoundCount).toBe(1);
+		expect(general.authorized).toBe(true);
+
+		const savedPlan = evaluateGrillAttempt([
+			kickoff("saved-plan", "saved-plan"),
+			result({ action: "invalid-tool-input", errors: ["bad question"] }),
+			result(submitted("round-1", ["q-1"])),
+		]);
+		expect(savedPlan.status).toBe("invalid");
+		expect(savedPlan.submittedRoundCount).toBe(0);
+		expect(savedPlan.submittedQuestionIds.has("q-1")).toBe(false);
 	});
 
 	test("rejects duplicate round and question IDs conservatively", () => {
@@ -137,7 +165,7 @@ describe("evaluateGrillAttempt", () => {
 		expect(state.authorized).toBe(false);
 	});
 
-	test("ignores malformed kickoff candidates but malformed latest-attempt results deny authorization", () => {
+	test("ignores malformed kickoff candidates while malformed latest-attempt results deny authorization", () => {
 		const malformedKickoff = {
 			type: "message",
 			message: { role: "user", content: "<ns-grill-kickoff>{oops}</ns-grill-kickoff>" },

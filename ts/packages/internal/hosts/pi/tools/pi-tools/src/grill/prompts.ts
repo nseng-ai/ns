@@ -18,7 +18,7 @@ Protocol:
 - Between-round status must state submitted round count, answered decision count, resolved decisions, unresolved branches, and current recommendation.
 - In docs-aware grilling, every between-round status and the final pre-confirmation report must include an exact \`Documentation updates:\` line describing proposed vocabulary, synchronized CONTEXT.md corrections, ADRs created/offered, or \`none yet\`.
 - General /pi grilling has no decision-round cap. Continue until the frontier is empty.
-- Cancel, End, UI failure, invalid/duplicate evidence, or any ambiguous terminal result fails closed. Stop the workflow; do not infer answers or take downstream action.
+- Cancel pauses the current general grill attempt and discards the pending round draft; do not confirm or take downstream action from the cancelled state. A later decision round may resume the same attempt without reserving the cancelled IDs. End terminates the attempt. UI failure, duplicate evidence, or any ambiguous terminal result fails closed. Invalid calls reserve no IDs and may be repaired in general grilling.
 - When the frontier is empty, call grill_ask_round in confirmation mode with an explicit summary of the shared understanding, resolved decisions, caveats, and final recommendation.
 - Final confirmation offers only “Confirm shared understanding” and “Return to grilling”. If the user returns, reshape the tree and recompute the whole frontier.
 - Do not enact, save, implement, or otherwise take downstream action unless the latest attempt has explicit confirmed evidence.

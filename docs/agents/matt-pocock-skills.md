@@ -151,7 +151,11 @@ frontier semantics, so it must remain independent rather than inherit the grilli
   are unlimited and versioned with fresh kickoff IDs. Cancel, End, and UI failure fail
   closed, and docs-aware status plus final confirmation report `Documentation updates:`.
   Only `grill_ask_round` is registered model-visible, and it is inactive until an explicit
-  general structured-grill command activates it. Saved Plan remains pending.
+  structured-grill command activates it. Saved Plan is synchronized with the same atomic-round
+  protocol: a fresh versioned Saved Plan kickoff permits at most five submitted decision rounds,
+  requires explicit confirmation, and authorizes storage only from the latest confirmed Saved Plan
+  lineage. Cancel, End, UI failure, invalid evidence, malformed/general lineage, and sixth-round cap
+  exhaustion fail closed until a new Saved Plan kickoff.
 - **Validation-scope policy is ns-owned.** It lives in repo/project instructions and
   first-party Pi prompts; do not rely on upstream Matt wrappers to carry it.
 - **Code-first glossary synchronization is an ns-owned fork.** Upstream domain-modeling
@@ -198,11 +202,10 @@ additions:
   `review-thermonuclear-review`), `fdt-refactor-mock-to-fake` (cross-repo coherence
   with the fake-driven-testing family).
 - **v1.2 refresh remainder**:
-  - Semantically merge the v1.2 `grilling` round-by-round **frontier** rework into the
-    pending Pi surfaces (`pi-grill-ui`, `pi-grill-with-docs-ui`, `GRILL_UI_CONTRACT` +
-    grill tests, and the Saved Plan grilling prompt) through the planned atomic-round
-    cutovers. The portable README and Objective adaptations already defer to canonical
-    `grilling`.
+  - The v1.2 `grilling` round-by-round **frontier** rework is synchronized across
+    `pi-grill-ui`, `pi-grill-with-docs-ui`, `GRILL_UI_CONTRACT`, grill tests, and the Saved Plan
+    grilling prompt. Preserve their shared atomic-round lineage and Saved Plan's five-round policy
+    during future refreshes.
   - Run the post-refresh **semantic sweep** for skills with real content changes
     (`grilling`, `prototype`, `tdd`, `code-review`, `improve-codebase-architecture`,
     `writing-for-agents`, `wayfinder`).

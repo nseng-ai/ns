@@ -666,6 +666,10 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+    devDependencies:
+      '@nseng-ai/pi-ns-branch-context':
+        specifier: workspace:*
+        version: link:../../../../../incubating/hosts/pi/extensions/pi-ns-branch-context
 
   packages/public/extension-kit:
     dependencies:

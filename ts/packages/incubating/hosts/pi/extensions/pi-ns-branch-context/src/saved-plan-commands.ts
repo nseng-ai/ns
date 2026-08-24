@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import { readFileSync } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
@@ -32,7 +33,12 @@ import {
 	type SavedPlanFileEvidence,
 } from "@nseng-ai/plans/api";
 import { isRecord } from "@nseng-ai/pi-runtime/runtime/primitives";
-import { GRILL_ASK_TOOL_NAME, activateGrillAskTool } from "@nseng-ai/pi-runtime/grill/surfaces";
+import {
+	GRILL_ASK_ROUND_TOOL_NAME,
+	activateGrillAskRoundTool,
+	evaluateGrillAttempt,
+	formatGrillKickoffMarker,
+} from "@nseng-ai/pi-runtime/grill/surfaces";
 import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
@@ -89,8 +95,13 @@ ${formatSteeringBlock(steering)}
 ${promptBody}`;
 }
 
-export function buildWriteGrilledPlanPrompt(steering: string): string {
-	return `This is a /${WRITE_GRILLED_PLAN_COMMAND_NAME} request. Write a detailed implementation plan and save it in the local plan store after structured requirements grilling.
+export function buildWriteGrilledPlanPrompt(steering: string, attemptId = randomUUID()): string {
+	const kickoff = formatGrillKickoffMarker({
+		version: 1,
+		attemptId,
+		policy: { kind: "saved-plan", maxDecisionRounds: 5 },
+	});
+	return `This is a /${WRITE_GRILLED_PLAN_COMMAND_NAME} request. Write a detailed implementation plan and save it in the local plan store only after structured requirements grilling and explicit confirmation.
 
 ${formatSteeringBlock(steering)}
 
@@ -99,18 +110,21 @@ Plan audience and target inference:
 - User steering may be empty. Infer the planning target from explicit steering, nearby conversation/session context, and repository evidence, such as a just-produced objective summary or prototype plan.
 - Inspect repository evidence before asking. Do not ask questions answerable from local files, docs, or commands.
 
-Structured grilling contract:
-- Use ${GRILL_ASK_TOOL_NAME} for every user-facing grilling question.
-- Ask exactly one question per ${GRILL_ASK_TOOL_NAME} call.
-- Each question must include 2–5 affirmative, mutually exclusive options and a recommendation with concise rationale.
-- Frame each question and recommendation with uniform polarity: agreeing with the recommendation must be an affirmative answer — never a question whose recommended answer is "no" followed by "Do you agree?".
-- Use up to 12 high-leverage questions. Some plans are simple and may not require any user-facing questions; stop early when requirements are resolved, and exceed that budget only if the user explicitly asks to continue.
-- If ${GRILL_ASK_TOOL_NAME} is unavailable or returns ui_unavailable, stop, explain that structured grill UI is required, summarize current status, and do not call write_saved_plan_file.
-- If ${GRILL_ASK_TOOL_NAME} returns status_request, provide a compact status report and re-ask the same pending question; do not count it as an answer.
-- If ${GRILL_ASK_TOOL_NAME} returns end_grill, stop, summarize resolved decisions, unresolved branches, and final recommendation, and do not call write_saved_plan_file.
+Atomic Saved Plan grilling protocol:
+- This kickoff starts a fresh Saved Plan attempt and resets its attempt-scoped round and question ID namespace.
+- Model the subject as a design tree. The current frontier is every unresolved decision whose prerequisites are settled.
+- In decision-round mode call ${GRILL_ASK_ROUND_TOOL_NAME} once with the complete ordered current frontier. Never split an answerable frontier into arbitrary subsets.
+- Every roundId and question id must be stable and unique within this attempt. Each question must provide 2–5 substantive, affirmative, mutually exclusive choices, exactly one recommendation with concise rationale, and the UI freeform path. Use uniform polarity: accepting the recommendation must be an affirmative answer.
+- A submitted decision round is atomic. Use its ordered answers to reshape the tree, report submitted-round and answered-decision counts plus resolved decisions, unresolved branches, and the current recommendation, then recompute the complete frontier.
+- At most five successfully submitted decision rounds are allowed. Confirmation does not count. Invalid input, Cancel, End, UI failure, and other unsubmitted outcomes do not count, but they fail this attempt closed: stop and do not save.
+- After five submitted decision rounds, another decision-round call is prohibited. If material requirements remain unresolved, report them and do not save.
+- When the frontier is empty, call ${GRILL_ASK_ROUND_TOOL_NAME} in confirmation mode with an explicit summary of shared understanding, resolved decisions, caveats, and the final recommendation.
+- Confirmation offers only Confirm shared understanding or Return to grilling. Return to grilling recomputes the complete frontier; it does not itself count as a decision round. If five decision rounds were already submitted, returning cannot authorize another decision round and the plan must not be saved.
+- Do not fall back to prose questions if ${GRILL_ASK_ROUND_TOOL_NAME} is unavailable or fails. Explain that structured round UI is required and stop.
 
 Save/no-save decision:
-- If material requirements remain unresolved after the budget, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, compatibility expectations, and irreversible migration or data-safety choices.
+- Save only after the current Saved Plan attempt returns explicit confirmed evidence. Missing, malformed, general-attempt, unconfirmed, terminated, cap-exhausted, invalid, Cancel, End, or UI-failure evidence means do not call write_saved_plan_file.
+- If material requirements remain unresolved, stop, report blockers, and do not save. Material requirements include command surface, storage behavior, user-visible semantics, compatibility expectations, and irreversible migration or data-safety choices.
 - Do not ask routine validation-scope or test-coverage questions. Ordinary validation coverage is the downstream implementation agent's responsibility, guided by project policy and changed-file judgment.
 - If only non-blocking assumptions remain, fold them into the normal saved plan sections and proceed.
 - Do not include a full Q&A transcript or special Q&A section in the saved plan.
@@ -118,7 +132,9 @@ Save/no-save decision:
 Final plan requirements:
 - Produce final Markdown with normal sections: goal/outcome, context/discovered facts, files/symbols/tests/docs, implementation steps, validation guidance, risks/assumptions/open questions, and review/remediation.
 - Review the final Markdown plan for completeness, then call write_saved_plan_file with the complete content and optional one-sentence summary; do not generate or pass a slug.
-- Report saved plan evidence and stop. Do not create a branch or write Branch Memory.`;
+- Report saved plan evidence and stop. Do not create a branch or write Branch Memory.
+
+${kickoff}`;
 }
 
 async function resolveWritePlanPromptBody(
@@ -229,9 +245,8 @@ export async function handleWriteGrilledPlanCommand(
 		message: `Starting /${WRITE_GRILLED_PLAN_COMMAND_NAME} planning grill…`,
 	});
 	await ctx.waitForIdle();
-	// The grilled prompt requires grill_ask; activate it (session-long, idempotent,
-	// additive) so the first model request for this message sees the tool.
-	activateGrillAskTool(pi);
+	// Activate the shared atomic-round tool before the kickoff message reaches the model.
+	activateGrillAskRoundTool(pi);
 	pi.sendUserMessage(buildWriteGrilledPlanPrompt(steering));
 }
 
@@ -243,11 +258,12 @@ export function buildWriteSavedPlanFileTool(
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`). The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`). Before slug derivation or storage I/O, the tool requires current Pi branch history for the latest valid Saved Plan grill kickoff with the exact five-round policy and explicit confirmation. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`).",
 		promptGuidelines: [
-			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` and \`/${WRITE_GRILLED_PLAN_COMMAND_NAME}\` after producing a reviewed final Markdown plan.`,
+			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` and \`/${WRITE_GRILLED_PLAN_COMMAND_NAME}\` only after the current Saved Plan grill attempt has explicit confirmed evidence.`,
+			"Missing, malformed, general-attempt, unconfirmed, cancelled, ended, UI-failed, cap-exhausted, or invalid current-attempt history denies the write before slug derivation or storage I/O.",
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
 			"write_saved_plan_file writes the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`); it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
@@ -271,8 +287,9 @@ export function buildWriteSavedPlanFileTool(
 			required: ["content"],
 		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			const operations = resolveBranchContextOperations(options);
 			try {
+				assertCurrentSavedPlanAttemptAuthorized(ctx);
+				const operations = resolveBranchContextOperations(options);
 				emitWriteSavedPlanProgress(onUpdate, ctx, "Validating saved plan input…", {
 					phase: "validating",
 				});
@@ -352,6 +369,37 @@ export function buildWriteSavedPlanFileTool(
 			return new Text(text, 0, 0);
 		},
 	};
+}
+
+function assertCurrentSavedPlanAttemptAuthorized(ctx: ToolContext): void {
+	let entries: readonly unknown[];
+	try {
+		entries = ctx.sessionManager?.getBranch?.() ?? [];
+	} catch {
+		throw new Error(
+			"write_saved_plan_file requires readable current-branch Saved Plan grill history; no plan was saved.",
+		);
+	}
+	if (!Array.isArray(entries)) {
+		throw new Error(
+			"write_saved_plan_file requires readable current-branch Saved Plan grill history; no plan was saved.",
+		);
+	}
+
+	const evaluation = evaluateGrillAttempt(entries);
+	const isExactSavedPlanPolicy =
+		evaluation.kickoff?.policy.kind === "saved-plan" &&
+		evaluation.kickoff.policy.maxDecisionRounds === 5;
+	if (
+		!isExactSavedPlanPolicy ||
+		evaluation.submittedRoundCount > 5 ||
+		evaluation.status !== "confirmed" ||
+		!evaluation.authorized
+	) {
+		throw new Error(
+			`write_saved_plan_file requires an explicitly confirmed current Saved Plan grill attempt with the five-round policy; latest status is ${evaluation.status}. No plan was saved.`,
+		);
+	}
 }
 
 function emitWriteSavedPlanProgress(

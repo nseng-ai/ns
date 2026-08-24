@@ -22,6 +22,11 @@ import {
 } from "@nseng-ai/branch-context/api";
 import { FakeBrmemGateway } from "@nseng-ai/brmem";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
+import {
+	GRILL_ASK_ROUND_TOOL_NAME,
+	formatGrillKickoffMarker,
+	type GrillRoundResultEvidence,
+} from "@nseng-ai/pi-runtime/grill/surfaces";
 import type { RawPiExecOptions, RawPiExecResult } from "../src/host-types.ts";
 
 type ExecResultFixture = Partial<RawPiExecResult>;
@@ -835,14 +840,52 @@ export function createContext(
 	};
 }
 
-export function createToolContext(options: { hasUI?: boolean; cwd?: string } = {}): {
+export function grillKickoffEntry(
+	attemptId = "saved-plan-test-attempt",
+	kind: "saved-plan" | "general" = "saved-plan",
+): unknown {
+	return {
+		type: "message",
+		message: {
+			role: "user",
+			content: formatGrillKickoffMarker({
+				version: 1,
+				attemptId,
+				policy:
+					kind === "saved-plan"
+						? { kind: "saved-plan", maxDecisionRounds: 5 }
+						: { kind: "general" },
+			}),
+		},
+	};
+}
+
+export function grillRoundResultEntry(details: GrillRoundResultEvidence | unknown): unknown {
+	return {
+		type: "message",
+		message: { role: "toolResult", toolName: GRILL_ASK_ROUND_TOOL_NAME, details },
+	};
+}
+
+export function confirmedSavedPlanAttemptEntries(): unknown[] {
+	return [
+		grillKickoffEntry(),
+		grillRoundResultEntry({ action: "confirmed", mode: "confirmation" }),
+	];
+}
+
+export function createToolContext(
+	options: { hasUI?: boolean; cwd?: string; sessionEntries?: readonly unknown[] } = {},
+): {
 	ctx: ToolContext;
 	statuses: Array<{ key: string; value: string | undefined }>;
 } {
 	const statuses: Array<{ key: string; value: string | undefined }> = [];
+	const sessionEntries = options.sessionEntries ?? confirmedSavedPlanAttemptEntries();
 	return {
 		ctx: {
 			cwd: options.cwd ?? ROOT,
+			sessionManager: { getBranch: () => [...sessionEntries] },
 			hasUI: options.hasUI ?? true,
 			ui: {
 				setStatus(key, value): void {

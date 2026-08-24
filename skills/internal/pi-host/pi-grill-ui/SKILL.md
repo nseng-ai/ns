@@ -20,6 +20,6 @@ After a submitted round, use all ordered answers to reshape the tree. Report a c
 
 When the frontier is empty, call `grill_ask_round` in `confirmation` mode with an explicit summary of resolved decisions, caveats, and final recommendation. The only confirmation choices are **Confirm shared understanding** and **Return to grilling**. If the user returns, reshape the tree and recompute the complete frontier.
 
-Cancel, End, UI failure, invalid or duplicate evidence, and an unavailable round tool fail closed. Do not fall back to prose questions, infer answers, or continue downstream. Do not enact or implement the result until explicit confirmation evidence authorizes it.
+Cancel pauses the current general attempt and discards the pending round draft; do not confirm or continue downstream from the cancelled state. A later decision round may resume the same attempt. End terminates it. UI failure, duplicate evidence, and an unavailable round tool fail closed. Invalid calls reserve no IDs and may be repaired. Do not fall back to prose questions or infer answers. Do not enact or implement the result until explicit confirmation evidence authorizes it.
 
 Do not ask routine validation-scope or test-coverage questions. Validation is an implementation-agent responsibility unless it is itself a product requirement, external release gate, or user-visible compatibility promise.

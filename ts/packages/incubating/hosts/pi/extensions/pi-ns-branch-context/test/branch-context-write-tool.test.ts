@@ -15,6 +15,8 @@ import {
 	contentSlugEvidence,
 	createBranchContextOperationFakes,
 	createToolContext,
+	grillKickoffEntry,
+	grillRoundResultEntry,
 	registeredTool,
 	savedPlanSlugArgs,
 	savedPlanSlugStep,
@@ -54,6 +56,115 @@ describe("write_saved_plan_file tool", () => {
 		expect(Object.keys(parameters.properties ?? {})).toEqual(["content", "summary"]);
 	});
 
+	test.each([
+		["missing history", []],
+		[
+			"general kickoff",
+			[
+				grillKickoffEntry("general", "general"),
+				grillRoundResultEntry({ action: "confirmed", mode: "confirmation" }),
+			],
+		],
+		["unconfirmed", [grillKickoffEntry()]],
+		[
+			"cancelled",
+			[
+				grillKickoffEntry(),
+				grillRoundResultEntry({ action: "cancelled", mode: "decision-round", roundId: "round-1" }),
+			],
+		],
+		[
+			"ended",
+			[
+				grillKickoffEntry(),
+				grillRoundResultEntry({ action: "ended", mode: "decision-round", roundId: "round-1" }),
+			],
+		],
+		[
+			"UI failure",
+			[
+				grillKickoffEntry(),
+				grillRoundResultEntry({ action: "ui-failed", mode: "decision-round", roundId: "round-1" }),
+			],
+		],
+		[
+			"cap exhaustion",
+			[
+				grillKickoffEntry(),
+				grillRoundResultEntry({
+					action: "cap-exhausted",
+					mode: "decision-round",
+					roundId: "round-6",
+				}),
+			],
+		],
+		[
+			"invalid input",
+			[
+				grillKickoffEntry(),
+				grillRoundResultEntry({ action: "invalid-tool-input", errors: ["bad input"] }),
+			],
+		],
+		[
+			"malformed result",
+			[grillKickoffEntry(), grillRoundResultEntry({ action: "confirmed", mode: "wrong" })],
+		],
+		[
+			"only a malformed kickoff",
+			[
+				{
+					type: "message",
+					message: { role: "user", content: "<ns-grill-kickoff>{oops}</ns-grill-kickoff>" },
+				},
+			],
+		],
+	] as const)(
+		"refuses %s before slug derivation or storage I/O",
+		async (_label, sessionEntries) => {
+			const content = "# Plan\n\nDo not write this plan.\n";
+			const pi = new FakePi();
+			const fakes = createBranchContextOperationFakes();
+			registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+			const tool = registeredTool(pi, "write_saved_plan_file");
+
+			await expect(
+				tool.execute(
+					"tool-call",
+					{ content },
+					undefined,
+					undefined,
+					createToolContext({ sessionEntries }).ctx,
+				),
+			).rejects.toThrow("requires an explicitly confirmed current Saved Plan grill attempt");
+			expect(pi.execCalls).toEqual([]);
+			expect(fakes.writePlanCalls).toEqual([]);
+		},
+	);
+
+	test("a fresh confirmed Saved Plan kickoff resets prior denial", async () => {
+		const content = "# Reset Plan\n\nSave after a fresh confirmation.\n";
+		const pi = new FakePi([savedPlanSlugStep(content)]);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const tool = registeredTool(pi, "write_saved_plan_file");
+		const sessionEntries = [
+			grillKickoffEntry("failed"),
+			grillRoundResultEntry({ action: "cancelled", mode: "decision-round", roundId: "round-1" }),
+			grillKickoffEntry("reset"),
+			grillRoundResultEntry({ action: "confirmed", mode: "confirmation" }),
+		];
+
+		await tool.execute(
+			"tool-call",
+			{ content },
+			undefined,
+			undefined,
+			createToolContext({ sessionEntries }).ctx,
+		);
+
+		expect(fakes.writePlanCalls).toHaveLength(1);
+	});
+
 	test("derives the saved-plan filename slug with the Codex slug model before writing", async () => {
 		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
 		const pi = new FakePi([savedPlanSlugStep(content)]);
@@ -66,7 +177,7 @@ describe("write_saved_plan_file tool", () => {
 			{ content, summary: "Plan the local plan store file." },
 			undefined,
 			undefined,
-			{ cwd: ROOT },
+			createToolContext({ cwd: ROOT }).ctx,
 		);
 
 		pi.assertDone();
@@ -174,7 +285,7 @@ describe("write_saved_plan_file tool", () => {
 				{ slug: PLAN_SLUG, content: DEFAULT_PLAN_CONTENT },
 				undefined,
 				undefined,
-				{ cwd: ROOT },
+				createToolContext({ cwd: ROOT }).ctx,
 			),
 		).rejects.toThrow("derives `slug` from content through Codex");
 		expect(pi.execCalls).toEqual([]);

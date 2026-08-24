@@ -1,5 +1,6 @@
-import { GRILL_ASK_TOOL_NAME } from "@nseng-ai/pi-runtime/grill/surfaces";
 import type { GrillAskRemainingEstimate, GrillAskToolContext } from "./protocol.ts";
+
+const LEGACY_GRILL_ASK_TOOL_NAME = "grill_ask";
 
 export type GrillAskProgressSource = "session-branch" | "session-branch-unscoped" | "unavailable";
 
@@ -118,7 +119,7 @@ function isGrillAskAnswerResult(entry: unknown): boolean {
 	const message = messageFromEntry(entry);
 	if (!isRecord(message)) return false;
 	if (message.role !== "toolResult") return false;
-	if (message.toolName !== GRILL_ASK_TOOL_NAME) return false;
+	if (message.toolName !== LEGACY_GRILL_ASK_TOOL_NAME) return false;
 	if (!isRecord(message.details)) return false;
 	return message.details.action === "answer";
 }
