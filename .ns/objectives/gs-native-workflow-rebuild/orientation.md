@@ -2,12 +2,12 @@
 
 **Direction: build the everyday stacked-development loop in `@nseng-ai/gs` from native `github/gh-stack` semantics, not as a Flow adapter or a Graphite-shaped provider abstraction.**
 
-Getting to: deliver command-sized vertical slices that settle each workflow in the GS README, add only the provider infrastructure that command proves necessary, and ship its CLI, portable skill, and Pi surface together while verifying mutations through observed Git, gh-stack, and GitHub facts.
+Getting to: deliver command-sized vertical slices from one explicit provider worktree, verifying repository-shared Git refs, invoking-worktree gh-stack facts, and GitHub authority separately before shipping each CLI, portable skill, and Pi surface.
 
-What you see now: GS provides local-only read-only inventory; Flow owns the implemented Graphite workflows; provisional GS autobranch and autoslot skills are executable evidence rather than engineered commands.
+What you see now: gh-stack v0.1.0 stores topology and locks in each worktree's private Git directory while branch refs are shared. GS inventory still assumes common-directory state, and provisional autoslot moves a branch without moving provider membership.
 
-Keep new GS lifecycle modules independent of Flow. Keep Slots optional and compose it through its public command boundary. Preserve forward-only recovery when provider mutations are partial or ambiguous.
+Keep GS independent of Flow. Keep Slots optional. Treat one stack as owned by one stable worktree unless public provider commands prove safe destination establishment and source disposition. Preserve forward-only recovery.
 
-Avoid infrastructure-first provider phases, command parity, private gh-stack state mutation, universal stack-provider interfaces, and changes that deprecate, archive, delete, or otherwise retire Flow under this Objective.
+Avoid private-state copying or mutation, repository-global claims from one worktree's provider view, cross-worktree concurrency assumptions, universal provider interfaces, and Flow retirement under this Objective.
 
-Active slice: implement the settled local `ns gs restack-resolve` contract with public `gh stack rebase --no-trunk` / `--continue`, then add its portable skill and thin `/ns:gs:restack-resolve`; defer trunk, push, and GitHub reconciliation and keep Graphite mechanics out.
+Active slice: correct the provider-worktree architecture and `ns gs list` storage premise, then revalidate `restack-resolve` wrong-worktree and concurrency behavior before finishing its skill and Pi surface.
