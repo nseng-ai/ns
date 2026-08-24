@@ -110,10 +110,16 @@ implicitly aborts, skips, replays the start command, or switches an operation st
 `gh stack rebase --abort` requires explicit user authorization.
 
 The CLI owns deterministic version and Git-state preflight, one `gh stack rebase` invocation, and
-structured outcome classification. The portable skill and `/ns:gs:restack-resolve` Pi router remain
-pending; they will own sequential conflict-resolution policy, validation choice, human escalation, and
-recovery narration without adding gh-stack or Slot mechanics. Reproducible observations and rejected
-alternatives are recorded in
+structured outcome classification. The portable skill owns sequential conflict-resolution policy,
+validation choice, human escalation, and recovery narration. The directly discovered
+`/ns:gs:restack-resolve` router captures exactly one effective skill before mutation, delegates one
+fresh `ns gs restack-resolve --format json --yes` step, returns without an LM turn on completion, and
+hands only a trustworthy conflict stop to that captured skill. It fails closed for refusals, usage or
+protocol failures, malformed envelopes, process/envelope exit mismatch, and process failure.
+
+Neither the skill nor Pi adapter adds gh-stack mechanics or edits/loops on Pi's behalf. This slice
+explicitly excludes trunk integration, push or GitHub mutation, Slot release, and automatic abort.
+Reproducible observations and rejected alternatives are recorded in
 [`docs/research/gh-stack-v0.1.0-restack-resolve-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-restack-resolve-contract.md).
 
 ### Optional Slots composition

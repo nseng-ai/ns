@@ -1,0 +1,30 @@
+{
+	"name": "@nseng-ai/pi-ns-gs",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./extension": "./src/extension.ts"
+	},
+	"scripts": {
+		"check": "tsc -p tsconfig.json",
+		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-gs/test"
+	},
+	"dependencies": {
+		"@nseng-ai/gs": "workspace:*",
+		"@nseng-ai/ns": "workspace:*",
+		"@nseng-ai/pi-runtime": "workspace:*",
+		"jiti": "catalog:"
+	},
+	"devDependencies": {
+		"vitest": "catalog:"
+	},
+	"ns": {
+		"tier": "host"
+	},
+	"pi": {
+		"extensions": [
+			"./src/project-extension.ts"
+		]
+	}
+}

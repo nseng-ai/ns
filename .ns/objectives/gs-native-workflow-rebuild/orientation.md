@@ -10,4 +10,4 @@ Keep GS independent of Flow. Keep Slots optional. Treat one stack as owned by on
 
 Avoid private-state copying or mutation, repository-global claims from one worktree's provider view, cross-worktree concurrency assumptions, universal provider interfaces, and Flow retirement under this Objective.
 
-Active slice: correct the provider-worktree architecture and `ns gs list` storage premise, then revalidate `restack-resolve` wrong-worktree and concurrency behavior before finishing its skill and Pi surface.
+Active slice: correct the provider-worktree architecture and `ns gs list` storage premise, then revalidate `restack-resolve` wrong-worktree and concurrency behavior before finishing its skill and Pi surface. The thin `/ns:gs:restack-resolve` Pi router implementation now exists, but it awaits linked-worktree revalidation and does not complete the slice.
