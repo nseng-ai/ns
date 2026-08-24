@@ -8,6 +8,8 @@ import {
 	captureSessionPlanDiscoverySkill,
 	createSessionPlanDiscoveryProcessGateway,
 	discoverSessionPlan,
+	formatSessionPlanCandidate,
+	formatSessionPlanCandidateLabel,
 	parseSessionPlanDiscoveryOutput,
 	sessionPlanDiscoverySchema,
 	type SessionPlanDiscoveryProcessGateway,
@@ -111,6 +113,13 @@ async function run(
 		},
 	);
 }
+
+describe("session plan discovery presentation", () => {
+	test("a Saved Plan reference displays only its path", () => {
+		expect(formatSessionPlanCandidate(reference)).toBe(reference.filePath);
+		expect(formatSessionPlanCandidateLabel(reference, 0)).toBe(`1. ${reference.filePath}`);
+	});
+});
 
 describe("session plan discovery schema", () => {
 	test.each([

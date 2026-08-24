@@ -144,14 +144,6 @@ export async function handleHerdrSlotImplPlan(
 		present(ctx, "Session plan discovery is already pending.", "error");
 		return;
 	}
-	if (!parsed.isDryRun && (!ctx.hasUI || ctx.ui.confirm === undefined)) {
-		present(
-			ctx,
-			"Session plan discovery requires Pi UI confirmation. Resume in a UI-capable persisted session.",
-			"error",
-		);
-		return;
-	}
 	const persistedSessionPath = ctx.sessionManager?.getSessionFile?.();
 	if (persistedSessionPath === undefined) {
 		present(
@@ -205,18 +197,30 @@ export async function handleHerdrSlotImplPlan(
 				options.dependencies,
 			);
 		}
+		const requiresConfirmation =
+			discovery.value.type === "ambiguous" || candidate.type !== "saved-plan-reference";
 		if (parsed.isDryRun) {
 			present(
 				ctx,
-				`Dry run: discovery completed without confirmation, saving, branch, Slot, Herdr, or prompt mutation.\n\n${candidatePreview}\n\nConfirmation needed: yes`,
+				`Dry run: discovery completed without confirmation, saving, branch, Slot, Herdr, or prompt mutation.\n\n${candidatePreview}\n\nConfirmation needed: ${requiresConfirmation ? "yes" : "no"}`,
 				"info",
 			);
 			return;
 		}
-		const confirmed = await ctx.ui.confirm?.("Use discovered session plan?", candidatePreview);
-		if (confirmed !== true) {
-			present(ctx, "Session plan discovery was cancelled; nothing was changed.", "info");
-			return;
+		if (requiresConfirmation) {
+			if (!ctx.hasUI || ctx.ui.confirm === undefined) {
+				present(
+					ctx,
+					"Session plan discovery requires Pi UI confirmation. Resume in a UI-capable persisted session.",
+					"error",
+				);
+				return;
+			}
+			const confirmed = await ctx.ui.confirm("Use discovered session plan?", candidatePreview);
+			if (confirmed !== true) {
+				present(ctx, "Session plan discovery was cancelled; nothing was changed.", "info");
+				return;
+			}
 		}
 		const selected = await materializeSessionPlanCandidate({
 			pi,
@@ -711,7 +715,7 @@ function formatHerdrImplPreview(options: {
 function formatUsage(config: ImplPlanConfig): string {
 	return `Usage: /${config.commandName} [--dry-run]
 
-Discover and confirm the actionable plan in the persisted Pi session, then implement it in a new Herdr ${formatImplDestinationNoun(config.destination)}. Choose the current branch or local Graphite trunk contextually after plan confirmation.
+Discover the actionable plan in the persisted Pi session, then implement it in a new Herdr ${formatImplDestinationNoun(config.destination)}. A sole validated Saved Plan reference proceeds directly; other candidates require confirmation. Choose the current branch or local Graphite trunk after plan resolution.
 
 Options:
   --dry-run    Discover and report candidates without confirmation, saving, or mutation.

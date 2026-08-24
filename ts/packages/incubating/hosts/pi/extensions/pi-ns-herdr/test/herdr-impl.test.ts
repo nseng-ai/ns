@@ -1116,6 +1116,7 @@ describe("ns:herdr:impl:plan:space", () => {
 		});
 
 		pi.assertDone();
+		expect(ctx.confirmations).toEqual([]);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: repoRoot, branch: `${PLAN_SLUG}-2`, startPoint: START_POINT },
 		]);

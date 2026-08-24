@@ -53,6 +53,8 @@ import {
 import {
 	captureSessionPlanDiscoverySkill,
 	discoverSessionPlan,
+	formatSessionPlanCandidate,
+	formatSessionPlanCandidateLabel,
 	parseSavedPlanSaveEnvelopeFilePath,
 	type SessionPlanCandidate,
 	type SessionPlanDiscovery,
@@ -93,7 +95,7 @@ Create a branch context from a saved plan. The branch slug is derived from the p
 
 Options:
   --dry-run          Discover and preview without confirming or mutating.
-  --yes, -y          Allowed only with an explicit path; semantic discovery cannot be auto-approved.
+  --yes, -y          Allowed only with an explicit path; discovery owns its confidence policy.
   --graphite         Create with the branch-context Graphite method.
   --plain-git        Create with plain Git only; no Graphite tracking.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
@@ -101,7 +103,7 @@ Options:
 
 ${GRAPHITE_BRANCH_CREATION_HELP}
 
-With no file path, the command semantically discovers plan material in the persisted current session and requires interactive confirmation. It never falls back to the newest Saved Plan.
+With no file path, the command semantically discovers plan material in the persisted current session. A sole validated Saved Plan reference proceeds directly; other candidates require interactive confirmation. It never falls back to the newest Saved Plan.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
@@ -111,7 +113,7 @@ Stack a branch context on the current branch with the branch-context Graphite me
 
 Options:
   --dry-run          Discover and preview without confirming or mutating.
-  --yes, -y          Allowed only with an explicit path; semantic discovery cannot be auto-approved.
+  --yes, -y          Allowed only with an explicit path; discovery owns its confidence policy.
   --graphite         Default: create with the branch-context Graphite method.
   --plain-git        Escape hatch: create with plain Git only; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
@@ -120,7 +122,7 @@ Options:
 ${GRAPHITE_BRANCH_CREATION_HELP}
 
 The current branch must be trunk or a Graphite-tracked branch; otherwise this command fails before creating a branch or attaching a plan.
-With no file path, the command semantically discovers plan material in the persisted current session and requires interactive confirmation. It never falls back to the newest Saved Plan.
+With no file path, the command semantically discovers plan material in the persisted current session. A sole validated Saved Plan reference proceeds directly; other candidates require interactive confirmation. It never falls back to the newest Saved Plan.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 
 This command intentionally models the manual flow: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} --graphite, git checkout <branch>, /new, then /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> in the new Pi session.`;
@@ -131,10 +133,10 @@ Implement a selected Saved Plan in a fresh Pi session on the current branch. Thi
 
 Options:
   --dry-run          Discover and preview without confirming or mutating.
-  --yes, -y          Allowed only with an explicit path; semantic discovery cannot be auto-approved.
+  --yes, -y          Allowed only with an explicit path; discovery owns its confidence policy.
   --help, -h         Show this help.
 
-With no file path, the command semantically discovers plan material in the persisted current session and requires interactive confirmation. It never falls back to the newest Saved Plan.
+With no file path, the command semantically discovers plan material in the persisted current session. A sole validated Saved Plan reference proceeds directly; other candidates require interactive confirmation. It never falls back to the newest Saved Plan.
 An explicit file path selects that Saved Plan even when it is older. The path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 Branch creation flags such as --branch, --graphite, and --plain-git are intentionally unsupported.`;
 
@@ -1208,13 +1210,6 @@ async function resolveDiscoveredSavedPlan(
 	if (sessionPlanDiscoveryPending) {
 		return { type: "stopped", message: "Session plan discovery is already pending." };
 	}
-	if (!dryRun && (!ctx.hasUI || ctx.ui.confirm === undefined)) {
-		return {
-			type: "stopped",
-			message:
-				"Session plan discovery requires Pi UI confirmation. Pass an explicit Saved Plan path in a UI-capable session.",
-		};
-	}
 	const persistedSessionPath = ctx.sessionManager?.getSessionFile?.();
 	if (persistedSessionPath === undefined) {
 		return {
@@ -1252,7 +1247,7 @@ async function resolveDiscoveredSavedPlan(
 				type: "stopped",
 				message: [
 					`Dry run: session plan discovery is ambiguous: ${result.value.basis}`,
-					...result.value.candidates.map(formatDiscoveryCandidate),
+					...result.value.candidates.map(formatSessionPlanCandidate),
 					"No selection or confirmation was requested and nothing was changed.",
 				].join("\n\n"),
 			};
@@ -1261,23 +1256,34 @@ async function resolveDiscoveredSavedPlan(
 		if (candidate === undefined) {
 			return { type: "stopped", message: formatDiscoveryTerminal(result.value) };
 		}
-		const preview = formatDiscoveryCandidate(candidate);
+		const preview = formatSessionPlanCandidate(candidate);
 		let validatedReference: ResolvedExplicitSavedPlanFile | undefined;
 		if (candidate.type === "saved-plan-reference") {
 			validatedReference = await validateDiscoveredSavedPlan(pi, ctx, options, candidate.filePath);
 		}
+		const requiresConfirmation =
+			result.value.type === "ambiguous" || candidate.type !== "saved-plan-reference";
 		if (dryRun) {
 			return {
 				type: "stopped",
-				message: `Dry run: discovery completed without confirmation, saving, branch/session mutation, or prompt injection.\n\n${preview}\n\nConfirmation needed: yes`,
+				message: `Dry run: discovery completed without confirmation, saving, branch/session mutation, or prompt injection.\n\n${preview}\n\nConfirmation needed: ${requiresConfirmation ? "yes" : "no"}`,
 			};
 		}
-		const confirmed = await ctx.ui.confirm?.("Use discovered session plan?", preview);
-		if (!confirmed) {
-			return {
-				type: "stopped",
-				message: "Session plan discovery was cancelled; no plan, branch, or session was changed.",
-			};
+		if (requiresConfirmation) {
+			if (!ctx.hasUI || ctx.ui.confirm === undefined) {
+				return {
+					type: "stopped",
+					message:
+						"Session plan discovery requires Pi UI confirmation. Pass an explicit Saved Plan path in a UI-capable session.",
+				};
+			}
+			const confirmed = await ctx.ui.confirm("Use discovered session plan?", preview);
+			if (!confirmed) {
+				return {
+					type: "stopped",
+					message: "Session plan discovery was cancelled; no plan, branch, or session was changed.",
+				};
+			}
 		}
 		if (validatedReference !== undefined) {
 			return { type: "selected", selected: selectedFromResolvedPlan(validatedReference) };
@@ -1310,9 +1316,7 @@ async function chooseDiscoveryCandidate(
 			"Ambiguous session plan discovery requires Pi UI candidate selection; pass an explicit Saved Plan path.",
 		);
 	}
-	const labels = discovery.candidates.map(
-		(candidate, index) => `${index + 1}. ${candidate.type}: ${candidate.basis}`,
-	);
+	const labels = discovery.candidates.map(formatSessionPlanCandidateLabel);
 	const selected = await ctx.ui.select?.(
 		`Select discovered plan candidate (up to 5): ${discovery.basis}`,
 		labels,
@@ -1327,27 +1331,6 @@ function formatDiscoveryTerminal(discovery: SessionPlanDiscovery): string {
 		return `Session plan discovery found no actionable plan: ${discovery.reason}. Pass an explicit Saved Plan path or continue planning.`;
 	}
 	return "Session plan candidate selection was cancelled; no latest-plan fallback was attempted.";
-}
-
-function formatDiscoveryCandidate(candidate: SessionPlanCandidate): string {
-	const lines = [
-		`Candidate: ${candidate.type}`,
-		`Basis: ${candidate.basis}`,
-		"Evidence:",
-		...candidate.evidence.map((excerpt) => `- ${excerpt}`),
-	];
-	if (candidate.type === "saved-plan-reference") lines.push(`Path: ${candidate.filePath}`);
-	if (candidate.type === "presented-plan") {
-		lines.push(`Suggested slug: ${candidate.suggestedSlug}`);
-		lines.push("Presented plan preview:", candidate.planMarkdown);
-	}
-	if (candidate.type === "plan-ready") {
-		lines.push(`Focus: ${candidate.focus}`);
-		if (candidate.missingElements.length > 0) {
-			lines.push("Missing elements:", ...candidate.missingElements.map((item) => `- ${item}`));
-		}
-	}
-	return lines.join("\n");
 }
 
 async function materializeDiscoveryCandidate(

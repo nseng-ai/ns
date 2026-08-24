@@ -110,8 +110,14 @@ describe("no-path session plan discovery", () => {
 		expect(pi.sentMessages.at(-1)?.content).toContain("Confirmation needed: yes");
 	});
 
-	test("--yes and missing UI fail before discovery", async () => {
-		const process = new DiscoveryProcess({ type: "not-found", reason: "none" });
+	test("--yes fails before discovery and non-reference discovery requires confirmation", async () => {
+		const process = new DiscoveryProcess({
+			type: "presented-plan",
+			planMarkdown: "# Presented plan\n",
+			suggestedSlug: "presented-plan",
+			basis: "The session presents an authoritative plan.",
+			evidence: ["Authoritative plan follows."],
+		});
 		const fakes = createBranchContextOperationFakes();
 		const pi = new FakePi();
 		registerBranchContextExtension(pi, {
@@ -130,7 +136,67 @@ describe("no-path session plan discovery", () => {
 			.get("ns:branch-context:from-plan")
 			?.handler("", createContext([], { skills: [SKILL], confirm: async () => true }).ctx);
 		expect(pi.sentMessages.at(-1)?.content).toContain("not persisted");
-		expect(process.calls).toEqual([]);
+		expect(process.calls).toHaveLength(1);
+	});
+
+	test.each([
+		"ns:branch-context:from-plan",
+		"ns:branch-context:upstack-impl-from-plan",
+		"ns:plan:impl-saved-plan",
+	])("%s uses a sole validated Saved Plan reference without confirmation", async (name) => {
+		const filePath = await makeNamedPlanFile();
+		const process = new DiscoveryProcess(candidate(filePath));
+		const pi = new FakePi([
+			gitRootStep(),
+			planSlugStep(DEFAULT_PLAN_CONTENT),
+			gitCheckoutStep(PLAN_SLUG),
+		]);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, {
+			...branchContextExtensionTestOptions(fakes.operations),
+			sessionPlanDiscovery: { modelPolicy: modelPolicy(), process },
+		});
+		const context = createContext([], {
+			hasUI: false,
+			sessionFile: "/sessions/current.jsonl",
+			skills: [SKILL],
+			confirm: async () => {
+				throw new Error("a sole validated Saved Plan reference must not require confirmation");
+			},
+		});
+
+		await pi.commands.get(name)?.handler("", context.ctx);
+
+		expect(fakes.resolveExplicitPlanCalls[0]?.[1]).toMatchObject({ explicitPath: filePath });
+		if (name === "ns:plan:impl-saved-plan") {
+			expect(context.replacementUserMessages[0]).toContain(filePath);
+		} else {
+			expect(fakes.createBranchCalls[0]?.[1]).toMatchObject({ filePath });
+		}
+	});
+
+	test("a Saved Plan reference preview contains only its path", async () => {
+		const filePath = await makeNamedPlanFile();
+		const process = new DiscoveryProcess(candidate(filePath));
+		const pi = new FakePi([gitRootStep()]);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, {
+			...branchContextExtensionTestOptions(fakes.operations),
+			sessionPlanDiscovery: { modelPolicy: modelPolicy(), process },
+		});
+
+		await pi.commands
+			.get("ns:branch-context:from-plan")
+			?.handler(
+				"--dry-run",
+				createContext([], { hasUI: false, sessionFile: "/s", skills: [SKILL] }).ctx,
+			);
+
+		const message = String(pi.sentMessages.at(-1)?.content);
+		expect(message).toContain(filePath);
+		expect(message).not.toContain("Candidate:");
+		expect(message).not.toContain("Basis:");
+		expect(message).not.toContain("Evidence:");
 	});
 
 	test("plan-ready confirms, injects normal plan save, and stops without mutation", async () => {
@@ -254,8 +320,13 @@ describe("no-path session plan discovery", () => {
 		"ns:branch-context:upstack-impl-from-plan",
 		"ns:plan:impl-saved-plan",
 	])("%s cancellation stops before downstream mutation", async (name) => {
-		const filePath = await makeNamedPlanFile();
-		const process = new DiscoveryProcess(candidate(filePath));
+		const process = new DiscoveryProcess({
+			type: "presented-plan",
+			planMarkdown: "# Presented plan\n",
+			suggestedSlug: "presented-plan",
+			basis: "The session presents an authoritative plan.",
+			evidence: ["Authoritative plan follows."],
+		});
 		const pi = new FakePi([gitRootStep()]);
 		const fakes = createBranchContextOperationFakes();
 		registerBranchContextExtension(pi, {

@@ -189,7 +189,7 @@ describe("Herdr persisted-session plan discovery", () => {
 		expect(notificationMessages(command).join("\n")).toContain("cancelled");
 	});
 
-	test("ephemeral and non-UI sessions fail closed before discovery", async () => {
+	test("ephemeral sessions fail before discovery and non-UI candidates requiring confirmation fail after discovery", async () => {
 		const process = new DiscoveryProcess({ type: "not-found", reason: "No plan." });
 		const pi = new FakePi();
 		const ephemeral = new FakeCommandContext({
@@ -205,6 +205,13 @@ describe("Herdr persisted-session plan discovery", () => {
 		});
 		expect(notificationMessages(ephemeral).join("\n")).toContain("not persisted");
 
+		const nonReferenceProcess = new DiscoveryProcess({
+			type: "presented-plan",
+			planMarkdown: "# Presented plan\n",
+			suggestedSlug: "presented-plan",
+			basis: "The session presents an authoritative plan.",
+			evidence: ["Authoritative plan follows."],
+		});
 		const noUi = new FakeCommandContext({
 			cwd: ROOT,
 			hasUI: false,
@@ -213,13 +220,16 @@ describe("Herdr persisted-session plan discovery", () => {
 		});
 		await handleHerdrSlotImplPlan(context(pi, noUi, new FakeHerdrGateway()), {
 			rawArgs: "",
-			dependencies: { sessionPlanDiscovery: { modelPolicy: modelPolicy(), process } },
+			dependencies: {
+				sessionPlanDiscovery: { modelPolicy: modelPolicy(), process: nonReferenceProcess },
+			},
 			config,
 			notifyProgress: () => {},
 		});
 		expect(notificationMessages(noUi).join("\n")).toContain("requires Pi UI confirmation");
 		expect(process.calls).toEqual([]);
-		expect(pi.execCalls).toEqual([]);
+		expect(nonReferenceProcess.calls).toHaveLength(1);
+		expect(pi.execCalls.map((call) => call.command)).toEqual(["git"]);
 	});
 
 	test("plan-ready confirms, sends plan-save follow-up, and stops before branch selection", async () => {

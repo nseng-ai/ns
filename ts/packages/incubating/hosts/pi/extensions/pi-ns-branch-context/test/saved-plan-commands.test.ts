@@ -58,7 +58,9 @@ describe("enriched-plan-commands", () => {
 		]);
 		expect(pi.sentUserMessages[0]).toContain("grill_ask");
 		expect(pi.sentUserMessages[0]).toContain("uniform polarity");
-		expect(pi.sentUserMessages[0]).toContain("enriched-plan exec save --slug '<slug>' --content-file");
+		expect(pi.sentUserMessages[0]).toContain(
+			"enriched-plan exec save --slug '<slug>' --content-file",
+		);
 		expect(context.notifications).toEqual([
 			{ message: "Starting /ns:plan:grill-and-save planning grill…", level: "info" },
 		]);

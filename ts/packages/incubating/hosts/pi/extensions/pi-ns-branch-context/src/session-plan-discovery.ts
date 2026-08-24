@@ -403,13 +403,13 @@ export function parseSessionPlanDiscoveryOutput(stdout: string): DiscoverSession
 }
 
 export function formatSessionPlanCandidate(candidate: SessionPlanCandidate): string {
+	if (candidate.type === "saved-plan-reference") return candidate.filePath;
 	const lines = [
 		`Candidate: ${candidate.type}`,
 		`Basis: ${candidate.basis}`,
 		"Evidence:",
 		...candidate.evidence.map((excerpt) => `- ${excerpt}`),
 	];
-	if (candidate.type === "saved-plan-reference") lines.push(`Path: ${candidate.filePath}`);
 	if (candidate.type === "presented-plan") {
 		lines.push(`Suggested slug: ${candidate.suggestedSlug}`);
 		lines.push("Presented plan preview:", candidate.planMarkdown);
@@ -427,6 +427,7 @@ export function formatSessionPlanCandidateLabel(
 	candidate: SessionPlanCandidate,
 	index: number,
 ): string {
+	if (candidate.type === "saved-plan-reference") return `${index + 1}. ${candidate.filePath}`;
 	return `${index + 1}. ${candidate.type}: ${candidate.basis}`;
 }
 
