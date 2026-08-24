@@ -4,6 +4,10 @@
 
 ns is private, unreleased, agent-first tooling for running multi-session, multi-branch software work in a git-native way. It gives agents and humans a shared set of capabilities — durable planning **Objectives**, worktree **slots**, **branch-context** and branch memory, directed **handoffs**, and Graphite-based PR stacking — surfaced both as CLIs (`ns`, `slot`, `brmem`, …) and as Pi `/ns:*` slash-commands. Assume you are one of many agents starting cold on this repo: orient yourself with the docs below before acting.
 
+## Voice
+
+Apply the `unslop` skill to every response and every prose artifact. Draft cleanly from the start rather than treating unslop as a final editing pass. Preserve a specific human voice by expressing real judgments, varying sentence rhythm, acknowledging complexity, and using concrete details.
+
 ## Scope
 
 This root `AGENTS.md` contains only repo-wide rules needed before choosing a directory, skill, or context file. Put directory rules in nested `AGENTS.md`, procedural detail in skills, and domain language in `CONTEXT.md`. Before editing under a subdirectory, read the nearest applicable nested `AGENTS.md` if present.
