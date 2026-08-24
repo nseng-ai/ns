@@ -202,9 +202,11 @@ export interface GrillRoundCustomComponent {
 }
 
 export interface GrillRoundExecutionOptions {
+	signal?: AbortSignal;
 	uiRunner?: (
 		input: GrillRoundInput,
 		ctx: GrillRoundToolContext,
+		signal?: AbortSignal,
 	) => Promise<GrillRoundUiOutcome | undefined>;
 }
 

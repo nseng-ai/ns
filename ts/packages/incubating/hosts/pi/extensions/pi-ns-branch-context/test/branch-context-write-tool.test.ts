@@ -5,7 +5,7 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import registerBranchContextExtension from "../src/extension.ts";
+import registerBranchContextExtension, { buildWritePlanPrompt } from "../src/extension.ts";
 
 import {
 	DEFAULT_PLAN_CONTENT,
@@ -135,11 +135,69 @@ describe("write_saved_plan_file tool", () => {
 					undefined,
 					createToolContext({ sessionEntries }).ctx,
 				),
-			).rejects.toThrow("requires an explicitly confirmed current Saved Plan grill attempt");
+			).rejects.toThrow("requires the current /ns:plan:save kickoff or an explicitly confirmed");
 			expect(pi.execCalls).toEqual([]);
 			expect(fakes.writePlanCalls).toEqual([]);
 		},
 	);
+
+	test("allows the current plain /ns:plan:save kickoff without grill confirmation", async () => {
+		const content = "# Plain Plan\n\nSave without grilling.\n";
+		const pi = new FakePi([savedPlanSlugStep(content)]);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const tool = registeredTool(pi, "write_saved_plan_file");
+		const sessionEntries = [
+			{
+				type: "message",
+				message: {
+					role: "user",
+					content: buildWritePlanPrompt("plain save", undefined, "plain-attempt"),
+				},
+			},
+		];
+
+		await tool.execute(
+			"tool-call",
+			{ content },
+			undefined,
+			undefined,
+			createToolContext({ sessionEntries }).ctx,
+		);
+
+		expect(fakes.writePlanCalls).toHaveLength(1);
+	});
+
+	test("a newer malformed plain-save kickoff invalidates older grill authorization", async () => {
+		const content = "# Invalid Plain Plan\n\nDo not save.\n";
+		const pi = new FakePi();
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, { branchContextOperations: fakes.operations });
+		const tool = registeredTool(pi, "write_saved_plan_file");
+		const sessionEntries = [
+			grillKickoffEntry(),
+			grillRoundResultEntry({ action: "confirmed", mode: "confirmation" }),
+			{
+				type: "message",
+				message: {
+					role: "user",
+					content: "<ns-saved-plan-write>{oops}</ns-saved-plan-write>",
+				},
+			},
+		];
+
+		await expect(
+			tool.execute(
+				"tool-call",
+				{ content },
+				undefined,
+				undefined,
+				createToolContext({ sessionEntries }).ctx,
+			),
+		).rejects.toThrow("requires the current /ns:plan:save kickoff");
+		expect(pi.execCalls).toEqual([]);
+		expect(fakes.writePlanCalls).toEqual([]);
+	});
 
 	test("a fresh confirmed Saved Plan kickoff resets prior denial", async () => {
 		const content = "# Reset Plan\n\nSave after a fresh confirmation.\n";

@@ -74,6 +74,8 @@ interface WriteSavedPlanFileProgressDetails {
 }
 
 const WRITE_PLAN_POINT_ID = "branch-context.plans-write";
+const PLAIN_SAVE_KICKOFF_START = "<ns-saved-plan-write>";
+const PLAIN_SAVE_KICKOFF_END = "</ns-saved-plan-write>";
 
 export const DEFAULT_WRITE_PLAN_PROMPT_BODY = readFileSync(
 	new URL("./prompts/plans-write-default.md", import.meta.url),
@@ -87,12 +89,16 @@ type WritePlanPromptBodyResolution =
 export function buildWritePlanPrompt(
 	steering: string,
 	promptBody = DEFAULT_WRITE_PLAN_PROMPT_BODY,
+	attemptId: string = randomUUID(),
 ): string {
+	const kickoff = `${PLAIN_SAVE_KICKOFF_START}${JSON.stringify({ version: 1, attemptId })}${PLAIN_SAVE_KICKOFF_END}`;
 	return `This is a /${WRITE_PLAN_COMMAND_NAME} request. Write a detailed implementation plan and save it in the local plan store.
 
 ${formatSteeringBlock(steering)}
 
-${promptBody}`;
+${promptBody}
+
+${kickoff}`;
 }
 
 export function buildWriteGrilledPlanPrompt(steering: string, attemptId = randomUUID()): string {
@@ -258,12 +264,12 @@ export function buildWriteSavedPlanFileTool(
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
 		description:
-			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`). Before slug derivation or storage I/O, the tool requires current Pi branch history for the latest valid Saved Plan grill kickoff with the exact five-round policy and explicit confirmation. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
+			"Create a reviewed, self-contained Markdown implementation plan file for a fresh downstream implementation session in the XDG local plan store at `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`). Before slug derivation or storage I/O, the tool requires current Pi branch history for the latest `/ns:plan:save` kickoff or a confirmed `/ns:plan:grill-and-save` attempt with the exact five-round policy. The tool derives the saved-plan filename slug from the content through the Codex-backed slug model, derives repo and current branch from git, validates the slug, creates parent directories, refuses to overwrite an existing file, writes the full Markdown content, and returns path evidence. It does not create branches or write Branch Memory.",
 		promptSnippet:
 			"Create a reviewed, self-contained Markdown implementation plan file in the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`).",
 		promptGuidelines: [
-			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` and \`/${WRITE_GRILLED_PLAN_COMMAND_NAME}\` only after the current Saved Plan grill attempt has explicit confirmed evidence.`,
-			"Missing, malformed, general-attempt, unconfirmed, cancelled, ended, UI-failed, cap-exhausted, or invalid current-attempt history denies the write before slug derivation or storage I/O.",
+			`Use write_saved_plan_file for \`/${WRITE_PLAN_COMMAND_NAME}\` after its current plain-save kickoff, or for \`/${WRITE_GRILLED_PLAN_COMMAND_NAME}\` only after that current grill attempt has explicit confirmed evidence.`,
+			"Missing or malformed workflow evidence, or general, unconfirmed, cancelled, ended, UI-failed, cap-exhausted, or invalid grill history denies the write before slug derivation or storage I/O.",
 			"Do not generate or pass a saved-plan filename slug; write_saved_plan_file derives it from content through the Codex-backed slug model.",
 			"write_saved_plan_file writes the XDG local plan store under `$XDG_STATE_HOME/ns/enriched-plan/<repo>/<encoded-source-branch>/<slug>.md` (default `$HOME/.local/state/ns/enriched-plan/...`); it does not create branches or write Branch Memory.",
 			"write_saved_plan_file content should be self-contained for a completely fresh downstream implementation session, including relevant context discovered during planning.",
@@ -386,8 +392,12 @@ function assertCurrentSavedPlanAttemptAuthorized(ctx: ToolContext): void {
 		);
 	}
 
+	const workflow = latestSavedPlanWriteWorkflow(entries);
+	if (workflow === "plain-save") return;
+
 	const evaluation = evaluateGrillAttempt(entries);
 	const isExactSavedPlanPolicy =
+		workflow === "grilled-save" &&
 		evaluation.kickoff?.policy.kind === "saved-plan" &&
 		evaluation.kickoff.policy.maxDecisionRounds === 5;
 	if (
@@ -397,9 +407,58 @@ function assertCurrentSavedPlanAttemptAuthorized(ctx: ToolContext): void {
 		!evaluation.authorized
 	) {
 		throw new Error(
-			`write_saved_plan_file requires an explicitly confirmed current Saved Plan grill attempt with the five-round policy; latest status is ${evaluation.status}. No plan was saved.`,
+			`write_saved_plan_file requires the current /${WRITE_PLAN_COMMAND_NAME} kickoff or an explicitly confirmed current Saved Plan grill attempt with the five-round policy; latest grill status is ${evaluation.status}. No plan was saved.`,
 		);
 	}
+}
+
+type SavedPlanWriteWorkflow = "plain-save" | "grilled-save" | "invalid" | "none";
+
+function latestSavedPlanWriteWorkflow(entries: readonly unknown[]): SavedPlanWriteWorkflow {
+	for (let index = entries.length - 1; index >= 0; index -= 1) {
+		const text = sessionUserMessageText(entries[index]);
+		if (text === undefined) continue;
+		const plainStart = text.lastIndexOf(PLAIN_SAVE_KICKOFF_START);
+		const grillStart = text.lastIndexOf("<ns-grill-kickoff>");
+		if (plainStart < 0 && grillStart < 0) continue;
+		if (plainStart > grillStart)
+			return isValidPlainSaveKickoff(text, plainStart) ? "plain-save" : "invalid";
+		return "grilled-save";
+	}
+	return "none";
+}
+
+function isValidPlainSaveKickoff(text: string, start: number): boolean {
+	const contentStart = start + PLAIN_SAVE_KICKOFF_START.length;
+	const end = text.indexOf(PLAIN_SAVE_KICKOFF_END, contentStart);
+	if (end < 0) return false;
+	try {
+		const value: unknown = JSON.parse(text.slice(contentStart, end));
+		return (
+			isRecord(value) &&
+			value.version === 1 &&
+			typeof value.attemptId === "string" &&
+			value.attemptId.trim().length > 0 &&
+			Object.keys(value).length === 2
+		);
+	} catch {
+		return false;
+	}
+}
+
+function sessionUserMessageText(entry: unknown): string | undefined {
+	if (!isRecord(entry) || entry.type !== "message" || !isRecord(entry.message)) return undefined;
+	const message = entry.message;
+	if (message.role !== "user") return undefined;
+	if (typeof message.content === "string") return message.content;
+	if (!Array.isArray(message.content)) return undefined;
+	return message.content
+		.filter(
+			(item): item is { type: "text"; text: string } =>
+				isRecord(item) && item.type === "text" && typeof item.text === "string",
+		)
+		.map((item) => item.text)
+		.join("\n");
 }
 
 function emitWriteSavedPlanProgress(

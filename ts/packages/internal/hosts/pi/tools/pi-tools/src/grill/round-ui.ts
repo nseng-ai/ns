@@ -28,22 +28,40 @@ export interface GrillRoundInlineRuntime {
 export async function runGrillRoundInlineUi(
 	input: GrillRoundInput,
 	ctx: GrillRoundToolContext,
+	signal?: AbortSignal,
 ): Promise<GrillRoundUiOutcome | undefined> {
-	if (!ctx.hasUI || ctx.ui.custom === undefined) return undefined;
+	if (!ctx.hasUI || ctx.ui.custom === undefined || signal?.aborted === true) return undefined;
 	const moduleValue: unknown = await import("@earendil-works/pi-tui");
 	const runtime = grillRoundInlineRuntimeFromModule(moduleValue);
-	return runGrillRoundInlineUiWithRuntime(input, ctx, runtime);
+	return runGrillRoundInlineUiWithRuntime(input, ctx, runtime, signal);
 }
 
-export function runGrillRoundInlineUiWithRuntime(
+export async function runGrillRoundInlineUiWithRuntime(
 	input: GrillRoundInput,
 	ctx: GrillRoundToolContext,
 	runtime: GrillRoundInlineRuntime,
+	signal?: AbortSignal,
 ): Promise<GrillRoundUiOutcome | undefined> {
-	if (!ctx.hasUI || ctx.ui.custom === undefined) return Promise.resolve(undefined);
-	return ctx.ui.custom<GrillRoundUiOutcome>(
-		(tui, theme, _keybindings, done) => new GrillRoundInlineUi(input, runtime, tui, theme, done),
-	);
+	if (!ctx.hasUI || ctx.ui.custom === undefined || signal?.aborted === true) return undefined;
+	let settle: ((outcome: GrillRoundUiOutcome) => void) | undefined;
+	const abort = () =>
+		settle?.(
+			input.mode === "decision-round" ? { action: "cancelled" } : { action: "return-to-grilling" },
+		);
+	signal?.addEventListener("abort", abort, { once: true });
+	try {
+		return await ctx.ui.custom<GrillRoundUiOutcome>((tui, theme, _keybindings, done) => {
+			let settled = false;
+			settle = (outcome) => {
+				if (settled) return;
+				settled = true;
+				done(outcome);
+			};
+			return new GrillRoundInlineUi(input, runtime, tui, theme, settle);
+		});
+	} finally {
+		signal?.removeEventListener("abort", abort);
+	}
 }
 
 export function grillRoundInlineRuntimeFromModule(value: unknown): GrillRoundInlineRuntime {

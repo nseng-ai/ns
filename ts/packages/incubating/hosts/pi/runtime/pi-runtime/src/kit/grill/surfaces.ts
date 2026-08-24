@@ -26,13 +26,21 @@ const grillKickoffEvidenceSchema = z.lazy(() =>
 export type GrillKickoffEvidence = z.infer<typeof grillKickoffEvidenceSchema>;
 
 const roundAnswerEvidenceSchema = z.lazy(() =>
-	z.strictObject({
-		questionId: z.string().trim().min(1),
-		kind: z.enum(["option", "freeform"]),
-		value: z.string().trim().min(1),
-		label: z.string().trim().min(1).optional(),
-		recommendation: z.enum(["retained", "changed"]),
-	}),
+	z.discriminatedUnion("kind", [
+		z.strictObject({
+			questionId: z.string().trim().min(1),
+			kind: z.literal("option"),
+			value: z.string().trim().min(1),
+			label: z.string().trim().min(1),
+			recommendation: z.enum(["retained", "changed"]),
+		}),
+		z.strictObject({
+			questionId: z.string().trim().min(1),
+			kind: z.literal("freeform"),
+			value: z.string().trim().min(1),
+			recommendation: z.literal("changed"),
+		}),
+	]),
 );
 
 const submittedRoundSchema = z.lazy(() =>
@@ -110,6 +118,7 @@ export function formatGrillKickoffMarker(evidence: GrillKickoffEvidence): string
 export function evaluateGrillAttempt(entries: readonly unknown[]): GrillAttemptEvaluation {
 	const kickoff = findLatestKickoff(entries);
 	if (kickoff === undefined) return emptyEvaluation("none");
+	if (kickoff.type === "invalid") return emptyEvaluation("invalid");
 
 	const roundIds = new Set<string>();
 	const questionIds = new Set<string>();
@@ -148,6 +157,14 @@ export function evaluateGrillAttempt(entries: readonly unknown[]): GrillAttemptE
 			continue;
 		}
 		if (status === "cancelled" && snapshot.mode === "confirmation") continue;
+		if (
+			snapshot.action === "return-to-grilling" &&
+			kickoff.evidence.policy.kind === "saved-plan" &&
+			submittedRoundCount >= kickoff.evidence.policy.maxDecisionRounds
+		) {
+			status = "cap-exhausted";
+			continue;
+		}
 		if (!isTerminalStatus(status, kickoff.evidence.policy.kind)) {
 			status = statusFromResult(snapshot.action);
 		}
@@ -167,9 +184,11 @@ export function evaluateGrillAttempt(entries: readonly unknown[]): GrillAttemptE
 	};
 }
 
-function findLatestKickoff(
-	entries: readonly unknown[],
-): { index: number; evidence: GrillKickoffEvidence } | undefined {
+type GrillKickoffSelection =
+	| { type: "valid"; index: number; evidence: GrillKickoffEvidence }
+	| { type: "invalid" };
+
+function findLatestKickoff(entries: readonly unknown[]): GrillKickoffSelection | undefined {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const text = userMessageText(entries[index]);
 		if (text === undefined) continue;
@@ -177,14 +196,16 @@ function findLatestKickoff(
 		if (start < 0) continue;
 		const contentStart = start + GRILL_KICKOFF_MARKER_START.length;
 		const end = text.indexOf(GRILL_KICKOFF_MARKER_END, contentStart);
-		if (end < 0) continue;
+		if (end < 0) return { type: "invalid" };
 		try {
 			const evidence = grillKickoffEvidenceSchema.safeParse(
 				JSON.parse(text.slice(contentStart, end)),
 			);
-			if (evidence.success) return { index, evidence: evidence.data };
+			return evidence.success
+				? { type: "valid", index, evidence: evidence.data }
+				: { type: "invalid" };
 		} catch {
-			// Malformed markers are not valid kickoffs and do not replace the latest valid attempt.
+			return { type: "invalid" };
 		}
 	}
 	return undefined;
@@ -194,6 +215,7 @@ function resultSnapshot(entry: unknown): GrillRoundResultEvidence | "malformed" 
 	const message = messageFromEntry(entry);
 	if (!isRecord(message) || message.role !== "toolResult") return undefined;
 	if (message.toolName !== GRILL_ASK_ROUND_TOOL_NAME) return undefined;
+	if (message.isError === true) return "malformed";
 	const parsed = grillRoundResultEvidenceSchema.safeParse(message.details);
 	return parsed.success ? parsed.data : "malformed";
 }

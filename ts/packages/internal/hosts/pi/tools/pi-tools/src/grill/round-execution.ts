@@ -1,6 +1,7 @@
 import { evaluateGrillAttempt } from "@nseng-ai/pi-runtime/grill/surfaces";
 
 import type {
+	GrillRoundAnswer,
 	GrillRoundDetails,
 	GrillRoundExecutionOptions,
 	GrillRoundInput,
@@ -24,6 +25,7 @@ export async function executeGrillAskRound(
 		});
 	}
 	const input = validation.input;
+	if (isAborted(options.signal)) return cancelledBySignal(input);
 	const history = readHistory(ctx);
 	const evaluation = evaluateGrillAttempt(history);
 	if (input.mode === "confirmation") {
@@ -84,7 +86,8 @@ export async function executeGrillAskRound(
 
 	const runner = options.uiRunner ?? runGrillRoundInlineUi;
 	try {
-		const outcome = await runner(input, ctx);
+		const outcome = await runner(input, ctx, options.signal);
+		if (isAborted(options.signal)) return cancelledBySignal(input);
 		if (outcome === undefined) {
 			return input.mode === "decision-round"
 				? uiFailure(input, "Atomic grill round UI closed without a result; no draft was submitted.")
@@ -135,7 +138,14 @@ function outcomeResult(
 	}
 
 	switch (outcome.action) {
-		case "submitted":
+		case "submitted": {
+			const errors = validateSubmittedAnswers(input, outcome.answers);
+			if (errors.length > 0) {
+				return uiFailure(
+					input,
+					`Atomic grill round UI returned invalid answers: ${errors.join(" ")}`,
+				);
+			}
 			return result(`Submitted ${outcome.answers.length} decisions atomically.`, {
 				action: "submitted",
 				mode: "decision-round",
@@ -144,6 +154,7 @@ function outcomeResult(
 				submittedRoundCount: submittedRoundCount + 1,
 				answeredDecisionCount: answeredDecisionCount + outcome.answers.length,
 			});
+		}
 		case "cancelled":
 			return result("Decision round paused; all drafts were discarded.", {
 				action: "cancelled",
@@ -164,6 +175,53 @@ function outcomeResult(
 		case "return-to-grilling":
 			return invalidIds(`Outcome ${outcome.action} is not valid for decision-round mode.`);
 	}
+}
+
+function validateSubmittedAnswers(
+	input: Extract<GrillRoundInput, { mode: "decision-round" }>,
+	answers: readonly GrillRoundAnswer[],
+): string[] {
+	if (answers.length !== input.questions.length) {
+		return [`Expected ${input.questions.length} answers, received ${answers.length}.`];
+	}
+	const errors: string[] = [];
+	for (const [index, question] of input.questions.entries()) {
+		const answer = answers[index];
+		if (answer === undefined || answer.questionId !== question.id) {
+			errors.push(`Answer ${index + 1} must match question ${question.id}.`);
+			continue;
+		}
+		if (answer.kind === "option") {
+			const option = question.options.find((candidate) => candidate.value === answer.value);
+			if (option === undefined || option.label !== answer.label) {
+				errors.push(`Answer for ${question.id} must reference one listed option.`);
+				continue;
+			}
+			const expectedRecommendation =
+				option.value === question.recommendedOptionValue ? "retained" : "changed";
+			if (answer.recommendation !== expectedRecommendation) {
+				errors.push(`Answer for ${question.id} has inconsistent recommendation evidence.`);
+			}
+		}
+	}
+	return errors;
+}
+
+function isAborted(signal: AbortSignal | undefined): boolean {
+	return signal?.aborted === true;
+}
+
+function cancelledBySignal(input: GrillRoundInput): GrillRoundToolResult {
+	return input.mode === "decision-round"
+		? result("Decision round cancelled; all drafts were discarded.", {
+				action: "cancelled",
+				mode: "decision-round",
+				roundId: input.roundId,
+			})
+		: result("Confirmation cancelled; shared understanding was not confirmed.", {
+				action: "ui-failed",
+				mode: "confirmation",
+			});
 }
 
 function terminalForUnavailableAttempt(

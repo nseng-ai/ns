@@ -221,7 +221,7 @@ describe("combined grill and Branch Context fake host", () => {
 					hasUI: false,
 					sessionManager: { getBranch: () => deniedHistory },
 				}),
-			).rejects.toThrow("requires an explicitly confirmed current Saved Plan grill attempt");
+			).rejects.toThrow("requires the current /ns:plan:save kickoff or an explicitly confirmed");
 		}
 		expect(pi.execCalls).toEqual([]);
 		expect(writeCalls).toEqual([]);
@@ -264,7 +264,7 @@ describe("combined grill and Branch Context fake host", () => {
 				hasUI: false,
 				sessionManager: { getBranch: () => history },
 			}),
-		).rejects.toThrow("latest status is cap-exhausted");
+		).rejects.toThrow("latest grill status is cap-exhausted");
 		expect(pi.execCalls).toEqual([]);
 		expect(writeCalls).toEqual([]);
 

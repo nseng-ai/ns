@@ -197,10 +197,10 @@ describe("buildWritePlanPrompt", () => {
 	});
 
 	test("uses custom static prompt body without changing dynamic header", () => {
-		const prompt = buildWritePlanPrompt("steer me", "Custom plan body\n");
+		const prompt = buildWritePlanPrompt("steer me", "Custom plan body\n", "test-attempt");
 
 		expect(prompt).toBe(
-			`This is a /ns:plan:save request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n`,
+			`This is a /ns:plan:save request. Write a detailed implementation plan and save it in the local plan store.\n\nUser steering for this planning request:\n\n\`\`\`text\nsteer me\n\`\`\`\n\nCustom plan body\n\n\n<ns-saved-plan-write>{"version":1,"attemptId":"test-attempt"}</ns-saved-plan-write>`,
 		);
 	});
 

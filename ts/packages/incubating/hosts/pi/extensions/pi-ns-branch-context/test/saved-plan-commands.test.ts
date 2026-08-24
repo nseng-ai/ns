@@ -12,6 +12,13 @@ import {
 	step,
 } from "./branch-context-extension-support.ts";
 
+function normalizePlainSaveKickoff(prompt: string): string {
+	return prompt.replace(
+		/<ns-saved-plan-write>\{"version":1,"attemptId":"[^"]+"\}<\/ns-saved-plan-write>/,
+		'<ns-saved-plan-write>{"version":1,"attemptId":"test-attempt"}</ns-saved-plan-write>',
+	);
+}
+
 describe("enriched-plan-commands", () => {
 	test("registers plans write commands, branch-context workflow commands, and write tool", () => {
 		const pi = new FakePi();
@@ -152,8 +159,8 @@ describe("enriched-plan-commands", () => {
 			},
 		]);
 		expect(pi.sentUserMessages).toHaveLength(1);
-		expect(pi.sentUserMessages[0]).toBe(
-			buildWritePlanPrompt("add a tiny docs note plan for testing"),
+		expect(normalizePlainSaveKickoff(pi.sentUserMessages[0] ?? "")).toBe(
+			buildWritePlanPrompt("add a tiny docs note plan for testing", undefined, "test-attempt"),
 		);
 		expect(pi.sentUserMessages[0]).toContain("write_saved_plan_file");
 		expect(pi.sentUserMessages[0]).toContain(
@@ -193,8 +200,8 @@ describe("enriched-plan-commands", () => {
 		await command?.handler("customize this", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([
-			buildWritePlanPrompt("customize this", "Custom plan body\n"),
+		expect(pi.sentUserMessages.map(normalizePlainSaveKickoff)).toEqual([
+			buildWritePlanPrompt("customize this", "Custom plan body\n", "test-attempt"),
 		]);
 		expect(context.notifications).toEqual([
 			{ message: "Starting /ns:plan:save planning turn…", level: "info" },
@@ -216,7 +223,9 @@ describe("enriched-plan-commands", () => {
 		await command?.handler("fallback please", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("fallback please")]);
+		expect(pi.sentUserMessages.map(normalizePlainSaveKickoff)).toEqual([
+			buildWritePlanPrompt("fallback please", undefined, "test-attempt"),
+		]);
 		expect(context.notifications).toEqual([
 			{ message: "Starting /ns:plan:save planning turn…", level: "info" },
 			{
@@ -237,7 +246,9 @@ describe("enriched-plan-commands", () => {
 		await command?.handler("whitespace prompt", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("whitespace prompt")]);
+		expect(pi.sentUserMessages.map(normalizePlainSaveKickoff)).toEqual([
+			buildWritePlanPrompt("whitespace prompt", undefined, "test-attempt"),
+		]);
 		expect(context.notifications).toHaveLength(2);
 		expect(context.notifications[1]).toMatchObject({ level: "warning" });
 		expect(context.notifications[1]?.message).toContain(
@@ -256,7 +267,9 @@ describe("enriched-plan-commands", () => {
 		await command?.handler("directory prompt", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("directory prompt")]);
+		expect(pi.sentUserMessages.map(normalizePlainSaveKickoff)).toEqual([
+			buildWritePlanPrompt("directory prompt", undefined, "test-attempt"),
+		]);
 		expect(context.notifications).toHaveLength(2);
 		expect(context.notifications[1]).toMatchObject({ level: "warning" });
 		expect(context.notifications[1]?.message).toContain("is not a regular file");
@@ -272,7 +285,9 @@ describe("enriched-plan-commands", () => {
 		await command?.handler("symlink", context.ctx);
 
 		pi.assertDone();
-		expect(pi.sentUserMessages).toEqual([buildWritePlanPrompt("symlink")]);
+		expect(pi.sentUserMessages.map(normalizePlainSaveKickoff)).toEqual([
+			buildWritePlanPrompt("symlink", undefined, "test-attempt"),
+		]);
 		expect(context.notifications).toEqual([
 			{ message: "Starting /ns:plan:save planning turn…", level: "info" },
 		]);

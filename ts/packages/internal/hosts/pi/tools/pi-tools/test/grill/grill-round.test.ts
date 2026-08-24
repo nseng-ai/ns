@@ -174,6 +174,98 @@ describe("executeGrillAskRound", () => {
 	});
 
 	test.each([
+		[
+			"missing answer",
+			[
+				{
+					questionId: "q-1",
+					kind: "option",
+					value: "recommended",
+					label: "Recommended",
+					recommendation: "retained",
+				},
+			],
+		],
+		[
+			"reordered answers",
+			[
+				{
+					questionId: "q-2",
+					kind: "option",
+					value: "recommended",
+					label: "Recommended",
+					recommendation: "retained",
+				},
+				{
+					questionId: "q-1",
+					kind: "option",
+					value: "recommended",
+					label: "Recommended",
+					recommendation: "retained",
+				},
+			],
+		],
+		[
+			"unknown question",
+			[
+				{
+					questionId: "unknown",
+					kind: "option",
+					value: "recommended",
+					label: "Recommended",
+					recommendation: "retained",
+				},
+				{
+					questionId: "q-2",
+					kind: "option",
+					value: "recommended",
+					label: "Recommended",
+					recommendation: "retained",
+				},
+			],
+		],
+		[
+			"unknown option",
+			[
+				{
+					questionId: "q-1",
+					kind: "option",
+					value: "unknown",
+					label: "Unknown",
+					recommendation: "changed",
+				},
+				{
+					questionId: "q-2",
+					kind: "option",
+					value: "recommended",
+					label: "Recommended",
+					recommendation: "retained",
+				},
+			],
+		],
+	] as const)("rejects a submitted UI outcome with %s", async (_label, answers) => {
+		const result = await executeGrillAskRound(decisionRound(), context(), {
+			uiRunner: async () => ({ action: "submitted", answers }),
+		});
+		expect(result.details).toMatchObject({ action: "ui-failed" });
+	});
+
+	test("reports abort as cancellation without opening the UI", async () => {
+		const controller = new AbortController();
+		controller.abort();
+		let called = false;
+		const result = await executeGrillAskRound(decisionRound(), context(), {
+			signal: controller.signal,
+			uiRunner: async () => {
+				called = true;
+				return undefined;
+			},
+		});
+		expect(called).toBe(false);
+		expect(result.details).toMatchObject({ action: "cancelled" });
+	});
+
+	test.each([
 		["cancelled", false],
 		["ended", true],
 	] as const)("%s discards drafts and differs by termination", async (action, terminate) => {

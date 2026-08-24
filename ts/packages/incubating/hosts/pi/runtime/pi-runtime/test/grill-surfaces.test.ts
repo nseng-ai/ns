@@ -165,7 +165,7 @@ describe("evaluateGrillAttempt", () => {
 		expect(state.authorized).toBe(false);
 	});
 
-	test("ignores malformed kickoff candidates while malformed latest-attempt results deny authorization", () => {
+	test("a newer malformed kickoff invalidates older authorization", () => {
 		const malformedKickoff = {
 			type: "message",
 			message: { role: "user", content: "<ns-grill-kickoff>{oops}</ns-grill-kickoff>" },
@@ -185,7 +185,79 @@ describe("evaluateGrillAttempt", () => {
 			malformedResult,
 			result({ action: "confirmed", mode: "confirmation" }),
 		]);
-		expect(state.kickoff?.attemptId).toBe("valid");
+		expect(state.kickoff).toBeUndefined();
+		expect(state.status).toBe("invalid");
+		expect(state.authorized).toBe(false);
+	});
+
+	test("returning to grilling at the Saved Plan cap exhausts the attempt", () => {
+		const entries: unknown[] = [kickoff("attempt", "saved-plan")];
+		for (let index = 1; index <= 5; index += 1) {
+			entries.push(result(submitted(`round-${index}`, [`q-${index}`])));
+		}
+		entries.push(result({ action: "return-to-grilling", mode: "confirmation" }));
+		entries.push(result({ action: "confirmed", mode: "confirmation" }));
+		const state = evaluateGrillAttempt(entries);
+		expect(state.status).toBe("cap-exhausted");
+		expect(state.authorized).toBe(false);
+	});
+
+	test.each([
+		{
+			questionId: "q-1",
+			kind: "option",
+			value: "yes",
+			recommendation: "retained",
+		},
+		{
+			questionId: "q-1",
+			kind: "freeform",
+			value: "custom",
+			label: "Custom",
+			recommendation: "changed",
+		},
+		{
+			questionId: "q-1",
+			kind: "freeform",
+			value: "custom",
+			recommendation: "retained",
+		},
+	])("rejects malformed answer evidence", (answer) => {
+		const malformed = {
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolName: GRILL_ASK_ROUND_TOOL_NAME,
+				details: {
+					action: "submitted",
+					mode: "decision-round",
+					roundId: "round-1",
+					answers: [answer],
+					submittedRoundCount: 1,
+					answeredDecisionCount: 1,
+				},
+			},
+		};
+		const state = evaluateGrillAttempt([
+			kickoff("attempt", "saved-plan"),
+			malformed,
+			result({ action: "confirmed", mode: "confirmation" }),
+		]);
+		expect(state.status).toBe("invalid");
+		expect(state.authorized).toBe(false);
+	});
+
+	test("rejects error tool results even when their details look valid", () => {
+		const errorResult = {
+			type: "message",
+			message: {
+				role: "toolResult",
+				toolName: GRILL_ASK_ROUND_TOOL_NAME,
+				isError: true,
+				details: { action: "confirmed", mode: "confirmation" },
+			},
+		};
+		const state = evaluateGrillAttempt([kickoff("attempt", "saved-plan"), errorResult]);
 		expect(state.status).toBe("invalid");
 		expect(state.authorized).toBe(false);
 	});

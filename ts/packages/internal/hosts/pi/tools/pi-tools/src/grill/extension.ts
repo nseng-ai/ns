@@ -98,8 +98,8 @@ export function registerGrillUiExtension(pi: ExtensionAPI): void {
 		description:
 			"Run one atomic structured-grilling interaction. In decision-round mode provide the complete ordered current design-tree frontier with stable attempt-scoped IDs, 2–5 choices per decision, recommendations, rationales, and freeform support. After the frontier is empty, use confirmation mode with an explicit summary; it offers only Confirm shared understanding or Return to grilling.",
 		parameters: GRILL_ASK_ROUND_PARAMETERS,
-		execute: async (_toolCallId, params, _signal, _onUpdate, ctx) =>
-			executeGrillAskRound(params, ctx),
+		execute: async (_toolCallId, params, signal, _onUpdate, ctx) =>
+			executeGrillAskRound(params, ctx, signal === undefined ? {} : { signal }),
 	});
 }
 

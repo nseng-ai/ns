@@ -28,11 +28,11 @@ Pi users run `/ns:plan:save`. The static planning-policy body lives at:
 .ns/prompts/plans-write.md
 ```
 
-For `/ns:plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail.
+For `/ns:plan:save`, the TypeScript Pi extension resolves this file from the current Git root and falls back to its built-in prompt body if Git root discovery, file reading, empty content, or symlink safety checks fail. Its user message includes a versioned plain-save kickoff, so `write_saved_plan_file` can identify the current non-grilled workflow without adding a confirmation step.
 
 The structured grilling variant is `/ns:plan:grill-and-save`. It starts a fresh versioned Saved Plan attempt, activates only `grill_ask_round`, and presents every complete currently answerable design-tree frontier as one atomic round. A Saved Plan attempt permits at most five successfully submitted decision rounds. Confirmation, invalid input, Cancel, End, and UI failure do not count as submitted rounds; those failure outcomes deny saving. When the frontier is empty, the user must explicitly confirm the shared understanding. Return to grilling recomputes the complete frontier, while a sixth decision-round call records terminal cap exhaustion and denies later confirmation or saving until a new Saved Plan kickoff resets the attempt. The grill should resolve product/design requirements, not routine validation coverage; ordinary test/check scope is deferred to the downstream implementation agent's project policy and changed-file judgment.
 
-`write_saved_plan_file` evaluates the current Pi branch history before slug derivation, model invocation, or file/storage work. It accepts only the latest valid, explicitly confirmed Saved Plan kickoff with the exact five-round policy. Missing or malformed history, a latest general grill kickoff, and cancelled, ended, UI-failed, cap-exhausted, invalid, or unconfirmed attempts fail closed. A new valid Saved Plan kickoff establishes a fresh authorization namespace.
+`write_saved_plan_file` evaluates the current Pi branch history before slug derivation, model invocation, or file/storage work. It accepts the latest valid plain `/ns:plan:save` kickoff, or a latest explicitly confirmed `/ns:plan:grill-and-save` kickoff with the exact five-round policy. Missing or malformed workflow evidence, a general grill kickoff, and cancelled, ended, UI-failed, cap-exhausted, invalid, or unconfirmed Saved Plan grill attempts fail closed. A new valid workflow kickoff replaces older authorization.
 
 Saved plans are written to:
 
