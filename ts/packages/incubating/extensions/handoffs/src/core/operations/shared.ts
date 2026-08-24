@@ -1,12 +1,53 @@
 import { validateBranchName, type BrmemErrorInfo } from "@nseng-ai/brmem";
 import { confirmInteractiveOrUsageError, type ConfirmationResult } from "@nseng-ai/clinkr";
 import { failure, type ClinkrExit, type ClinkrFailureExit } from "@nseng-ai/clinkr/legacy";
+import {
+	MODEL_OPERATION_IDS,
+	resolveEffectiveModelOperation,
+} from "@nseng-ai/extension-kit/model-policy";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import type { HandoffCliContext } from "../context.ts";
 
 export type Resolved<T> = { type: "resolved"; value: T } | ClinkrExit<never>;
 export function resolved<T>(value: T): Resolved<T> {
 	return { type: "resolved", value };
+}
+
+export async function resolveHandoffSlugModel(
+	ctx: HandoffCliContext,
+): Promise<Resolved<ModelSelection>> {
+	const model = await resolveEffectiveModelOperation(ctx.projectConfig, MODEL_OPERATION_IDS.slug);
+	if (!model.ok) {
+		if (model.error.type === "project-config") {
+			const error = model.error.error;
+			if (error.code === "project-not-found") {
+				return failure(
+					"handoff-slug-derivation-failed",
+					"Could not determine the repository root for ns.toml.",
+				);
+			}
+			if (error.code === "project-discovery-failed") {
+				return failure(
+					"handoff-slug-derivation-failed",
+					`Could not determine the repository root for ns.toml: ${error.message}`,
+				);
+			}
+			const message =
+				error.code === "invalid-source"
+					? (error.diagnostics[0]?.message ?? `${error.path}: invalid ns.toml`)
+					: error.message;
+			return failure(
+				"handoff-slug-derivation-failed",
+				`Invalid model policy in ns.toml: ${message}`,
+			);
+		}
+		return failure(
+			"handoff-slug-derivation-failed",
+			`Invalid model policy in ns.toml: ${model.error.error.message}`,
+		);
+	}
+	return resolved(model.value.selection);
 }
 
 export async function resolveBranch(

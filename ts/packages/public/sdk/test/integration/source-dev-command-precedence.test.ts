@@ -100,6 +100,7 @@ function createContext(options: {
 		cwd: options.cwd,
 		homeDir: options.homeDir,
 		env: { HOME: options.homeDir },
+		projectConfig: { get: async () => ({ ok: true, value: undefined }) },
 		hasExtension: (packageName) => options.inventory.extensionPackageNames.has(packageName),
 		installedExtensionPackageNames: [...options.inventory.extensionPackageNames],
 		exec: async () => ({ type: "exited", code: 0, signal: null, stdout: "", stderr: "" }),

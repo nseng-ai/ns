@@ -33,7 +33,11 @@ import {
 } from "@nseng-ai/plans/api";
 import { isRecord } from "@nseng-ai/pi-runtime/runtime/primitives";
 import { GRILL_ASK_TOOL_NAME, activateGrillAskTool } from "@nseng-ai/pi-runtime/grill/surfaces";
-import { resolveBranchContextOperations, resolvePlanStoreRootOption } from "./options.ts";
+import {
+	resolveBranchContextOperations,
+	resolvePiSlugModelSelection,
+	resolvePlanStoreRootOption,
+} from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
 	CommandContext,
@@ -239,11 +243,6 @@ export function buildWriteSavedPlanFileTool(
 	pi: BranchContextPiCommandApi,
 	options: BranchContextExtensionOptions,
 ): ToolDefinition {
-	const contentSlugContext = {
-		commands: pi,
-		git: new RealGitGateway(pi),
-		projectConfig: createNodeProjectConfigGateway(),
-	};
 	return {
 		name: WRITE_SAVED_PLAN_FILE_TOOL_NAME,
 		label: "Write Saved Plan File",
@@ -303,9 +302,14 @@ export function buildWriteSavedPlanFileTool(
 							}, 5_000);
 				let slugEvidence: SavedPlanContentSlugEvidence;
 				try {
-					const slugResult = await deriveSavedPlanContentSlug(contentSlugContext, {
+					const modelSelection = await resolvePiSlugModelSelection(options, {
+						cwd: ctx.cwd,
+						...optionalEntry("signal", signal),
+					});
+					const slugResult = await deriveSavedPlanContentSlug(pi, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
+						modelSelection,
 						...optionalEntry("signal", signal),
 					});
 					if (!slugResult.ok) throw new Error(slugResult.error.message);

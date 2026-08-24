@@ -50,7 +50,11 @@ describe("RealLocalDiffGateway", () => {
 			gitGateway: new InMemoryGitGateway({ repoRoot, cachedOriginHeadBranch: "trunk" }),
 		});
 
-		const result = await gateway.loadDiff({ cwd: repoRoot, baseRef: "main" });
+		const result = await gateway.loadDiff({
+			cwd: repoRoot,
+			baseRef: "main",
+			excludeGlobs: [".agents/skills/**/*.py"],
+		});
 
 		expect(result.ok).toBe(true);
 		if (result.ok) {

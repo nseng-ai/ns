@@ -56,6 +56,7 @@ import {
 	resolveBranchContextDefaultCreation,
 	resolveBranchContextOperations,
 	resolvePlanStoreRootOption,
+	resolvePiSlugModelSelection,
 } from "./options.ts";
 import type {
 	BranchContextExtensionOptions,
@@ -410,20 +411,12 @@ export async function deriveCreateBranchContextPreview(
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
 	const selectedFile = selectedSavedPlanFileInfo(selected);
-	const branchContext = resolveBranchContextContext(pi, ctx.cwd, options);
-	const slugEvidence = await derivePlanContentSlug(
-		{
-			// Keep model execution on the caller's Pi channel; injected branch-context
-			// operations may intentionally use a different command adapter.
-			commands: pi,
-			git: branchContext.git,
-			projectConfig: branchContext.projectConfig,
-		},
-		{
-			filePath: selectedFile.filePath,
-			cwd: ctx.cwd,
-		},
-	);
+	const modelSelection = await resolvePiSlugModelSelection(options, { cwd: ctx.cwd });
+	const slugEvidence = await derivePlanContentSlug(pi, {
+		filePath: selectedFile.filePath,
+		cwd: ctx.cwd,
+		modelSelection,
+	});
 	if (!slugEvidence.ok) throw new Error(slugEvidence.error.message);
 	const evidence = slugEvidence.value;
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);

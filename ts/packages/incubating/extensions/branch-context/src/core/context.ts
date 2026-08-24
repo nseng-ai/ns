@@ -4,10 +4,6 @@ import type { CommandExecApi, StdinCapableCommandExecApi } from "@nseng-ai/found
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import {
-	createNodeProjectConfigGateway,
-	type ProjectConfigGateway,
-} from "@nseng-ai/sdk/project-config/points";
-import {
 	RealGraphiteBranchGateway,
 	type GraphiteBranchGateway,
 } from "@nseng-ai/extension-kit/graphite/branch";
@@ -15,7 +11,6 @@ import {
 export interface BranchContextContext {
 	commands: CommandExecApi;
 	git: GitGateway;
-	projectConfig: ProjectConfigGateway;
 	brmem: BrmemGateway;
 	graphite: GraphiteBranchGateway;
 }
@@ -41,7 +36,6 @@ export function createBranchContextContext(
 	return {
 		commands,
 		git,
-		projectConfig: createNodeProjectConfigGateway(),
 		brmem,
 		graphite: new RealGraphiteBranchGateway(commands),
 	};

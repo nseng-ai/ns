@@ -1,10 +1,8 @@
 import { readFile } from "node:fs/promises";
 
-import type {
-	ContentSlugContext,
-	ContentSlugEvidence,
-	ContentSlugFailure,
-} from "@nseng-ai/extension-kit/content-slug";
+import type { ContentSlugEvidence, ContentSlugFailure } from "@nseng-ai/extension-kit/content-slug";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { Result } from "@nseng-ai/foundation/result";
 import { derivePlanSlugFromContent } from "@nseng-ai/plans/api";
@@ -24,6 +22,7 @@ export type PlanContentSlugResult = Result<
 export interface DerivePlanContentSlugInput {
 	filePath: string;
 	cwd: string;
+	modelSelection: ModelSelection;
 	signal?: AbortSignal;
 	readTextFile?: (path: string) => Promise<string>;
 }
@@ -40,16 +39,17 @@ const BRANCH_CONTEXT_PLAN_PRESENTATION = {
 };
 
 export async function derivePlanContentSlug(
-	context: ContentSlugContext,
+	commands: CommandExecApi,
 	input: DerivePlanContentSlugInput,
 ): Promise<PlanContentSlugResult> {
 	const content = await readPlanContent(input);
 	if (!content.ok) return content;
 	return derivePlanSlugFromContent(
-		context,
+		commands,
 		{
 			content: content.value,
 			cwd: input.cwd,
+			modelSelection: input.modelSelection,
 			...optionalEntry("signal", input.signal),
 		},
 		BRANCH_CONTEXT_PLAN_PRESENTATION,

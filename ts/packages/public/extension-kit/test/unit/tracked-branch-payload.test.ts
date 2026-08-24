@@ -17,16 +17,14 @@ import {
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { afterEach, describe, expect, test } from "vitest";
 
 const REPO_ROOT = mkdtempSync(join(tmpdir(), "tracked-branch-payload-root-"));
-const PROJECT_CONFIG: ProjectConfigGateway = {
-	readTextFile: () => ({
-		type: "found",
-		text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
-	}),
-	pathExists: () => ({ type: "missing" }),
+const MODEL_SELECTION: ModelSelection = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal",
 };
 
 interface Step {
@@ -61,7 +59,7 @@ class FakeCommands implements CommandExecApi {
 const directories: string[] = [];
 
 function trackedBranchContext(pi: CommandExecApi, git: InMemoryGitGateway) {
-	return { pi, git, projectConfig: PROJECT_CONFIG };
+	return { pi, git, modelSelection: MODEL_SELECTION };
 }
 
 function expectFocusedSlugCall(
@@ -242,7 +240,7 @@ describe("tracked branch payload public API", () => {
 		expectFocusedSlugCall(commands, prompt);
 		expect(git.currentBranchCalls).toEqual([{ cwd: REPO_ROOT }]);
 		expect(git.headCommitCalls).toEqual([{ cwd: REPO_ROOT }]);
-		expect(git.optionalRepoRootCalls).toEqual([{ cwd: REPO_ROOT }]);
+		expect(git.optionalRepoRootCalls).toEqual([]);
 		expect(git.createBranchAtStartPointCalls).toEqual([
 			{ cwd: REPO_ROOT, branch: "implement-feature-2", startPoint: "abc123" },
 		]);

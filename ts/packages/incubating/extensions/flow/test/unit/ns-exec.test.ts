@@ -52,6 +52,7 @@ function createFakeApi(results: readonly ExecResult[]): {
 			env: {},
 			commandIo: noopNsCommandIo,
 			progress: noopNsProgress,
+			projectConfig: { get: async () => ({ ok: true, value: undefined }) },
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,
 			isInteractive: () => false,

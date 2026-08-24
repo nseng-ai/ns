@@ -1,5 +1,15 @@
 export { nsExtensionExportTarget } from "../sdk/descriptor.ts";
 
+export { createNodeEffectiveProjectConfig } from "./effective.ts";
+export type { EffectiveProjectConfigScope } from "./effective.ts";
+export type {
+	EffectiveProjectConfig,
+	EffectiveValue,
+	ProjectConfigError,
+	ProjectSetting,
+	SettingsSchema,
+} from "../sdk/project-config.ts";
+
 export {
 	declaredExtensionSpecsErrorInfo,
 	descriptorExportPathErrorInfo,

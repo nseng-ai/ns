@@ -121,6 +121,11 @@ const progress: NsProgress = { isLive: true, phase: progressListener };
 
 function acceptsExtensionApi(api: NsExtensionApi): string {
 	const isProviderPresent: boolean = api.hasExtension("@example/provider");
+	const projectName = api.projectConfig.get({
+		path: ["project", "name"],
+		schema: z.string(),
+	});
+	void projectName;
 	void isProviderPresent;
 	api.commandIo.notify("checked");
 	api.progress.phase(progressEvent);

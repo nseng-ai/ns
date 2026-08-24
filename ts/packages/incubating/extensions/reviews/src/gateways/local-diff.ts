@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import {
 	type CommandExecApi,
 	commandFailureReason,
@@ -15,8 +12,7 @@ import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { parseUnifiedDiff } from "../core/diff-parsing.ts";
 import type { LocalDiffFailure, ReviewResult } from "../core/failures.ts";
 import { createLocalDiff, type LocalDiff } from "../core/models.ts";
-import { buildGitDiffArgs, parseReviewsProjectConfigToml } from "../core/project-config.ts";
-import { isMissingFileError } from "./filesystem-errors.ts";
+import { buildGitDiffArgs } from "../core/project-config.ts";
 
 const GIT_TIMEOUT_MS = 10_000;
 
@@ -58,9 +54,7 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 		const baseRef = await this.resolveBaseRef(options, repoRoot.value);
 		if (!baseRef.ok) return baseRef;
 
-		const excludeGlobsResult = await this.resolveExcludeGlobs(options, repoRoot.value);
-		if (!excludeGlobsResult.ok) return excludeGlobsResult;
-		const excludeGlobs = excludeGlobsResult.value;
+		const excludeGlobs = options.excludeGlobs ?? [];
 
 		const args = [...buildGitDiffArgs({ baseRef: baseRef.value, excludeGlobs })];
 		const displayCommand = formatGitDiffDisplayCommand({
@@ -113,29 +107,6 @@ export class RealLocalDiffGateway implements LocalDiffGateway {
 			code: "base-ref-unavailable",
 			message: "Unable to resolve a base branch. Pass --base-ref explicitly.",
 		});
-	}
-
-	private async resolveExcludeGlobs(
-		options: LoadDiffOptions,
-		repoRoot: string,
-	): Promise<ReviewResult<readonly string[]>> {
-		if (options.excludeGlobs !== undefined) return { ok: true, value: options.excludeGlobs };
-
-		const path = join(repoRoot, "ns.toml");
-		let source: string;
-		try {
-			source = await readFile(path, "utf8");
-		} catch (caught) {
-			if (isMissingFileError(caught)) return { ok: true, value: [] };
-			return error({
-				code: "project-config-invalid",
-				message: `Failed to read ns.toml: ${formatErrorMessage(caught)}`,
-			});
-		}
-
-		const config = parseReviewsProjectConfigToml(source, path);
-		if (!config.ok) return error({ code: "project-config-invalid", message: config.error.message });
-		return { ok: true, value: config.value.diff.exclude };
 	}
 }
 

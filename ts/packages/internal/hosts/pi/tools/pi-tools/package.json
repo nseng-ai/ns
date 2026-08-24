@@ -32,6 +32,7 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@internal/ns-pi-subagents": "workspace:*",
 		"@nseng-ai/pi-runtime": "workspace:*",
+		"@nseng-ai/sdk": "workspace:*",
 		"zod": "catalog:"
 	},
 	"scripts": {

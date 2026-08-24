@@ -15,6 +15,7 @@ export function createNsReviewsRuntime(ctx: NsExtensionApi): ReviewsRuntime {
 	return createReviewsRuntime(
 		createRealReviewsContext({
 			cwd: ctx.cwd,
+			projectConfig: ctx.projectConfig,
 			env: ctx.env,
 			readJsonInput: ctx.readJsonInput,
 			stdout: ctx.stdout ?? (() => undefined),

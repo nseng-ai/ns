@@ -1,13 +1,11 @@
 import { normalizeBranchSlugText, trimBranchSlugToLength } from "@nseng-ai/foundation/branch-slug";
 import { formatOutputSection } from "@nseng-ai/foundation/command";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
-import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { Result } from "@nseng-ai/foundation/result";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import { deriveSlugWithModel, type SlugModelEvidence } from "./model-slug.ts";
-import { MODEL_OPERATION_IDS, resolveProjectModelOperation } from "./model-policy.ts";
 
 const MAX_ERROR_CHARS = 4_000;
 
@@ -19,14 +17,6 @@ export interface ContentSlugFailure {
 }
 
 export type ContentSlugResult = Result<ContentSlugEvidence, ContentSlugFailure>;
-
-export type ContentSlugGitGateway = Pick<GitGateway, "optionalRepoRoot">;
-
-export interface ContentSlugContext {
-	commands: CommandExecApi;
-	git: ContentSlugGitGateway;
-	projectConfig: ProjectConfigGateway;
-}
 
 export interface ContentSlugPolicy {
 	slugKind: string;
@@ -50,39 +40,23 @@ export interface ContentSlugPolicy {
 export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
+	modelSelection: ModelSelection;
 	signal?: AbortSignal;
 }
 
 export async function deriveContentSlug(
-	context: ContentSlugContext,
+	commands: CommandExecApi,
 	input: DeriveContentSlugInput,
 	policy: ContentSlugPolicy,
 ): Promise<ContentSlugResult> {
-	const repository = await context.git.optionalRepoRoot({
-		cwd: input.cwd,
-		...optionalEntry("signal", input.signal),
-	});
-	if (repository.type !== "found") {
-		return contentSlugFailure("Could not determine the repository root for ns.toml.");
-	}
-
-	const model = resolveProjectModelOperation({
-		repoRoot: repository.value,
-		gateway: context.projectConfig,
-		operationId: MODEL_OPERATION_IDS.slug,
-	});
-	if (!model.ok) {
-		return contentSlugFailure(`Invalid model policy in ns.toml: ${model.error.message}`);
-	}
-
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
-		modelSelection: model.value.selection,
+		modelSelection: input.modelSelection,
 		prompt: buildContentSlugPrompt(input.content, policy),
 		...optionalEntry("signal", input.signal),
 		slugKind: policy.slugKind,
 		normalizeOutput: (output) => normalizeContentSlugOutput(output, policy.normalization),
-		exec: (command, args, options) => context.commands.exec(command, args, options),
+		exec: (command, args, options) => commands.exec(command, args, options),
 	});
 	if (!result.ok) {
 		return contentSlugDerivationFailed(policy, result.failure.lines);

@@ -22,7 +22,7 @@ export interface NsCliContext {
 	stderr: (text: string) => void;
 }
 
-export type NsCliBaseContext = Omit<NsExtensionApi, "hasExtension">;
+export type NsCliBaseContext = Omit<NsExtensionApi, "hasExtension" | "projectConfig">;
 
 export interface RealNsCommandContextOptions {
 	textGenerator: TextGenerator;
@@ -61,8 +61,9 @@ export function createRealNsCommandContext(options: RealNsCommandContextOptions)
 		exec: async (command, args, execOptions = {}) => {
 			return await runCommand(command, args, {
 				cwd: execOptions.cwd ?? cwd,
-				env: execEnv,
+				env: execOptions.env ?? execEnv,
 				...(execOptions.timeoutMs === undefined ? {} : { timeout: execOptions.timeoutMs }),
+				...(execOptions.signal === undefined ? {} : { signal: execOptions.signal }),
 				...(execOptions.stdin === undefined ? {} : { stdin: execOptions.stdin }),
 				...(execOptions.onStdout === undefined ? {} : { onStdout: execOptions.onStdout }),
 				...(execOptions.onStderr === undefined ? {} : { onStderr: execOptions.onStderr }),

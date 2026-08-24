@@ -2,8 +2,17 @@ import { type Caps } from "@nseng-ai/clinkr";
 import { type RenderCapabilities } from "@nseng-ai/clinkr/legacy";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { NsCommand, NsCommandSchema, NsExtensionApi } from "@nseng-ai/sdk";
+import type {
+	EffectiveProjectConfig,
+	NsCommand,
+	NsCommandSchema,
+	NsExtensionApi,
+} from "@nseng-ai/sdk";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+
+const noProjectConfig: EffectiveProjectConfig = {
+	get: async () => ({ ok: true, value: undefined }),
+};
 
 const createRealSlotContext = vi.fn(async (options: unknown) => ({
 	__contextOptions: options,
@@ -62,6 +71,7 @@ function extensionApi(options: { renderCapabilities: RenderCapabilities }): NsEx
 		textGenerator: { generateText: async () => ({ ok: true, text: "" }) },
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
+		projectConfig: noProjectConfig,
 		renderCapabilities: options.renderCapabilities,
 		hasExtension: () => false,
 		isInteractive: () => false,

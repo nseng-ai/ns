@@ -9,10 +9,13 @@ import type { RenderCapabilities } from "./command.ts";
 export type ClinkrFormat = "human" | "json" | "md";
 import type { NsCommandIo, NsProgress } from "./services.ts";
 import type { TextGenerator } from "./text-generation.ts";
+import type { EffectiveProjectConfig } from "./project-config.ts";
 
 export interface NsExecOptions {
 	timeoutMs?: number;
 	cwd?: ExplicitUndefined<"public-api-compatibility", string>;
+	env?: ExplicitUndefined<"env-map", NodeJS.ProcessEnv>;
+	signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 	stdin?: ExplicitUndefined<"public-api-compatibility", string>;
 	onStdout?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
 	onStderr?: ExplicitUndefined<"public-api-compatibility", (text: string) => void>;
@@ -45,6 +48,8 @@ export interface NsExtensionApi {
 	 * owner of harness path or XDG discovery semantics.
 	 */
 	homeDir?: string;
+	/** Invocation-scoped effective project configuration. */
+	readonly projectConfig: EffectiveProjectConfig;
 	/** Whether an extension package is present in the effective ns command source inventory. */
 	hasExtension(packageName: string): boolean;
 	/** User-manageable extension package identities present in the effective source inventory. */

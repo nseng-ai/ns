@@ -20,6 +20,12 @@ export type {
 } from "./command.ts";
 export type { ConfirmationResult, SelectionResult } from "@nseng-ai/clinkr";
 export type {
+	EffectiveProjectConfig,
+	EffectiveValue,
+	ProjectConfigError,
+	ProjectSetting,
+} from "./project-config.ts";
+export type {
 	ExecResult,
 	NsConfirmOptions,
 	NsConfirmPrompt,

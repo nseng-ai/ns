@@ -11,8 +11,8 @@
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
 	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
+	resolveEffectiveModelOperation,
+	type EffectiveModelPolicyError,
 } from "@nseng-ai/extension-kit/model-policy";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import { errorMessage } from "@nseng-ai/pi-runtime/shared/errors";
@@ -21,9 +21,9 @@ import { truncateDisplayLine } from "@nseng-ai/pi-runtime/terminal/presentation"
 import type { PiModelRegistryLike } from "@nseng-ai/pi-runtime/models/call";
 import { commandFailureReason, commandSucceeded } from "@nseng-ai/foundation/exec";
 import {
-	createNodeProjectConfigGateway,
-	type ProjectConfigGateway,
-} from "@nseng-ai/sdk/project-config/points";
+	createNodeEffectiveProjectConfig,
+	type EffectiveProjectConfig,
+} from "@nseng-ai/sdk/project-config";
 import {
 	createPiCommandExecApi,
 	type RawPiExecApi,
@@ -59,6 +59,7 @@ type NotifyLevel = "info" | "warning" | "error";
 /** Pi command handler context; narrowed to only what stack-view uses. */
 export interface CommandContext {
 	cwd: string;
+	signal?: AbortSignal;
 	hasUI: boolean;
 	/** Shared model configuration for progressive row enrichment. */
 	modelRegistry: ModelRegistry & PiModelRegistryLike;
@@ -142,19 +143,26 @@ interface StackViewCommandSession {
 	ctx: CommandContext;
 }
 
+interface ProjectConfigFactoryScope {
+	readonly cwd: string;
+	readonly signal?: AbortSignal;
+}
+
+type ProjectConfigFactory = (scope: ProjectConfigFactoryScope) => EffectiveProjectConfig;
+
 /** Per-invocation collaborators for the stack-view command. */
 interface StackViewCommandDeps {
 	store: EnrichmentStore;
 	engineFactory: StackEnrichmentEngineFactory;
 	loadStackView: LoadStackViewFn;
-	projectConfigGateway: ProjectConfigGateway;
+	createProjectConfig: ProjectConfigFactory;
 }
 
 /** Registration options; every field is an internal test seam only. */
 export interface RegisterStackViewExtensionOptions {
 	engineFactory?: StackEnrichmentEngineFactory;
 	loadStackView?: LoadStackViewFn;
-	projectConfigGateway?: ProjectConfigGateway;
+	createProjectConfig?: ProjectConfigFactory;
 }
 
 export function registerStackViewExtension(
@@ -163,6 +171,16 @@ export function registerStackViewExtension(
 ): void {
 	pi.registerMessageRenderer?.(STACK_VIEW_SNAPSHOT_MESSAGE_TYPE, renderStackViewSnapshotMessage);
 	const commands = createPiCommandExecApi(pi);
+	const registrationEnv = { ...process.env };
+	const createProjectConfig =
+		options.createProjectConfig ??
+		(({ cwd, signal }) =>
+			createNodeEffectiveProjectConfig({
+				cwd,
+				env: { ...registrationEnv },
+				commands,
+				...(signal === undefined ? {} : { signal }),
+			}));
 
 	// One store per registration so enrichment memoization survives overlay
 	// close/reopen within a session; each command invocation builds a fresh engine
@@ -171,7 +189,7 @@ export function registerStackViewExtension(
 		store: createEnrichmentStore(),
 		engineFactory: options.engineFactory ?? createStackEnrichmentEngine,
 		loadStackView: options.loadStackView ?? loadStackView,
-		projectConfigGateway: options.projectConfigGateway ?? createNodeProjectConfigGateway(),
+		createProjectConfig,
 	};
 
 	registerCommandWithImmediateAck({
@@ -214,19 +232,16 @@ async function handleStackViewCommand(
 		return;
 	}
 
-	const policy = loadModelPolicy({ repoRoot: ctx.cwd, gateway: deps.projectConfigGateway });
-	if (!policy.ok) {
-		ctx.ui.notify(`stack view: enrichment unavailable (${policy.error.message})`, "warning");
-		sendSnapshotMessage(session, model);
-		return;
-	}
-	const enrichmentModel = resolveModelOperation(
-		policy.value,
+	const enrichmentModel = await resolveEffectiveModelOperation(
+		deps.createProjectConfig({
+			cwd: ctx.cwd,
+			...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
+		}),
 		MODEL_OPERATION_IDS.stackViewEnrichment,
 	);
 	if (!enrichmentModel.ok) {
 		ctx.ui.notify(
-			`stack view: enrichment unavailable (${enrichmentModel.error.message})`,
+			`stack view: enrichment unavailable (${formatModelPolicyError(enrichmentModel.error)})`,
 			"warning",
 		);
 		sendSnapshotMessage(session, model);
@@ -302,6 +317,20 @@ async function handleStackViewCommand(
 	} finally {
 		ctx.ui.setStatus(STACK_VIEW_COMMAND_NAME, undefined);
 		engine.abort();
+	}
+}
+
+function formatModelPolicyError(error: EffectiveModelPolicyError): string {
+	if (error.type === "model-policy") return error.error.message;
+	switch (error.error.code) {
+		case "project-not-found":
+			return "Could not determine the repository root for ns.toml.";
+		case "project-discovery-failed":
+		case "source-read-failed":
+		case "invalid-setting":
+			return error.error.message;
+		case "invalid-source":
+			return error.error.diagnostics[0]?.message ?? `${error.error.path}: invalid ns.toml`;
 	}
 }
 

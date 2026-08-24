@@ -15,9 +15,9 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	herdrTestProjectConfigFactory,
 	ROOT,
 	step,
-	TEST_PROJECT_CONFIG,
 } from "./herdr-test-harness.ts";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 
@@ -29,9 +29,9 @@ function registrationContext(pi: FakePi) {
 	return {
 		commands: createHerdrPiCommandApi(pi),
 		git: new InMemoryGitGateway(),
-		projectConfig: TEST_PROJECT_CONFIG,
 		trunkBranch: "master",
 		herdr: new FakeHerdrGateway(),
+		createProjectConfig: herdrTestProjectConfigFactory(pi),
 	};
 }
 

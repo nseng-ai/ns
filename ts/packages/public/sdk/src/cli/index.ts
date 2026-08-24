@@ -15,6 +15,7 @@ import {
 	type ClinkrAppCliBuildInput,
 	type ClinkrAppCliPrepareRunInput,
 } from "@nseng-ai/foundation/cli-runtime";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { optionalEntries, optionalEntry, resolveHomeDir } from "@nseng-ai/foundation/primitives";
 
 import { createNsCliInteraction, type NsCliBaseContext } from "./context.ts";
@@ -29,6 +30,7 @@ import {
 	nsShellShowResultSchema,
 } from "./shell.ts";
 import { createCliCommandIo, noopNsProgress } from "../runtime/command-io.ts";
+import { createNodeEffectiveProjectConfig } from "../project-config/effective.ts";
 import {
 	extensionPointCommand,
 	extensionPointsCommand,
@@ -136,6 +138,25 @@ const entryOptions = {
 			...base.renderCapabilities,
 			canEmitAnsi: deps.canEmitAnsi ?? base.renderCapabilities.canEmitAnsi,
 		};
+		const commands: CommandExecApi = {
+			exec: (command, commandArgs, options = {}) =>
+				base.exec(command, commandArgs, {
+					...optionalEntries({
+						cwd: options.cwd,
+						env: options.env,
+						signal: options.signal,
+						stdin: options.stdin,
+						onStdout: options.onStdout,
+						onStderr: options.onStderr,
+					}),
+					...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
+				}),
+		};
+		const projectConfig = createNodeEffectiveProjectConfig({
+			cwd: resolvedCwd,
+			env: { ...resolvedEnv },
+			commands,
+		});
 		const context: NsExtensionApi = {
 			cwd: resolvedCwd,
 			env: resolvedEnv,
@@ -147,6 +168,7 @@ const entryOptions = {
 			renderCapabilities,
 			outputFormat: resolveClinkrOutputFormat(args),
 			exec: base.exec.bind(base),
+			projectConfig,
 			hasExtension: (packageName) => inventory.extensionPackageNames.has(packageName),
 			installedExtensionPackageNames: [...inventory.extensionPackageNames]
 				.filter((name) => !inventory.builtInPackageNames.has(name))

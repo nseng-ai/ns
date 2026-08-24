@@ -13,7 +13,7 @@ export interface HerdrResourceLabelDeriver {
 
 export interface HandleHerdrNewSpaceOptions {
 	herdr: Pick<HerdrGateway, "createWorkspace">;
-	labelDeriver: HerdrResourceLabelDeriver;
+	labelDeriver?: HerdrResourceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -23,6 +23,9 @@ export async function handleHerdrNewSpace(options: HandleHerdrNewSpaceOptions): 
 	const description = options.args.trim();
 	let label: string | undefined;
 	if (description.length > 0) {
+		if (options.labelDeriver === undefined) {
+			throw new Error("A label deriver is required for a described Herdr space.");
+		}
 		options.notifyProgress("Deriving a semantic label for the new Herdr space…");
 		try {
 			const semanticLabel = await options.labelDeriver.deriveLabel({

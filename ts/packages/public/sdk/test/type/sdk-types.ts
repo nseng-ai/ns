@@ -122,6 +122,11 @@ progress.phase({
 });
 function acceptsExtensionApi(api: NsExtensionApi): string {
 	const isProviderPresent: boolean = api.hasExtension("@example/provider");
+	const projectName = api.projectConfig.get({
+		path: ["project", "name"],
+		schema: z.string(),
+	});
+	void projectName;
 	void isProviderPresent;
 	api.commandIo.phase("checking");
 	api.progress.phase({ type: "phase-done", phaseKey: "checking" });

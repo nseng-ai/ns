@@ -18,10 +18,11 @@ import {
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
 import { getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import type { EffectiveProjectConfig } from "@nseng-ai/sdk/project-config";
 import type { SlotClient } from "@nseng-ai/slots/api";
 
 import { buildHerdrImplPromptLaunchCommand } from "./impl-prompt-launch.ts";
@@ -29,6 +30,7 @@ import { resolveImplBranchBasis } from "./impl-branch-basis.ts";
 import { formatImplDestinationNoun } from "./impl-destination.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
+import { resolveHerdrSlugModelSelection } from "./model-policy.ts";
 
 type ImplPromptRuntime = CommandExecApi & Pick<HerdrPiCommandApi, "getThinkingLevel">;
 
@@ -50,8 +52,8 @@ export interface HerdrImplPromptContext {
 	commands: ImplPromptRuntime;
 	pi: CommandContext;
 	git: ImplPromptGitGateway;
-	projectConfig: ProjectConfigGateway;
 	herdr: HerdrGateway;
+	createProjectConfig: (scope: { cwd: string; signal?: AbortSignal }) => EffectiveProjectConfig;
 }
 
 export interface HandleHerdrSlotImplPromptOptions {
@@ -86,11 +88,26 @@ export async function handleHerdrSlotImplPrompt(
 		context.pi.ui.notify(selection.message, "error");
 		return;
 	}
+	let modelSelection: ModelSelection;
+	try {
+		modelSelection = await resolveHerdrSlugModelSelection(
+			context.createProjectConfig({ cwd: context.pi.cwd }),
+		);
+	} catch (error) {
+		context.pi.ui.notify(error instanceof Error ? error.message : String(error), "error");
+		return;
+	}
 
 	const branch =
 		selection.basis === "current"
-			? await createCurrentPromptBranch(context, options, prompt, selection.currentBranch)
-			: await createTrunkPromptBranch(context, options, prompt);
+			? await createCurrentPromptBranch(
+					context,
+					options,
+					prompt,
+					selection.currentBranch,
+					modelSelection,
+				)
+			: await createTrunkPromptBranch(context, options, prompt, modelSelection);
 	if ("error" in branch) {
 		context.pi.ui.notify(branch.error, "error");
 		return;
@@ -117,6 +134,7 @@ async function createCurrentPromptBranch(
 	options: HandleHerdrSlotImplPromptOptions,
 	prompt: string,
 	selectedBranch: string,
+	modelSelection: ModelSelection,
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	const revalidated = await context.git.currentBranch({ cwd: context.pi.cwd });
 	if (revalidated.type !== "branch" || revalidated.branch !== selectedBranch) {
@@ -126,7 +144,7 @@ async function createCurrentPromptBranch(
 	}
 	options.notifyProgress("Generating branch name…");
 	return createTrackedBranchForPrompt(
-		{ pi: context.commands, git: context.git, projectConfig: context.projectConfig },
+		{ pi: context.commands, git: context.git, modelSelection },
 		{ cwd: context.pi.cwd, prompt },
 	);
 }
@@ -135,6 +153,7 @@ async function createTrunkPromptBranch(
 	context: HerdrImplPromptContext,
 	options: HandleHerdrSlotImplPromptOptions,
 	prompt: string,
+	modelSelection: ModelSelection,
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	const resolution = await resolveRepoTrunkBranch(context.git, { cwd: context.pi.cwd });
 	if (resolution.type === "failed") return { error: resolution.message };
@@ -143,7 +162,7 @@ async function createTrunkPromptBranch(
 			pi: context.commands,
 			trunkBranch: resolution.branch,
 			git: context.git,
-			projectConfig: context.projectConfig,
+			modelSelection,
 		},
 		{
 			cwd: context.pi.cwd,

@@ -663,6 +663,9 @@ importers:
       '@nseng-ai/pi-runtime':
         specifier: workspace:*
         version: link:../../../../../incubating/hosts/pi/runtime/pi-runtime
+      '@nseng-ai/sdk':
+        specifier: workspace:*
+        version: link:../../../../../public/sdk
       zod:
         specifier: 'catalog:'
         version: 4.4.3

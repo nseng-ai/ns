@@ -1,21 +1,28 @@
 import { afterEach, describe, expect, test } from "vitest";
 
-import { handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
+import { generateWorkspaceGoalSlug, handleHerdrSpaceGoal } from "../src/core/space-goal.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
+import { registerHerdrSpaceGoalCommand } from "../src/pi/space-goal.ts";
+import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
 	failedCallerPane,
-	gitRootStep,
 	notificationMessages,
 	resetHerdrTestEnvironment,
 	resolvedCallerPane,
+	herdrTestProjectConfigFactory,
 	ROOT,
 	step,
 } from "./herdr-test-harness.ts";
 
 const GOAL = "ship the auth refactor";
+const MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
 
 function modelStep(stdout: string, code = 0) {
 	return step("pi", undefined, { code, stdout, stderr: code === 0 ? "" : "model failed" });
@@ -32,10 +39,7 @@ async function runGoal(options: {
 }) {
 	const cwd = options.cwd ?? ROOT;
 	const pi = new FakePi({
-		script: [
-			gitRootStep(ROOT),
-			modelStep(options.modelOutput ?? "refactor-auth", options.modelCode),
-		],
+		script: [modelStep(options.modelOutput ?? "refactor-auth", options.modelCode)],
 		shouldRequireExpectedArgs: false,
 	});
 	const herdr =
@@ -46,10 +50,20 @@ async function runGoal(options: {
 		...(options.hasUI === undefined ? {} : { hasUI: options.hasUI }),
 	});
 	const progress: string[] = [];
+	const goal = options.args ?? GOAL;
 	await handleHerdrSpaceGoal({
-		pi: createHerdrPiCommandApi(pi),
 		herdr,
-		args: options.args ?? GOAL,
+		workspaceId: "w1",
+		labelDeriver: {
+			deriveSlug: ({ cwd: inputCwd, goal: inputGoal }) =>
+				generateWorkspaceGoalSlug(
+					createHerdrPiCommandApi(pi),
+					inputCwd,
+					inputGoal,
+					MODEL_SELECTION,
+				),
+		},
+		args: goal,
 		ctx,
 		notifyProgress: (message) => progress.push(message),
 	});
@@ -66,8 +80,8 @@ describe("herdr space goal", () => {
 		expect(herdr.renameCalls).toEqual([{ workspaceId: "w1", label: "refactor-auth" }]);
 		expect(progress).toEqual(["Interpreting goal…", "Renaming Herdr workspace…"]);
 		expect(notificationMessages(ctx)).toContain("Applied Herdr space goal label: refactor-auth");
-		expect(pi.execCalls[1]).toMatchObject({ command: "pi", options: { cwd: ROOT } });
-		expect(pi.execCalls[1]?.args.at(-1)).toContain("Generate a concise workspace name slug");
+		expect(pi.execCalls[0]).toMatchObject({ command: "pi", options: { cwd: ROOT } });
+		expect(pi.execCalls[0]?.args.at(-1)).toContain("Generate a concise workspace name slug");
 	});
 
 	test("prefixes the slug inside a managed slot", async () => {
@@ -84,13 +98,13 @@ describe("herdr space goal", () => {
 		const herdr = new FakeHerdrGateway({ callerPaneResult: failedCallerPane() });
 		const ctx = new FakeCommandContext();
 
-		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
+		registerHerdrSpaceGoalCommand({
+			commands: createHerdrPiCommandApi(pi),
+			git: new InMemoryGitGateway(),
 			herdr,
-			args: GOAL,
-			ctx,
-			notifyProgress: () => {},
+			createProjectConfig: herdrTestProjectConfigFactory(pi),
 		});
+		await pi.commands.get("ns:herdr:space:goal")?.handler(GOAL, ctx);
 
 		pi.assertDone();
 		expect(herdr.renameCalls).toEqual([]);
@@ -116,8 +130,11 @@ describe("herdr space goal", () => {
 		const ctx = new FakeCommandContext({ inputValues: [undefined] });
 
 		await handleHerdrSpaceGoal({
-			pi: createHerdrPiCommandApi(pi),
 			herdr,
+			workspaceId: "w1",
+			labelDeriver: {
+				deriveSlug: () => Promise.reject(new Error("unexpected model work")),
+			},
 			args: "",
 			ctx,
 			notifyProgress: () => {},

@@ -1,28 +1,20 @@
-import {
-	formatHerdrResourceLabel,
-	HERDR_SPACE_GOAL_COMMAND_NAME,
-	slotLabelInput,
-	type HerdrGateway,
-} from "@nseng-ai/herdr/api";
+import { formatHerdrResourceLabel, slotLabelInput, type HerdrGateway } from "@nseng-ai/herdr/api";
 import { deriveSlugWithModel, formatRawTextModelFailure } from "@nseng-ai/extension-kit/model-slug";
-import {
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "@nseng-ai/extension-kit/model-policy";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
-import { RealGitGateway } from "@nseng-ai/foundation/git";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { TextResult } from "@nseng-ai/foundation/primitives";
-import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 
-const COMMAND_NAME = HERDR_SPACE_GOAL_COMMAND_NAME;
+export interface HerdrGoalSlugDeriver {
+	deriveSlug(input: { cwd: string; goal: string }): Promise<TextResult>;
+}
 
 export interface HandleHerdrSpaceGoalOptions {
-	pi: HerdrPiCommandApi;
-	herdr: HerdrGateway;
+	herdr: Pick<HerdrGateway, "renameWorkspace">;
+	workspaceId: string;
+	labelDeriver: HerdrGoalSlugDeriver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
@@ -49,32 +41,13 @@ export async function generateWorkspaceGoalSlug(
 	pi: HerdrPiCommandApi,
 	cwd: string,
 	goal: string,
+	modelSelection: ModelSelection,
 ): Promise<TextResult> {
-	const repository = await new RealGitGateway(pi).repoRoot({ cwd });
-	if (!repository.ok) {
-		return {
-			ok: false,
-			message: `Could not resolve the Git repository root: ${repository.error.message}`,
-		};
-	}
-
-	const policy = loadModelPolicy({
-		repoRoot: repository.value,
-		gateway: createNodeProjectConfigGateway(),
-	});
-	if (!policy.ok) {
-		return { ok: false, message: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	}
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
-	if (!model.ok) {
-		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
-	}
-
 	const fallbackSlug = sanitizeBranchName(goal);
 	const result = await deriveSlugWithModel({
 		cwd,
 		prompt: buildWorkspaceGoalSlugPrompt(goal),
-		modelSelection: model.value.selection,
+		modelSelection,
 		exec: (command, args, options) => pi.exec(command, args, options),
 		slugKind: "workspace goal slug",
 		normalizeOutput: (raw) => sanitizeBranchName(raw.trim()) ?? fallbackSlug,
@@ -85,18 +58,6 @@ export async function generateWorkspaceGoalSlug(
 
 export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions): Promise<void> {
 	await options.ctx.waitForIdle();
-
-	const callerWorkspace = await options.herdr.resolveCallerPane();
-	if (callerWorkspace.type === "failed") {
-		notify(
-			options.ctx,
-			`Not running inside a Herdr caller space.\n${callerWorkspace.message}`,
-			"warning",
-		);
-		return;
-	}
-	const workspaceId = callerWorkspace.workspaceId;
-
 	const goal = await resolveHerdrGoal({
 		args: options.args,
 		ctx: options.ctx,
@@ -104,12 +65,11 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 		placeholder: "What is this space for?",
 	});
 	if (goal === undefined) {
-		notify(options.ctx, `Usage: /${COMMAND_NAME} <goal>`, "warning");
+		notify(options.ctx, "Usage: /ns:herdr:space:goal <goal>", "warning");
 		return;
 	}
-
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
+	const slug = await options.labelDeriver.deriveSlug({ cwd: options.ctx.cwd, goal });
 	if (!slug.ok) {
 		notify(options.ctx, slug.message, "error");
 		return;
@@ -120,7 +80,7 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 		...slotLabelInput(options.ctx.cwd),
 	});
 	options.notifyProgress("Renaming Herdr workspace…");
-	const renameResult = await options.herdr.renameWorkspace(workspaceId, label);
+	const renameResult = await options.herdr.renameWorkspace(options.workspaceId, label);
 	if (renameResult.type === "failed") {
 		notify(options.ctx, renameResult.message, "error");
 		return;

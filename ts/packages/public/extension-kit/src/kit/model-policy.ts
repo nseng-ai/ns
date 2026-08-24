@@ -4,13 +4,11 @@ import {
 	type ModelSelection,
 } from "@nseng-ai/foundation/model-slug";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
-import {
-	getProjectConfigSetting,
-	parseProjectConfigToml,
-	type ProjectConfigDiagnostic,
-	type ProjectConfigGateway,
-	type SettingsSchema,
-} from "@nseng-ai/sdk/project-config/points";
+import type {
+	EffectiveProjectConfig,
+	ProjectConfigError,
+	ProjectSetting,
+} from "@nseng-ai/sdk/project-config";
 import { z } from "zod";
 
 export const MODEL_OPERATION_IDS = {
@@ -48,6 +46,13 @@ export interface ModelPolicyError {
 }
 export type ModelPolicyResult<T> = Result<T, ModelPolicyError>;
 
+export type EffectiveModelPolicyError =
+	| { readonly type: "project-config"; readonly error: ProjectConfigError }
+	| { readonly type: "model-policy"; readonly error: ModelPolicyError };
+export type EffectiveModelPolicyResult<T> =
+	| { readonly ok: true; readonly value: T }
+	| { readonly ok: false; readonly error: EffectiveModelPolicyError };
+
 const modelRefSchema = z.string().trim().min(1);
 const profileNameSchema = z.string().trim().min(1);
 const modelProfileSchema = z.strictObject({
@@ -55,54 +60,45 @@ const modelProfileSchema = z.strictObject({
 	thinking: modelThinkingSchema,
 });
 type ModelProfileSettings = z.infer<typeof modelProfileSchema>;
-const modelPolicySettingsSchema = {
+type ModelPolicySettings = {
+	profiles: Record<string, ModelProfileSettings>;
+	operations: Record<string, string>;
+};
+
+export const modelPolicySetting = {
 	path: ["models"] as const,
 	schema: z.strictObject({
 		profiles: z.record(profileNameSchema, modelProfileSchema).default({}),
 		operations: z.record(z.string().trim().min(1), profileNameSchema).default({}),
 	}),
 	invalidMessage: ({ pathLabel }) => `${pathLabel}: [models] is invalid.`,
-} satisfies SettingsSchema<{
-	profiles: Record<string, ModelProfileSettings>;
-	operations: Record<string, string>;
-}>;
+} satisfies ProjectSetting<ModelPolicySettings>;
 
-export function parseModelPolicyToml(
-	source: string,
-	pathLabel?: string,
-): ModelPolicyResult<ModelPolicy> {
-	const result = parseProjectConfigToml(source, {
-		...(pathLabel === undefined ? {} : { pathLabel }),
-		pointsTable: { mode: "skip" },
-		settingsSchemas: [modelPolicySettingsSchema],
-	});
-	if (result.ok === false) return modelPolicyErrorFromDiagnostics(result.diagnostics, pathLabel);
-	return modelPolicyFromSettings(getProjectConfigSetting(result.config, modelPolicySettingsSchema));
-}
-
-export function loadModelPolicy(request: {
-	repoRoot: string;
-	gateway: ProjectConfigGateway;
-}): ModelPolicyResult<ModelPolicy> {
-	const readResult = request.gateway.readTextFile({
-		repoRoot: request.repoRoot,
-		relativePath: "ns.toml",
-	});
-	if (readResult.type === "missing") return modelPolicyFromSettings(undefined);
-	if (readResult.type === "error") {
-		return resultErrOf("invalid-toml", `Failed to read ns.toml: ${readResult.message}`);
+export async function resolveEffectiveModelPolicy(
+	projectConfig: EffectiveProjectConfig,
+): Promise<EffectiveModelPolicyResult<ModelPolicy>> {
+	const setting = await projectConfig.get(modelPolicySetting);
+	if (!setting.ok) {
+		return { ok: false, error: { type: "project-config", error: setting.error } };
 	}
-	return parseModelPolicyToml(readResult.text, "ns.toml");
+	const policy = validateModelPolicySettings(setting.value?.value);
+	if (!policy.ok) {
+		return { ok: false, error: { type: "model-policy", error: policy.error } };
+	}
+	return policy;
 }
 
-export function resolveProjectModelOperation(request: {
-	repoRoot: string;
-	gateway: ProjectConfigGateway;
-	operationId: ModelOperationId;
-}): ModelPolicyResult<ResolvedModelOperation> {
-	const policy = loadModelPolicy({ repoRoot: request.repoRoot, gateway: request.gateway });
+export async function resolveEffectiveModelOperation(
+	projectConfig: EffectiveProjectConfig,
+	operationId: ModelOperationId,
+): Promise<EffectiveModelPolicyResult<ResolvedModelOperation>> {
+	const policy = await resolveEffectiveModelPolicy(projectConfig);
 	if (!policy.ok) return policy;
-	return resolveModelOperation(policy.value, request.operationId);
+	const operation = resolveModelOperation(policy.value, operationId);
+	if (!operation.ok) {
+		return { ok: false, error: { type: "model-policy", error: operation.error } };
+	}
+	return operation;
 }
 
 export function resolveModelOperation(
@@ -130,13 +126,8 @@ export function resolveModelOperation(
 	};
 }
 
-function modelPolicyFromSettings(
-	settings:
-		| {
-				profiles: Record<string, ModelProfileSettings>;
-				operations: Record<string, string>;
-		  }
-		| undefined,
+function validateModelPolicySettings(
+	settings: ModelPolicySettings | undefined,
 ): ModelPolicyResult<ModelPolicy> {
 	const profiles: Record<string, ModelSelection> = {};
 	for (const [name, profile] of Object.entries(settings?.profiles ?? {})) {
@@ -164,23 +155,4 @@ function modelPolicyFromSettings(
 		}
 	}
 	return { ok: true, value: { profiles, operations } };
-}
-
-function modelPolicyErrorFromDiagnostics(
-	diagnostics: readonly ProjectConfigDiagnostic[],
-	pathLabel: string | undefined,
-): ModelPolicyResult<ModelPolicy> {
-	const diagnostic =
-		diagnostics.find((candidate) => candidate.severity === "error") ?? diagnostics[0];
-	if (diagnostic?.code === "ns_toml_invalid") {
-		return resultErrOf("invalid-toml", diagnostic.message);
-	}
-	return resultErrOf(
-		"invalid-model-policy",
-		diagnostic?.message ?? formatMessage("invalid [models] configuration", pathLabel),
-	);
-}
-
-function formatMessage(message: string, pathLabel: string | undefined): string {
-	return pathLabel === undefined ? message : `${pathLabel}: ${message}`;
 }

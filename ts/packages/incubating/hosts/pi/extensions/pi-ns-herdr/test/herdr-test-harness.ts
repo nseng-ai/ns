@@ -29,6 +29,7 @@ import type {
 } from "@nseng-ai/extension-kit/pi-types";
 import { parseMachineEnvelopeData } from "@nseng-ai/foundation/machine-envelope";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
+import type { EffectiveProjectConfig, ProjectSetting } from "@nseng-ai/sdk/project-config";
 import { ScriptedQueue } from "@nseng-ai/foundation/test-kit";
 import {
 	parseObjectiveListData,
@@ -112,14 +113,41 @@ export const PLAN_KEY = `${PLAN_SLUG}.md`;
 export const SOURCE_BRANCH = "herdr-capability-parity";
 export const START_POINT = "deadbeef1234567890abcdef1234567890abcdef";
 export const PLAN_CONTENT = "# Plan\n";
-export const TEST_PROJECT_CONFIG = {
-	readTextFile: () => ({
-		type: "found" as const,
-		text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
-	}),
-	pathExists: () => ({ type: "missing" as const }),
-};
 export const REPO_ORIGIN_URL = "git@github.com:owner/repo.git";
+
+export function missingHerdrTestProjectConfigFactory() {
+	return ({ cwd }: { cwd: string; signal?: AbortSignal }): EffectiveProjectConfig => ({
+		async get() {
+			return { ok: false, error: { code: "project-not-found", cwd } };
+		},
+	});
+}
+
+export function herdrTestProjectConfigFactory(_pi?: FakePi) {
+	return (_scope: { cwd: string; signal?: AbortSignal }): EffectiveProjectConfig => ({
+		async get<T>(setting: ProjectSetting<T>) {
+			return {
+				ok: true,
+				value: {
+					value: setting.schema.parse({
+						profiles: {
+							fast: {
+								model: "openai-codex/gpt-5.6-luna",
+								thinking: "minimal",
+							},
+						},
+						operations: {},
+					}),
+					provenance: {
+						source: "project",
+						path: `${ROOT}/ns.toml`,
+						settingPath: ["models"],
+					},
+				},
+			};
+		},
+	});
+}
 
 // ---------------------------------------------------------------------------
 // FakePi — scripted Pi ExtensionAPI for herdr tests

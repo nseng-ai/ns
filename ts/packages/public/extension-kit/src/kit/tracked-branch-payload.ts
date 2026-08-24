@@ -22,8 +22,8 @@ import {
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundation/primitives";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { deriveContentSlug, type ContentSlugPolicy } from "./content-slug.ts";
 import { runJsonExecCommand } from "./machine-envelope-exec.ts";
@@ -71,15 +71,12 @@ export type TrackedBranchPayloadLoadResult =
 
 export interface ResolvedTrackedBranchCreationContext {
 	pi: CommandExecApi;
-	git: Pick<GitGateway, "optionalRepoRoot" | "createBranchAtStartPoint">;
-	projectConfig: ProjectConfigGateway;
+	git: Pick<GitGateway, "createBranchAtStartPoint">;
+	modelSelection: ModelSelection;
 }
 
 export interface TrackedBranchCreationContext extends ResolvedTrackedBranchCreationContext {
-	git: Pick<
-		GitGateway,
-		"optionalRepoRoot" | "createBranchAtStartPoint" | "currentBranch" | "headCommit"
-	>;
+	git: Pick<GitGateway, "createBranchAtStartPoint" | "currentBranch" | "headCommit">;
 }
 
 export interface CreateTrackedBranchForPromptOptions {
@@ -159,8 +156,7 @@ export async function createTrackedBranchFromResolvedParent(
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	const slug = await generateTrackedBranchSlug(
 		context.pi,
-		context.git,
-		context.projectConfig,
+		context.modelSelection,
 		options.cwd,
 		options.prompt,
 	);
@@ -403,14 +399,13 @@ const TRACKED_BRANCH_SLUG_POLICY = {
 
 async function generateTrackedBranchSlug(
 	pi: CommandExecApi,
-	git: Pick<GitGateway, "optionalRepoRoot">,
-	projectConfig: ProjectConfigGateway,
+	modelSelection: ModelSelection,
 	cwd: string,
 	content: string,
 ): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
 	const result = await deriveContentSlug(
-		{ commands: pi, git, projectConfig },
-		{ cwd, content },
+		pi,
+		{ cwd, content, modelSelection },
 		TRACKED_BRANCH_SLUG_POLICY,
 	);
 	return result.ok

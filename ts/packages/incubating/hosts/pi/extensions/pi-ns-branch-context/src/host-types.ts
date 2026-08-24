@@ -13,6 +13,7 @@ import type {
 import type { resolveSelectedSavedPlanFile, writeSavedPlanFile } from "@nseng-ai/plans/api";
 import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 import type { SendMessageOptions } from "@nseng-ai/pi-runtime/shared/message-delivery";
+import type { EffectiveProjectConfig } from "@nseng-ai/sdk/project-config";
 
 export type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 
@@ -66,6 +67,13 @@ export interface BranchContextOperations {
 	resolveSelectedSavedPlanFile: typeof resolveSelectedSavedPlanFile;
 }
 
+export interface ProjectConfigFactoryScope {
+	readonly cwd: string;
+	readonly signal?: AbortSignal;
+}
+
+export type ProjectConfigFactory = (scope: ProjectConfigFactoryScope) => EffectiveProjectConfig;
+
 export interface BranchContextExtensionOptions {
 	branchContextDefaultCreation?: BranchCreationMethod;
 	branchContextPrefix?: string;
@@ -73,6 +81,7 @@ export interface BranchContextExtensionOptions {
 	branchContextOperations?: BranchContextOperations;
 	shouldResolveTargetBranchInPreview?: boolean;
 	createBranchContextContext?: BranchContextContextFactory<[pi: ExtensionAPI, cwd: string]>;
+	createProjectConfig?: ProjectConfigFactory;
 }
 
 export interface ToolContext {

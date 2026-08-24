@@ -24,6 +24,7 @@ function createCtx(overrides: Partial<NsExtensionApi>): NsExtensionApi {
 		commandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		projectConfig: { get: async () => ({ ok: true, value: undefined }) },
 		hasExtension: () => false,
 		isInteractive: () => false,
 		confirm: () => {

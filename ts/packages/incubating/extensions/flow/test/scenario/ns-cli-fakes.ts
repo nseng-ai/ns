@@ -8,6 +8,8 @@ import { runCli } from "@nseng-ai/sdk/cli";
 import { createCliCommandIo } from "@nseng-ai/sdk/command-io";
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type { Caps } from "@nseng-ai/clinkr";
+import { NsCommandExecApi } from "@nseng-ai/extension-kit/command-runner";
+import { createNodeEffectiveProjectConfig } from "@nseng-ai/sdk/project-config";
 import type {
 	NsExecOptions,
 	ExecResult,
@@ -90,6 +92,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		onOutput: (stream, text) => this.onOutput?.(stream, text),
 	});
 	readonly progress: NsProgress;
+	readonly projectConfig;
 	readonly renderCapabilities: RenderCapabilities & { readonly caps?: Caps };
 	readonly hasExtension = () => false;
 	readonly isInteractive: () => boolean;
@@ -110,6 +113,11 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 		this.env = options.env ?? {};
 		this.progress = options.progress ?? noopNsProgress;
 		this.renderCapabilities = options.renderCapabilities ?? { canEmitAnsi: false };
+		this.projectConfig = createNodeEffectiveProjectConfig({
+			cwd: this.cwd,
+			env: this.env,
+			commands: new NsCommandExecApi(this),
+		});
 		this.execResponses = [...(state.exec ?? options.execResponses())];
 		this.textGenerationResults = [...(state.textGeneration ?? options.textGenerationResults())];
 		this.missingTextGenerationResult = options.missingTextGenerationResult;

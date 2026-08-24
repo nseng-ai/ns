@@ -72,13 +72,13 @@ import {
 	WORKTREE,
 	BRANCH,
 	PLAN_CONTENT,
-	TEST_PROJECT_CONFIG,
 	PLAN_SLUG,
 	PLAN_KEY,
 	SOURCE_BRANCH,
 	START_POINT,
 	implValidationScript,
 	headStep,
+	herdrTestProjectConfigFactory,
 	writePlanStoreFile,
 	savedPlanEntry,
 } from "./herdr-test-harness.ts";
@@ -121,8 +121,8 @@ function herdrPiTestContext(
 	return {
 		commands: createHerdrPiCommandApi(pi),
 		git,
-		projectConfig: TEST_PROJECT_CONFIG,
 		herdr,
+		createProjectConfig: herdrTestProjectConfigFactory(pi),
 	};
 }
 
@@ -134,8 +134,15 @@ interface HerdrPlanTestContextOptions {
 }
 
 function herdrPlanTestContext(options: HerdrPlanTestContextOptions) {
+	const git =
+		options.git ??
+		new InMemoryGitGateway({
+			currentBranch: SOURCE_BRANCH,
+			cachedOriginHeadBranch: TRUNK_BRANCH,
+			optionalRepoRoot: options.ctx.cwd,
+		});
 	return {
-		...herdrPiTestContext(options.pi, options.herdr, options.git),
+		...herdrPiTestContext(options.pi, options.herdr, git),
 		pi: options.ctx,
 	};
 }
@@ -237,8 +244,8 @@ describe("herdr Pi extension — full suite", () => {
 		scenario.register({
 			commands,
 			git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-			projectConfig: TEST_PROJECT_CONFIG,
 			herdr: new FakeHerdrGateway(),
+			createProjectConfig: herdrTestProjectConfigFactory(renderedPi),
 		});
 
 		await pi.commands.get(scenario.commandName)?.handler(scenario.args, ctx);
@@ -312,7 +319,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git,
-				projectConfig: TEST_PROJECT_CONFIG,
+				createProjectConfig: herdrTestProjectConfigFactory(pi),
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({
@@ -414,8 +421,8 @@ describe("Herdr prompt implementation", () => {
 					headCommit: START_POINT,
 					repoRoot: ROOT,
 				}),
-				projectConfig: TEST_PROJECT_CONFIG,
 				herdr,
+				createProjectConfig: herdrTestProjectConfigFactory(pi),
 			},
 			{
 				stagingDir,
@@ -458,8 +465,8 @@ describe("Herdr prompt implementation", () => {
 			{
 				commands: createHerdrPiCommandApi(pi),
 				git,
-				projectConfig: TEST_PROJECT_CONFIG,
 				herdr,
+				createProjectConfig: herdrTestProjectConfigFactory(pi),
 			},
 			{
 				slotClient: {
@@ -555,7 +562,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git,
-				projectConfig: TEST_PROJECT_CONFIG,
+				createProjectConfig: herdrTestProjectConfigFactory(pi),
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({
@@ -610,7 +617,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git,
-				projectConfig: TEST_PROJECT_CONFIG,
+				createProjectConfig: herdrTestProjectConfigFactory(pi),
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
@@ -695,7 +702,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git,
-				projectConfig: TEST_PROJECT_CONFIG,
+				createProjectConfig: herdrTestProjectConfigFactory(pi),
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir, now: () => 123 }),
@@ -729,7 +736,7 @@ describe("Herdr prompt implementation", () => {
 				pi: ctx,
 				herdr,
 				git: new InMemoryGitGateway({ currentBranch: SOURCE_BRANCH }),
-				projectConfig: TEST_PROJECT_CONFIG,
+				createProjectConfig: herdrTestProjectConfigFactory(pi),
 			},
 			{
 				payloadOptions: resolveImplPromptPayloadOptions({ stagingDir }),
@@ -884,7 +891,6 @@ describe("ns:herdr:impl:plan:tab", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1079,7 +1085,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite,
 		});
@@ -1165,7 +1170,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1207,7 +1211,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1264,7 +1267,6 @@ describe("ns:herdr:impl:plan:space", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite: new InMemoryGraphiteBranchGateway(),
 		});
@@ -1426,7 +1428,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite,
 		});
@@ -1495,7 +1496,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 		options.createBranchContextContext = () => ({
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem,
 			graphite,
 		});
@@ -1589,7 +1589,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 					headCommit: START_POINT,
 					existingBranches: [PLAN_SLUG],
 				}),
-				projectConfig: TEST_PROJECT_CONFIG,
 				brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 				graphite: new InMemoryGraphiteBranchGateway(),
 			};
@@ -1644,7 +1643,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				currentBranch: SOURCE_BRANCH,
 				headCommit: START_POINT,
 			}),
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			graphite: new InMemoryGraphiteBranchGateway({
 				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },
@@ -1698,7 +1696,6 @@ describe("ns:herdr:impl:plan:tab — dry-run (no Herdr mutations)", () => {
 				currentBranch: SOURCE_BRANCH,
 				headCommit: START_POINT,
 			}),
-			projectConfig: TEST_PROJECT_CONFIG,
 			brmem: new TrackingBranchMemoryGateway({ currentBranch: SOURCE_BRANCH }),
 			graphite: new InMemoryGraphiteBranchGateway({
 				trackFailure: { code: "track_failed", message: "Graphite refused tracking." },

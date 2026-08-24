@@ -1,4 +1,9 @@
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
+import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
+import {
+	createNodeEffectiveProjectConfig,
+	type EffectiveProjectConfig,
+} from "@nseng-ai/sdk/project-config";
 
 import { THERMO_COUNCIL_COMMAND_NAME } from "./contract.ts";
 import {
@@ -26,14 +31,31 @@ export const thermoCouncilParity = definePiSurfaceParity([
 	},
 ] as const);
 
+interface ProjectConfigFactoryScope {
+	readonly cwd: string;
+	readonly signal?: AbortSignal;
+}
+
 export interface ThermoCouncilExtensionOptions {
 	readonly runtime?: SubagentRuntime;
+	readonly createProjectConfig?: (scope: ProjectConfigFactoryScope) => EffectiveProjectConfig;
 }
 
 export default function thermoCouncilExtension(
 	pi: ThermoCouncilExtensionAPI,
 	options: ThermoCouncilExtensionOptions = {},
 ): void {
+	const commands = createPiCommandExecApi(pi);
+	const registrationEnv = { ...process.env };
+	const createProjectConfig =
+		options.createProjectConfig ??
+		(({ cwd, signal }) =>
+			createNodeEffectiveProjectConfig({
+				cwd,
+				env: { ...registrationEnv },
+				commands,
+				...(signal === undefined ? {} : { signal }),
+			}));
 	const fleetRegistry = getOrCreateSubagentFleetRegistry({
 		owner: pi.events,
 		onSessionStart: (handler) => pi.on("session_start", handler),
@@ -47,6 +69,10 @@ export default function thermoCouncilExtension(
 			await ctx.waitForIdle?.();
 			await runThermoCouncilCommand(pi, { ...ctx, thinking: pi.getThinkingLevel() }, args, {
 				fleetRegistry,
+				projectConfig: createProjectConfig({
+					cwd: ctx.cwd,
+					...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
+				}),
 				...(options.runtime === undefined ? {} : { runtime: options.runtime }),
 			});
 		},

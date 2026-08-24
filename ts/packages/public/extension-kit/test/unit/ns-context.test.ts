@@ -2,12 +2,16 @@ import { describe, expect, test } from "vitest";
 
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
-import type { NsExtensionApi } from "@nseng-ai/sdk";
+import type { EffectiveProjectConfig, NsExtensionApi } from "@nseng-ai/sdk";
 
 import {
 	createNsClinkrInteraction,
 	createNsCwdEnvJsonInputContext,
 } from "@nseng-ai/extension-kit/ns-context";
+
+const noProjectConfig: EffectiveProjectConfig = {
+	get: async () => ({ ok: true, value: undefined }),
+};
 
 describe("ns context adapters", () => {
 	test("preserves the host interactivity signal", () => {
@@ -105,6 +109,7 @@ function fakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		projectConfig: noProjectConfig,
 		hasExtension: () => false,
 		isInteractive: () => true,
 		confirm: () => {

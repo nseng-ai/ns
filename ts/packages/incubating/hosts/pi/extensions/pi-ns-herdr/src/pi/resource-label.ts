@@ -1,8 +1,9 @@
 import { deriveContentSlug, type ContentSlugPolicy } from "@nseng-ai/extension-kit/content-slug";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { HerdrResourceLabelDeriver } from "../core/new-space.ts";
-import type { HerdrPiContext } from "./context.ts";
 
 const MAX_RESOURCE_LABEL_WORDS = 6;
 const MAX_RESOURCE_DESCRIPTION_CHARS = 8_000;
@@ -34,19 +35,17 @@ const RESOURCE_LABEL_VARIANT: ContentSlugPolicy = {
 };
 
 export function createHerdrResourceLabelDeriver(
-	context: Pick<HerdrPiContext, "commands" | "git" | "projectConfig">,
+	commands: CommandExecApi,
+	modelSelection: ModelSelection,
 ): HerdrResourceLabelDeriver {
 	return {
 		async deriveLabel(input) {
 			const evidence = await deriveContentSlug(
-				{
-					commands: context.commands,
-					git: context.git,
-					projectConfig: context.projectConfig,
-				},
+				commands,
 				{
 					content: input.description,
 					cwd: input.cwd,
+					modelSelection,
 					...optionalEntry("signal", input.signal),
 				},
 				RESOURCE_LABEL_VARIANT,

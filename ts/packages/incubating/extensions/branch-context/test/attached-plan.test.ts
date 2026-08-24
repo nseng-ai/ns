@@ -42,10 +42,6 @@ function branchContext(overrides: Partial<BranchContextContext> = {}): BranchCon
 	return {
 		commands: NO_COMMANDS,
 		git: new InMemoryGitGateway({ currentBranch: PLAN_BRANCH, cachedOriginHeadBranch: "main" }),
-		projectConfig: {
-			readTextFile: () => ({ type: "missing" }),
-			pathExists: () => ({ type: "missing" }),
-		},
 		brmem: new InMemoryBranchMemoryGateway({
 			entries: [{ branch: PLAN_BRANCH, key: PLAN_KEY, content: PLAN_CONTENT }],
 		}),

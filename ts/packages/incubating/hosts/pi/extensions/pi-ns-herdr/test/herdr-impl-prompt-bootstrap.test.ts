@@ -15,8 +15,8 @@ import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	herdrTestProjectConfigFactory,
 	ROOT,
-	TEST_PROJECT_CONFIG,
 	step,
 	type ScriptedExec,
 } from "./herdr-test-harness.ts";
@@ -53,8 +53,8 @@ function bootstrapHarness(options: {
 		{
 			commands: createHerdrPiCommandApi(pi),
 			git,
-			projectConfig: TEST_PROJECT_CONFIG,
 			herdr: new FakeHerdrGateway(),
+			createProjectConfig: herdrTestProjectConfigFactory(pi),
 		},
 		{ env },
 	);

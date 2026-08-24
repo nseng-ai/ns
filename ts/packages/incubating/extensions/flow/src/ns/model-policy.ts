@@ -1,31 +1,51 @@
 import {
-	loadModelPolicy,
-	resolveModelOperation,
+	resolveEffectiveModelOperation,
+	type EffectiveModelPolicyError,
 	type ModelOperationId,
 } from "@nseng-ai/extension-kit/model-policy";
-import type { NsExtensionApi } from "@nseng-ai/sdk";
-import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
-import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
-import { createNsGitGateway } from "@nseng-ai/extension-kit";
+import type { NsExtensionApi } from "@nseng-ai/sdk";
 
 export async function resolveFlowModelSelection(
 	ctx: NsExtensionApi,
 	operationId: ModelOperationId,
-	git: Pick<GitGateway, "optionalRepoRoot"> = createNsGitGateway(ctx),
 ): Promise<{ ok: true; modelSelection: ModelSelection } | { ok: false; error: string }> {
-	const repository = await git.optionalRepoRoot({ cwd: ctx.cwd });
-	if (repository.type !== "found") {
-		return { ok: false, error: "Could not determine the repository root for ns.toml." };
-	}
-	const policy = loadModelPolicy({
-		repoRoot: repository.value,
-		gateway: createNodeProjectConfigGateway(),
-	});
-	if (!policy.ok)
-		return { ok: false, error: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	const resolved = resolveModelOperation(policy.value, operationId);
+	const resolved = await resolveEffectiveModelOperation(ctx.projectConfig, operationId);
 	return resolved.ok
 		? { ok: true, modelSelection: resolved.value.selection }
-		: { ok: false, error: resolved.error.message };
+		: { ok: false, error: formatModelPolicyError(resolved.error) };
+}
+
+function formatModelPolicyError(error: EffectiveModelPolicyError): string {
+	if (error.type === "model-policy") {
+		return error.error.code === "missing-profile"
+			? error.error.message
+			: `Invalid model policy in ns.toml: ${error.error.message}`;
+	}
+	switch (error.error.code) {
+		case "project-not-found":
+			return "Could not determine the repository root for ns.toml.";
+		case "project-discovery-failed":
+			return "Could not determine the repository root for ns.toml.";
+		case "source-read-failed":
+		case "invalid-source":
+		case "invalid-setting":
+			return `Invalid model policy in ns.toml: ${projectConfigErrorMessage(error.error)}`;
+	}
+}
+
+function projectConfigErrorMessage(
+	error: Extract<EffectiveModelPolicyError, { type: "project-config" }>["error"],
+): string {
+	switch (error.code) {
+		case "project-not-found":
+			return `project not found from ${error.cwd}`;
+		case "project-discovery-failed":
+		case "source-read-failed":
+			return error.message;
+		case "invalid-source":
+			return error.diagnostics[0]?.message ?? `${error.path}: invalid ns.toml`;
+		case "invalid-setting":
+			return error.message;
+	}
 }

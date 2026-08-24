@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { HandoffCliContext } from "../context.ts";
 import { deriveHandoffContentSlug } from "../content-slug.ts";
 import { handoffSlugToKey } from "../identity.ts";
+import { resolveHandoffSlugModel } from "./shared.ts";
 
 export const deriveSlugRequestSchema = z.object({
 	file: z.string().optional().describe("Final Handoff Markdown file. Omit to read stdin."),
@@ -31,9 +32,13 @@ export async function runDeriveSlug(ctx: HandoffCliContext, request: DeriveSlugR
 	});
 	if (prepared.type === "error") return failure(prepared.error.code, prepared.error.message);
 
-	const result = await deriveHandoffContentSlug(ctx, {
+	const model = await resolveHandoffSlugModel(ctx);
+	if (model.type !== "resolved") return model;
+
+	const result = await deriveHandoffContentSlug(ctx.commands, {
 		content: prepared.value.content,
 		cwd: ctx.cwd,
+		modelSelection: model.value,
 	});
 	if (!result.ok) return failure("handoff-slug-derivation-failed", result.error.message);
 	const evidence = result.value;

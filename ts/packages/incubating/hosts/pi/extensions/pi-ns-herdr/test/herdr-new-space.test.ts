@@ -2,21 +2,18 @@ import { describe, expect, test } from "vitest";
 
 import type { CustomMessage } from "@nseng-ai/extension-kit/pi-types";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
-import { handleHerdrNewSpace, type HerdrResourceLabelDeriver } from "../src/core/new-space.ts";
+import { handleHerdrNewSpace } from "../src/core/new-space.ts";
 import { registerHerdrNewSpaceCommand } from "../src/pi/new-space.ts";
 import { createHerdrPiCommandApi } from "../src/pi/pi-command-api.ts";
 import {
 	FakeCommandContext,
 	FakeHerdrGateway,
 	FakePi,
+	herdrTestProjectConfigFactory,
+	missingHerdrTestProjectConfigFactory,
 	notificationMessages,
 	ROOT,
-	TEST_PROJECT_CONFIG,
 } from "./herdr-test-harness.ts";
-
-function labelDeriver(label = "review-brmem-contract"): HerdrResourceLabelDeriver {
-	return { deriveLabel: async () => label };
-}
 
 describe("Herdr new space", () => {
 	test("opens a focused space at ctx.cwd without a label when no description is supplied", async () => {
@@ -25,7 +22,6 @@ describe("Herdr new space", () => {
 
 		await handleHerdrNewSpace({
 			herdr,
-			labelDeriver: labelDeriver(),
 			args: "",
 			ctx,
 			notifyProgress: () => {},
@@ -97,6 +93,26 @@ describe("Herdr new space", () => {
 		expect(notificationMessages(ctx).join("\n")).toContain("model unavailable");
 	});
 
+	test("registered command stops before Herdr mutation when described label config fails", async () => {
+		const pi = new FakePi();
+		const ctx = new FakeCommandContext();
+		const herdr = new FakeHerdrGateway();
+		const git = new InMemoryGitGateway({ optionalRepoRoot: { type: "missing" } });
+		registerHerdrNewSpaceCommand({
+			commands: createHerdrPiCommandApi(pi),
+			git,
+			herdr,
+			createProjectConfig: missingHerdrTestProjectConfigFactory(),
+		});
+
+		await pi.commands.get("ns:herdr:space:new")?.handler("describe this space", ctx);
+
+		pi.assertDone();
+		expect(git.optionalRepoRootCalls).toEqual([]);
+		expect(herdr.createWorkspaceCalls).toEqual([]);
+		expect(notificationMessages(ctx).join("\n")).toContain("No space was created");
+	});
+
 	test("registered command acknowledges before idle wait and uses the composed gateway", async () => {
 		const pi = new FakePi();
 		const sentMessages: CustomMessage[] = [];
@@ -115,8 +131,8 @@ describe("Herdr new space", () => {
 		const dependencies = {
 			commands: createHerdrPiCommandApi(renderedPi),
 			git: new InMemoryGitGateway({ optionalRepoRoot: ROOT }),
-			projectConfig: TEST_PROJECT_CONFIG,
 			herdr,
+			createProjectConfig: herdrTestProjectConfigFactory(renderedPi),
 		};
 		registerHerdrNewSpaceCommand(dependencies);
 		const command = pi.commands.get("ns:herdr:space:new");

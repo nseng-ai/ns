@@ -22,10 +22,17 @@ import {
 	runHandoffCommand,
 } from "./handoff-ns-command-fakes.ts";
 
-const MODEL_CONFIG =
-	'[models.profiles.fast]\nmodel = "openai-codex/test-slug"\nthinking = "minimal"\n';
-const SLUG_REPO_ROOT = "/repo";
+const MODEL_CONFIG = `[models.profiles.fast]
+model = "openai-codex/test-default"
+thinking = "minimal"
 
+[models.profiles.slugger]
+model = "openai-codex/test-slug"
+thinking = "minimal"
+
+[models.operations]
+slug = "slugger"
+`;
 class FakeSlugCommands implements CommandExecApi {
 	readonly calls: Array<{ command: string; args: string[] }> = [];
 	private readonly result: ExecResult;
@@ -43,15 +50,6 @@ class FakeSlugCommands implements CommandExecApi {
 	}
 
 	async exec(command: string, args: string[]): Promise<ExecResult> {
-		if (command === "git" && args.join(" ") === "rev-parse --show-toplevel") {
-			return {
-				type: "exited",
-				stdout: `${SLUG_REPO_ROOT}\n`,
-				stderr: "",
-				code: 0,
-				signal: null,
-			};
-		}
 		this.calls.push({ command, args: [...args] });
 		return this.result;
 	}
@@ -295,6 +293,117 @@ describe("handoff ns command objects", () => {
 		).toBeUndefined();
 	});
 
+	test("derived create distinguishes a missing repository before model execution or storage mutation", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x"],
+			optionalRepoRoot: { type: "missing" },
+		});
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" });
+		const commands = new FakeSlugCommands();
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({ brmem, git, sourceReader, commands }),
+			},
+		);
+
+		expect(exit).toEqual({
+			type: "failure",
+			errorType: "handoff-slug-derivation-failed",
+			message: "Could not determine the repository root for ns.toml.",
+			data: undefined,
+		});
+		expect(commands.calls).toHaveLength(0);
+		expect(
+			await getHandoffContent(brmem, {
+				key: "continue-auth-token-refresh.md",
+				branch: "feat/x",
+			}),
+		).toBeUndefined();
+	});
+
+	test("derived create preserves an operational Git root error before model execution or storage mutation", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x"],
+			optionalRepoRoot: {
+				type: "failure",
+				error: {
+					code: "git-startup-failed",
+					message: "git executable could not start: spawn ENOENT",
+				},
+			},
+		});
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" });
+		const commands = new FakeSlugCommands();
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({ brmem, git, sourceReader, commands }),
+			},
+		);
+
+		expect(exit).toEqual({
+			type: "failure",
+			errorType: "handoff-slug-derivation-failed",
+			message:
+				"Could not determine the repository root for ns.toml: git executable could not start: spawn ENOENT",
+			data: undefined,
+		});
+		expect(commands.calls).toHaveLength(0);
+		expect(
+			await getHandoffContent(brmem, {
+				key: "continue-auth-token-refresh.md",
+				branch: "feat/x",
+			}),
+		).toBeUndefined();
+	});
+
+	test("derived create preserves invalid model config framing before model execution or storage mutation", async () => {
+		const brmem = new FakeBrmemGateway();
+		const git = new InMemoryGitGateway({
+			currentBranch: "feat/x",
+			existingBranches: ["feat/x"],
+			optionalRepoRoot: "/work",
+		});
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" });
+		const commands = new FakeSlugCommands();
+
+		const exit = await runHandoffCommand(
+			handoffCreateNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({
+					brmem,
+					git,
+					sourceReader,
+					commands,
+					projectConfigText: "[models",
+				}),
+			},
+		);
+
+		expect(exit).toMatchObject({
+			type: "failure",
+			errorType: "handoff-slug-derivation-failed",
+			message: expect.stringContaining("Invalid model policy in ns.toml: /work/ns.toml:"),
+		});
+		expect(commands.calls).toHaveLength(0);
+		expect(
+			await getHandoffContent(brmem, {
+				key: "continue-auth-token-refresh.md",
+				branch: "feat/x",
+			}),
+		).toBeUndefined();
+	});
+
 	test("derived create refuses a collision without overwriting stored content", async () => {
 		const brmem = new FakeBrmemGateway();
 		await putHandoffEntry(brmem, {
@@ -365,6 +474,33 @@ describe("handoff ns command objects", () => {
 		expect(
 			await getHandoffContent(brmem, { key: "continue-auth-token-refresh.md", branch: "main" }),
 		).toBeUndefined();
+	});
+
+	test("exec derive-slug preserves repository-root Git errors before model execution", async () => {
+		const commands = new FakeSlugCommands();
+		const sourceReader = new FakeHandoffSourceReader({ stdin: "# Continue auth token refresh\n" });
+		const git = new InMemoryGitGateway({
+			optionalRepoRoot: {
+				type: "failure",
+				error: { code: "repo-root-failed", message: "repository root probe failed" },
+			},
+		});
+
+		const exit = await runHandoffCommand(
+			handoffExecDeriveSlugNsCommand,
+			{},
+			{
+				api: createFakeHandoffNsApi({ commands, git, sourceReader }),
+			},
+		);
+
+		expect(exit).toEqual({
+			type: "failure",
+			errorType: "handoff-slug-derivation-failed",
+			message: "Could not determine the repository root for ns.toml: repository root probe failed",
+			data: undefined,
+		});
+		expect(commands.calls).toHaveLength(0);
 	});
 
 	test("create stores stdin content on the current branch without invoking slug derivation", async () => {

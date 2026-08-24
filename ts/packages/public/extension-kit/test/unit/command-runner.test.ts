@@ -2,13 +2,17 @@ import { describe, expect, test } from "vitest";
 
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
-import type { NsExecOptions, NsExtensionApi } from "@nseng-ai/sdk";
+import type { EffectiveProjectConfig, NsExecOptions, NsExtensionApi } from "@nseng-ai/sdk";
 
 import {
 	createNsCommandRunner,
 	NsCommandExecApi,
 	NsStdinCapableCommandExecApi,
 } from "@nseng-ai/extension-kit/command-runner";
+
+const noProjectConfig: EffectiveProjectConfig = {
+	get: async () => ({ ok: true, value: undefined }),
+};
 
 interface ExecCall {
 	command: string;
@@ -79,6 +83,7 @@ function createFakeApi(results: readonly ExecResult[]): {
 			commandIo: noopNsCommandIo,
 			progress: noopNsProgress,
 			renderCapabilities: { canEmitAnsi: false },
+			projectConfig: noProjectConfig,
 			hasExtension: () => false,
 			isInteractive: () => false,
 			confirm: () => {

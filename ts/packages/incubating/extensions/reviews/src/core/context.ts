@@ -16,6 +16,10 @@ import { RealLocalDiffGateway, type LocalDiffGateway } from "../gateways/local-d
 import { RealReviewCatalogGateway, type ReviewCatalogGateway } from "../gateways/review-catalog.ts";
 import { RealReviewLogGateway, type ReviewLogGateway } from "../gateways/review-log.ts";
 import { optionalEntry, type ExplicitUndefined } from "@nseng-ai/foundation/primitives";
+import {
+	createNodeEffectiveProjectConfig,
+	type EffectiveProjectConfig,
+} from "@nseng-ai/sdk/project-config";
 
 export { REVIEWS_BOT_LOGIN } from "./reviews-bot.ts";
 
@@ -31,6 +35,7 @@ export type ReviewsGithubPrFeedbackGateway = Pick<
 >;
 
 export interface ReviewsGateways {
+	readonly projectConfig: EffectiveProjectConfig;
 	readonly gitGateway: GitGateway;
 	readonly localDiff: LocalDiffGateway;
 	readonly reviewCatalog: ReviewCatalogGateway;
@@ -60,6 +65,7 @@ export interface CreateRealReviewsContextOptions {
 	readonly gitGateway?: GitGateway;
 	readonly reviewLog?: ReviewLogGateway;
 	readonly reviewRunner?: ReviewRunnerGateway;
+	readonly projectConfig?: EffectiveProjectConfig;
 }
 
 export interface ReviewsRunScope {
@@ -88,8 +94,17 @@ export interface ReviewsRuntime extends ReviewsGateways {
 export function createRealReviewsContext(options: CreateRealReviewsContextOptions): ReviewsContext {
 	const execApi = options.execApi ?? new NodeCommandExecApi();
 	const gitGateway = options.gitGateway ?? new RealGitGateway(execApi);
+	const projectConfig =
+		options.projectConfig ??
+		createNodeEffectiveProjectConfig({
+			cwd: options.cwd,
+			env: { ...options.env },
+			commands: execApi,
+			...optionalEntry("signal", options.signal),
+		});
 	return {
 		execApi,
+		projectConfig,
 		gitGateway,
 		localDiff: new RealLocalDiffGateway({ execApi, gitGateway }),
 		reviewCatalog: new RealReviewCatalogGateway({ gitGateway }),

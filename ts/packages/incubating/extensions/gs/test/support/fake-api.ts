@@ -1,4 +1,8 @@
-import { noopNsProgress, type NsExtensionApi } from "@nseng-ai/sdk";
+import { noopNsProgress, type EffectiveProjectConfig, type NsExtensionApi } from "@nseng-ai/sdk";
+
+const noProjectConfig: EffectiveProjectConfig = {
+	get: async () => ({ ok: true, value: undefined }),
+};
 
 export function createFakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtensionApi {
 	return {
@@ -21,6 +25,7 @@ export function createFakeApi(overrides: Partial<NsExtensionApi> = {}): NsExtens
 		},
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		projectConfig: noProjectConfig,
 		outputFormat: "human",
 		isInteractive: () => false,
 		confirm: () => {

@@ -6,6 +6,7 @@ import { parse } from "smol-toml";
 import { z, type ZodType } from "zod";
 
 import { makeSdkDiagnostic } from "../runtime/diagnostics.ts";
+import type { ProjectConfigDiagnostic, SettingsSchema } from "../sdk/project-config.ts";
 import {
 	extensionPointAcceptsValues,
 	extensionPointCardinalityValues,
@@ -58,11 +59,11 @@ export const builtInPointDefinitions = [
 	},
 ] as const satisfies readonly PointDefinition[];
 
-export interface SettingsSchema<T = unknown> {
-	path: readonly [string, ...string[]];
-	schema: ZodType<T>;
-	invalidMessage?: (context: { pathLabel: string }) => string;
-}
+export type {
+	ProjectConfigDiagnostic,
+	ProjectSetting,
+	SettingsSchema,
+} from "../sdk/project-config.ts";
 
 export const nsTomlExtensionsSettingsSchema = {
 	path: ["extensions"] as const,
@@ -103,14 +104,6 @@ type ProjectConfigProbeResult<T> = T | { type: "missing" } | { type: "error"; me
 export type ProjectConfigReadResult = ProjectConfigProbeResult<{ type: "found"; text: string }>;
 
 export type ProjectConfigPathExistsResult = ProjectConfigProbeResult<{ type: "present" }>;
-
-export interface ProjectConfigDiagnostic {
-	severity: "error" | "info";
-	code: string;
-	message: string;
-	path?: string;
-	causeMessage?: string;
-}
 
 export interface ProjectConfigDiagnosticErrorMapping<TCode extends string> {
 	invalidToml: TCode;

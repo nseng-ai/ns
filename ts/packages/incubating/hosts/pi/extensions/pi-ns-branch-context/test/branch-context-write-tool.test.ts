@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { ProjectSetting } from "@nseng-ai/sdk/project-config";
 
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
@@ -91,6 +92,49 @@ describe("write_saved_plan_file tool", () => {
 			filePath: `/tmp/${PLAN_SLUG}.md`,
 			slugEvidence: contentSlugEvidence(),
 		});
+	});
+
+	test("creates invocation-scoped project config with the tool cwd and signal", async () => {
+		const content = "# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";
+		const signal = new AbortController().signal;
+		const scopes: Array<{ cwd: string; signal?: AbortSignal }> = [];
+		const pi = new FakePi([savedPlanSlugStep(content), savedPlanSlugStep(content)]);
+		const fakes = createBranchContextOperationFakes();
+		registerBranchContextExtension(pi, {
+			branchContextOperations: fakes.operations,
+			createProjectConfig(scope) {
+				scopes.push(scope);
+				return {
+					async get<T>(setting: ProjectSetting<T>) {
+						return {
+							ok: true,
+							value: {
+								value: setting.schema.parse({
+									profiles: {
+										fast: {
+											model: "openai-codex/gpt-5.6-luna",
+											thinking: "minimal",
+										},
+									},
+									operations: {},
+								}),
+								provenance: {
+									source: "project",
+									path: "/worktree/ns.toml",
+									settingPath: [...setting.path],
+								},
+							},
+						};
+					},
+				};
+			},
+		});
+		const tool = registeredTool(pi, "write_saved_plan_file");
+
+		await tool.execute("tool-call", { content }, signal, undefined, { cwd: "/worktree" });
+		await tool.execute("tool-call-2", { content }, undefined, undefined, { cwd: "/other" });
+
+		expect(scopes).toEqual([{ cwd: "/worktree", signal }, { cwd: "/other" }]);
 	});
 
 	test("streams progress while deriving the saved-plan slug and writing the plan file", async () => {

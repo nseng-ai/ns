@@ -14,6 +14,7 @@ import type {
 	NsExtensionApi,
 	TextGenerationRequest,
 	TextGenerationResult,
+	ProjectSetting,
 } from "@nseng-ai/sdk";
 import { buildPiLaunchCommand } from "@nseng-ai/extension-kit/pi-launch";
 import type { ThinkingLevel } from "@nseng-ai/extension-kit/pi-types";
@@ -552,6 +553,11 @@ class FakeHerdrNsApi implements NsExtensionApi {
 	readonly env = { HOME: "/home/test" };
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
+	readonly projectConfig = {
+		async get<T>(_setting: ProjectSetting<T>) {
+			return { ok: true as const, value: undefined };
+		},
+	};
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
 	readonly isInteractive = () => false;

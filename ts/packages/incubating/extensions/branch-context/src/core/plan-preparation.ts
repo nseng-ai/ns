@@ -1,4 +1,5 @@
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { resolvePlanSourceFile } from "@nseng-ai/plans";
@@ -55,23 +56,16 @@ export async function preparePlanBranchContext(
 		plan: ValidatedSessionSavedPlan;
 		checkout: PlanStoreDirectoryEvidence;
 		context: BranchContextContext;
+		modelSelection: ModelSelection;
 		shouldBuildPreview?: boolean;
 		creation: BranchContextCreationPolicy;
 	},
 ): Promise<PreparedPlanBranchContext> {
-	const slugEvidence = await derivePlanContentSlug(
-		{
-			// Slug generation must use the caller's Pi execution channel; the owner context may
-			// carry a separate Node command adapter for branch-context operations.
-			commands: pi,
-			git: options.context.git,
-			projectConfig: options.context.projectConfig,
-		},
-		{
-			filePath: options.plan.filePath,
-			cwd: options.checkout.repoRoot,
-		},
-	);
+	const slugEvidence = await derivePlanContentSlug(pi, {
+		filePath: options.plan.filePath,
+		cwd: options.checkout.repoRoot,
+		modelSelection: options.modelSelection,
+	});
 	if (!slugEvidence.ok) return { type: "failed", message: slugEvidence.error.message };
 	const initialOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.value.slug,

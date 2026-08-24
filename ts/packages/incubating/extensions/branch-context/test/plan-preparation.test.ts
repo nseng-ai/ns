@@ -109,13 +109,6 @@ function context(
 			},
 		},
 		git: options.git ?? new InMemoryGitGateway(),
-		projectConfig: {
-			readTextFile: () => ({
-				type: "found",
-				text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
-			}),
-			pathExists: () => ({ type: "missing" }),
-		},
 		brmem: options.brmem ?? new InMemoryBranchMemoryGateway(),
 		graphite: options.graphite ?? new InMemoryGraphiteBranchGateway(),
 	};
@@ -143,6 +136,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context({ git, brmem, graphite }),
+			modelSelection: TEST_MODEL_SELECTION,
 			creation: { type: "graphite-current-parent-current-head" },
 			shouldBuildPreview: true,
 		});
@@ -174,6 +168,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context({ git, brmem, graphite }),
+			modelSelection: TEST_MODEL_SELECTION,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -197,6 +192,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context({ git, brmem, graphite }),
+			modelSelection: TEST_MODEL_SELECTION,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -216,6 +212,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context(),
+			modelSelection: TEST_MODEL_SELECTION,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -237,6 +234,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
+			modelSelection: TEST_MODEL_SELECTION,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -281,6 +279,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
+			modelSelection: TEST_MODEL_SELECTION,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 

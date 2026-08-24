@@ -45,6 +45,7 @@ describe("flow land matrix progress forwarding", () => {
 			env: {},
 			commandIo: noopNsCommandIo,
 			progress,
+			projectConfig: { get: async () => ({ ok: true, value: undefined }) },
 			renderCapabilities: { canEmitAnsi: false },
 			hasExtension: () => false,
 			isInteractive: () => false,

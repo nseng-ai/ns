@@ -41,8 +41,10 @@ import {
 import type { PiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import { formatCommand } from "@nseng-ai/foundation/command";
 import type { GitGateway } from "@nseng-ai/foundation/git";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { CommandContext, NotifyLevel } from "@nseng-ai/extension-kit/pi-types";
+import type { EffectiveProjectConfig } from "@nseng-ai/sdk/project-config";
 import type { SlotClient } from "@nseng-ai/slots/api";
 import { formatImplBranchContextCommand } from "@nseng-ai/branch-context/api";
 
@@ -55,6 +57,7 @@ import {
 } from "./impl-destination.ts";
 import type { HerdrPiCommandApi } from "./pi-command-api.ts";
 import { resolveRepoTrunkBranch } from "./trunk-branch.ts";
+import { resolveHerdrSlugModelSelection } from "./model-policy.ts";
 
 export interface ImplPlanConfig {
 	commandName: string;
@@ -78,6 +81,7 @@ export interface HerdrImplPlanContext {
 	git: Pick<GitGateway, "cachedOriginHeadBranch" | "currentBranch">;
 	herdr: HerdrGateway;
 	pi: CommandContext;
+	createProjectConfig: (scope: { cwd: string; signal?: AbortSignal }) => EffectiveProjectConfig;
 }
 
 export interface HandleHerdrSlotImplPlanOptions {
@@ -170,11 +174,21 @@ export async function handleHerdrSlotImplPlan(
 				return;
 			}
 		}
+		let modelSelection: ModelSelection;
+		try {
+			modelSelection = await resolveHerdrSlugModelSelection(
+				context.createProjectConfig({ cwd: checkout.repoRoot }),
+			);
+		} catch (error) {
+			present(ctx, error instanceof Error ? error.message : String(error), "error");
+			return;
+		}
 		setStatus(ctx, config, "deriving branch-context slug…");
 		const prepared = await preparePlanBranchContext(pi, {
 			plan: selectedPlan,
 			checkout,
 			context: implBranchContextContext(pi, checkout.repoRoot, options.dependencies),
+			modelSelection,
 			shouldBuildPreview: parsed.isDryRun,
 			creation:
 				basis.type === "current-head"

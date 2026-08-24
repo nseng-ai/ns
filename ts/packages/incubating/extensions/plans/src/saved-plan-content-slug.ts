@@ -1,11 +1,11 @@
 import {
 	deriveContentSlug,
-	type ContentSlugContext,
 	type ContentSlugEvidence,
 	type ContentSlugPolicy,
 	type ContentSlugResult,
 	type DeriveContentSlugInput,
 } from "@nseng-ai/extension-kit/content-slug";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { MAX_PLAN_SLUG_WORDS, MIN_PLAN_SLUG_WORDS, validatePlanSlug } from "./plan-persistence.ts";
 
 const MAX_PLAN_CONTENT_CHARS = 32_000;
@@ -33,7 +33,7 @@ const SAVED_PLAN_PRESENTATION = {
 } satisfies PlanContentSlugPresentation;
 
 export async function derivePlanSlugFromContent(
-	context: ContentSlugContext,
+	commands: CommandExecApi,
 	input: DeriveContentSlugInput,
 	presentation: PlanContentSlugPresentation,
 ): Promise<SavedPlanContentSlugResult> {
@@ -56,12 +56,12 @@ export async function derivePlanSlugFromContent(
 		},
 		validateSlug: validatePlanSlug,
 	} satisfies ContentSlugPolicy;
-	return deriveContentSlug(context, input, policy);
+	return deriveContentSlug(commands, input, policy);
 }
 
 export async function deriveSavedPlanContentSlug(
-	context: ContentSlugContext,
+	commands: CommandExecApi,
 	input: DeriveContentSlugInput,
 ): Promise<SavedPlanContentSlugResult> {
-	return derivePlanSlugFromContent(context, input, SAVED_PLAN_PRESENTATION);
+	return derivePlanSlugFromContent(commands, input, SAVED_PLAN_PRESENTATION);
 }

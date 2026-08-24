@@ -38,8 +38,23 @@ export function command() {
 
 Route identity, aliases, descriptions, visibility, and help grouping belong to route-local metadata, not command definitions.
 
+Each command receives required invocation-scoped project configuration through `context.projectConfig`:
+
+```ts
+import { type ProjectSetting, z } from "@nseng-ai/sdk";
+
+const widgetSetting = {
+  path: ["widgets", "default"] as const,
+  schema: z.string().min(1),
+} satisfies ProjectSetting<string>;
+
+const result = await context.projectConfig.get(widgetSetting);
+```
+
+A configured value includes project-source provenance. An absent setting or missing project `ns.toml` returns a successful `undefined`; repository discovery, source reads, malformed TOML, and invalid setting data return distinct typed failures. Consumers do not discover repository roots or construct filesystem config gateways for effective reads.
+
 ## Host behavior
 
-The ns CLI loads source inventory, builds one contextful Clinkr app, mounts separately labelled filesystem and programmatic sources, and delegates execution and completion to that app. The SDK does not enumerate command routes, select argv, apply source precedence, or adapt nested legacy runtimes.
+The ns CLI loads source inventory, builds one contextful Clinkr app, mounts separately labelled filesystem and programmatic sources, and delegates execution and completion to that app. It constructs one `EffectiveProjectConfig` after final invocation `cwd` and environment are known. The capability is a stable snapshot for that invocation; long-lived hosts create a fresh capability for each command callback. The SDK does not enumerate command routes, select argv, apply source precedence, or adapt nested legacy runtimes.
 
 See `docs/sdk-reference.md` for the complete exported author surface.

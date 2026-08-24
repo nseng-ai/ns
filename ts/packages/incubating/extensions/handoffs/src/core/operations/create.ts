@@ -7,7 +7,7 @@ import { createHandoffArtifact, prepareHandoffCreation } from "../artifact-stora
 import type { HandoffCliContext } from "../context.ts";
 import { deriveHandoffContentSlug } from "../content-slug.ts";
 import { HANDOFF_NAMESPACE, normalizeHandoffSlugInput } from "../identity.ts";
-import { resolveBranch } from "./shared.ts";
+import { resolveBranch, resolveHandoffSlugModel } from "./shared.ts";
 
 const STDIN_SOURCE_FILE = "<stdin>";
 
@@ -92,9 +92,13 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 			requestedSlug: explicitSlug.requestedSlug,
 		};
 	} else {
-		const derived = await deriveHandoffContentSlug(ctx, {
+		const model = await resolveHandoffSlugModel(ctx);
+		if (model.type !== "resolved") return model;
+
+		const derived = await deriveHandoffContentSlug(ctx.commands, {
 			content: prepared.value.content,
 			cwd: ctx.cwd,
+			modelSelection: model.value,
 		});
 		if (!derived.ok) {
 			return failure("handoff-slug-derivation-failed", derived.error.message);

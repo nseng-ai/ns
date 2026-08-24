@@ -10,15 +10,16 @@
  */
 
 import {
-	loadModelPolicy,
 	MODEL_OPERATION_IDS,
+	resolveEffectiveModelPolicy,
 	resolveModelOperation,
+	type EffectiveModelPolicyError,
 } from "@nseng-ai/extension-kit/model-policy";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import {
-	createNodeProjectConfigGateway,
-	type ProjectConfigGateway,
-} from "@nseng-ai/sdk/project-config/points";
+	createNodeEffectiveProjectConfig,
+	type EffectiveProjectConfig,
+} from "@nseng-ai/sdk/project-config";
 import type {
 	BeforeAgentStartEvent,
 	ContextEvent,
@@ -57,6 +58,7 @@ import { bundleStatusBarText } from "./render.ts";
 import type { SegmentationState } from "./segmentation.ts";
 import { ProfilerView } from "./view.ts";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
+import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 
 export const CONTEXT_PROFILER_COMMAND_NAME = "context-profiler";
 
@@ -87,8 +89,15 @@ interface OverlaySession {
 	interrogation: InterrogationController | null;
 }
 
+interface ProjectConfigFactoryScope {
+	readonly cwd: string;
+	readonly signal?: AbortSignal;
+}
+
+type ProjectConfigFactory = (scope: ProjectConfigFactoryScope) => EffectiveProjectConfig;
+
 export interface RegisterContextProfilerExtensionOptions {
-	projectConfigGateway?: ProjectConfigGateway;
+	createProjectConfig?: ProjectConfigFactory;
 }
 
 export function registerContextProfilerExtension(
@@ -96,7 +105,17 @@ export function registerContextProfilerExtension(
 	options: RegisterContextProfilerExtensionOptions = {},
 ): void {
 	const runtime = new ProfilerRuntimeStore();
-	const projectConfigGateway = options.projectConfigGateway ?? createNodeProjectConfigGateway();
+	const commands = createPiCommandExecApi(pi);
+	const registrationEnv = { ...process.env };
+	const createProjectConfig =
+		options.createProjectConfig ??
+		(({ cwd, signal }) =>
+			createNodeEffectiveProjectConfig({
+				cwd,
+				env: { ...registrationEnv },
+				commands,
+				...(signal === undefined ? {} : { signal }),
+			}));
 	const segmentationCache = createSegmentationCacheCell();
 	const sessions = new OverlaySessionController();
 
@@ -113,7 +132,7 @@ export function registerContextProfilerExtension(
 					segmentationCache,
 					sessions,
 					thinking: pi.getThinkingLevel(),
-					projectConfigGateway,
+					createProjectConfig,
 				}),
 		},
 	});
@@ -131,7 +150,7 @@ interface OpenProfilerOptions {
 	segmentationCache: SegmentationCacheAccess;
 	sessions: OverlaySessionController;
 	thinking: ReturnType<ExtensionAPI["getThinkingLevel"]>;
-	projectConfigGateway: ProjectConfigGateway;
+	createProjectConfig: ProjectConfigFactory;
 }
 
 class ProfilerRuntimeStore {
@@ -183,8 +202,8 @@ class OverlaySessionController {
 	}
 }
 
-function openProfiler(options: OpenProfilerOptions): void {
-	const { ctx, runtime, segmentationCache, sessions, thinking, projectConfigGateway } = options;
+async function openProfiler(options: OpenProfilerOptions): Promise<void> {
+	const { ctx, runtime, segmentationCache, sessions, thinking, createProjectConfig } = options;
 	if (!ctx.hasUI) {
 		ctx.ui.notify("context profiler only renders in interactive TUI mode", "warning");
 		return;
@@ -195,6 +214,13 @@ function openProfiler(options: OpenProfilerOptions): void {
 	// immediately after an extension reload.
 	const state = runtime.captureCurrentState(ctx);
 	const profile = buildProfile(ctx, state);
+	const analysis = await resolveContextProfilerAnalysisStartup({
+		projectConfig: createProjectConfig({
+			cwd: ctx.cwd,
+			...(ctx.signal === undefined ? {} : { signal: ctx.signal }),
+		}),
+		registry: ctx.modelRegistry,
+	});
 	const bundleStore = createFsBundleStore({
 		sessionDir: ctx.sessionManager.getSessionDir(),
 		sessionId: ctx.sessionManager.getSessionId(),
@@ -224,11 +250,6 @@ function openProfiler(options: OpenProfilerOptions): void {
 		force: boolean,
 	): SegmentationState => {
 		session.detachSegmentation?.();
-		const analysis = resolveContextProfilerAnalysisStartup({
-			repoRoot: ctx.cwd,
-			registry: ctx.modelRegistry,
-			projectConfigGateway,
-		});
 		if (analysis.type === "unavailable" && !warnedPolicyErrors.has(analysis.message)) {
 			warnedPolicyErrors.add(analysis.message);
 			ctx.ui.notify(`Context profiler analysis unavailable: ${analysis.message}`, "warning");
@@ -317,16 +338,14 @@ function openProfiler(options: OpenProfilerOptions): void {
 	ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(session.persistence));
 }
 
-export function resolveContextProfilerAnalysisStartup(options: {
-	repoRoot: string;
+export async function resolveContextProfilerAnalysisStartup(options: {
+	projectConfig: EffectiveProjectConfig;
 	registry: AnalysisModelRegistry;
-	projectConfigGateway: ProjectConfigGateway;
-}): AnalysisStartup {
-	const policy = loadModelPolicy({
-		repoRoot: options.repoRoot,
-		gateway: options.projectConfigGateway,
-	});
-	if (!policy.ok) return { type: "unavailable", message: policy.error.message };
+}): Promise<AnalysisStartup> {
+	const policy = await resolveEffectiveModelPolicy(options.projectConfig);
+	if (!policy.ok) {
+		return { type: "unavailable", message: formatModelPolicyError(policy.error) };
+	}
 	const segmentation = resolveModelOperation(
 		policy.value,
 		MODEL_OPERATION_IDS.contextProfilerSegmentation,
@@ -345,6 +364,20 @@ export function resolveContextProfilerAnalysisStartup(options: {
 			episodeAnalysisSelection: episodeAnalysis.value.selection,
 		}),
 	};
+}
+
+function formatModelPolicyError(error: EffectiveModelPolicyError): string {
+	if (error.type === "model-policy") return error.error.message;
+	switch (error.error.code) {
+		case "project-not-found":
+			return "Could not determine the repository root for ns.toml.";
+		case "project-discovery-failed":
+		case "source-read-failed":
+		case "invalid-setting":
+			return error.error.message;
+		case "invalid-source":
+			return error.error.diagnostics[0]?.message ?? `${error.error.path}: invalid ns.toml`;
+	}
 }
 
 function openInterrogation(options: {

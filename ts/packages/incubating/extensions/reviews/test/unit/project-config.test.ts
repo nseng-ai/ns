@@ -2,33 +2,19 @@ import { describe, expect, test } from "vitest";
 
 import {
 	buildGitDiffArgs,
-	parseReviewsProjectConfigToml,
+	parseReviewsDiffProjectConfigToml,
 	reviewsExcludeGlobsToGitPathspecs,
 	type ProjectConfigErrorCode,
 } from "../../src/core/project-config.ts";
 
-describe("parseReviewsProjectConfigToml", () => {
-	test("requires the shared fast model profile", () => {
-		const error = expectError(parseReviewsProjectConfigToml(""));
-		expect(error.code).toBe("invalid-model-policy");
-		expect(error.message).toContain("[models.profiles.fast]");
-	});
-
-	test("parses Reviews diff and shared model profiles", () => {
+describe("parseReviewsDiffProjectConfigToml", () => {
+	test("parses Reviews diff independently of shared model profiles", () => {
 		const config = expectOk(
-			parseReviewsProjectConfigToml(
+			parseReviewsDiffProjectConfigToml(
 				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.fast]\nmodel = "openai/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n[models.profiles.architecture]\nmodel = "openai/gpt-5.6-terra"\nthinking = "xhigh"\n',
 			),
 		);
-		expect(config.diff.exclude).toEqual(["generated/**"]);
-		expect(config.modelPolicy.profiles.deep).toMatchObject({
-			modelId: "claude-opus-4-6",
-			thinking: "high",
-		});
-		expect(config.modelPolicy.profiles.architecture).toMatchObject({
-			modelId: "gpt-5.6-terra",
-			thinking: "xhigh",
-		});
+		expect(config.exclude).toEqual(["generated/**"]);
 	});
 
 	const fastProfile =
@@ -41,14 +27,9 @@ describe("parseReviewsProjectConfigToml", () => {
 			"invalid-exclude",
 		],
 		[`${fastProfile}[reviews.diff]\nexclude = ["/tmp/*.py"]\n`, "repo-relative", "invalid-exclude"],
-		[
-			`${fastProfile}[models.operations]\ncustom = "missing"\n`,
-			"missing profile",
-			"invalid-model-policy",
-		],
 		[`${fastProfile}[reviews]\n`, "", ""],
 	] as const)("rejects invalid config %#", (source, message, code) => {
-		const result = parseReviewsProjectConfigToml(source, "ns.toml");
+		const result = parseReviewsDiffProjectConfigToml(source, "ns.toml");
 		if (code === "") {
 			expect(result.ok).toBe(true);
 			return;
@@ -72,7 +53,7 @@ describe("git diff pathspec helpers", () => {
 	});
 });
 
-type ParseResult = ReturnType<typeof parseReviewsProjectConfigToml>;
+type ParseResult = ReturnType<typeof parseReviewsDiffProjectConfigToml>;
 function expectOk(result: ParseResult) {
 	if (!result.ok) throw new Error(result.error.message);
 	return result.value;

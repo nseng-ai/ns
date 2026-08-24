@@ -115,7 +115,8 @@ export function createReviewsClient(options: ReviewsClientOptions): ReviewsClien
 			return await buildReviewLogResult(getRuntime(), request);
 		},
 		async runReview(request) {
-			return await runReview(getRuntime(), request);
+			const runRuntime = options.runtime ?? createRealRuntime(options);
+			return await runReview(runRuntime, request);
 		},
 		async recordFindings(request) {
 			return await recordSameSessionFindings(getRuntime(), request);

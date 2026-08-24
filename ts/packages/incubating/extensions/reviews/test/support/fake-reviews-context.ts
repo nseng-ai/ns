@@ -1,4 +1,5 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +8,11 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 import type { ReviewsContext } from "../../src/core/context.ts";
+import type { EffectiveProjectConfig, ProjectSetting } from "@nseng-ai/sdk/project-config";
+import {
+	getProjectConfigSetting,
+	parseProjectConfigToml,
+} from "@nseng-ai/sdk/project-config/points";
 import {
 	FakeReviewRunnerGateway,
 	type ReviewRunnerGateway,
@@ -22,6 +28,7 @@ import { FakeReviewLogGateway, type ReviewLogGateway } from "../../src/gateways/
 
 export interface FakeReviewsContextOptions {
 	readonly execApi?: CommandExecApi;
+	readonly projectConfig?: EffectiveProjectConfig;
 	readonly gitGateway?: GitGateway;
 	readonly localDiff?: LocalDiffGateway;
 	readonly reviewCatalog?: ReviewCatalogGateway;
@@ -57,6 +64,7 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 		});
 	return {
 		execApi,
+		projectConfig: options.projectConfig ?? fakeProjectConfig(options.cwd ?? DEFAULT_REPO_ROOT),
 		gitGateway,
 		localDiff: options.localDiff ?? new FakeLocalDiffGateway(),
 		reviewCatalog: options.reviewCatalog ?? new FakeReviewCatalogGateway(),
@@ -73,5 +81,38 @@ export function fakeReviewsContext(options: FakeReviewsContextOptions = {}): Rev
 			}),
 		stdout: options.stdout ?? (() => undefined),
 		stderr: options.stderr ?? (() => undefined),
+	};
+}
+
+function fakeProjectConfig(cwd: string): EffectiveProjectConfig {
+	return {
+		async get<T>(setting: ProjectSetting<T>) {
+			const path = join(cwd, "ns.toml");
+			const source = await readFile(path, "utf8");
+			const parsed = parseProjectConfigToml(source, {
+				pathLabel: path,
+				pointsTable: { mode: "skip" },
+				settingsSchemas: [setting],
+			});
+			if (!parsed.ok) {
+				return {
+					ok: false,
+					error: { code: "invalid-source", path, diagnostics: parsed.diagnostics },
+				};
+			}
+			const value = getProjectConfigSetting(parsed.config, setting);
+			if (value === undefined) return { ok: true, value: undefined };
+			return {
+				ok: true,
+				value: {
+					value,
+					provenance: {
+						source: "project",
+						path,
+						settingPath: [...setting.path],
+					},
+				},
+			};
+		},
 	};
 }

@@ -1,5 +1,9 @@
 import { noopNsCommandIo, noopNsProgress, ok } from "@nseng-ai/sdk";
-import type { NsCommandCompletionRequest, NsExtensionApi } from "@nseng-ai/sdk";
+import type {
+	EffectiveProjectConfig,
+	NsCommandCompletionRequest,
+	NsExtensionApi,
+} from "@nseng-ai/sdk";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -8,6 +12,10 @@ import { createNsDomainCommand } from "@nseng-ai/extension-kit/ns-command";
 interface TestContext {
 	readonly cwd: string;
 }
+
+const noProjectConfig: EffectiveProjectConfig = {
+	get: async () => ({ ok: true, value: undefined }),
+};
 
 const requestSchema = z.object({ name: z.string() });
 const resultSchema = z.object({ greeting: z.string() });
@@ -77,6 +85,7 @@ function fakeApi(): NsExtensionApi {
 		commandIo: noopNsCommandIo,
 		progress: noopNsProgress,
 		renderCapabilities: { canEmitAnsi: false },
+		projectConfig: noProjectConfig,
 		hasExtension: () => false,
 		isInteractive: () => false,
 		confirm: () => {

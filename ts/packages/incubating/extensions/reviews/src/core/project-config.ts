@@ -5,7 +5,6 @@ import {
 	type ProjectConfigDiagnostic,
 	type SettingsSchema,
 } from "@nseng-ai/sdk/project-config/points";
-import { parseModelPolicyToml, type ModelPolicy } from "@nseng-ai/extension-kit/model-policy";
 import { resultErrOf, type Result } from "@nseng-ai/foundation/result";
 import { z } from "zod";
 
@@ -13,23 +12,14 @@ export interface ReviewsDiffProjectConfig {
 	readonly exclude: readonly string[];
 }
 
-export interface ReviewsProjectConfig {
-	readonly diff: ReviewsDiffProjectConfig;
-	readonly modelPolicy: ModelPolicy;
-}
-
-export type ProjectConfigParseResult = Result<ReviewsProjectConfig, ProjectConfigError>;
+export type ProjectConfigParseResult = Result<ReviewsDiffProjectConfig, ProjectConfigError>;
 
 export interface ProjectConfigError {
 	readonly code: ProjectConfigErrorCode;
 	readonly message: string;
 }
 
-export type ProjectConfigErrorCode =
-	| "invalid-toml"
-	| "invalid-table"
-	| "invalid-exclude"
-	| "invalid-model-policy";
+export type ProjectConfigErrorCode = "invalid-toml" | "invalid-table" | "invalid-exclude";
 
 export interface GitDiffArgsOptions {
 	readonly baseRef: string;
@@ -62,7 +52,7 @@ const SETTINGS_TABLE_ERROR_CODES = {
 	[reviewsDiffSettingsKey]: "invalid-table",
 } as const;
 
-export function parseReviewsProjectConfigToml(
+export function parseReviewsDiffProjectConfigToml(
 	source: string,
 	pathLabel?: string,
 ): ProjectConfigParseResult {
@@ -77,12 +67,7 @@ export function parseReviewsProjectConfigToml(
 	const parsedDiff = parseDiffConfig(diffSettings, pathLabel);
 	if (!parsedDiff.ok) return parsedDiff;
 
-	const policy = parseModelPolicyToml(source, pathLabel);
-	if (!policy.ok) {
-		return resultErrOf("invalid-model-policy", policy.error.message);
-	}
-
-	return { ok: true, value: { diff: parsedDiff.value, modelPolicy: policy.value } };
+	return { ok: true, value: parsedDiff.value };
 }
 
 export function reviewsExcludeGlobsToGitPathspecs(patterns: readonly string[]): readonly string[] {

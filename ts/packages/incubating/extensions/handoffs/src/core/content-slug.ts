@@ -1,10 +1,10 @@
 import {
 	deriveContentSlug,
 	type ContentSlugPolicy,
-	type ContentSlugContext,
 	type ContentSlugResult,
-	type DeriveContentSlugInput,
 } from "@nseng-ai/extension-kit/content-slug";
+import type { CommandExecApi } from "@nseng-ai/foundation/exec";
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import { parseFlatHandoffSlug } from "./identity.ts";
 
@@ -22,6 +22,13 @@ const GENERIC_ONLY_WORDS = new Set([
 
 const MAX_HANDOFF_CONTENT_CHARS = 32_000;
 export type HandoffContentSlugResult = ContentSlugResult;
+
+export interface DeriveHandoffContentSlugInput {
+	content: string;
+	cwd: string;
+	modelSelection: ModelSelection;
+	signal?: AbortSignal;
+}
 
 const HANDOFF_CONTENT_SLUG_POLICY = {
 	slugKind: "handoff artifact slug",
@@ -52,10 +59,10 @@ const HANDOFF_CONTENT_SLUG_POLICY = {
 } satisfies ContentSlugPolicy;
 
 export async function deriveHandoffContentSlug(
-	context: ContentSlugContext,
-	input: DeriveContentSlugInput,
+	commands: CommandExecApi,
+	input: DeriveHandoffContentSlugInput,
 ): Promise<HandoffContentSlugResult> {
-	return deriveContentSlug(context, input, HANDOFF_CONTENT_SLUG_POLICY);
+	return deriveContentSlug(commands, input, HANDOFF_CONTENT_SLUG_POLICY);
 }
 
 function validateHandoffContentSlug(slug: string): string | undefined {

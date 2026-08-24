@@ -4,6 +4,11 @@ import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import type { ClinkrExit } from "@nseng-ai/clinkr/legacy";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
 import { noopNsCommandIo, noopNsProgress } from "@nseng-ai/sdk";
+import type { EffectiveProjectConfig, ProjectSetting } from "@nseng-ai/sdk/project-config";
+import {
+	getProjectConfigSetting,
+	parseProjectConfigToml,
+} from "@nseng-ai/sdk/project-config/points";
 import type {
 	ExecResult,
 	NsCommand,
@@ -42,6 +47,7 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly commandIo = noopNsCommandIo;
 	readonly progress = noopNsProgress;
+	readonly projectConfig: EffectiveProjectConfig;
 	readonly renderCapabilities = { canEmitAnsi: false };
 	readonly hasExtension = () => false;
 	readonly isInteractive: () => boolean;
@@ -59,6 +65,7 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 		this.cwd = options.cwd ?? "/work";
 		this.env = { HOME: "/home/ns-test", ...(options.env ?? {}) };
 		this.isInteractive = () => options.isInteractive ?? false;
+		this.projectConfig = fakeProjectConfig(this.cwd, git, options.projectConfigText);
 		this.stderr = (text) => {
 			this.stderrChunks.push(text);
 			options.stderr?.(text);
@@ -68,13 +75,6 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 				brmem,
 				...(options.commands === undefined ? {} : { commands: options.commands }),
 				git,
-				projectConfig: {
-					readTextFile: () =>
-						options.projectConfigText === undefined
-							? { type: "missing" }
-							: { type: "found", text: options.projectConfigText },
-					pathExists: () => ({ type: "missing" }),
-				},
 				...(options.sourceReader === undefined ? {} : { sourceReader: options.sourceReader }),
 				...(options.interaction === undefined ? {} : { interaction: options.interaction }),
 			},
@@ -92,6 +92,53 @@ export class FakeHandoffNsApi implements NsExtensionApi {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
 			this.textGeneratorCalls.push({ ...request });
 			throw new Error("Unexpected text-generation call in handoff ns command test.");
+		},
+	};
+}
+
+function fakeProjectConfig(
+	cwd: string,
+	git: InMemoryGitGateway,
+	source: string | undefined,
+): EffectiveProjectConfig {
+	return {
+		async get<T>(setting: ProjectSetting<T>) {
+			const root = await git.optionalRepoRoot({ cwd });
+			if (root.type === "missing") {
+				return { ok: false, error: { code: "project-not-found", cwd } };
+			}
+			if (root.type === "error") {
+				return {
+					ok: false,
+					error: { code: "project-discovery-failed", cwd, message: root.error.message },
+				};
+			}
+			if (source === undefined) return { ok: true, value: undefined };
+			const path = `${root.value}/ns.toml`;
+			const parsed = parseProjectConfigToml(source, {
+				pathLabel: path,
+				pointsTable: { mode: "skip" },
+				settingsSchemas: [setting],
+			});
+			if (!parsed.ok) {
+				return {
+					ok: false,
+					error: { code: "invalid-source", path, diagnostics: parsed.diagnostics },
+				};
+			}
+			const value = getProjectConfigSetting(parsed.config, setting);
+			if (value === undefined) return { ok: true, value: undefined };
+			return {
+				ok: true,
+				value: {
+					value,
+					provenance: {
+						source: "project",
+						path,
+						settingPath: [...setting.path],
+					},
+				},
+			};
 		},
 	};
 }

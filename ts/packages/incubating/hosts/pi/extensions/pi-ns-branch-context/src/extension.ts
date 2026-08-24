@@ -13,6 +13,8 @@ import {
 	registerBranchContextCommands,
 } from "./from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./host-types.ts";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { createNodeEffectiveProjectConfig } from "@nseng-ai/sdk/project-config";
 import { createBranchContextPiCommandApi } from "./pi-command-api.ts";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 
@@ -139,6 +141,8 @@ export type {
 	CustomMessage,
 	ExtensionAPI,
 	NotifyLevel,
+	ProjectConfigFactory,
+	ProjectConfigFactoryScope,
 	ToolContext,
 	ToolDefinition,
 	ToolRenderResultOptions,
@@ -151,6 +155,20 @@ export default function registerBranchContextExtension(
 	options: BranchContextExtensionOptions = {},
 ): void {
 	const commandPi = createBranchContextPiCommandApi(pi);
-	registerSavedPlanCommandsAndTools(commandPi, options);
-	registerBranchContextCommands(commandPi, options);
+	const registrationEnv = { ...process.env };
+	const createProjectConfig =
+		options.createProjectConfig ??
+		(({ cwd, signal }) =>
+			createNodeEffectiveProjectConfig({
+				cwd,
+				env: { ...registrationEnv },
+				commands: commandPi,
+				...optionalEntry("signal", signal),
+			}));
+	const composedOptions: BranchContextExtensionOptions = {
+		...options,
+		createProjectConfig,
+	};
+	registerSavedPlanCommandsAndTools(commandPi, composedOptions);
+	registerBranchContextCommands(commandPi, composedOptions);
 }

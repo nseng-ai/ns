@@ -42,6 +42,7 @@ import {
 } from "./seats.ts";
 import { seatLabels } from "./progress.ts";
 import { reviewerOutcomeFromRunnerResult } from "./review-recovery.ts";
+import type { EffectiveProjectConfig } from "@nseng-ai/sdk/project-config";
 
 const STATUS_KEY = THERMO_COUNCIL_COMMAND_NAME;
 
@@ -65,6 +66,7 @@ interface RunCouncilSeatsOptions extends ThermoCouncilRunContext {
 export interface RunThermoCouncilCommandOptions {
 	readonly runtime?: SubagentRuntime;
 	readonly fleetRegistry: SubagentFleetRegistry;
+	readonly projectConfig: EffectiveProjectConfig;
 }
 
 export async function runThermoCouncilCommand(
@@ -87,11 +89,13 @@ export async function runThermoCouncilCommand(
 		const maxConcurrency = parseThermoCouncilMaxConcurrency(env);
 		const runtime = options.runtime ?? createSubprocessSubagentRuntime();
 		const fleetRegistry = options.fleetRegistry;
+		const projectConfig = options.projectConfig;
 		setStatus(ctx, `launching ${seats.length} council seats: ${seatLabels(seats)}…`);
 		const outcomes = await runCouncilSeatsWithConcurrencyLimit({
 			pi,
 			ctx,
 			runtime,
+			projectConfig,
 			fleetRegistry,
 			scope: scopeResult.scope,
 			seats,
@@ -109,6 +113,7 @@ export async function runThermoCouncilCommand(
 			pi,
 			ctx,
 			runtime,
+			projectConfig,
 			fleetRegistry,
 			scope: scopeResult.scope,
 			outcomes,
@@ -185,6 +190,7 @@ async function runCouncilSeatsWithConcurrencyLimit({
 	seats,
 	maxConcurrency,
 	runtime,
+	projectConfig,
 	fleetRegistry,
 	reviewGuidance,
 }: RunCouncilSeatsOptions): Promise<ThermoCouncilReviewerOutcome[]> {
@@ -202,6 +208,7 @@ async function runCouncilSeatsWithConcurrencyLimit({
 						pi,
 						ctx,
 						runtime,
+						projectConfig,
 						fleetRegistry,
 						scope,
 						seat,

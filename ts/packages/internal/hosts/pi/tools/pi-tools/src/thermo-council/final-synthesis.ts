@@ -1,9 +1,8 @@
 import {
 	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
+	resolveEffectiveModelOperation,
 } from "@nseng-ai/extension-kit/model-policy";
-import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import type { ProjectConfigError } from "@nseng-ai/sdk/project-config";
 import {
 	dispatchTrackedSingleSubagentFleetRun,
 	resultDiagnostic,
@@ -40,6 +39,7 @@ export async function synthesizeThermoCouncilFinalReport({
 	pi,
 	ctx,
 	runtime,
+	projectConfig,
 	scope,
 	outcomes,
 	deterministicReport,
@@ -50,13 +50,20 @@ export async function synthesizeThermoCouncilFinalReport({
 		return { type: "completed", report: deterministicReport };
 	}
 
-	const policy = loadModelPolicy({
-		repoRoot: scope.cwd,
-		gateway: createNodeProjectConfigGateway(),
-	});
-	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
-	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
-	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };
+	const resolved = await resolveEffectiveModelOperation(
+		projectConfig,
+		MODEL_OPERATION_IDS.thermoCouncilSynthesis,
+	);
+	if (!resolved.ok) {
+		return {
+			type: "failed",
+			status: "error",
+			diagnostic:
+				resolved.error.type === "model-policy"
+					? resolved.error.error.message
+					: formatProjectConfigError(resolved.error.error),
+		};
+	}
 	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi,
 		ctx: toRunnerSubagentContext(ctx),
@@ -86,6 +93,19 @@ export async function synthesizeThermoCouncilFinalReport({
 	}
 
 	return synthesisFailureFromRunnerResult(result);
+}
+
+function formatProjectConfigError(error: ProjectConfigError): string {
+	switch (error.code) {
+		case "project-not-found":
+			return `Could not determine the repository root for ns.toml from ${error.cwd}.`;
+		case "project-discovery-failed":
+		case "source-read-failed":
+		case "invalid-setting":
+			return error.message;
+		case "invalid-source":
+			return error.diagnostics[0]?.message ?? `${error.path}: invalid ns.toml`;
+	}
 }
 
 function buildFinalSynthesisPrompt(input: {

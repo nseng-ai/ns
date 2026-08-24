@@ -3,6 +3,7 @@ import { optionalEntries } from "@nseng-ai/foundation/primitives";
 
 import { noopNsProgress } from "@nseng-ai/sdk";
 import type {
+	EffectiveProjectConfig,
 	ExecResult,
 	NsCommand,
 	NsCommandIo,
@@ -15,6 +16,10 @@ import type {
 
 type ExitedResult = Extract<ExecResult, { type: "exited" }>;
 type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResult, ExitedResult>;
+
+const noProjectConfig: EffectiveProjectConfig = {
+	get: async () => ({ ok: true, value: undefined }),
+};
 
 import type { ObjectiveRunnerOverrides } from "../../src/ns/runner-context.ts";
 import { nextFromSequence } from "./sequence.ts";
@@ -33,6 +38,7 @@ export interface FakeObjectiveNsApiOptions extends ObjectiveRunnerOverrides {
 	/** Per-call `exec` result overrides; the last value repeats once exhausted. */
 	execResults?: readonly ExecResultFixture[];
 	outputFormat?: "human" | "json" | "markdown" | "md";
+	projectConfig?: EffectiveProjectConfig;
 }
 
 /**
@@ -52,6 +58,7 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
 	readonly progress = noopNsProgress;
 	readonly renderCapabilities = { canEmitAnsi: false };
+	readonly projectConfig: EffectiveProjectConfig;
 	readonly hasExtension = () => false;
 	readonly isInteractive = () => false;
 	readonly confirm = () => {
@@ -72,6 +79,7 @@ export class FakeObjectiveNsApi implements NsExtensionApi {
 		this.cwd = options.cwd ?? "/repo";
 		this.env = { HOME: "/home/ns-test", ...(options.env ?? {}) };
 		this.execResult = { ...(options.execResult ?? {}) };
+		this.projectConfig = options.projectConfig ?? noProjectConfig;
 		this.execResults = (options.execResults ?? []).map((result) => ({ ...result }));
 		this.outputFormat =
 			options.outputFormat === "markdown" ? "md" : (options.outputFormat ?? "human");

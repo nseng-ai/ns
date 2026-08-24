@@ -7,7 +7,7 @@
  */
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { AuthStorage, ModelRegistry, type Theme } from "@earendil-works/pi-coding-agent";
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import type { EffectiveProjectConfig, ProjectSetting } from "@nseng-ai/sdk/project-config";
 import { describe, expect, test } from "vitest";
 
 import registerStackViewExtension, {
@@ -19,13 +19,29 @@ import type { LoadStackViewResult } from "../../src/stack-view/data.ts";
 import type { StackViewModel, StackViewPr } from "../../src/stack-view/types.ts";
 import { identityTheme } from "./stack-view-test-themes.ts";
 
-const projectConfigGateway: ProjectConfigGateway = {
-	readTextFile: () => ({
-		type: "found",
-		text: '[models.profiles.fast]\nmodel = "acme/fast"\nthinking = "minimal"\n',
-	}),
-	pathExists: () => ({ type: "missing" }),
-};
+function projectConfig(models: unknown): EffectiveProjectConfig {
+	return {
+		async get<T>(setting: ProjectSetting<T>) {
+			return {
+				ok: true,
+				value: {
+					value: setting.schema.parse(models),
+					provenance: {
+						source: "project",
+						path: "/repo/ns.toml",
+						settingPath: [...setting.path],
+					},
+				},
+			};
+		},
+	};
+}
+
+const createProjectConfig = () =>
+	projectConfig({
+		profiles: { fast: { model: "acme/fast", thinking: "minimal" } },
+		operations: {},
+	});
 
 interface RecordingEngine {
 	port: StackEnrichmentPort;
@@ -220,11 +236,28 @@ function nonInteractiveCtx(): CommandContext {
 }
 
 describe("stack-view extension enrichment wiring", () => {
+	test("creates project config from the invocation cwd", async () => {
+		const host = fakeHost();
+		const scopes: Array<{ cwd: string; signal?: AbortSignal }> = [];
+		const ctx: CommandContext = { ...interactiveCtx(), cwd: "/repo/packages/nested" };
+		registerStackViewExtension(host.pi, {
+			createProjectConfig: (scope) => {
+				scopes.push(scope);
+				return createProjectConfig();
+			},
+			loadStackView: okLoader(),
+		});
+
+		await host.command().handler("", ctx);
+
+		expect(scopes).toEqual([{ cwd: "/repo/packages/nested" }]);
+	});
+
 	test("creates one engine on the interactive path and aborts it when the loop exits", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
 		registerStackViewExtension(host.pi, {
-			projectConfigGateway,
+			createProjectConfig,
 			engineFactory: factory,
 			loadStackView: okLoader(),
 		});
@@ -239,7 +272,7 @@ describe("stack-view extension enrichment wiring", () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
 		registerStackViewExtension(host.pi, {
-			projectConfigGateway,
+			createProjectConfig,
 			engineFactory: factory,
 			loadStackView: okLoader(),
 		});
@@ -265,7 +298,7 @@ describe("stack-view extension enrichment wiring", () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
 		registerStackViewExtension(host.pi, {
-			projectConfigGateway,
+			createProjectConfig,
 			engineFactory: factory,
 			loadStackView: okLoader(),
 		});
@@ -279,12 +312,8 @@ describe("stack-view extension enrichment wiring", () => {
 	test("degrades to a snapshot with a clear warning when the fast profile is missing", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
-		const missingConfigGateway: ProjectConfigGateway = {
-			readTextFile: () => ({ type: "missing" }),
-			pathExists: () => ({ type: "missing" }),
-		};
 		registerStackViewExtension(host.pi, {
-			projectConfigGateway: missingConfigGateway,
+			createProjectConfig: () => projectConfig({ profiles: {}, operations: {} }),
 			engineFactory: factory,
 			loadStackView: okLoader(),
 		});
@@ -307,7 +336,7 @@ describe("stack-view extension clipboard wiring", () => {
 	test("copy-branch shortcut writes the selected branch to the clipboard", async () => {
 		const host = fakeHost();
 		const notifications: Array<{ message: string; level: string | undefined }> = [];
-		registerStackViewExtension(host.pi, { projectConfigGateway, loadStackView: okLoader() });
+		registerStackViewExtension(host.pi, { createProjectConfig, loadStackView: okLoader() });
 		const ctx = interactiveCtx("b");
 		ctx.ui.notify = (message, level) => notifications.push({ message, level });
 

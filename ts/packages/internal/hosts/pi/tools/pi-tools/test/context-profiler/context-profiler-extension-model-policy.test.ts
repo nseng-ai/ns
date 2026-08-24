@@ -1,13 +1,28 @@
-import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { describe, expect, test } from "vitest";
 
 import type { AnalysisModelRegistry } from "../../src/context-profiler/analysis-model-gateway.ts";
 import { resolveContextProfilerAnalysisStartup } from "../../src/context-profiler/extension.ts";
+import type { EffectiveProjectConfig, ProjectSetting } from "@nseng-ai/sdk/project-config";
 
-function projectConfig(source: string): ProjectConfigGateway {
+function projectConfig(
+	models: unknown,
+	calls: ProjectSetting<unknown>[] = [],
+): EffectiveProjectConfig {
 	return {
-		readTextFile: () => ({ type: "found", text: source }),
-		pathExists: () => ({ type: "missing" }),
+		async get<T>(setting: ProjectSetting<T>) {
+			calls.push(setting);
+			return {
+				ok: true,
+				value: {
+					value: setting.schema.parse(models),
+					provenance: {
+						source: "project",
+						path: "/repo/ns.toml",
+						settingPath: [...setting.path],
+					},
+				},
+			};
+		},
 	};
 }
 
@@ -17,15 +32,22 @@ const registry: AnalysisModelRegistry = {
 };
 
 describe("context profiler model-policy wiring", () => {
-	test("defaults both operations through fast without consulting a session model", () => {
-		const result = resolveContextProfilerAnalysisStartup({
-			repoRoot: "/repo",
+	test("defaults both operations through fast from one whole-policy lookup", async () => {
+		const calls: ProjectSetting<unknown>[] = [];
+		const result = await resolveContextProfilerAnalysisStartup({
+			projectConfig: projectConfig(
+				{
+					profiles: {
+						fast: {
+							model: "vercel-ai-gateway/openai/gpt-5.6-luna",
+							thinking: "medium",
+						},
+					},
+					operations: {},
+				},
+				calls,
+			),
 			registry,
-			projectConfigGateway: projectConfig(`
-[models.profiles.fast]
-model = "vercel-ai-gateway/openai/gpt-5.6-luna"
-thinking = "medium"
-`),
 		});
 
 		expect(result).toMatchObject({
@@ -35,22 +57,19 @@ thinking = "medium"
 				episodeAnalysisModel: "vercel-ai-gateway/openai/gpt-5.6-luna",
 			},
 		});
+		expect(calls).toHaveLength(1);
 	});
 
-	test("honors independent operation overrides", () => {
-		const result = resolveContextProfilerAnalysisStartup({
-			repoRoot: "/repo",
+	test("honors independent operation overrides", async () => {
+		const result = await resolveContextProfilerAnalysisStartup({
+			projectConfig: projectConfig({
+				profiles: {
+					fast: { model: "gateway/openai/gpt-5.6-luna", thinking: "medium" },
+					standard: { model: "gateway/openai/gpt-5.6-terra", thinking: "high" },
+				},
+				operations: { "context-profiler.episode-analysis": "standard" },
+			}),
 			registry,
-			projectConfigGateway: projectConfig(`
-[models.profiles.fast]
-model = "gateway/openai/gpt-5.6-luna"
-thinking = "medium"
-[models.profiles.standard]
-model = "gateway/openai/gpt-5.6-terra"
-thinking = "high"
-[models.operations]
-"context-profiler.episode-analysis" = "standard"
-`),
 		});
 
 		expect(result).toMatchObject({
@@ -62,15 +81,10 @@ thinking = "high"
 		});
 	});
 
-	test("returns explicit unavailability for invalid or missing policy", () => {
-		const missing: ProjectConfigGateway = {
-			readTextFile: () => ({ type: "missing" }),
-			pathExists: () => ({ type: "missing" }),
-		};
-		const result = resolveContextProfilerAnalysisStartup({
-			repoRoot: "/repo",
+	test("returns explicit unavailability for missing policy", async () => {
+		const result = await resolveContextProfilerAnalysisStartup({
+			projectConfig: projectConfig({ profiles: {}, operations: {} }),
 			registry,
-			projectConfigGateway: missing,
 		});
 
 		expect(result).toMatchObject({

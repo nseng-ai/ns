@@ -27,9 +27,14 @@ import {
 	type ReviewRunResult,
 } from "../core/models.ts";
 import {
-	parseReviewsProjectConfigToml,
-	type ReviewsProjectConfig,
+	parseReviewsDiffProjectConfigToml,
+	type ReviewsDiffProjectConfig,
 } from "../core/project-config.ts";
+import {
+	resolveEffectiveModelPolicy,
+	type ModelPolicy,
+} from "@nseng-ai/extension-kit/model-policy";
+import type { ProjectConfigError } from "@nseng-ai/sdk/project-config";
 import { loadParsedReviewDefinition } from "../core/review-definition-loading.ts";
 import { filterLocalDiffForReviewApplicability } from "../core/review-applicability.ts";
 import { resolveReviewsModelSelection } from "../core/review-model-reference.ts";
@@ -65,6 +70,11 @@ export interface RunReviewProgress {
 	readonly model: string;
 	readonly baseRef: string;
 	readonly changedPathCount: number;
+}
+
+interface ReviewsProjectConfig {
+	readonly diff: ReviewsDiffProjectConfig;
+	readonly modelPolicy: ModelPolicy;
 }
 
 interface ResolvedReviewModel {
@@ -319,14 +329,14 @@ export async function loadProjectConfigFromContext(
 		source = await readFile(path, "utf8");
 	} catch (caught) {
 		if (isMissingFileError(caught)) {
-			const emptyConfig = parseReviewsProjectConfigToml("");
+			const emptyConfig = parseReviewsDiffProjectConfigToml("");
 			if (!emptyConfig.ok) {
 				return {
 					ok: false,
 					error: { code: "project-config-invalid", message: emptyConfig.error.message },
 				};
 			}
-			return { ok: true, value: emptyConfig.value };
+			return await assembleProjectConfig(ctx, emptyConfig.value);
 		}
 		return {
 			ok: false,
@@ -337,12 +347,44 @@ export async function loadProjectConfigFromContext(
 		};
 	}
 
-	const parsed = parseReviewsProjectConfigToml(source, path);
+	const parsed = parseReviewsDiffProjectConfigToml(source, path);
 	if (!parsed.ok) {
 		return {
 			ok: false,
 			error: { code: "project-config-invalid", message: parsed.error.message },
 		};
 	}
-	return { ok: true, value: parsed.value };
+	return await assembleProjectConfig(ctx, parsed.value);
+}
+
+async function assembleProjectConfig(
+	ctx: ReviewsRuntime,
+	diff: ReviewsDiffProjectConfig,
+): Promise<ReviewResult<ReviewsProjectConfig>> {
+	const policy = await resolveEffectiveModelPolicy(ctx.projectConfig);
+	if (!policy.ok) {
+		const message =
+			policy.error.type === "model-policy"
+				? policy.error.error.message
+				: effectiveProjectConfigErrorMessage(policy.error.error);
+		return {
+			ok: false,
+			error: { code: "project-config-invalid", message },
+		};
+	}
+	return { ok: true, value: { diff, modelPolicy: policy.value } };
+}
+
+function effectiveProjectConfigErrorMessage(error: ProjectConfigError): string {
+	switch (error.code) {
+		case "project-not-found":
+			return `Could not determine the repository root for ns.toml from ${error.cwd}.`;
+		case "project-discovery-failed":
+		case "source-read-failed":
+			return error.message;
+		case "invalid-source":
+			return error.diagnostics[0]?.message ?? `${error.path}: invalid ns.toml`;
+		case "invalid-setting":
+			return error.message;
+	}
 }

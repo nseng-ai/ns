@@ -1,37 +1,26 @@
-import {
-	HERDR_TAB_GOAL_COMMAND_NAME,
-	HERDR_TAB_NEW_COMMAND_NAME,
-	type HerdrGateway,
-} from "@nseng-ai/herdr/api";
+import { HERDR_TAB_NEW_COMMAND_NAME, type HerdrGateway } from "@nseng-ai/herdr/api";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
 import type { HerdrResourceLabelDeriver } from "./new-space.ts";
-import type { HerdrPiCommandApi } from "./pi-command-api.ts";
-import { generateWorkspaceGoalSlug, resolveHerdrGoal } from "./space-goal.ts";
+import { resolveHerdrGoal, type HerdrGoalSlugDeriver } from "./space-goal.ts";
 
 export interface HandleHerdrNewTabOptions {
-	herdr: Pick<HerdrGateway, "createTab" | "resolveCallerPane">;
-	labelDeriver: HerdrResourceLabelDeriver;
+	herdr: Pick<HerdrGateway, "createTab">;
+	workspaceId: string;
+	labelDeriver?: HerdrResourceLabelDeriver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
 }
 
 export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Promise<void> {
-	const callerWorkspace = await options.herdr.resolveCallerPane();
-	if (callerWorkspace.type === "failed") {
-		options.ctx.ui.notify(
-			`Not running inside a Herdr caller space.\n${callerWorkspace.message}`,
-			"warning",
-		);
-		return;
-	}
-	const workspaceId = callerWorkspace.workspaceId;
-
 	const description = options.args.trim();
 	let label: string | undefined;
 	if (description.length > 0) {
+		if (options.labelDeriver === undefined) {
+			throw new Error("A label deriver is required for a described Herdr tab.");
+		}
 		options.notifyProgress("Deriving a semantic label for the new Herdr tab…");
 		try {
 			label = await options.labelDeriver.deriveLabel({
@@ -51,7 +40,7 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 	options.ctx.ui.setStatus?.(HERDR_TAB_NEW_COMMAND_NAME, "opening Herdr tab…");
 	try {
 		const created = await options.herdr.createTab({
-			workspaceId,
+			workspaceId: options.workspaceId,
 			cwd: options.ctx.cwd,
 			shouldFocus: true,
 			...optionalEntry("label", label),
@@ -72,25 +61,15 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 }
 
 export interface HandleHerdrTabGoalOptions {
-	pi: HerdrPiCommandApi;
-	herdr: Pick<HerdrGateway, "renameTab" | "resolveCallerPane">;
+	herdr: Pick<HerdrGateway, "renameTab">;
+	tabId: string;
+	labelDeriver: HerdrGoalSlugDeriver;
 	args: string;
 	ctx: CommandContext;
 	notifyProgress: (message: string) => void;
 }
 
 export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Promise<void> {
-	const callerTab = await options.herdr.resolveCallerPane();
-	if (callerTab.type === "failed") {
-		if (options.ctx.hasUI !== false) {
-			options.ctx.ui.notify(
-				`Not running inside a Herdr caller tab.\n${callerTab.message}`,
-				"warning",
-			);
-		}
-		return;
-	}
-	const tabId = callerTab.tabId;
 	await options.ctx.waitForIdle();
 	const goal = await resolveHerdrGoal({
 		args: options.args,
@@ -100,19 +79,18 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 	});
 	if (goal === undefined) {
 		if (options.ctx.hasUI !== false)
-			options.ctx.ui.notify(`Usage: /${HERDR_TAB_GOAL_COMMAND_NAME} <goal>`, "warning");
+			options.ctx.ui.notify("Usage: /ns:herdr:tab:goal <goal>", "warning");
 		return;
 	}
-
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
+	const slug = await options.labelDeriver.deriveSlug({ cwd: options.ctx.cwd, goal });
 	if (!slug.ok) {
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
 		return;
 	}
 	const label = slug.text;
 	options.notifyProgress("Renaming Herdr tab…");
-	const result = await options.herdr.renameTab(tabId, label);
+	const result = await options.herdr.renameTab(options.tabId, label);
 	if (result.type === "failed") {
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(result.message, "error");
 		return;
