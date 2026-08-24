@@ -5,7 +5,7 @@ import { renderCapabilitiesForTerminal } from "@nseng-ai/clinkr/legacy";
 import { defineCommand, failure, ok, z, type NsCommand } from "@nseng-ai/sdk";
 import { prepareFlowChangesSummary } from "../model-generation.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelExecution } from "../model-policy.ts";
 import {
 	isGitPorcelainUnmergedStatus,
 	parseGitPorcelainStatusOutput,
@@ -62,6 +62,7 @@ export const flowChangesCommand: NsCommand = defineCommand({
 	},
 	handler: async (ctx) => {
 		const io = commandIoFromNsExtensionApi(ctx);
+		const modelExecution = createFlowModelExecution(ctx);
 		return await runWithNsCommandIo(io, async (io) => {
 			io.phase("Inspecting worktree…");
 			const loaded = await loadFlowPendingWorktreeSnapshot(ctx);
@@ -73,12 +74,15 @@ export const flowChangesCommand: NsCommand = defineCommand({
 			if (snapshot.clean) return ok({ type: "clean" as const, branch: snapshot.branch });
 
 			io.phase("Resolving changes model policy…");
-			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowChanges);
+			const model = await modelExecution.resolve(MODEL_OPERATION_IDS.flowChanges);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-			createFlowModelWarningEmitter(ctx).emit(model);
 			io.phase("Generating changes summary…");
 			const summary = await prepareFlowChangesSummary(
-				{ ...ctx, modelSelection: model.modelSelection },
+				{
+					...ctx,
+					textGenerator: modelExecution.textGenerator(model.selection),
+					modelSelection: model.selection.modelSelection,
+				},
 				snapshot,
 			);
 			if (!summary.ok) {

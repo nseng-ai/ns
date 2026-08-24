@@ -2,12 +2,11 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
+import { formatModelRef, parseModelRef } from "@nseng-ai/foundation/model-slug";
 import {
-	formatModelRef,
-	parseModelRef,
-	type ModelSelection,
-} from "@nseng-ai/foundation/model-slug";
-import { formatModelProfileFallbackWarning } from "@nseng-ai/extension-kit/model-policy";
+	createExplicitModelExecutionSelection,
+	type ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 
 import { catalogOptions, environmentOptions, type ReviewsRuntime } from "../core/context.ts";
 import {
@@ -70,8 +69,7 @@ export interface RunReviewProgress {
 
 interface ResolvedReviewModel {
 	readonly modelProfile: string;
-	readonly modelSelection: ModelSelection;
-	readonly usesBuiltInProfile: boolean;
+	readonly modelExecutionSelection: ModelExecutionSelection;
 }
 
 interface ReviewLogMetadata {
@@ -106,13 +104,7 @@ export async function runReview(
 	const resolved = resolveReviewModel(request, definition, config);
 	if (!resolved.ok) return { type: "failed", error: resolved.error };
 	const model = resolved.value;
-	const modelPolicyWarning =
-		request.model === undefined && model.usesBuiltInProfile
-			? formatModelProfileFallbackWarning(model.modelSelection, "built-in")
-			: undefined;
-	if (modelPolicyWarning !== undefined) ctx.stderr(`${modelPolicyWarning}\n`);
-
-	const modelRef = formatModelRef(model.modelSelection);
+	const modelRef = formatModelRef(model.modelExecutionSelection.modelSelection);
 	const progress: RunReviewProgress = {
 		reviewKey: source.key,
 		reviewPath: source.path,
@@ -124,7 +116,7 @@ export async function runReview(
 
 	const response = await ctx.reviewRunner.runReview(
 		{
-			modelSelection: model.modelSelection,
+			modelExecutionSelection: model.modelExecutionSelection,
 			reviewDefinition: definition,
 			reviewDir: dirname(source.path),
 			target: { localDiff: reviewDiff },
@@ -258,7 +250,16 @@ function resolveReviewModel(
 			},
 		};
 	}
-	let selection = configuredModel;
+	let modelExecutionSelection: ModelExecutionSelection = {
+		modelSelection: configuredModel,
+		provenance: {
+			type: "model-policy",
+			operationId: "reviews.run",
+			profile,
+			profileSource,
+			operationSource: "default",
+		},
+	};
 	if (request.model !== undefined) {
 		const modelRef = request.model.trim();
 		const parsed = parseModelRef(modelRef, configuredModel.thinking);
@@ -274,16 +275,18 @@ function resolveReviewModel(
 				},
 			};
 		}
-		selection = parsed;
+		modelExecutionSelection = createExplicitModelExecutionSelection(parsed);
 	}
-	const resolved = resolveReviewsModelSelection(selection);
+	const resolved = resolveReviewsModelSelection(modelExecutionSelection.modelSelection);
 	if (!resolved.ok) return resolved;
 	return {
 		ok: true,
 		value: {
 			modelProfile: profile,
-			modelSelection: resolved.value.selection,
-			usesBuiltInProfile: profileSource === "built-in",
+			modelExecutionSelection: {
+				...modelExecutionSelection,
+				modelSelection: resolved.value.selection,
+			},
 		},
 	};
 }

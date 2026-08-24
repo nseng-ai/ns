@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	formatModelPolicyFallbackWarning,
 	loadModelPolicy,
 	MODEL_OPERATION_IDS,
 	parseModelPolicyToml,
@@ -14,9 +13,6 @@ const BUILT_IN_FAST_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-const FALLBACK_WARNING =
-	"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.";
-
 describe("model policy", () => {
 	test("publishes stable operation identifiers", () => {
 		expect(MODEL_OPERATION_IDS.flowPrInventory).toBe("flow.pr-inventory");
@@ -50,8 +46,6 @@ describe("model policy", () => {
 				operationSource: "default",
 			},
 		});
-		if (resolved.ok)
-			expect(formatModelPolicyFallbackWarning(resolved.value)).toBe(FALLBACK_WARNING);
 	});
 
 	test("uses the built-in fast profile when ns.toml is missing", () => {
@@ -112,7 +106,6 @@ thinking = "high"
 			ok: true,
 			value: { profileSource: "project", operationSource: "default" },
 		});
-		if (resolved.ok) expect(formatModelPolicyFallbackWarning(resolved.value)).toBeUndefined();
 	});
 
 	test("allows a project operation override to select the built-in fast profile", () => {
@@ -137,8 +130,6 @@ custom = "fast"
 				operationSource: "project",
 			},
 		});
-		if (resolved.ok)
-			expect(formatModelPolicyFallbackWarning(resolved.value)).toBe(FALLBACK_WARNING);
 	});
 
 	test("does not warn for an identical fast tuple explicitly configured by the project", () => {
@@ -155,7 +146,6 @@ thinking = "minimal"
 			ok: true,
 			value: { selection: BUILT_IN_FAST_SELECTION, profileSource: "project" },
 		});
-		if (resolved.ok) expect(formatModelPolicyFallbackWarning(resolved.value)).toBeUndefined();
 	});
 
 	test("rejects empty operation keys and invalid or empty profile names", () => {

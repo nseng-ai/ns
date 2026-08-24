@@ -14,6 +14,7 @@ export {
 	FakeReviewRunnerGateway,
 	type ClaudeCodeProcessReviewRunnerOptions,
 	type FakeReviewRunnerGatewayOptions,
+	type ReviewRunnerExecutionRequest,
 	type ReviewRunnerGateway,
 	type RunReviewOptions,
 } from "../gateways/review-runner.ts";

@@ -20,7 +20,7 @@ import {
 } from "../../checkpoint/checkpoint.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelExecution } from "../model-policy.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 const cpResultSchema = z.discriminatedUnion("type", [
@@ -51,16 +51,16 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 			: `${result.summary}\n${result.message}`,
 	handler: async (ctx, request: CpRequest) => {
 		const runtime = createNsCheckpointRuntime(ctx);
+		const modelExecution = createFlowModelExecution(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
 		if (request.dryRun) {
-			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+			const model = await modelExecution.resolve(MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-			createFlowModelWarningEmitter(ctx).emit(model);
 			const result = await runCpCore({
 				cwd: ctx.cwd,
 				env: ctx.env,
-				textGenerator: ctx.textGenerator,
-				modelSelection: model.modelSelection,
+				textGenerator: modelExecution.textGenerator(model.selection),
+				modelSelection: model.selection.modelSelection,
 				isDryRun: true,
 				allowTrunk: request.force,
 				checkpointGateway: runtime.checkpointGateway,
@@ -69,9 +69,8 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 			return toCommandResult(result);
 		}
 
-		const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+		const model = await modelExecution.resolve(MODEL_OPERATION_IDS.flowCheckpoint);
 		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-		createFlowModelWarningEmitter(ctx).emit(model);
 		const caps = resolveFlowStreamCaps(ctx);
 		return await runSettledPhaseStream({
 			caps,
@@ -83,8 +82,8 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 				const result = await runCpCore({
 					cwd: ctx.cwd,
 					env: ctx.env,
-					textGenerator: ctx.textGenerator,
-					modelSelection: model.modelSelection,
+					textGenerator: modelExecution.textGenerator(model.selection),
+					modelSelection: model.selection.modelSelection,
 					isDryRun: false,
 					allowTrunk: request.force,
 					checkpointGateway: runtime.checkpointGateway,

@@ -1,4 +1,10 @@
+import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { describe, expect, test } from "vitest";
+import {
+	createExplicitModelExecutionSelection,
+	createModelExecutionCoordinator,
+	type ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
@@ -17,6 +23,13 @@ interface ExecCall {
 	command: string;
 	args: string[];
 	options: RawTextModelExecOptions;
+}
+
+function explicitExecution(modelSelection: ModelSelection = TEST_MODEL_SELECTION) {
+	return {
+		modelExecutionSelection: createExplicitModelExecutionSelection(modelSelection),
+		modelExecutionCoordinator: { beforeExecution() {} },
+	};
 }
 
 function recordingExec(calls: ExecCall[], result: RawTextModelCommandResult) {
@@ -45,11 +58,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
+			...explicitExecution(),
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "- first bullet\n- second bullet\n",
@@ -75,7 +84,7 @@ describe("generateRawTextWithModel", () => {
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			modelSelection: { provider: "acme", modelId: "fast-1", thinking: "high" as const },
+			...explicitExecution({ provider: "acme", modelId: "fast-1", thinking: "high" as const }),
 			exec: recordingExec(calls, {
 				type: "exited",
 				stdout: "raw output\n",
@@ -99,17 +108,51 @@ describe("generateRawTextWithModel", () => {
 		expect(calls[0]?.args).toContain("high");
 	});
 
+	test("coordinates once immediately before the first subprocess attempt", async () => {
+		const events: string[] = [];
+		const selection: ModelExecutionSelection = {
+			modelSelection: TEST_MODEL_SELECTION,
+			provenance: {
+				type: "model-policy",
+				operationId: "slug",
+				profile: "fast",
+				profileSource: "built-in",
+				operationSource: "default",
+			},
+		};
+		const coordinator = createModelExecutionCoordinator({
+			warn: () => events.push("warning"),
+		});
+		const result = await generateRawTextWithModel({
+			cwd: "/repo",
+			prompt: "summary prompt",
+			modelExecutionSelection: selection,
+			modelExecutionCoordinator: coordinator,
+			exec: async () => {
+				events.push("exec");
+				return events.filter((event) => event === "exec").length === 1
+					? { type: "timed-out", stdout: "", stderr: "", code: 143, signal: null }
+					: {
+							type: "exited",
+							stdout: "recovered summary\n",
+							stderr: "",
+							code: 0,
+							signal: null,
+						};
+			},
+		});
+
+		expect(result.ok).toBe(true);
+		expect(events).toEqual(["warning", "exec", "exec"]);
+	});
+
 	test("retries one killed model command result and returns the recovered raw text", async () => {
 		const calls: ExecCall[] = [];
 		const controller = new AbortController();
 		const result = await generateRawTextWithModel({
 			cwd: "/repo",
 			prompt: "summary prompt",
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
+			...explicitExecution(),
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
 				{ type: "exited", stdout: "recovered summary\n", stderr: "", code: 0, signal: null },
@@ -137,11 +180,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
+			...explicitExecution(),
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -169,7 +208,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelSelection: { provider: "acme", modelId: "fast-1", thinking: "minimal" as const },
+			...explicitExecution({ provider: "acme", modelId: "fast-1", thinking: "minimal" as const }),
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExec(calls, {
 				type: "exited",
@@ -199,11 +238,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
+			...explicitExecution(),
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ stdout: "", stderr: "", code: 143, type: "timed-out", signal: null },
@@ -236,11 +271,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
+			...explicitExecution(),
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "exited", code: 2, signal: null, stdout: "", stderr: "bad request" },
@@ -262,11 +293,7 @@ describe("deriveSlugWithModel", () => {
 			cwd: "/repo",
 			prompt: "slug prompt",
 			slugKind: "test slug",
-			modelSelection: {
-				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
-				thinking: "minimal" as const,
-			},
+			...explicitExecution(),
 			normalizeOutput: (output) => output.trim(),
 			exec: recordingExecSequence(calls, [
 				{ type: "timed-out", code: 143, signal: null, stdout: "", stderr: "" },

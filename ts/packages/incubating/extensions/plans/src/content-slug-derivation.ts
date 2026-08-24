@@ -9,7 +9,10 @@ import {
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import {
-	formatModelPolicyFallbackWarning,
+	modelExecutionSelectionFromResolvedOperation,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
+import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -30,8 +33,8 @@ export interface PlanContentSlugVariantSeed {
 export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	signal?: AbortSignal;
-	onModelPolicyWarning?: (warning: string) => void;
 }
 
 export type { ContentSlugEvidence };
@@ -51,15 +54,14 @@ export async function deriveContentSlug(
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
-	const modelPolicyWarning = formatModelPolicyFallbackWarning(model.value);
-	if (modelPolicyWarning !== undefined) input.onModelPolicyWarning?.(modelPolicyWarning);
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },
 		{
 			content: input.content,
 			cwd: input.cwd,
 			...(input.signal === undefined ? {} : { signal: input.signal }),
-			modelSelection: model.value.selection,
+			modelExecutionSelection: modelExecutionSelectionFromResolvedOperation(model.value),
+			modelExecutionCoordinator: input.modelExecutionCoordinator,
 		},
 		toKitContentSlugVariant(variant),
 	);

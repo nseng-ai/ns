@@ -4,6 +4,7 @@ import {
 	type AutobranchPreparationInput,
 } from "../../src/autobranch/dirty-worktree.ts";
 import { MAX_BRANCH_SLUG_LENGTH } from "@nseng-ai/foundation/branch-slug";
+import { createExplicitModelExecutionSelection } from "@nseng-ai/extension-kit/model-execution";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { buildBranchSlugPrompt } from "../../src/autobranch/slug.ts";
 import {
@@ -76,7 +77,16 @@ function createHarness(options: HarnessOptions = {}) {
 
 	const input: AutobranchPreparationInput = {
 		cwd: "/repo",
-		modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
+		modelExecutionSelection: createExplicitModelExecutionSelection({
+			provider: "test",
+			modelId: "model",
+			thinking: "minimal",
+		}),
+		modelExecutionCoordinator: {
+			beforeExecution() {
+				events.push("before-model-execution");
+			},
+		},
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,
@@ -213,6 +223,9 @@ describe("prepareAutobranchPlan", () => {
 		}
 		expect(harness.readPaths).toEqual(["/repo/notes.txt"]);
 		expect(harness.statPaths).toEqual(["/repo/notes.txt"]);
+		expect(eventIndex(harness.events, "before-model-execution")).toBeLessThan(
+			eventIndex(harness.events, "exec:pi "),
+		);
 		const prompt = piPrompt(harness.calls);
 		expect(piCall(harness.calls).args).toEqual(
 			buildRawTextModelArgs(prompt, { provider: "test", modelId: "model", thinking: "minimal" }),

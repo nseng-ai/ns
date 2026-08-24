@@ -4,6 +4,10 @@ import type { AssistantMessage, Context, SimpleStreamOptions, Usage } from "@ear
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
+import {
+	createExplicitModelExecutionSelection,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { EPISODE_ANALYSIS_SYSTEM_PROMPT } from "../../src/context-profiler/analysis.ts";
 import {
@@ -24,6 +28,12 @@ const EPISODE_ANALYSIS_SELECTION: ModelSelection = {
 	modelId: "analysis-model",
 	thinking: "high",
 };
+const SEGMENTATION_EXECUTION_SELECTION =
+	createExplicitModelExecutionSelection(SEGMENTATION_SELECTION);
+const EPISODE_ANALYSIS_EXECUTION_SELECTION = createExplicitModelExecutionSelection(
+	EPISODE_ANALYSIS_SELECTION,
+);
+const MODEL_EXECUTION_COORDINATOR: ModelExecutionCoordinator = { beforeExecution() {} };
 const MODEL_TOKENS = new Map([
 	["segmentation-provider/segmentation-model", { id: "segmentation-token" }],
 	["analysis-provider/analysis-model", { id: "analysis-token" }],
@@ -85,8 +95,9 @@ function createGateway(
 ) {
 	return createAnalysisModelGateway({
 		registry,
-		segmentationSelection: SEGMENTATION_SELECTION,
-		episodeAnalysisSelection: EPISODE_ANALYSIS_SELECTION,
+		segmentationSelection: SEGMENTATION_EXECUTION_SELECTION,
+		episodeAnalysisSelection: EPISODE_ANALYSIS_EXECUTION_SELECTION,
+		modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 		...overrides,
 	});
 }

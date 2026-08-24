@@ -276,7 +276,7 @@ describe("stack-view extension enrichment wiring", () => {
 		expect(host.sentMessages).toHaveLength(1); // the plain snapshot
 	});
 
-	test("enriches with the built-in fast profile and warns when config is missing", async () => {
+	test("does not warn for a built-in profile before enrichment executes", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
 		const missingConfigGateway: ProjectConfigGateway = {
@@ -295,10 +295,7 @@ describe("stack-view extension enrichment wiring", () => {
 		await host.command().handler("", ctx);
 
 		expect(engines).toHaveLength(1);
-		expect(notifications).toContainEqual({
-			message: expect.stringContaining("using built-in"),
-			level: "warning",
-		});
+		expect(notifications).toEqual([]);
 	});
 });
 

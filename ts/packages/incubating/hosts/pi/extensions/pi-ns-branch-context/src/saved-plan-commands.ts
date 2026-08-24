@@ -1,3 +1,4 @@
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import { registerCommandWithImmediateAck } from "@nseng-ai/pi-runtime/commands/ack";
 import { readFileSync } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
@@ -272,6 +273,9 @@ export function buildWriteSavedPlanFileTool(
 		},
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const operations = resolveBranchContextOperations(options);
+			const modelExecutionCoordinator = createModelExecutionCoordinator({
+				warn: (warning) => ctx.ui?.notify?.(warning, "warning"),
+			});
 			try {
 				emitWriteSavedPlanProgress(onUpdate, ctx, "Validating saved plan input…", {
 					phase: "validating",
@@ -301,8 +305,8 @@ export function buildWriteSavedPlanFileTool(
 					slugEvidence = await deriveSavedPlanContentSlug(pi, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
+						modelExecutionCoordinator,
 						...optionalEntry("signal", signal),
-						onModelPolicyWarning: (warning) => ctx.ui?.notify?.(warning, "warning"),
 					});
 				} finally {
 					if (slugProgressInterval !== undefined) {

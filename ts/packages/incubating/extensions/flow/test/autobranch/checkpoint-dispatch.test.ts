@@ -1,4 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
+import { createExplicitModelExecutionSelection } from "@nseng-ai/extension-kit/model-execution";
 import type { PendingWorktreeError } from "@nseng-ai/extension-kit/pending-worktree";
 
 import {
@@ -55,7 +56,12 @@ function createEnv(snapshot: PendingWorktreeSnapshot) {
 		const exec = async () => commandResult();
 		return {
 			cwd: snapshot.root,
-			modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
+			modelExecutionSelection: createExplicitModelExecutionSelection({
+				provider: "test",
+				modelId: "model",
+				thinking: "minimal",
+			}),
+			modelExecutionCoordinator: { beforeExecution() {} },
 			args: { slug: "---" },
 			exec,
 			git: createAutobranchGitGateway({ cwd: snapshot.root, exec }),
@@ -141,7 +147,12 @@ describe("dispatchAutobranchCheckpoint", () => {
 				loadSnapshot: async () => ({ ok: true, snapshot: dirtySnapshot }),
 				createFlowContext: () => ({
 					cwd: dirtySnapshot.root,
-					modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
+					modelExecutionSelection: createExplicitModelExecutionSelection({
+						provider: "test",
+						modelId: "model",
+						thinking: "minimal",
+					}),
+					modelExecutionCoordinator: { beforeExecution() {} },
 					args: { slug: "demo" },
 					exec,
 					git,

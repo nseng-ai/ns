@@ -22,16 +22,20 @@ import {
 	trimBranchSlugToLength,
 } from "@nseng-ai/foundation/branch-slug";
 import type { GitGateway } from "@nseng-ai/foundation/git";
-import { formatErrorMessage, isRecord, type TextResult } from "@nseng-ai/foundation/primitives";
+import {
+	formatErrorMessage,
+	isRecord,
+	optionalEntry,
+	type TextResult,
+} from "@nseng-ai/foundation/primitives";
 import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { runGraphiteCommand } from "../graphite/branch.ts";
 import { formatRawTextModelFailure, generateRawTextWithModel } from "./model-slug.ts";
 import {
-	formatModelPolicyFallbackWarning,
-	MODEL_OPERATION_IDS,
-	loadModelPolicy,
-	resolveModelOperation,
-} from "./model-policy.ts";
+	modelExecutionSelectionFromResolvedOperation,
+	type ModelExecutionCoordinator,
+} from "./model-execution.ts";
+import { MODEL_OPERATION_IDS, loadModelPolicy, resolveModelOperation } from "./model-policy.ts";
 import { runJsonExecCommand } from "./machine-envelope-exec.ts";
 
 export const TRACKED_BRANCH_PAYLOAD_NAMESPACE = "ns-impl";
@@ -87,7 +91,7 @@ export interface TrackedBranchCreationContext extends ResolvedTrackedBranchCreat
 export interface CreateTrackedBranchForPromptOptions {
 	cwd: string;
 	prompt: string;
-	onModelPolicyWarning?: (warning: string) => void;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 }
 
 export interface CreateTrackedBranchFromResolvedParentOptions {
@@ -96,7 +100,7 @@ export interface CreateTrackedBranchFromResolvedParentOptions {
 	parentBranch: string;
 	startPoint: string;
 	createFailureContext?: string;
-	onModelPolicyWarning?: (warning: string) => void;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 }
 
 export interface LocalGraphiteTrunkPreparationContext {
@@ -114,7 +118,7 @@ export type TrackedBranchFromLocalTrunkCreationContext = LocalGraphiteTrunkPrepa
 
 export interface CreateTrackedBranchFromLocalTrunkForPromptOptions extends PrepareLocalGraphiteTrunkOptions {
 	prompt: string;
-	onModelPolicyWarning?: (warning: string) => void;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 }
 
 export interface TrackedBranchPayloadStorageContext {
@@ -132,7 +136,7 @@ export function resolveTrackedBranchPayloadOptions(
 	options: TrackedBranchPayloadOptions,
 ): ResolvedTrackedBranchPayloadOptions {
 	return {
-		...(options.stagingDir === undefined ? {} : { stagingDir: options.stagingDir }),
+		...optionalEntry("stagingDir", options.stagingDir),
 		now: options.now ?? Date.now,
 		shouldCleanupStagingFile: options.shouldCleanupStagingFile ?? true,
 	};
@@ -155,9 +159,7 @@ export async function createTrackedBranchForPrompt(
 		prompt: options.prompt,
 		parentBranch: parent.branch,
 		startPoint: startPoint.value,
-		...(options.onModelPolicyWarning === undefined
-			? {}
-			: { onModelPolicyWarning: options.onModelPolicyWarning }),
+		modelExecutionCoordinator: options.modelExecutionCoordinator,
 	});
 }
 
@@ -170,7 +172,7 @@ export async function createTrackedBranchFromResolvedParent(
 		context.git,
 		options.cwd,
 		options.prompt,
-		options.onModelPolicyWarning,
+		options.modelExecutionCoordinator,
 	);
 	if (!slug.ok) return { error: slug.message };
 	const branchName = await chooseAvailableBranchName(context.pi, options.cwd, slug.text);
@@ -245,9 +247,7 @@ export async function createTrackedBranchFromLocalTrunkForPrompt(
 		parentBranch: prepared.trunkBranch,
 		startPoint: prepared.startPoint,
 		createFailureContext: `from local trunk ${prepared.trunkBranch}`,
-		...(options.onModelPolicyWarning === undefined
-			? {}
-			: { onModelPolicyWarning: options.onModelPolicyWarning }),
+		modelExecutionCoordinator: options.modelExecutionCoordinator,
 	});
 }
 
@@ -386,7 +386,7 @@ async function generateTrackedBranchSlug(
 	git: Pick<GitGateway, "repoRoot">,
 	cwd: string,
 	content: string,
-	onModelPolicyWarning?: (warning: string) => void,
+	modelExecutionCoordinator: ModelExecutionCoordinator,
 ): Promise<TextResult> {
 	const repository = await git.repoRoot({ cwd });
 	if (!repository.ok) {
@@ -404,13 +404,12 @@ async function generateTrackedBranchSlug(
 	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok)
 		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
-	const modelPolicyWarning = formatModelPolicyFallbackWarning(model.value);
-	if (modelPolicyWarning !== undefined) onModelPolicyWarning?.(modelPolicyWarning);
 	const prompt = buildTrackedBranchSlugPrompt({ kind: "task", content });
 	const result = await generateRawTextWithModel({
 		cwd,
 		prompt,
-		modelSelection: model.value.selection,
+		modelExecutionSelection: modelExecutionSelectionFromResolvedOperation(model.value),
+		modelExecutionCoordinator,
 		exec: (command, args, execOptions) => pi.exec(command, args, execOptions),
 	});
 	if (!result.ok) return { ok: false, message: formatRawTextModelFailure(result.failure) };

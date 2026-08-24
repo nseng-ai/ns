@@ -7,7 +7,10 @@ import {
 } from "@nseng-ai/extension-kit/model-slug";
 import { MAX_BRANCH_SLUG_LENGTH, sanitizeBranchName } from "@nseng-ai/foundation/branch-slug";
 import { truncateText } from "./shared.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type {
+	ModelExecutionCoordinator,
+	ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 
 export const MAX_DIFF_CHARS = 24_000;
 
@@ -41,7 +44,8 @@ export interface BranchSlugPromptInput {
 export interface BranchSlugDerivationInput {
 	cwd: string;
 	prompt: string;
-	modelSelection: ModelSelection;
+	modelExecutionSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	exec: AutobranchExec;
 }
 
@@ -83,7 +87,8 @@ export async function deriveBranchSlug(
 	const result = await deriveSlugWithModel({
 		cwd: input.cwd,
 		prompt: input.prompt,
-		modelSelection: input.modelSelection,
+		modelExecutionSelection: input.modelExecutionSelection,
+		modelExecutionCoordinator: input.modelExecutionCoordinator,
 		slugKind: "branch slug",
 		normalizeOutput: sanitizeBranchName,
 		exec: (command, args, options) =>

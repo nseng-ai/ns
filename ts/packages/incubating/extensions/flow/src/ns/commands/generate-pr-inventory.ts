@@ -26,7 +26,7 @@ import {
 	type PrMetadataReplacementResult,
 } from "../../submit/index.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
-import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelExecution } from "../model-policy.ts";
 
 const generatePrInventorySchema = z.object({
 	yes: z
@@ -61,6 +61,7 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 				].join("\n"),
 			}),
 		handler: async (ctx: NsExtensionApi, request: GeneratePrInventoryRequest) => {
+			const modelExecution = createFlowModelExecution(ctx);
 			return await runWithNsCommandIo(commandIoFromNsExtensionApi(ctx), async (io) => {
 				const caps = resolveFlowStreamCaps(ctx);
 				if (!request.yes) {
@@ -100,7 +101,7 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 				}
 
 				const runtime = createNsPrInventoryRuntime(ctx);
-				const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowPrInventory);
+				const model = await modelExecution.resolve(MODEL_OPERATION_IDS.flowPrInventory);
 				if (!model.ok) {
 					return negative(
 						renderResultBlockFromMessage(caps, {
@@ -110,7 +111,6 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 						}),
 					);
 				}
-				createFlowModelWarningEmitter(ctx).emit(model);
 
 				io.phase("Preparing complete PR metadata replacement…");
 				const prepared: PrMetadataReplacementResult =
@@ -120,8 +120,8 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 						githubPr: runtime.githubPr,
 						git: runtime.git,
 						descriptorSource: flowExtensionDescriptorSource,
-						modelSelection: model.modelSelection,
-						textGenerator: ctx.textGenerator,
+						modelSelection: model.selection.modelSelection,
+						textGenerator: modelExecution.textGenerator(model.selection),
 						source: "generate-pr-inventory",
 						progress: { onProgress: (message) => io.phase(message) },
 					});

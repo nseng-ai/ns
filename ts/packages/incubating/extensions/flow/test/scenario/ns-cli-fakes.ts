@@ -84,6 +84,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 	readonly env: Record<string, string | undefined>;
 	readonly execCalls: ExecCall[] = [];
 	readonly textGeneratorCalls: TextGenerationRequest[] = [];
+	readonly events: string[] = [];
 	readonly commandIo = createCliCommandIo({
 		stdout: (text) => this.stdout?.(text),
 		stderr: (text) => this.stderr?.(text),
@@ -191,6 +192,7 @@ export class ScriptedNsTestContext implements NsExtensionApi {
 
 	readonly textGenerator = {
 		generateText: async (request: TextGenerationRequest): Promise<TextGenerationResult> => {
+			this.events.push("text-generation");
 			this.textGeneratorCalls.push({ ...request });
 			return await (this.textGenerationResults.shift() ??
 				this.missingTextGenerationResult?.() ?? {

@@ -3,6 +3,7 @@ import { execApiToCommandRunner, type CommandExecApi } from "@nseng-ai/foundatio
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import type { GitGateway } from "@nseng-ai/foundation/git";
 import { RealGithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/pr-feedback";
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import type { GithubPrFeedbackGateway } from "@nseng-ai/extension-kit/github/pr-feedback";
 
 import {
@@ -98,6 +99,9 @@ export function createRealReviewsContext(options: CreateRealReviewsContextOption
 		reviewRunner:
 			options.reviewRunner ??
 			new RoutingReviewRunner({
+				modelExecutionCoordinator: createModelExecutionCoordinator({
+					warn: (message) => options.stderr(`${message}\n`),
+				}),
 				claudeCode: new ClaudeCodeProcessReviewRunner({ execApi }),
 				codex: new CodexProcessReviewRunner({ execApi }),
 				pi: new PiProcessReviewRunner({ execApi }),

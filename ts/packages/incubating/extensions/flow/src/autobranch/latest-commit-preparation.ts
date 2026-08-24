@@ -16,13 +16,17 @@ import {
 	type GitTrunkResolutionFailure,
 } from "./upstream.ts";
 import type { ParsedAutobranchArgs } from "./dirty-worktree.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type {
+	ModelExecutionCoordinator,
+	ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 
 const GT_TIMEOUT_MS = 120_000;
 
 export interface LatestCommitPreparationInput {
 	cwd: string;
-	modelSelection: ModelSelection;
+	modelExecutionSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;
@@ -236,13 +240,17 @@ function nonEmptyLines(value: string): string[] {
 }
 
 async function prepareLatestCommitSlug(
-	input: Pick<LatestCommitPreparationInput, "cwd" | "exec" | "modelSelection">,
+	input: Pick<
+		LatestCommitPreparationInput,
+		"cwd" | "exec" | "modelExecutionSelection" | "modelExecutionCoordinator"
+	>,
 	facts: LatestCommitFacts,
 ): Promise<PreparedLatestCommitSlugResult> {
 	const result = await deriveBranchSlug({
 		cwd: input.cwd,
 		prompt: buildLatestCommitSlugPrompt(facts),
-		modelSelection: input.modelSelection,
+		modelExecutionSelection: input.modelExecutionSelection,
+		modelExecutionCoordinator: input.modelExecutionCoordinator,
 		exec: input.exec,
 	});
 	if (result.ok) {

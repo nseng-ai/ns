@@ -4,9 +4,13 @@ import {
 	slotLabelInput,
 	type HerdrGateway,
 } from "@nseng-ai/herdr/api";
+import {
+	createModelExecutionCoordinator,
+	modelExecutionSelectionFromResolvedOperation,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
 import { deriveSlugWithModel, formatRawTextModelFailure } from "@nseng-ai/extension-kit/model-slug";
 import {
-	formatModelPolicyFallbackWarning,
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -50,7 +54,7 @@ export async function generateWorkspaceGoalSlug(
 	pi: HerdrPiCommandApi,
 	cwd: string,
 	goal: string,
-	onModelPolicyWarning?: (warning: string) => void,
+	modelExecutionCoordinator: ModelExecutionCoordinator,
 ): Promise<TextResult> {
 	const repository = await new RealGitGateway(pi).repoRoot({ cwd });
 	if (!repository.ok) {
@@ -72,13 +76,12 @@ export async function generateWorkspaceGoalSlug(
 		return { ok: false, message: `Invalid model policy in ns.toml: ${model.error.message}` };
 	}
 
-	const modelPolicyWarning = formatModelPolicyFallbackWarning(model.value);
-	if (modelPolicyWarning !== undefined) onModelPolicyWarning?.(modelPolicyWarning);
 	const fallbackSlug = sanitizeBranchName(goal);
 	const result = await deriveSlugWithModel({
 		cwd,
 		prompt: buildWorkspaceGoalSlugPrompt(goal),
-		modelSelection: model.value.selection,
+		modelExecutionSelection: modelExecutionSelectionFromResolvedOperation(model.value),
+		modelExecutionCoordinator,
 		exec: (command, args, options) => pi.exec(command, args, options),
 		slugKind: "workspace goal slug",
 		normalizeOutput: (raw) => sanitizeBranchName(raw.trim()) ?? fallbackSlug,
@@ -113,8 +116,14 @@ export async function handleHerdrSpaceGoal(options: HandleHerdrSpaceGoalOptions)
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal, (warning) =>
-		notify(options.ctx, warning, "warning"),
+	const modelExecutionCoordinator = createModelExecutionCoordinator({
+		warn: (warning) => notify(options.ctx, warning, "warning"),
+	});
+	const slug = await generateWorkspaceGoalSlug(
+		options.pi,
+		options.ctx.cwd,
+		goal,
+		modelExecutionCoordinator,
 	);
 	if (!slug.ok) {
 		notify(options.ctx, slug.message, "error");

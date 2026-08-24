@@ -1,9 +1,15 @@
+import {
+	createModelExecutionCoordinator,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
+import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
+
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
+const MODEL_EXECUTION_COORDINATOR: ModelExecutionCoordinator = { beforeExecution() {} };
 import { describe, expect, test } from "vitest";
 import {
 	buildHandoffContentSlugPrompt,
@@ -106,6 +112,7 @@ describe("deriveHandoffContentSlug", () => {
 		const evidence = await deriveHandoffContentSlug(slugContext(pi), {
 			content: HANDOFF_CONTENT,
 			cwd: CWD,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 		});
 
 		expect(evidence).toEqual({
@@ -129,14 +136,17 @@ describe("deriveHandoffContentSlug", () => {
 			readTextFile: () => ({ type: "missing" }),
 			pathExists: () => ({ type: "missing" }),
 		};
+		const modelExecutionCoordinator = createModelExecutionCoordinator({
+			warn: (warning) => {
+				expect(pi.calls).toHaveLength(0);
+				events.push(warning);
+			},
+		});
 
 		await deriveHandoffContentSlug(slugContext(pi, missingConfig), {
 			content: HANDOFF_CONTENT,
 			cwd: CWD,
-			onModelPolicyWarning: (warning) => {
-				expect(pi.calls).toHaveLength(0);
-				events.push(warning);
-			},
+			modelExecutionCoordinator,
 		});
 
 		expect(events).toHaveLength(1);
@@ -151,6 +161,7 @@ describe("deriveHandoffContentSlug", () => {
 		const evidence = await deriveHandoffContentSlug(slugContext(pi), {
 			content: HANDOFF_CONTENT,
 			cwd: CWD,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 		});
 
 		expect(evidence.slug).toBe("branch-session-association");
@@ -166,6 +177,7 @@ describe("deriveHandoffContentSlug", () => {
 		const evidence = await deriveHandoffContentSlug(slugContext(pi), {
 			content: HANDOFF_CONTENT,
 			cwd: CWD,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 		});
 
 		expect(evidence.slug).toBe(
@@ -177,7 +189,11 @@ describe("deriveHandoffContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { code: 1, stderr: "model unavailable" } });
 
 		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			});
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -189,7 +205,11 @@ describe("deriveHandoffContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "  \n" } });
 
 		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			});
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -208,6 +228,7 @@ describe("deriveHandoffContentSlug", () => {
 		const evidence = await deriveHandoffContentSlug(slugContext(pi), {
 			content: HANDOFF_CONTENT,
 			cwd: CWD,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 		});
 
 		expect(evidence.slug).toBe("associate-sessions-with-branches");
@@ -226,7 +247,11 @@ describe("deriveHandoffContentSlug", () => {
 		const pi = new FakeSlugPi([{ result: timedOut }, { result: timedOut }]);
 
 		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			});
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -239,7 +264,11 @@ describe("deriveHandoffContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "!!!\n" } });
 
 		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			});
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -251,7 +280,11 @@ describe("deriveHandoffContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "handoff session continue\n" } });
 
 		try {
-			await deriveHandoffContentSlug(slugContext(pi), { content: HANDOFF_CONTENT, cwd: CWD });
+			await deriveHandoffContentSlug(slugContext(pi), {
+				content: HANDOFF_CONTENT,
+				cwd: CWD,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			});
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);

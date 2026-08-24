@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import {
 	sendCommandProgressOrNotify,
 	registerCommandWithImmediateAck,
@@ -410,9 +411,13 @@ export async function deriveCreateBranchContextPreview(
 	options: BranchContextExtensionOptions = {},
 ): Promise<CreateBranchContextPreview> {
 	const selectedFile = selectedSavedPlanFileInfo(selected);
+	const modelExecutionCoordinator = createModelExecutionCoordinator({
+		warn: (warning) => ctx.ui.notify(warning, "warning"),
+	});
 	const slugEvidence = await derivePlanContentSlug(pi, {
 		filePath: selectedFile.filePath,
 		cwd: ctx.cwd,
+		modelExecutionCoordinator,
 	});
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);

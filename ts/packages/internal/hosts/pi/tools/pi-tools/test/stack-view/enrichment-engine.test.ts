@@ -1,8 +1,9 @@
-const TEST_MODEL_SELECTION = {
-	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
-	thinking: "minimal" as const,
-};
+import {
+	createExplicitModelExecutionSelection,
+	createModelExecutionCoordinator,
+	type ModelExecutionCoordinator,
+	type ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 import { createDeferred, type Deferred } from "@nseng-ai/foundation/test-kit";
 import type {
 	CallPiModelTextOptions,
@@ -25,6 +26,14 @@ import type {
 	StackViewPr,
 	StackViewThreadDetail,
 } from "../../src/stack-view/types.ts";
+
+const TEST_MODEL_SELECTION = {
+	provider: "openai-codex",
+	modelId: "gpt-5.6-luna",
+	thinking: "minimal" as const,
+};
+const MODEL_EXECUTION_SELECTION = createExplicitModelExecutionSelection(TEST_MODEL_SELECTION);
+const MODEL_EXECUTION_COORDINATOR: ModelExecutionCoordinator = { beforeExecution() {} };
 
 const CWD = "/repo";
 const ACTIONS_URL = "https://github.com/o/r/actions/runs/123/job/456";
@@ -221,7 +230,8 @@ describe("stack enrichment engine", () => {
 			execApi: fakeExec({ stdout: "log" }).api,
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 		engine.onChange(() => {
@@ -246,6 +256,51 @@ describe("stack enrichment engine", () => {
 		engine.abort();
 	});
 
+	it("warns once immediately before parallel model calls", async () => {
+		const store = createEnrichmentStore();
+		const model = createFakeModel();
+		const warnings: string[] = [];
+		const fallbackSelection: ModelExecutionSelection = {
+			modelSelection: TEST_MODEL_SELECTION,
+			provenance: {
+				type: "model-policy",
+				operationId: "stack-view.enrichment",
+				profile: "fast",
+				profileSource: "built-in",
+				operationSource: "default",
+			},
+		};
+		const engine = createStackEnrichmentEngine({
+			store,
+			execApi: unusedExec(),
+			cwd: CWD,
+			registry: fakeRegistry(),
+			modelExecutionSelection: fallbackSelection,
+			modelExecutionCoordinator: createModelExecutionCoordinator({
+				warn: (warning) => {
+					expect(model.calls).toHaveLength(0);
+					warnings.push(warning);
+				},
+			}),
+			callModelText: model.fn,
+			maxConcurrent: 2,
+		});
+
+		engine.ensureRow(
+			makePr({
+				unresolvedThreads: [
+					makeThread({ id: "a", lastCommentId: "a1" }),
+					makeThread({ id: "b", lastCommentId: "b1" }),
+				],
+			}),
+		);
+		await flushPromises();
+
+		expect(warnings).toHaveLength(1);
+		expect(model.calls).toHaveLength(2);
+		engine.abort();
+	});
+
 	it("honors the concurrency cap", async () => {
 		const store = createEnrichmentStore();
 		const model = createFakeModel();
@@ -257,7 +312,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 			maxConcurrent: 3,
 		});
@@ -284,7 +340,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -316,7 +373,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -339,7 +397,8 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -361,7 +420,8 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -383,7 +443,8 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -415,7 +476,8 @@ describe("stack enrichment engine", () => {
 			execApi: exec.api,
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 			maxConcurrent: 2,
 		});
@@ -453,7 +515,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -492,7 +555,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -527,7 +591,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -555,7 +620,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 		});
 
@@ -591,7 +657,8 @@ describe("stack enrichment engine", () => {
 			execApi: rejectingExec,
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 			maxConcurrent: 1,
 		});
@@ -628,7 +695,8 @@ describe("stack enrichment engine", () => {
 			execApi: unusedExec(),
 			cwd: CWD,
 			registry: fakeRegistry(),
-			modelSelection: TEST_MODEL_SELECTION,
+			modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			callModelText: model.fn,
 			maxConcurrent: 2,
 		});

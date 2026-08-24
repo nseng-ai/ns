@@ -20,6 +20,7 @@ import {
 import type { ReviewResult } from "../../src/core/failures.ts";
 import {
 	RoutingReviewRunner,
+	type ReviewRunnerExecutionRequest,
 	type ReviewRunnerGateway,
 	type RunReviewOptions,
 } from "../../src/gateways/review-runner.ts";
@@ -31,7 +32,6 @@ import {
 	type LocalDiff,
 	type ReviewDefinition,
 	type ReviewExecutionResponse,
-	type ReviewRunnerRequest,
 } from "../../src/core/models.ts";
 import { fakeReviewsContext } from "../support/fake-reviews-context.ts";
 
@@ -78,11 +78,13 @@ class RecordingReviewCatalogGateway implements ReviewCatalogGateway {
 }
 
 class RecordingReviewRunnerGateway implements ReviewRunnerGateway {
-	readonly calls: { readonly request: ReviewRunnerRequest; readonly options: RunReviewOptions }[] =
-		[];
+	readonly calls: {
+		readonly request: ReviewRunnerExecutionRequest;
+		readonly options: RunReviewOptions;
+	}[] = [];
 
 	async runReview(
-		request: ReviewRunnerRequest,
+		request: ReviewRunnerExecutionRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		this.calls.push({ request, options });
@@ -213,7 +215,14 @@ describe("createReviewsRuntime", () => {
 		await ctx.reviewCatalog.loadReviewSource({ ...catalogRunOptions, key: "typescript-style" });
 		await ctx.reviewRunner.runReview(
 			{
-				modelSelection: { provider: "anthropic", modelId: "claude-sonnet-4-6", thinking: "high" },
+				modelExecutionSelection: {
+					modelSelection: {
+						provider: "anthropic",
+						modelId: "claude-sonnet-4-6",
+						thinking: "high",
+					},
+					provenance: { type: "explicit" },
+				},
 				reviewDefinition: sampleReviewDefinition,
 				reviewDir: "/repo/.ns/reviews/typescript-style",
 				target: { localDiff: sampleDiff },

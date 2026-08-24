@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 
+import type { ModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	buildContentSlugPrompt,
@@ -13,6 +14,7 @@ export type PlanContentSlugEvidence = ContentSlugEvidence;
 export interface DerivePlanContentSlugInput {
 	filePath: string;
 	cwd: string;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	signal?: AbortSignal;
 	readTextFile?: (path: string) => Promise<string>;
 }
@@ -36,7 +38,12 @@ export async function derivePlanContentSlug(
 	const content = await readTextFile(input.filePath);
 	return deriveContentSlug(
 		pi,
-		{ content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) },
+		{
+			content,
+			cwd: input.cwd,
+			modelExecutionCoordinator: input.modelExecutionCoordinator,
+			...(input.signal === undefined ? {} : { signal: input.signal }),
+		},
 		PLAN_CONTENT_SLUG_VARIANT,
 	);
 }

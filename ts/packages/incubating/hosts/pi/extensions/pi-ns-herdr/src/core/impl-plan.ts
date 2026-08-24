@@ -32,6 +32,7 @@ import {
 	type BranchContextOutputDetails,
 	type ReadyPreparedPlanBranchContext,
 } from "@nseng-ai/branch-context/api";
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import { prepareLatestSessionSavedPlan, type ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import {
@@ -171,10 +172,14 @@ export async function handleHerdrSlotImplPlan(
 			}
 		}
 		setStatus(ctx, config, "deriving branch-context slug…");
+		const modelExecutionCoordinator = createModelExecutionCoordinator({
+			warn: (warning) => ctx.ui.notify(warning, "warning"),
+		});
 		const prepared = await preparePlanBranchContext(pi, {
 			plan: selectedPlan,
 			checkout,
 			context: implBranchContextContext(pi, checkout.repoRoot, options.dependencies),
+			modelExecutionCoordinator,
 			shouldBuildPreview: parsed.isDryRun,
 			creation:
 				basis.type === "current-head"

@@ -12,7 +12,7 @@ import {
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
-import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelExecution } from "../model-policy.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
 const autoslotSchema = z.object({
@@ -55,19 +55,24 @@ export function createFlowAutoslotCommand(
 		renderHuman: (result, caps) => renderAutoslotResult(resolveThemeCaps(caps), result),
 		handler: async (ctx, request) => {
 			const caps = resolveFlowStreamCaps(ctx);
-			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
+			const modelExecution = createFlowModelExecution(ctx);
+			const model = await modelExecution.resolve(MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
-			createFlowModelWarningEmitter(ctx).emit(model);
 			const io = commandIoFromNsExtensionApi(ctx);
 			return await runWithNsCommandIo(io, async (io) => {
 				const result = await createAutoslotFlow({
 					cwd: ctx.cwd,
-					modelSelection: model.modelSelection,
+					modelExecutionSelection: model.selection,
+					modelExecutionCoordinator: modelExecution.coordinator,
 					args: request.slug === undefined ? {} : { slug: request.slug },
 					exec: (command, args, timeout) =>
 						ctx.exec(command, args, { cwd: ctx.cwd, timeoutMs: timeout }),
 					prepareCheckpointMessage: (snapshot) =>
-						prepareAutobranchCheckpointMessage(snapshot, model.modelSelection, ctx.textGenerator),
+						prepareAutobranchCheckpointMessage(
+							snapshot,
+							model.selection.modelSelection,
+							modelExecution.textGenerator(model.selection),
+						),
 					commitPreparedCheckpointMessage: (message) =>
 						commitAutobranchCheckpointMessage(
 							(command, args, cwd, timeout) => ctx.exec(command, args, { cwd, timeoutMs: timeout }),

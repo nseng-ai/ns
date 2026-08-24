@@ -12,6 +12,10 @@ import {
 	type ExplicitUndefined,
 } from "@nseng-ai/foundation/primitives";
 import { resultErr } from "@nseng-ai/foundation/result";
+import type {
+	ModelExecutionCoordinator,
+	ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 import type { ReviewResult } from "../core/failures.ts";
@@ -36,9 +40,13 @@ export interface RunReviewOptions {
 	readonly signal?: ExplicitUndefined<"abort-signal", AbortSignal>;
 }
 
+export interface ReviewRunnerExecutionRequest extends Omit<ReviewRunnerRequest, "modelSelection"> {
+	readonly modelExecutionSelection: ModelExecutionSelection;
+}
+
 export interface ReviewRunnerGateway {
 	runReview(
-		request: ReviewRunnerRequest,
+		request: ReviewRunnerExecutionRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>>;
 }
@@ -57,29 +65,37 @@ export interface ReviewHarnessRunner {
 }
 
 export interface RoutingReviewRunnerOptions {
+	readonly modelExecutionCoordinator: ModelExecutionCoordinator;
 	readonly claudeCode: ReviewHarnessRunner;
 	readonly codex: ReviewHarnessRunner;
 	readonly pi: ReviewHarnessRunner;
 }
 
 export class RoutingReviewRunner implements ReviewRunnerGateway {
+	private readonly modelExecutionCoordinator: ModelExecutionCoordinator;
 	private readonly claudeCode: ReviewHarnessRunner;
 	private readonly codex: ReviewHarnessRunner;
 	private readonly pi: ReviewHarnessRunner;
 
 	constructor(options: RoutingReviewRunnerOptions) {
+		this.modelExecutionCoordinator = options.modelExecutionCoordinator;
 		this.claudeCode = options.claudeCode;
 		this.codex = options.codex;
 		this.pi = options.pi;
 	}
 
 	async runReview(
-		request: ReviewRunnerRequest,
+		request: ReviewRunnerExecutionRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
-		const resolved = resolveReviewsModelSelection(request.modelSelection);
+		const { modelExecutionSelection, ...requestWithoutModel } = request;
+		const plainRequest: ReviewRunnerRequest = {
+			...requestWithoutModel,
+			modelSelection: modelExecutionSelection.modelSelection,
+		};
+		const resolved = resolveReviewsModelSelection(plainRequest.modelSelection);
 		if (!resolved.ok) return resolved;
-		const assembled = assembleReviewPrompt(request);
+		const assembled = assembleReviewPrompt(plainRequest);
 		const preparedRequest: PreparedReviewHarnessRequest = {
 			modelSelection: resolved.value.selection,
 			promptText: assembled.promptText,
@@ -87,10 +103,13 @@ export class RoutingReviewRunner implements ReviewRunnerGateway {
 		};
 		switch (resolved.value.harness) {
 			case "claude-code":
+				this.modelExecutionCoordinator.beforeExecution(modelExecutionSelection);
 				return await this.claudeCode.runReview(preparedRequest, options);
 			case "codex":
+				this.modelExecutionCoordinator.beforeExecution(modelExecutionSelection);
 				return await this.codex.runReview(preparedRequest, options);
 			case "pi":
+				this.modelExecutionCoordinator.beforeExecution(modelExecutionSelection);
 				return await this.pi.runReview(preparedRequest, options);
 		}
 	}
@@ -111,8 +130,10 @@ export interface FakeReviewRunnerGatewayOptions {
 export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
 	private readonly resultsByReviewName: Map<string, ReviewResult<ReviewExecutionResponse>>;
 	private readonly defaultResult: ReviewResult<ReviewExecutionResponse>;
-	private readonly callsInternal: { request: ReviewRunnerRequest; options: RunReviewOptions }[] =
-		[];
+	private readonly callsInternal: {
+		request: ReviewRunnerExecutionRequest;
+		options: RunReviewOptions;
+	}[] = [];
 
 	constructor(options: FakeReviewRunnerGatewayOptions = {}) {
 		this.resultsByReviewName = new Map<string, ReviewResult<ReviewExecutionResponse>>();
@@ -128,7 +149,7 @@ export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
 	}
 
 	async runReview(
-		request: ReviewRunnerRequest,
+		request: ReviewRunnerExecutionRequest,
 		options: RunReviewOptions,
 	): Promise<ReviewResult<ReviewExecutionResponse>> {
 		const copiedRequest = copyRequest(request);
@@ -139,7 +160,7 @@ export class FakeReviewRunnerGateway implements ReviewRunnerGateway {
 	}
 
 	calls(): readonly {
-		readonly request: ReviewRunnerRequest;
+		readonly request: ReviewRunnerExecutionRequest;
 		readonly options: RunReviewOptions;
 	}[] {
 		return this.callsInternal.map((call) => ({
@@ -237,8 +258,17 @@ export class ClaudeCodeProcessReviewRunner implements ReviewHarnessRunner {
 	}
 }
 
-function copyRequest(request: ReviewRunnerRequest): ReviewRunnerRequest {
-	return reviewRunnerRequestSchema.parse(structuredClone(request));
+function copyRequest(request: ReviewRunnerExecutionRequest): ReviewRunnerExecutionRequest {
+	const copy = structuredClone(request);
+	const { modelExecutionSelection, ...requestWithoutModel } = copy;
+	const plainRequest = reviewRunnerRequestSchema.parse({
+		...requestWithoutModel,
+		modelSelection: modelExecutionSelection.modelSelection,
+	});
+	return {
+		...plainRequest,
+		modelExecutionSelection: copy.modelExecutionSelection,
+	};
 }
 
 function copyResult(

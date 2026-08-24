@@ -21,6 +21,7 @@
 		"./tracked-branch-payload": "./src/kit/tracked-branch-payload.ts",
 		"./model-slug": "./src/kit/model-slug.ts",
 		"./model-policy": "./src/kit/model-policy.ts",
+		"./model-execution": "./src/kit/model-execution.ts",
 		"./pending-worktree": "./src/kit/pending-worktree.ts",
 		"./ns-command": "./src/kit/ns-command.ts",
 		"./ns-context": "./src/kit/ns-context.ts",

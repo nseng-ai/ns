@@ -7,6 +7,7 @@ import {
 	truncateContentForSlug,
 	type ContentSlugDerivationVariant,
 } from "@nseng-ai/extension-kit/content-slug";
+import { createExplicitModelExecutionSelection } from "@nseng-ai/extension-kit/model-execution";
 import {
 	buildRawTextModelArgs,
 	type RawTextModelCommandResult,
@@ -17,6 +18,9 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
+
+const MODEL_EXECUTION_SELECTION = createExplicitModelExecutionSelection(TEST_MODEL_SELECTION);
+const MODEL_EXECUTION_COORDINATOR = { beforeExecution() {} };
 
 const CWD = "/repo";
 const CONTENT = "# Add Content Slug Kit\n\nExtract slug mechanics into a shared kit helper.\n";
@@ -96,11 +100,8 @@ describe("deriveKitContentSlug", () => {
 			{
 				content: CONTENT,
 				cwd: CWD,
-				modelSelection: {
-					provider: "openai-codex",
-					modelId: "gpt-5.6-luna",
-					thinking: "minimal" as const,
-				},
+				modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			},
 			TEST_VARIANT,
 		);
@@ -138,11 +139,8 @@ describe("deriveKitContentSlug", () => {
 			{
 				content: CONTENT,
 				cwd: CWD,
-				modelSelection: {
-					provider: "openai-codex",
-					modelId: "gpt-5.6-luna",
-					thinking: "minimal" as const,
-				},
+				modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 				signal: controller.signal,
 			},
 			TEST_VARIANT,
@@ -197,11 +195,8 @@ describe("deriveKitContentSlug", () => {
 					{
 						content: CONTENT,
 						cwd: CWD,
-						modelSelection: {
-							provider: "openai-codex",
-							modelId: "gpt-5.6-luna",
-							thinking: "minimal" as const,
-						},
+						modelExecutionSelection: MODEL_EXECUTION_SELECTION,
+						modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 					},
 					TEST_VARIANT,
 				);

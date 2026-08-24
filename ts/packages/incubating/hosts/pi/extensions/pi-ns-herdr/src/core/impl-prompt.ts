@@ -16,6 +16,10 @@ import {
 	type TrackedBranchEvidence,
 	type TrackedBranchPayloadOptions,
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
+import {
+	createModelExecutionCoordinator,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
 import { getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import type { CommandExecApi } from "@nseng-ai/foundation/command";
@@ -85,10 +89,19 @@ export async function handleHerdrSlotImplPrompt(
 		return;
 	}
 
+	const modelExecutionCoordinator = createModelExecutionCoordinator({
+		warn: (warning) => context.pi.ui.notify(warning, "warning"),
+	});
 	const branch =
 		selection.basis === "current"
-			? await createCurrentPromptBranch(context, options, prompt, selection.currentBranch)
-			: await createTrunkPromptBranch(context, options, prompt);
+			? await createCurrentPromptBranch(
+					context,
+					options,
+					prompt,
+					selection.currentBranch,
+					modelExecutionCoordinator,
+				)
+			: await createTrunkPromptBranch(context, options, prompt, modelExecutionCoordinator);
 	if ("error" in branch) {
 		context.pi.ui.notify(branch.error, "error");
 		return;
@@ -115,6 +128,7 @@ async function createCurrentPromptBranch(
 	options: HandleHerdrSlotImplPromptOptions,
 	prompt: string,
 	selectedBranch: string,
+	modelExecutionCoordinator: ModelExecutionCoordinator,
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	const revalidated = await context.git.currentBranch({ cwd: context.pi.cwd });
 	if (revalidated.type !== "branch" || revalidated.branch !== selectedBranch) {
@@ -128,7 +142,7 @@ async function createCurrentPromptBranch(
 		{
 			cwd: context.pi.cwd,
 			prompt,
-			onModelPolicyWarning: (warning) => context.pi.ui.notify(warning, "warning"),
+			modelExecutionCoordinator,
 		},
 	);
 }
@@ -137,6 +151,7 @@ async function createTrunkPromptBranch(
 	context: HerdrImplPromptContext,
 	options: HandleHerdrSlotImplPromptOptions,
 	prompt: string,
+	modelExecutionCoordinator: ModelExecutionCoordinator,
 ): Promise<TrackedBranchEvidence | { error: string }> {
 	const resolution = await resolveRepoTrunkBranch(context.git, { cwd: context.pi.cwd });
 	if (resolution.type === "failed") return { error: resolution.message };
@@ -146,7 +161,7 @@ async function createTrunkPromptBranch(
 			cwd: context.pi.cwd,
 			prompt,
 			notify: options.notifyProgress,
-			onModelPolicyWarning: (warning) => context.pi.ui.notify(warning, "warning"),
+			modelExecutionCoordinator,
 		},
 	);
 }

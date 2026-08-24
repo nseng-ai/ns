@@ -6,6 +6,7 @@ import {
 	type ExecResult,
 } from "@nseng-ai/foundation/command";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { ModelExecutionCoordinator, ModelExecutionSelection } from "./model-execution.ts";
 
 export const RAW_TEXT_MODEL_TIMEOUT_MS = 60_000;
 
@@ -46,10 +47,9 @@ type RawTextModelAttemptOutcome =
 	| { type: "terminal"; result: RawTextModelGenerationResult }
 	| { type: "retry" };
 
-export interface GenerateRawTextWithModelInput {
+interface GenerateRawTextWithModelInputBase {
 	cwd: string;
 	prompt: string;
-	modelSelection: ModelSelection;
 	exec(
 		command: string,
 		args: string[],
@@ -58,10 +58,15 @@ export interface GenerateRawTextWithModelInput {
 	signal?: AbortSignal;
 }
 
-export interface DeriveSlugWithModelInput extends GenerateRawTextWithModelInput {
+export type GenerateRawTextWithModelInput = GenerateRawTextWithModelInputBase & {
+	modelExecutionSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
+};
+
+export type DeriveSlugWithModelInput = GenerateRawTextWithModelInput & {
 	slugKind: string;
 	normalizeOutput(output: string): string | undefined;
-}
+};
 
 export async function deriveSlugWithModel(
 	input: DeriveSlugWithModelInput,
@@ -93,7 +98,7 @@ export async function deriveSlugWithModel(
 export async function generateRawTextWithModel(
 	input: GenerateRawTextWithModelInput,
 ): Promise<RawTextModelGenerationResult> {
-	const model = input.modelSelection;
+	const model = input.modelExecutionSelection.modelSelection;
 	const args = buildRawTextModelArgs(input.prompt, model);
 	const displayCommand = formatCommand("pi", [...args.slice(0, -1), "<model-prompt>"]);
 
@@ -132,6 +137,11 @@ async function runRawTextModelAttempt(
 ): Promise<RawTextModelAttemptOutcome> {
 	let result: RawTextModelCommandResult;
 	try {
+		if (options.attempt === 1) {
+			options.input.modelExecutionCoordinator.beforeExecution(
+				options.input.modelExecutionSelection,
+			);
+		}
 		result = await options.input.exec(
 			"pi",
 			options.args,

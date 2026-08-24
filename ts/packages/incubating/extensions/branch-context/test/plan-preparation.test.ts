@@ -10,6 +10,7 @@ import {
 } from "@nseng-ai/branch-context/api";
 import { InMemoryBranchMemoryGateway } from "@nseng-ai/branch-context/testing";
 import { buildPlanContentSlugPrompt } from "@nseng-ai/branch-context/api";
+import type { ModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import { InMemoryGraphiteBranchGateway } from "@nseng-ai/extension-kit/graphite/testing";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/exec";
@@ -22,6 +23,7 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
+const MODEL_EXECUTION_COORDINATOR: ModelExecutionCoordinator = { beforeExecution() {} };
 
 const ROOT = mkdtempSync(join(tmpdir(), "plan-preparation-root-"));
 writeFileSync(
@@ -124,6 +126,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context({ git, brmem, graphite }),
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			creation: { type: "graphite-current-parent-current-head" },
 			shouldBuildPreview: true,
 		});
@@ -149,6 +152,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context(),
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -170,6 +174,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -213,6 +218,7 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 

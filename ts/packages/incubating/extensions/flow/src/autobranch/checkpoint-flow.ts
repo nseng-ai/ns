@@ -1,5 +1,8 @@
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type {
+	ModelExecutionCoordinator,
+	ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 
 import {
 	runDirtyAutobranchFlow,
@@ -25,7 +28,8 @@ export type FlowAutobranchFileStat = FileStat;
 
 export interface FlowAutobranchCheckpointInput {
 	cwd: string;
-	modelSelection: ModelSelection;
+	modelExecutionSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	args: FlowAutobranchRequest;
 	exec: (command: string, args: string[], timeout: number) => Promise<CommandResult>;
 	prepareCheckpointMessage: (
@@ -66,7 +70,8 @@ export type AutobranchDispatchMode =
 
 export interface AutobranchFlowContext {
 	cwd: string;
-	modelSelection: ModelSelection;
+	modelExecutionSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	args: ParsedAutobranchArgs;
 	exec: AutobranchFlowInput["exec"];
 	git: AutobranchGitGateway;
@@ -171,7 +176,8 @@ export async function createFlowAutobranchCheckpointFlow(
 				}),
 			createFlowContext: () => ({
 				cwd: input.cwd,
-				modelSelection: input.modelSelection,
+				modelExecutionSelection: input.modelExecutionSelection,
+				modelExecutionCoordinator: input.modelExecutionCoordinator,
 				args: input.args,
 				exec: input.exec,
 				git,

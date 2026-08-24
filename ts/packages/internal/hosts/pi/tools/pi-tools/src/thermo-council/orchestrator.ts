@@ -19,6 +19,7 @@ import {
 	type SubagentFleetTaskInput,
 	type SubagentRuntime,
 } from "@internal/ns-pi-subagents/api";
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import { errorMessage } from "@nseng-ai/pi-runtime/shared/errors";
 import { createPiCommandExecApi } from "@nseng-ai/pi-runtime/shared/command-exec";
 import { synthesizeThermoCouncilFinalReport } from "./final-synthesis.ts";
@@ -87,6 +88,9 @@ export async function runThermoCouncilCommand(
 		const maxConcurrency = parseThermoCouncilMaxConcurrency(env);
 		const runtime = options.runtime ?? createSubprocessSubagentRuntime();
 		const fleetRegistry = options.fleetRegistry;
+		const modelExecutionCoordinator = createModelExecutionCoordinator({
+			warn: (warning) => ctx.ui?.notify?.(warning, "warning"),
+		});
 		setStatus(ctx, `launching ${seats.length} council seats: ${seatLabels(seats)}…`);
 		const outcomes = await runCouncilSeatsWithConcurrencyLimit({
 			pi,
@@ -114,7 +118,7 @@ export async function runThermoCouncilCommand(
 			outcomes,
 			deterministicReport,
 			...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-			onModelPolicyWarning: (warning) => ctx.ui?.notify?.(warning, "warning"),
+			modelExecutionCoordinator,
 		});
 		const report =
 			synthesisResult.type === "completed"

@@ -1,5 +1,8 @@
 import {
-	formatModelPolicyFallbackWarning,
+	modelExecutionSelectionFromResolvedOperation,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
+import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -26,7 +29,7 @@ export interface SynthesizeThermoCouncilFinalReportOptions extends ThermoCouncil
 	readonly fleetRegistry: SubagentFleetRegistry;
 	readonly outcomes: readonly ThermoCouncilReviewerOutcome[];
 	readonly deterministicReport: string;
-	readonly onModelPolicyWarning?: (warning: string) => void;
+	readonly modelExecutionCoordinator: ModelExecutionCoordinator;
 }
 
 export type FinalSynthesisResult =
@@ -47,7 +50,7 @@ export async function synthesizeThermoCouncilFinalReport({
 	deterministicReport,
 	reviewGuidance,
 	fleetRegistry,
-	onModelPolicyWarning,
+	modelExecutionCoordinator,
 }: SynthesizeThermoCouncilFinalReportOptions): Promise<FinalSynthesisResult> {
 	if (!outcomes.some((outcome) => outcome.type === "completed")) {
 		return { type: "completed", report: deterministicReport };
@@ -60,8 +63,14 @@ export async function synthesizeThermoCouncilFinalReport({
 	if (!policy.ok) return { type: "failed", status: "error", diagnostic: policy.error.message };
 	const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.thermoCouncilSynthesis);
 	if (!resolved.ok) return { type: "failed", status: "error", diagnostic: resolved.error.message };
-	const modelPolicyWarning = formatModelPolicyFallbackWarning(resolved.value);
-	if (modelPolicyWarning !== undefined) onModelPolicyWarning?.(modelPolicyWarning);
+	const modelExecutionSelection = modelExecutionSelectionFromResolvedOperation(resolved.value);
+	const prompt = buildFinalSynthesisPrompt({
+		scope,
+		outcomes,
+		deterministicReport,
+		...(reviewGuidance === undefined ? {} : { reviewGuidance }),
+	});
+	modelExecutionCoordinator.beforeExecution(modelExecutionSelection);
 	const result = await dispatchTrackedSingleSubagentFleetRun({
 		pi,
 		ctx: toRunnerSubagentContext(ctx),
@@ -72,14 +81,9 @@ export async function synthesizeThermoCouncilFinalReport({
 		options: {
 			title: "Thermo council final synthesis",
 			returnMode: "final-text",
-			prompt: buildFinalSynthesisPrompt({
-				scope,
-				outcomes,
-				deterministicReport,
-				...(reviewGuidance === undefined ? {} : { reviewGuidance }),
-			}),
+			prompt,
 			tools: [],
-			modelSelection: resolved.value.selection,
+			modelSelection: modelExecutionSelection.modelSelection,
 		},
 	});
 

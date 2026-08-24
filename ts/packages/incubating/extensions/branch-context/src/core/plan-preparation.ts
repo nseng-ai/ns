@@ -1,3 +1,4 @@
+import type { ModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import type { PlanStoreDirectoryEvidence, ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
@@ -44,6 +45,7 @@ export async function preparePlanBranchContext(
 		plan: ValidatedSessionSavedPlan;
 		checkout: PlanStoreDirectoryEvidence;
 		context: BranchContextContext;
+		modelExecutionCoordinator: ModelExecutionCoordinator;
 		shouldBuildPreview?: boolean;
 		creation: BranchContextCreationPolicy;
 	},
@@ -51,6 +53,7 @@ export async function preparePlanBranchContext(
 	const slugEvidence = await derivePlanContentSlug(pi, {
 		filePath: options.plan.filePath,
 		cwd: options.checkout.repoRoot,
+		modelExecutionCoordinator: options.modelExecutionCoordinator,
 	});
 	const initialOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.slug,

@@ -2,13 +2,18 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import {
+	createModelExecutionCoordinator,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
+import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
-import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
+const MODEL_EXECUTION_COORDINATOR: ModelExecutionCoordinator = { beforeExecution() {} };
 import { buildSavedPlanContentSlugPrompt, deriveSavedPlanContentSlug } from "../src/index.ts";
 import type { ExecResult } from "@nseng-ai/foundation/exec";
 
@@ -82,6 +87,7 @@ describe("deriveSavedPlanContentSlug", () => {
 		const evidence = await deriveSavedPlanContentSlug(pi, {
 			content: SAVED_PLAN_CONTENT,
 			cwd: CWD,
+			modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 		});
 
 		expect(evidence).toEqual({
@@ -106,14 +112,17 @@ describe("deriveSavedPlanContentSlug", () => {
 	test("presents the built-in model warning before model execution", async () => {
 		const pi = new FakeSlugPi({ result: { stdout: "branch-scoped-plan-extension\n" } });
 		const warnings: string[] = [];
+		const modelExecutionCoordinator = createModelExecutionCoordinator({
+			warn: (warning) => {
+				expect(pi.calls).toHaveLength(1);
+				warnings.push(warning);
+			},
+		});
 
 		await deriveSavedPlanContentSlug(pi, {
 			content: SAVED_PLAN_CONTENT,
 			cwd: CWD_WITHOUT_CONFIG,
-			onModelPolicyWarning: (warning) => {
-				expect(pi.calls).toHaveLength(1);
-				warnings.push(warning);
-			},
+			modelExecutionCoordinator,
 		});
 
 		expect(warnings).toHaveLength(1);
@@ -124,7 +133,11 @@ describe("deriveSavedPlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
 
 		try {
-			await deriveSavedPlanContentSlug(pi, { content: SAVED_PLAN_CONTENT, cwd: CWD });
+			await deriveSavedPlanContentSlug(pi, {
+				content: SAVED_PLAN_CONTENT,
+				cwd: CWD,
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			});
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectSavedPlanNoFallback(error);

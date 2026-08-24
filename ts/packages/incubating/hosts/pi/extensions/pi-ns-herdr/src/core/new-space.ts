@@ -4,6 +4,8 @@ import {
 	slotLabelInput,
 	type HerdrGateway,
 } from "@nseng-ai/herdr/api";
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
+import type { ModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
@@ -11,8 +13,8 @@ export interface HerdrResourceLabelDeriver {
 	deriveLabel(input: {
 		description: string;
 		cwd: string;
+		modelExecutionCoordinator: ModelExecutionCoordinator;
 		signal?: AbortSignal;
-		onModelPolicyWarning?: (warning: string) => void;
 	}): Promise<string>;
 }
 
@@ -30,10 +32,13 @@ export async function handleHerdrNewSpace(options: HandleHerdrNewSpaceOptions): 
 	if (description.length > 0) {
 		options.notifyProgress("Deriving a semantic label for the new Herdr space…");
 		try {
+			const modelExecutionCoordinator = createModelExecutionCoordinator({
+				warn: (warning) => options.ctx.ui.notify(warning, "warning"),
+			});
 			const derived = await options.labelDeriver.deriveLabel({
 				description,
 				cwd: options.ctx.cwd,
-				onModelPolicyWarning: (warning) => options.ctx.ui.notify(warning, "warning"),
+				modelExecutionCoordinator,
 			});
 			label = formatHerdrResourceLabel({
 				semanticLabel: derived,

@@ -655,6 +655,7 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 		stdout.push(text);
 	};
 	context.stderr = (text) => {
+		context.events.push(`stderr:${text.trimEnd()}`);
 		stderr.push(text);
 	};
 	context.onOutput = (stream, text) => {

@@ -1,5 +1,6 @@
 import { prepareEntryContentFromSource } from "@nseng-ai/brmem";
 import { failure, ok } from "@nseng-ai/clinkr/legacy";
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { z } from "zod";
 
@@ -32,12 +33,15 @@ export async function runDeriveSlug(ctx: HandoffCliContext, request: DeriveSlugR
 	if (prepared.type === "error") return failure(prepared.error.code, prepared.error.message);
 
 	try {
+		const modelExecutionCoordinator = createModelExecutionCoordinator({
+			warn: (warning) => ctx.stderr(`${warning}\n`),
+		});
 		const evidence = await deriveHandoffContentSlug(
 			{ commands: ctx.commands, git: ctx.git, projectConfig: ctx.projectConfig },
 			{
 				content: prepared.value.content,
 				cwd: ctx.cwd,
-				onModelPolicyWarning: (warning) => ctx.stderr(`${warning}\n`),
+				modelExecutionCoordinator,
 			},
 		);
 		return ok({

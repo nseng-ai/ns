@@ -3,6 +3,7 @@ import {
 	HERDR_TAB_NEW_COMMAND_NAME,
 	type HerdrGateway,
 } from "@nseng-ai/herdr/api";
+import { createModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import type { CommandContext } from "@nseng-ai/extension-kit/pi-types";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 
@@ -34,10 +35,13 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 	if (description.length > 0) {
 		options.notifyProgress("Deriving a semantic label for the new Herdr tab…");
 		try {
+			const modelExecutionCoordinator = createModelExecutionCoordinator({
+				warn: (warning) => options.ctx.ui.notify(warning, "warning"),
+			});
 			const derived = await options.labelDeriver.deriveLabel({
 				description,
 				cwd: options.ctx.cwd,
-				onModelPolicyWarning: (warning) => options.ctx.ui.notify(warning, "warning"),
+				modelExecutionCoordinator,
 			});
 			label = derived;
 		} catch (error) {
@@ -107,9 +111,17 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal, (warning) => {
-		if (options.ctx.hasUI !== false) options.ctx.ui.notify(warning, "warning");
+	const modelExecutionCoordinator = createModelExecutionCoordinator({
+		warn: (warning) => {
+			if (options.ctx.hasUI !== false) options.ctx.ui.notify(warning, "warning");
+		},
 	});
+	const slug = await generateWorkspaceGoalSlug(
+		options.pi,
+		options.ctx.cwd,
+		goal,
+		modelExecutionCoordinator,
+	);
 	if (!slug.ok) {
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
 		return;

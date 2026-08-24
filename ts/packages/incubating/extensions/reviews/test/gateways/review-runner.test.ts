@@ -1,3 +1,7 @@
+import {
+	createModelExecutionCoordinator,
+	modelExecutionSelectionFromResolvedOperation,
+} from "@nseng-ai/extension-kit/model-execution";
 import { describe, expect, test } from "vitest";
 import { exitedResult, ScriptedCommandExecApi } from "@nseng-ai/foundation/exec/testing";
 
@@ -7,6 +11,7 @@ import {
 	RoutingReviewRunner,
 	type PreparedReviewHarnessRequest,
 	type ReviewHarnessRunner,
+	type ReviewRunnerExecutionRequest,
 	type RunReviewOptions,
 } from "../../src/gateways/review-runner.ts";
 import type { ReviewResult } from "../../src/core/failures.ts";
@@ -14,7 +19,6 @@ import { buildReviewFindingsJsonSchema } from "../../src/gateways/review-finding
 import {
 	createFindingsReview,
 	createLocalDiff,
-	type ReviewRunnerRequest,
 	type ReviewExecutionResponse,
 } from "../../src/core/models.ts";
 
@@ -24,11 +28,18 @@ function request(
 		readonly reviewName?: string;
 		readonly diffText?: string;
 	} = {},
-): ReviewRunnerRequest {
+): ReviewRunnerExecutionRequest {
 	const diffText = options.diffText ?? "diff --git a/src/app.ts b/src/app.ts\n+change\n";
 	const [provider, ...modelParts] = (options.model ?? "anthropic/claude-haiku-4-5").split("/");
 	return {
-		modelSelection: { provider: provider ?? "", modelId: modelParts.join("/"), thinking: "high" },
+		modelExecutionSelection: {
+			modelSelection: {
+				provider: provider ?? "",
+				modelId: modelParts.join("/"),
+				thinking: "high",
+			},
+			provenance: { type: "explicit" },
+		},
 		reviewDefinition: {
 			name: options.reviewName ?? "typescript-style",
 			description: "Review TypeScript diffs.",
@@ -301,7 +312,12 @@ describe("RoutingReviewRunner", () => {
 		const claudeCode = new RecordingHarnessRunner();
 		const codex = new RecordingHarnessRunner();
 		const pi = new RecordingHarnessRunner();
-		const runner = new RoutingReviewRunner({ claudeCode, codex, pi });
+		const runner = new RoutingReviewRunner({
+			modelExecutionCoordinator: { beforeExecution() {} },
+			claudeCode,
+			codex,
+			pi,
+		});
 
 		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
 
@@ -337,7 +353,17 @@ describe("RoutingReviewRunner", () => {
 		const claudeCode = new RecordingHarnessRunner();
 		const codex = new RecordingHarnessRunner();
 		const pi = new RecordingHarnessRunner();
-		const runner = new RoutingReviewRunner({ claudeCode, codex, pi });
+		const coordinated: string[] = [];
+		const runner = new RoutingReviewRunner({
+			modelExecutionCoordinator: {
+				beforeExecution() {
+					coordinated.push("before");
+				},
+			},
+			claudeCode,
+			codex,
+			pi,
+		});
 
 		const result = await runner.runReview(request({ model }), { cwd: "/repo" });
 
@@ -346,5 +372,99 @@ describe("RoutingReviewRunner", () => {
 		expect(claudeCode.calls).toEqual([]);
 		expect(codex.calls).toEqual([]);
 		expect(pi.calls).toEqual([]);
+		expect(coordinated).toEqual([]);
+	});
+
+	test.each([
+		["built-in policy", "built-in", true],
+		["project policy", "project", false],
+	] as const)(
+		"coordinates %s before concrete runner dispatch",
+		async (_label, profileSource, expectsWarning) => {
+			const events: string[] = [];
+			const codex: ReviewHarnessRunner = {
+				async runReview() {
+					events.push("run");
+					return { ok: true, value: successResponse() };
+				},
+			};
+			const runner = new RoutingReviewRunner({
+				modelExecutionCoordinator: createModelExecutionCoordinator({
+					warn: (message) => events.push(message),
+				}),
+				claudeCode: new RecordingHarnessRunner(),
+				codex,
+				pi: new RecordingHarnessRunner(),
+			});
+			const executionRequest = request({ model: "openai-codex/gpt-5.6-luna" });
+
+			const result = await runner.runReview(
+				{
+					...executionRequest,
+					modelExecutionSelection: modelExecutionSelectionFromResolvedOperation({
+						operationId: "reviews.run",
+						profile: "fast",
+						selection: executionRequest.modelExecutionSelection.modelSelection,
+						profileSource,
+						operationSource: "default",
+					}),
+				},
+				{ cwd: "/repo" },
+			);
+
+			expect(result.ok).toBe(true);
+			expect(events).toEqual(
+				expectsWarning
+					? [
+							"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with high thinking.",
+							"run",
+						]
+					: ["run"],
+			);
+		},
+	);
+
+	test("a coordinator failure prevents concrete runner dispatch", async () => {
+		const codex = new RecordingHarnessRunner();
+		const runner = new RoutingReviewRunner({
+			modelExecutionCoordinator: {
+				beforeExecution() {
+					throw new Error("warning output failed");
+				},
+			},
+			claudeCode: new RecordingHarnessRunner(),
+			codex,
+			pi: new RecordingHarnessRunner(),
+		});
+
+		await expect(
+			runner.runReview(request({ model: "openai/gpt-5.6-luna" }), { cwd: "/repo" }),
+		).rejects.toThrow("warning output failed");
+		expect(codex.calls).toEqual([]);
+	});
+
+	test("explicit model provenance suppresses the fallback warning", async () => {
+		const events: string[] = [];
+		const codex: ReviewHarnessRunner = {
+			async runReview() {
+				events.push("run");
+				return { ok: true, value: successResponse() };
+			},
+		};
+		const runner = new RoutingReviewRunner({
+			modelExecutionCoordinator: createModelExecutionCoordinator({
+				warn: (message) => events.push(message),
+			}),
+			claudeCode: new RecordingHarnessRunner(),
+			codex,
+			pi: new RecordingHarnessRunner(),
+		});
+
+		const result = await runner.runReview(request({ model: "openai/gpt-5.6-luna" }), {
+			cwd: "/repo",
+		});
+
+		expect(result.ok).toBe(true);
+		expect(events).toEqual(["run"]);
 	});
 });

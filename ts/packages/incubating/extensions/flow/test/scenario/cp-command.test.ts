@@ -131,6 +131,10 @@ describe("project-local cp extension behavior", () => {
 
 		expect(await run.exit).toBe(0);
 		expect(run.stderr).toEqual([FALLBACK_WARNING]);
+		expect(run.context.events.slice(0, 2)).toEqual([
+			`stderr:${FALLBACK_WARNING.trimEnd()}`,
+			"text-generation",
+		]);
 		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
 			provider: "openai-codex",
 			modelId: "gpt-5.6-luna",

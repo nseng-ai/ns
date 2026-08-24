@@ -2,8 +2,8 @@ import {
 	deriveKitContentSlug,
 	type ContentSlugDerivationVariant,
 } from "@nseng-ai/extension-kit/content-slug";
+import { modelExecutionSelectionFromResolvedOperation } from "@nseng-ai/extension-kit/model-execution";
 import {
-	formatModelPolicyFallbackWarning,
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -59,14 +59,13 @@ export function createHerdrResourceLabelDeriver(
 			if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
 			const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 			if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
-			const modelPolicyWarning = formatModelPolicyFallbackWarning(model.value);
-			if (modelPolicyWarning !== undefined) input.onModelPolicyWarning?.(modelPolicyWarning);
 			const evidence = await deriveKitContentSlug(
 				context.commands,
 				{
 					content: input.description,
 					cwd: input.cwd,
-					modelSelection: model.value.selection,
+					modelExecutionSelection: modelExecutionSelectionFromResolvedOperation(model.value),
+					modelExecutionCoordinator: input.modelExecutionCoordinator,
 					...optionalEntry("signal", input.signal),
 				},
 				RESOURCE_LABEL_VARIANT,

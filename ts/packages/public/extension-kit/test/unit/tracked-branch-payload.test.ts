@@ -15,6 +15,10 @@ import {
 	TRACKED_BRANCH_PAYLOAD_KEY,
 	TRACKED_BRANCH_PAYLOAD_NAMESPACE,
 } from "@nseng-ai/extension-kit/tracked-branch-payload";
+import {
+	createModelExecutionCoordinator,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
 import { InMemoryGitGateway } from "@nseng-ai/foundation/git/testing";
@@ -31,6 +35,7 @@ const TEST_MODEL_SELECTION = {
 	modelId: "gpt-5.6-luna",
 	thinking: "minimal" as const,
 };
+const MODEL_EXECUTION_COORDINATOR: ModelExecutionCoordinator = { beforeExecution() {} };
 
 interface Step {
 	command: string;
@@ -211,7 +216,7 @@ describe("tracked branch payload public API", () => {
 		});
 		const result = await createTrackedBranchForPrompt(
 			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt },
+			{ cwd: REPO_ROOT, prompt, modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR },
 		);
 
 		commands.assertDone();
@@ -235,7 +240,11 @@ describe("tracked branch payload public API", () => {
 
 		const result = await createTrackedBranchForPrompt(
 			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
+			{
+				cwd: REPO_ROOT,
+				prompt: "Implement the feature",
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			},
 		);
 
 		commands.assertDone();
@@ -256,7 +265,11 @@ describe("tracked branch payload public API", () => {
 
 		const result = await createTrackedBranchForPrompt(
 			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
+			{
+				cwd: REPO_ROOT,
+				prompt: "Implement the feature",
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			},
 		);
 
 		commands.assertDone();
@@ -280,7 +293,11 @@ describe("tracked branch payload public API", () => {
 
 		const result = await createTrackedBranchForPrompt(
 			{ pi: commands, git },
-			{ cwd: REPO_ROOT, prompt: "Implement the feature" },
+			{
+				cwd: REPO_ROOT,
+				prompt: "Implement the feature",
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
+			},
 		);
 
 		commands.assertDone();
@@ -315,6 +332,12 @@ describe("tracked branch payload public API", () => {
 			},
 		]);
 		const warnings: string[] = [];
+		const modelExecutionCoordinator = createModelExecutionCoordinator({
+			warn: (warning) => {
+				expect(commands.calls).toHaveLength(0);
+				warnings.push(warning);
+			},
+		});
 
 		await createTrackedBranchFromResolvedParent(
 			{ pi: commands, git: new InMemoryGitGateway({ repoRoot }) },
@@ -323,10 +346,7 @@ describe("tracked branch payload public API", () => {
 				prompt,
 				parentBranch: "main",
 				startPoint: "def456",
-				onModelPolicyWarning: (warning) => {
-					expect(commands.calls).toHaveLength(0);
-					warnings.push(warning);
-				},
+				modelExecutionCoordinator,
 			},
 		);
 
@@ -365,6 +385,7 @@ describe("tracked branch payload public API", () => {
 				prompt,
 				parentBranch: "main",
 				startPoint: "def456",
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			},
 		);
 
@@ -434,6 +455,7 @@ describe("tracked branch payload public API", () => {
 				prompt,
 				parentBranch: "feature/source",
 				startPoint: "abc123",
+				modelExecutionCoordinator: MODEL_EXECUTION_COORDINATOR,
 			},
 		);
 

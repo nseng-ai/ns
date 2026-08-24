@@ -1,3 +1,4 @@
+import type { ModelExecutionCoordinator } from "@nseng-ai/extension-kit/model-execution";
 import type { CommandExecApi } from "@nseng-ai/foundation/exec";
 import {
 	buildContentSlugPrompt,
@@ -24,8 +25,8 @@ export async function deriveSavedPlanContentSlug(
 	input: {
 		content: string;
 		cwd: string;
+		modelExecutionCoordinator: ModelExecutionCoordinator;
 		signal?: AbortSignal;
-		onModelPolicyWarning?: (warning: string) => void;
 	},
 ): Promise<SavedPlanContentSlugEvidence> {
 	return deriveContentSlug(pi, input, SAVED_PLAN_CONTENT_SLUG_VARIANT);

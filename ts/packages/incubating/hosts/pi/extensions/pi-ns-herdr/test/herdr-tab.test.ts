@@ -47,7 +47,20 @@ describe("Herdr tab resources", () => {
 			herdr,
 			labelDeriver: {
 				async deriveLabel(input) {
-					input.onModelPolicyWarning?.("using built-in model policy");
+					input.modelExecutionCoordinator.beforeExecution({
+						modelSelection: {
+							provider: "openai-codex",
+							modelId: "gpt-5.6-luna",
+							thinking: "minimal",
+						},
+						provenance: {
+							type: "model-policy",
+							operationId: "slug",
+							profile: "fast",
+							profileSource: "built-in",
+							operationSource: "default",
+						},
+					});
 					expect(herdr.createTabCalls).toEqual([]);
 					return "review-api";
 				},
@@ -57,7 +70,11 @@ describe("Herdr tab resources", () => {
 			notifyProgress: () => {},
 		});
 		expect(ctx.notifications.filter((notification) => notification.level === "warning")).toEqual([
-			{ message: "using built-in model policy", level: "warning" },
+			{
+				message:
+					"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.",
+				level: "warning",
+			},
 		]);
 	});
 

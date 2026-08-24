@@ -23,7 +23,10 @@ import type {
 	AutobranchFlowContext,
 } from "../autobranch/checkpoint-flow.ts";
 import type { ParsedAutobranchArgs } from "../autobranch/dirty-worktree.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type {
+	ModelExecutionCoordinator,
+	ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 
 export type { PendingWorktreeError, PendingWorktreeSnapshot, WorktreeCommandResult };
 
@@ -66,7 +69,8 @@ export function createAutobranchExecContext(
 export function createAutobranchDispatchEnv(
 	ctx: NsExtensionApi,
 	args: ParsedAutobranchArgs,
-	modelSelection: ModelSelection,
+	modelExecutionSelection: ModelExecutionSelection,
+	modelExecutionCoordinator: ModelExecutionCoordinator,
 ): Pick<AutobranchDispatchEnv, "loadSnapshot" | "createFlowContext"> {
 	return {
 		loadSnapshot: () => loadFlowPendingWorktreeSnapshot(ctx),
@@ -75,7 +79,8 @@ export function createAutobranchDispatchEnv(
 			return {
 				cwd: snapshot.root,
 				args,
-				modelSelection,
+				modelExecutionSelection,
+				modelExecutionCoordinator,
 				exec,
 				git,
 			};

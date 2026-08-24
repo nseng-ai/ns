@@ -1,5 +1,4 @@
 import {
-	formatModelRef,
 	parseModelRef,
 	modelThinkingSchema,
 	type ModelSelection,
@@ -136,20 +135,6 @@ export function resolveModelOperation(
 			operationSource: policy.operations[operationId] === undefined ? "default" : "project",
 		},
 	};
-}
-
-export function formatModelProfileFallbackWarning(
-	selection: ModelSelection,
-	profileSource: ModelProfileSource,
-): string | undefined {
-	if (profileSource !== "built-in") return undefined;
-	return `No configured fast model profile was found; using built-in ${formatModelRef(selection)} with ${selection.thinking} thinking.`;
-}
-
-export function formatModelPolicyFallbackWarning(
-	resolved: ResolvedModelOperation,
-): string | undefined {
-	return formatModelProfileFallbackWarning(resolved.selection, resolved.profileSource);
 }
 
 function modelPolicyFromSettings(

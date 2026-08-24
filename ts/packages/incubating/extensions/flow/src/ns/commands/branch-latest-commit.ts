@@ -9,7 +9,7 @@ import { renderPendingWorktreeFailure } from "../presentation/pending-worktree-r
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { createAutobranchDispatchEnv } from "../worktree.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { createFlowModelWarningEmitter, resolveFlowModelSelection } from "../model-policy.ts";
+import { createFlowModelExecution } from "../model-policy.ts";
 
 const branchLatestCommitResultSchema = z.object({ cwd: z.string(), summary: z.string() });
 
@@ -39,7 +39,8 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 			const args: LatestCommitAutobranchInput["args"] =
 				request.slug === undefined ? {} : { slug: request.slug };
 
-			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.slug);
+			const modelExecution = createFlowModelExecution(ctx);
+			const model = await modelExecution.resolve(MODEL_OPERATION_IDS.slug);
 			if (!model.ok)
 				return negative(
 					renderResultBlock(caps, {
@@ -49,10 +50,9 @@ export const flowBranchLatestCommitCommand: NsCommand<typeof branchLatestCommitR
 						body: model.error,
 					}),
 				);
-			createFlowModelWarningEmitter(ctx).emit(model);
 			const dispatched = await dispatchAutobranchCheckpoint(
 				{ mode: "require-clean" },
-				createAutobranchDispatchEnv(ctx, args, model.modelSelection),
+				createAutobranchDispatchEnv(ctx, args, model.selection, modelExecution.coordinator),
 			);
 
 			switch (dispatched.outcome) {

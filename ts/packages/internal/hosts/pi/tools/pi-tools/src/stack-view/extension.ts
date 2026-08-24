@@ -10,7 +10,10 @@
  */
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
-	formatModelPolicyFallbackWarning,
+	createModelExecutionCoordinator,
+	modelExecutionSelectionFromResolvedOperation,
+} from "@nseng-ai/extension-kit/model-execution";
+import {
 	MODEL_OPERATION_IDS,
 	loadModelPolicy,
 	resolveModelOperation,
@@ -233,8 +236,9 @@ async function handleStackViewCommand(
 		sendSnapshotMessage(session, model);
 		return;
 	}
-	const modelPolicyWarning = formatModelPolicyFallbackWarning(enrichmentModel.value);
-	if (modelPolicyWarning !== undefined) ctx.ui.notify(modelPolicyWarning, "warning");
+	const modelExecutionCoordinator = createModelExecutionCoordinator({
+		warn: (warning) => ctx.ui.notify(warning, "warning"),
+	});
 
 	// One engine per invocation, reused across refreshes: its store-memoized keys
 	// make reuse cheap, and the model is passed per `ensureRow` call. Abort in the
@@ -244,7 +248,8 @@ async function handleStackViewCommand(
 		execApi: commands,
 		cwd: ctx.cwd,
 		registry: ctx.modelRegistry,
-		modelSelection: enrichmentModel.value.selection,
+		modelExecutionSelection: modelExecutionSelectionFromResolvedOperation(enrichmentModel.value),
+		modelExecutionCoordinator,
 	});
 	try {
 		let selectedIndex: number | undefined;

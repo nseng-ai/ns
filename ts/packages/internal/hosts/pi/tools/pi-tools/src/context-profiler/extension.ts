@@ -10,7 +10,11 @@
  */
 
 import {
-	formatModelPolicyFallbackWarning,
+	createModelExecutionCoordinator,
+	modelExecutionSelectionFromResolvedOperation,
+	type ModelExecutionCoordinator,
+} from "@nseng-ai/extension-kit/model-execution";
+import {
 	loadModelPolicy,
 	MODEL_OPERATION_IDS,
 	resolveModelOperation,
@@ -218,7 +222,10 @@ function openProfiler(options: OpenProfilerOptions): void {
 		session.view?.setPersistence(persistence);
 		ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(persistence));
 	};
-	const warnedPolicyErrors = new Set<string>();
+	const warnedAnalysisErrors = new Set<string>();
+	const modelExecutionCoordinator = createModelExecutionCoordinator({
+		warn: (warning) => ctx.ui.notify(warning, "warning"),
+	});
 	const startWork = (
 		workState: ProfilerState,
 		workProfile: ProfileSnapshot,
@@ -229,17 +236,11 @@ function openProfiler(options: OpenProfilerOptions): void {
 			repoRoot: ctx.cwd,
 			registry: ctx.modelRegistry,
 			projectConfigGateway,
+			modelExecutionCoordinator,
 		});
-		const policyWarning =
-			analysis.type === "unavailable" ? analysis.message : analysis.modelPolicyWarning;
-		if (policyWarning !== undefined && !warnedPolicyErrors.has(policyWarning)) {
-			warnedPolicyErrors.add(policyWarning);
-			ctx.ui.notify(
-				analysis.type === "unavailable"
-					? `Context profiler analysis unavailable: ${policyWarning}`
-					: policyWarning,
-				"warning",
-			);
+		if (analysis.type === "unavailable" && !warnedAnalysisErrors.has(analysis.message)) {
+			warnedAnalysisErrors.add(analysis.message);
+			ctx.ui.notify(`Context profiler analysis unavailable: ${analysis.message}`, "warning");
 		}
 		const work = startProfilerWork({
 			store: bundleStore,
@@ -329,6 +330,7 @@ export function resolveContextProfilerAnalysisStartup(options: {
 	repoRoot: string;
 	registry: AnalysisModelRegistry;
 	projectConfigGateway: ProjectConfigGateway;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 }): AnalysisStartup {
 	const policy = loadModelPolicy({
 		repoRoot: options.repoRoot,
@@ -345,17 +347,14 @@ export function resolveContextProfilerAnalysisStartup(options: {
 		MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
 	);
 	if (!episodeAnalysis.ok) return { type: "unavailable", message: episodeAnalysis.error.message };
-	const modelPolicyWarning =
-		formatModelPolicyFallbackWarning(segmentation.value) ??
-		formatModelPolicyFallbackWarning(episodeAnalysis.value);
 	return {
 		type: "available",
 		gateway: createAnalysisModelGateway({
 			registry: options.registry,
-			segmentationSelection: segmentation.value.selection,
-			episodeAnalysisSelection: episodeAnalysis.value.selection,
+			segmentationSelection: modelExecutionSelectionFromResolvedOperation(segmentation.value),
+			episodeAnalysisSelection: modelExecutionSelectionFromResolvedOperation(episodeAnalysis.value),
+			modelExecutionCoordinator: options.modelExecutionCoordinator,
 		}),
-		...(modelPolicyWarning === undefined ? {} : { modelPolicyWarning }),
 	};
 }
 

@@ -2,6 +2,7 @@ import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import process from "node:process";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type { TextGenerator } from "@nseng-ai/extension-kit/text-generation";
 
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import type { GitGateway } from "@nseng-ai/foundation/git";
@@ -46,9 +47,9 @@ import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import {
-	createFlowModelWarningEmitter,
-	resolveFlowModelSelection,
-	type FlowModelWarningEmitter,
+	createFlowModelExecution,
+	type FlowModelExecution,
+	type ResolvedFlowModelExecution,
 } from "../model-policy.ts";
 import {
 	validatePrTitlePrefix,
@@ -60,7 +61,7 @@ const SUBMIT_FAILURE_TRANSCRIPT_MAX_CHARS = 12_000;
 const SUBMIT_FAILURE_LOG_DIR_ENV = "NS_SUBMIT_FAILURE_LOG_DIR";
 interface SubmitCheckpointContext {
 	repoRoot?: string;
-	modelSelection: ModelSelection;
+	model: Extract<ResolvedFlowModelExecution, { ok: true }>;
 }
 
 const submitSchema = z.object({
@@ -190,20 +191,13 @@ export function createFlowSubmitCommand(
 			const repoRoot = request.checks
 				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 				: undefined;
-			const modelWarnings = createFlowModelWarningEmitter(ctx);
-			const checkpointModel = await resolveFlowModelSelection(
-				ctx,
-				MODEL_OPERATION_IDS.flowCheckpoint,
-			);
+			const modelExecution = createFlowModelExecution(ctx);
+			const checkpointModel = await modelExecution.resolve(MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
-			const prInventoryModel = await resolveFlowModelSelection(
-				ctx,
-				MODEL_OPERATION_IDS.flowPrInventory,
-			);
+			const prInventoryModel = await modelExecution.resolve(MODEL_OPERATION_IDS.flowPrInventory);
 			if (!prInventoryModel.ok) return failure(FLOW_COMMAND_FAILED, prInventoryModel.error);
-			modelWarnings.emit(checkpointModel, prInventoryModel);
 			const checkpointContext: SubmitCheckpointContext = {
-				modelSelection: checkpointModel.modelSelection,
+				model: checkpointModel,
 				...optionalEntry("repoRoot", repoRoot),
 			};
 			const checksLoad =
@@ -228,8 +222,8 @@ export function createFlowSubmitCommand(
 				runtime,
 				checksLoad,
 				checkpointContext,
-				prInventoryModelSelection: prInventoryModel.modelSelection,
-				modelWarnings,
+				prInventoryModel,
+				modelExecution,
 				...structuredProgress,
 			});
 		},
@@ -309,8 +303,8 @@ async function runSubmitWithProgress(input: {
 	runtime: NsSubmitRuntime;
 	checksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
-	prInventoryModelSelection: ModelSelection;
-	modelWarnings: FlowModelWarningEmitter;
+	prInventoryModel: Extract<ResolvedFlowModelExecution, { ok: true }>;
+	modelExecution: FlowModelExecution;
 	matrix: SubmitMatrixProgressController;
 	onOutput?: FlowLiveOutput;
 }) {
@@ -320,7 +314,7 @@ async function runSubmitWithProgress(input: {
 		runtime,
 		checksLoad,
 		checkpointContext,
-		prInventoryModelSelection,
+		prInventoryModel,
 		matrix,
 		onOutput,
 	} = input;
@@ -350,7 +344,7 @@ async function runSubmitWithProgress(input: {
 					failedText: "checks failed",
 					message: formatFlowSubmitHookFailure(checksOutcome),
 					failurePresentation: "deterministic",
-					modelWarnings: input.modelWarnings,
+					modelExecution: input.modelExecution,
 				});
 			}
 			matrix.phase({ type: "phase-done", phaseKey: "checks", detail: "checks complete" });
@@ -362,8 +356,8 @@ async function runSubmitWithProgress(input: {
 			env: ctx.env,
 			...checkpointRunContext,
 			...checkpointContext,
-			textGenerator: ctx.textGenerator,
-			modelSelection: checkpointContext.modelSelection,
+			textGenerator: input.modelExecution.textGenerator(checkpointContext.model.selection),
+			modelSelection: checkpointContext.model.selection.modelSelection,
 			onPhase: matrix.phase,
 		});
 		if (checkpoint.kind === "refused") {
@@ -379,7 +373,7 @@ async function runSubmitWithProgress(input: {
 				failedText: "checkpoint failed",
 				message: formatCheckpointBeforeSubmitFailure(checkpoint.message),
 				failurePresentation: checkpoint.failurePresentation,
-				modelWarnings: input.modelWarnings,
+				modelExecution: input.modelExecution,
 			});
 		}
 		matrix.phase({ type: "phase-done", phaseKey: "checkpoint", detail: "checkpoint complete" });
@@ -392,7 +386,11 @@ async function runSubmitWithProgress(input: {
 			restack: request.restack,
 			force: request.force,
 			shouldForwardCommandOutput: request.verbose,
-			prInventory: { ...runtime.prInventory, modelSelection: prInventoryModelSelection },
+			prInventory: {
+				...runtime.prInventory,
+				modelSelection: prInventoryModel.selection.modelSelection,
+				textGenerator: input.modelExecution.textGenerator(prInventoryModel.selection),
+			},
 			shouldReplaceAllPrMetadata: request.generatePrInventory,
 			...(input.titlePrefix === undefined ? {} : { titlePrefix: input.titlePrefix }),
 			progress,
@@ -402,7 +400,7 @@ async function runSubmitWithProgress(input: {
 			const interpretedResult = await maybeFormatSubmitFailureWithModel(
 				result,
 				ctx,
-				input.modelWarnings,
+				input.modelExecution,
 			);
 			await matrix.finish({ isFailed: true });
 			return submitFailureExit(interpretedResult);
@@ -430,7 +428,7 @@ async function matrixPhaseFailureResult(
 		failedText: string;
 		message: string;
 		failurePresentation: "deterministic" | "unknown";
-		modelWarnings: FlowModelWarningEmitter;
+		modelExecution: FlowModelExecution;
 	},
 ): Promise<CommandExit<SubmitSuccess>> {
 	matrix.phase({
@@ -448,7 +446,7 @@ async function matrixPhaseFailureResult(
 			metadataApplied: [],
 		},
 		ctx,
-		failureValue.modelWarnings,
+		failureValue.modelExecution,
 	);
 	await matrix.finish({ isFailed: true });
 	return submitFailureExit(interpreted);
@@ -499,7 +497,7 @@ function formatCheckpointBeforeSubmitFailure(stderr: string): string {
 async function maybeFormatSubmitFailureWithModel(
 	result: Extract<SubmitResult, { type: "refused" | "failed" }>,
 	ctx: NsExtensionApi,
-	modelWarnings: FlowModelWarningEmitter,
+	modelExecution: FlowModelExecution,
 ): Promise<Extract<SubmitResult, { type: "refused" | "failed" }>> {
 	if (result.message.trim() === "") return result;
 	const rawTranscript = renderRawFailureTranscript(result);
@@ -507,14 +505,13 @@ async function maybeFormatSubmitFailureWithModel(
 	if (result.failurePresentation === "deterministic") {
 		return { ...result, message: formatFailureWithRawLog({ stderr: result.message, rawLog }) };
 	}
-	const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowSubmitFailure);
+	const model = await modelExecution.resolve(MODEL_OPERATION_IDS.flowSubmitFailure);
 	if (!model.ok)
 		return { ...result, message: formatFailureWithRawLog({ stderr: model.error, rawLog }) };
-	modelWarnings.emit(model);
 	const interpretation = await generateSubmitFailureInterpretation({
 		rawTranscript,
-		ctx,
-		modelSelection: model.modelSelection,
+		textGenerator: modelExecution.textGenerator(model.selection),
+		modelSelection: model.selection.modelSelection,
 	});
 	if (interpretation.ok && interpretation.text.trim() !== "") {
 		return {
@@ -530,11 +527,11 @@ async function maybeFormatSubmitFailureWithModel(
 
 async function generateSubmitFailureInterpretation(input: {
 	rawTranscript: string;
-	ctx: NsExtensionApi;
+	textGenerator: TextGenerator;
 	modelSelection: ModelSelection;
 }): Promise<{ ok: true; text: string } | { ok: false }> {
 	try {
-		const interpretation = await input.ctx.textGenerator.generateText({
+		const interpretation = await input.textGenerator.generateText({
 			modelSelection: input.modelSelection,
 			operation: "submit-failure",
 			maxTokens: 700,

@@ -17,7 +17,10 @@ import {
 	formatLatestCommitTransactionFailure,
 	runLatestCommitAutobranchTransaction,
 } from "./latest-commit-transaction.ts";
-import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
+import type {
+	ModelExecutionCoordinator,
+	ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 
 export type { CommandResult, PendingWorktreeSnapshot } from "./shared.ts";
 
@@ -46,7 +49,8 @@ export { inspectUpstreamHeadState, type UpstreamHeadState } from "./upstream.ts"
 
 export interface LatestCommitAutobranchInput {
 	cwd: string;
-	modelSelection: ModelSelection;
+	modelExecutionSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	args: ParsedAutobranchArgs;
 	snapshot: PendingWorktreeSnapshot;
 	exec: AutobranchExec;

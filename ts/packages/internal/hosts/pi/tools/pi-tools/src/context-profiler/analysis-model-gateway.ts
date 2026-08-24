@@ -6,6 +6,10 @@
  * analysis.ts.
  */
 
+import type {
+	ModelExecutionCoordinator,
+	ModelExecutionSelection,
+} from "@nseng-ai/extension-kit/model-execution";
 import { formatModelRef, type ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import {
@@ -78,8 +82,9 @@ export interface AnalysisModelGateway {
 
 export interface CreateAnalysisModelGatewayOptions {
 	registry: PiModelRegistryLike;
-	segmentationSelection: ModelSelection;
-	episodeAnalysisSelection: ModelSelection;
+	segmentationSelection: ModelExecutionSelection;
+	episodeAnalysisSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	completeFn?: CompleteSimpleFunction;
 }
 
@@ -87,14 +92,15 @@ export function createAnalysisModelGateway(
 	options: CreateAnalysisModelGatewayOptions,
 ): AnalysisModelGateway {
 	return {
-		segmentationSelection: options.segmentationSelection,
-		episodeAnalysisSelection: options.episodeAnalysisSelection,
-		segmentationModel: formatModelRef(options.segmentationSelection),
-		episodeAnalysisModel: formatModelRef(options.episodeAnalysisSelection),
+		segmentationSelection: options.segmentationSelection.modelSelection,
+		episodeAnalysisSelection: options.episodeAnalysisSelection.modelSelection,
+		segmentationModel: formatModelRef(options.segmentationSelection.modelSelection),
+		episodeAnalysisModel: formatModelRef(options.episodeAnalysisSelection.modelSelection),
 		async segmentTurns(request, callOptions) {
 			return callAnalysisModel({
 				registry: options.registry,
-				modelSelection: options.segmentationSelection,
+				modelExecutionSelection: options.segmentationSelection,
+				modelExecutionCoordinator: options.modelExecutionCoordinator,
 				...optionalEntries({ completeFn: options.completeFn }),
 				signal: callOptions.signal,
 				systemPrompt: SEGMENTATION_SYSTEM_PROMPT,
@@ -107,7 +113,8 @@ export function createAnalysisModelGateway(
 		async analyzeEpisode(request, callOptions) {
 			return callAnalysisModel({
 				registry: options.registry,
-				modelSelection: options.episodeAnalysisSelection,
+				modelExecutionSelection: options.episodeAnalysisSelection,
+				modelExecutionCoordinator: options.modelExecutionCoordinator,
 				...optionalEntries({ completeFn: options.completeFn }),
 				signal: callOptions.signal,
 				systemPrompt: EPISODE_ANALYSIS_SYSTEM_PROMPT,
@@ -122,7 +129,8 @@ export function createAnalysisModelGateway(
 
 interface CallAnalysisModelOptions<T> {
 	registry: PiModelRegistryLike;
-	modelSelection: ModelSelection;
+	modelExecutionSelection: ModelExecutionSelection;
+	modelExecutionCoordinator: ModelExecutionCoordinator;
 	completeFn?: CompleteSimpleFunction;
 	signal: AbortSignal;
 	systemPrompt: string;
@@ -135,9 +143,10 @@ interface CallAnalysisModelOptions<T> {
 async function callAnalysisModel<T>(
 	options: CallAnalysisModelOptions<T>,
 ): Promise<{ ok: true; value: T } | { ok: false; error: AnalysisModelError }> {
+	options.modelExecutionCoordinator.beforeExecution(options.modelExecutionSelection);
 	const response = await callPiModelText({
 		registry: options.registry,
-		modelSelection: options.modelSelection,
+		modelSelection: options.modelExecutionSelection.modelSelection,
 		systemPrompt: options.systemPrompt,
 		userText: options.json,
 		maxTokens: options.maxTokens,
@@ -145,7 +154,11 @@ async function callAnalysisModel<T>(
 		...optionalEntries({ completeFn: options.completeFn }),
 	});
 	if (!response.ok) {
-		return mapModelFailure(response, options.modelSelection, options.abortedMessage);
+		return mapModelFailure(
+			response,
+			options.modelExecutionSelection.modelSelection,
+			options.abortedMessage,
+		);
 	}
 	const parsed = options.parse(response.text);
 	if (!parsed.ok) return failure("invalid-response", parsed.error);

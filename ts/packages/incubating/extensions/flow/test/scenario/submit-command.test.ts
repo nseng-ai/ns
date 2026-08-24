@@ -1036,6 +1036,32 @@ describe("project-local submit extension", () => {
 		);
 	});
 
+	test("shares one fallback warning across checkpoint and PR inventory generation", async () => {
+		const run = runWithFakes({
+			modelPolicyToml: null,
+			request: { generatePrInventory: true, yes: true },
+			state: {
+				exec: [
+					...dirtyCheckpointResponses(),
+					...successfulSubmitResponses().slice(cleanCheckpointResponses().length),
+				],
+				textGeneration: [
+					{ ok: true, text: "[cp] Submit checkpoint\n\n- Capture dirty work" },
+					{ ok: true, text: defaultPrInventoryText() },
+				],
+			},
+		});
+
+		expect(await run.exit, run.stderr.join("")).toBe(0);
+		expect(run.stderr).toEqual([`${FALLBACK_WARNING}\n`]);
+		expect(run.context.textGeneratorCalls).toHaveLength(2);
+		expect(run.context.events).toEqual([
+			`stderr:${FALLBACK_WARNING}`,
+			"text-generation",
+			"text-generation",
+		]);
+	});
+
 	test("configured trunk checkpoint refusal aborts submit without model interpretation", async () => {
 		const run = runWithFakes({
 			request: { checks: false },
@@ -1413,6 +1439,10 @@ describe("project-local submit extension", () => {
 		expect(error).not.toContain("----- stdout -----");
 		expect(error).not.toContain("mystery graphite failure");
 		expect(error.split(FALLBACK_WARNING)).toHaveLength(2);
+		expect(run.context.events.slice(0, 2)).toEqual([
+			`stderr:${FALLBACK_WARNING}`,
+			"text-generation",
+		]);
 
 		const rawPath = error.match(/Raw log: (?<path>\S+)/u)?.groups?.path;
 		expect(rawPath?.startsWith(logRoot)).toBe(true);

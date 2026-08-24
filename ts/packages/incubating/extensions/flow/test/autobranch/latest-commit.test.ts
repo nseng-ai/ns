@@ -1,3 +1,4 @@
+import { createExplicitModelExecutionSelection } from "@nseng-ai/extension-kit/model-execution";
 import { describe, expect, test } from "vitest";
 import {
 	eventIndex,
@@ -121,7 +122,12 @@ function createPreparationHarness(options: PreparationHarnessOptions = {}) {
 	};
 	const input = {
 		cwd: "/repo",
-		modelSelection: { provider: "test", modelId: "model", thinking: "minimal" as const },
+		modelExecutionSelection: createExplicitModelExecutionSelection({
+			provider: "test",
+			modelId: "model",
+			thinking: "minimal",
+		}),
+		modelExecutionCoordinator: { beforeExecution() {} },
 		args: options.slug === undefined ? {} : { slug: options.slug },
 		snapshot,
 		exec,

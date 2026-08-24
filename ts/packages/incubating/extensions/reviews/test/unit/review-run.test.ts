@@ -55,7 +55,7 @@ const LAST_REVIEWED_HEAD: LastReviewedHeadState = {
 };
 
 describe("runReview", () => {
-	test("warns before running a review with the built-in fast profile", async () => {
+	test("preserves built-in model-policy provenance without writing warnings directly", async () => {
 		const repoRoot = await tempRepoRoot();
 		const events: string[] = [];
 		const reviewRunner = new FakeReviewRunnerGateway();
@@ -79,10 +79,21 @@ describe("runReview", () => {
 		const outcome = await runReview(ctx, { key: "typescript-style" });
 
 		expect(outcome.type).toBe("completed");
-		expect(events).toEqual([
-			"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.",
-			"run",
-		]);
+		expect(events).toEqual(["run"]);
+		expect(reviewRunner.calls()[0]?.request.modelExecutionSelection).toEqual({
+			modelSelection: {
+				provider: "openai-codex",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal",
+			},
+			provenance: {
+				type: "model-policy",
+				operationId: "reviews.run",
+				profile: "fast",
+				profileSource: "built-in",
+				operationSource: "default",
+			},
+		});
 	});
 
 	test("runs the shared review operation, resolves model profiles, threads excludes, and logs success", async () => {
@@ -141,7 +152,7 @@ describe("runReview", () => {
 			count: 1,
 		});
 		expect(outcome.progress.modelProfile).toBe("deep");
-		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
+		expect(reviewRunner.calls()[0]?.request.modelExecutionSelection.modelSelection).toEqual({
 			provider: "anthropic",
 			modelId: "claude-opus-4-6",
 			thinking: "high",
@@ -179,7 +190,7 @@ describe("runReview", () => {
 		if (outcome.type !== "completed") return;
 		expect(outcome.progress.modelProfile).toBe("architecture");
 		expect(outcome.progress.model).toBe("anthropic/claude-opus-4-6");
-		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
+		expect(reviewRunner.calls()[0]?.request.modelExecutionSelection.modelSelection).toEqual({
 			provider: "anthropic",
 			modelId: "claude-opus-4-6",
 			thinking: "xhigh",
@@ -231,10 +242,13 @@ describe("runReview", () => {
 		if (outcome.type !== "completed") return;
 		expect(outcome.progress.model).toBe("openai/gpt-5.6-luna");
 		expect(outcome.result.model).toBe("openai/gpt-5.6-luna");
-		expect(reviewRunner.calls()[0]?.request.modelSelection).toEqual({
-			provider: "openai",
-			modelId: "gpt-5.6-luna",
-			thinking: "minimal",
+		expect(reviewRunner.calls()[0]?.request.modelExecutionSelection).toEqual({
+			modelSelection: {
+				provider: "openai",
+				modelId: "gpt-5.6-luna",
+				thinking: "minimal",
+			},
+			provenance: { type: "explicit" },
 		});
 		expect(reviewLog.writtenEntries()[0]?.content).toContain("openai/gpt-5.6-luna");
 	});
