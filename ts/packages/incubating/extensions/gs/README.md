@@ -3,10 +3,10 @@
 Provider-branded ns workflows for the official
 [`github/gh-stack`](https://github.com/github/gh-stack) provider.
 
-Today the package implements only local, read-only inventory through `ns gs list`. The lifecycle
-contract below governs the preparation, reconciliation, publication, inventory-generation, and landing
-commands as they are added. Unimplemented workflows are not available commands or compatibility
-promises.
+Today the package implements local inventory through `ns gs list` and one state-driven local mutation
+through `ns gs restack-resolve`. The lifecycle contract below governs later preparation, reconciliation,
+publication, inventory-generation, and landing commands. Unimplemented workflows are not available
+commands or compatibility promises.
 
 ## Supported provider baseline
 
@@ -37,12 +37,11 @@ The intended outcome loop is:
 7. prepare or apply GS PR inventories; and
 8. land a verified stack or prefix and reconcile the result.
 
-Only the local inspection step is implemented today. Before any later mutating step is implemented, its
-focused provider experiment must settle the supported starting states, public provider operations,
-observed postconditions, refusals, partial effects, and recovery guidance. The first settled but still
-unimplemented slice is the local, inter-branch `restack-resolve` contract below. The v0.1.0 help text for
-`sync`, `submit`, `link`, and `merge` describes candidate capabilities; its remote effects, rollback,
-atomicity, and failure boundaries are not yet ns guarantees.
+Local inspection and the local inter-branch `restack-resolve` CLI are implemented. Before any later
+mutating step is implemented, its focused provider experiment must settle the supported starting states,
+public provider operations, observed postconditions, refusals, partial effects, and recovery guidance.
+The v0.1.0 help text for `sync`, `submit`, `link`, and `merge` describes candidate capabilities; its
+remote effects, rollback, atomicity, and failure boundaries are not yet ns guarantees.
 
 Lifecycle code uses only supported public gh-stack commands. It never reads or mutates
 `<git-common-dir>/gh-stack`; the existing inventory reader is a separately justified local inspection
@@ -70,13 +69,19 @@ GS does not blindly retry, infer rollback, delete a branch, run whole-stack `uns
 provider-private metadata. No-remote experiments show only that v0.1.0 preflight failures left tested
 local refs and worktrees unchanged; they do not establish general rollback or transactionality.
 
-### Settled contract: restack-resolve
+### Implemented command: restack-resolve
 
-`ns gs restack-resolve` is approved for implementation as a local inter-branch workflow pinned to
-`gh stack` v0.1.0. It uses public `gh stack rebase --no-trunk` for full scope and adds `--downstack` only
-when the user explicitly requests the narrower trunk-side/current scope. It resumes a provider-started
-conflict with one `gh stack rebase --continue` per accepted conflict stop. It never calls `sync`, fetches,
-pushes, updates GitHub, or reads provider-private state.
+```bash
+ns gs restack-resolve --yes
+ns gs restack-resolve --downstack --yes
+```
+
+`ns gs restack-resolve` is a local inter-branch workflow pinned to exactly `gh stack` v0.1.0. A start
+uses public `gh stack rebase --no-trunk` and adds `--downstack` only when explicitly requested. An active,
+resolved rebase with a staged resolution selects exactly one `gh stack rebase --continue`; there is no
+public `--continue` flag. Every provider call disables prompts and editors with a per-command environment
+overlay. The command never uses `env`, `sync`, network APIs, raw Git continue/abort, or provider-private
+state.
 
 This command deliberately does **not** update trunk or rebase the bottom stack branch onto a changed
 trunk. Fetching, trunk integration, pushing, and GitHub reconciliation remain part of the unsettled
@@ -84,12 +89,16 @@ reconciliation workflow. Plain `gh stack rebase` is not used because it pulls fr
 A GS-owned raw-Git cascade is also rejected for the normal path because it duplicates provider recovery
 and leaves public provider base facts stale until provider reconciliation.
 
-Before starting, the command verifies the exact provider version, a clean worktree, current-branch
-membership in supported `gh stack view --json` facts, the selected branch range, absence of unrelated Git
-operations, and absence of selected branches in another worktree. It snapshots supported topology plus
-independent Git refs and checkout facts for outcome classification. Successful completion requires no
-active rebase, a clean worktree, restoration of the original checkout, chained selected ancestry, and a
-fresh provider view with no selected branch needing rebase.
+Before starting, the command verifies the exact provider version, a clean worktree, a named branch, no
+active Git operation, and Tier-2 authorization through `--yes`/`-y` or a TTY confirmation. Continuation
+requires an active rebase, no unresolved paths, at least one staged resolution, no `--downstack`, and the
+same authorization. Other operations are refused. A non-interactive invocation without `--yes` is a
+usage error.
+
+The command invokes at most one provider mutation. It then reinspects only minimal Git state and reports
+`completed`, `conflict-stopped`, or `refused`, with bounded paths/diagnostics and a concise recovery
+action. A second conflict stop requires another resolution and invocation. Provider refusal and safety
+refusal exit 1; request/protocol/inspection failures exit 2. Recovery is rendered last for humans.
 
 A conflict is durable, resumable partial state: already-rebased lower branches may have moved while the
 current and later branches remain pending. Resolution stays in the initiating worktree, handles one stop
@@ -98,11 +107,10 @@ once before observing the next state. Ambiguous resolutions escalate and remain 
 implicitly aborts, skips, replays the start command, or switches a provider-started operation to raw Git;
 `gh stack rebase --abort` requires explicit user authorization.
 
-The CLI owns deterministic version, topology, cleanliness, and worktree preflight; provider invocation;
-structured outcome classification; and Git/provider postcondition evidence. The portable skill owns
-scope confirmation, sequential conflict-resolution policy, validation choice, human escalation, and
-recovery narration. `/ns:gs:restack-resolve` is a thin Pi router to that skill and adds no provider or
-Slot mechanics. Reproducible observations and rejected alternatives are recorded in
+The CLI owns deterministic version and Git-state preflight, one provider invocation, and structured
+outcome classification. The portable skill and `/ns:gs:restack-resolve` Pi router remain pending; they
+will own sequential conflict-resolution policy, validation choice, human escalation, and recovery
+narration without adding provider or Slot mechanics. Reproducible observations and rejected alternatives are recorded in
 [`docs/research/gh-stack-v0.1.0-restack-resolve-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-restack-resolve-contract.md).
 
 ### Optional Slots composition

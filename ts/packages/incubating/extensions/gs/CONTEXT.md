@@ -25,8 +25,28 @@ A recorded branch with no local pull-request identity. It makes no claim about w
 *Avoid*: unpushed, no PR exists
 
 **GS command face**:
-The provider-branded `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory for humans and agents and has no Pi mirror.
+The provider-branded `ns gs` command group. Its `list` operation exposes the Local gh-stack inventory; its `restack-resolve` operation starts or advances one local provider restack step. Neither has a Pi mirror yet.
 *Avoid*: `ns flow gs`, generic stack command
+
+**Restack start**:
+One authorized `gh stack rebase --no-trunk` invocation, optionally scoped downstack. It requires exact provider version 0.1.0, a clean worktree, a named branch, and no active Git operation.
+*Avoid*: sync, trunk update, restack transaction
+
+**Conflict stop**:
+A restack outcome where Git still has an active rebase and bounded unresolved paths after provider advancement. It is durable forward-recovery state, not command failure to roll back automatically.
+*Avoid*: failed transaction, automatic abort
+
+**Restack continuation**:
+One authorized `gh stack rebase --continue` invocation after all conflicts are resolved and at least one resolution is staged. The command infers it from Git state; it is not a public flag.
+*Avoid*: raw Git continuation, `--continue` option
+
+**Observed restack completion**:
+A provider advancement followed by minimal Git state showing no active operation and a clean worktree. It does not claim topology, ancestry, range, remote, or GitHub reconciliation.
+*Avoid*: verified stack transaction, reconciled stack
+
+**Restack recovery action**:
+The bounded, kebab-case machine action and concise instruction returned with every outcome. Human rendering places it last.
+*Avoid*: postcondition array, recovery plan
 
 **Local-only inventory**:
 The command contract that resolves Git's common directory, consumes gh-stack's local state file, and checks local Git branch refs. It does not require provider installation, GitHub authentication, or network access.
