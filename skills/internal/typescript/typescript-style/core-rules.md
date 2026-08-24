@@ -92,9 +92,13 @@ Full reasoning: `references/type-system.md`.
   truth, add a narrow runtime assertion, or isolate a single justified library seam instead.
 - **Use Zod-first validation at external boundaries.** External, HTTP, model, tool, and config input
   should be parsed by a Zod schema. Declare composite schema graphs with `z.lazy(() => ...)` so
-  importing a module does not eagerly construct them. Inline small primitive schemas inside the lazy
-  graph instead of naming and lazily wrapping them separately unless independent reuse gives the name
-  real value. For object schemas that preserve unknown keys, use `z.looseObject({...})`; do not use
+  importing a module does not eagerly construct them. Inline single-use sub-schemas at their point of
+  use instead of naming them: a schema `const` that is assigned once and referenced exactly once,
+  solely to compose one larger schema, is needless indirection, whether it is a small primitive or a
+  composite fragment. Collapsing such fragments usually lets several per-fragment `z.lazy` wrappers
+  reduce to a single outer `z.lazy`; avoid redundant per-fragment wrappers. Keep a named intermediate
+  schema when it is exported, referenced more than once, recursive/self-referential, independently
+  tested, or when the name carries documentation value a structural comment cannot. For object schemas that preserve unknown keys, use `z.looseObject({...})`; do not use
   `z.object({...}).passthrough()`. Derive static types directly from the lazy schema with
   `z.infer<typeof schema>`; the type alias is erased and adds no runtime cost. Do not hand-write
   duplicate mirror types for values that already have a schema.
@@ -106,6 +110,19 @@ Full reasoning: `references/type-system.md`.
     }),
   );
   type LocalPullRequest = z.infer<typeof localPullRequestSchema>;
+  ```
+  ```ts
+  // Avoid: one-use intermediates, each in its own z.lazy.
+  const optionSchema = z.lazy(() => z.object({ id: z.string() }));
+  const questionSchema = z.lazy(() => z.object({ options: z.array(optionSchema) }));
+  export const roundSchema = z.lazy(() => z.object({ question: questionSchema }));
+
+  // Prefer: inline under a single outer z.lazy.
+  export const roundSchema = z.lazy(() =>
+    z.object({
+      question: z.object({ options: z.array(z.object({ id: z.string() })) }),
+    }),
+  );
   ```
 - **Encode contracts; do not rely on ambient bags.** Prefer typed fields, parameters, gateway methods,
   discriminated unions, or curated APIs over implicit contracts carried through `Record<string, unknown>`,
