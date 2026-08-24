@@ -11,6 +11,7 @@ import {
 import { command } from "../../src/ns/cli/gs/list/command.ts";
 
 const INVENTORY = {
+	providerWorktreeGitDir: "/repo/.git/worktrees/current",
 	stacks: [
 		{
 			number: 12,
@@ -98,19 +99,26 @@ describe("gs list command", () => {
 describe("gs list human renderer", () => {
 	it("renders the exact compact table", () => {
 		expect(renderGsListHuman(INVENTORY, false)).toBe(
-			"NUMBER  STACK         BASE\n12      bottom...top  main\n—       solo          trunk",
+			"Provider worktree: /repo/.git/worktrees/current\n\nNUMBER  STACK         BASE\n12      bottom...top  main\n—       solo          trunk",
 		);
 	});
 
 	it("renders verbose stacks top-to-bottom with bases and blank separation", () => {
 		expect(renderGsListHuman(INVENTORY, true)).toBe(
-			"12\n ├─ top\n ├─ bottom\n └─ main (base)\n\n(no number)\n ├─ solo\n └─ trunk (base)",
+			"Provider worktree: /repo/.git/worktrees/current\n\n12\n ├─ top\n ├─ bottom\n └─ main (base)\n\n(no number)\n ├─ solo\n └─ trunk (base)",
 		);
 	});
 
 	it("renders the exact empty message in both modes", () => {
 		for (const verbose of [false, true]) {
-			expect(renderGsListHuman({ stacks: [] }, verbose)).toBe("No local gh-stack stacks found.");
+			expect(
+				renderGsListHuman(
+					{ providerWorktreeGitDir: "/repo/.git/worktrees/current", stacks: [] },
+					verbose,
+				),
+			).toBe(
+				"Provider worktree: /repo/.git/worktrees/current\nNo current-worktree gh-stack stacks found.",
+			);
 		}
 	});
 });

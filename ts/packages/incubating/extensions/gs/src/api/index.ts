@@ -1,6 +1,6 @@
 import { z } from "@nseng-ai/sdk";
 
-import { gsRestackResultSchema } from "../core/restack-command.ts";
+import { gsRestackResultSchema } from "../core/restack/command.ts";
 
 export const GS_PACKAGE_NAME = "@nseng-ai/gs";
 export const GS_RESTACK_RESOLVE_COMMAND = {

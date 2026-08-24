@@ -17,6 +17,8 @@ public commands, output, mutation boundaries, and recovery behavior.
 
 The reproducible baseline and unresolved experiments are recorded in
 [`docs/research/gh-stack-v0.1.0-workflow-baseline.md`](../../../../../docs/research/gh-stack-v0.1.0-workflow-baseline.md).
+The linked-worktree inventory storage evidence is recorded in
+[`docs/research/gh-stack-v0.1.0-linked-worktree-inventory.md`](../../../../../docs/research/gh-stack-v0.1.0-linked-worktree-inventory.md).
 The architecture boundary is accepted in
 [ADR 0061](../../../../../docs/adr/0061-gs-native-lifecycle-ownership.md).
 
@@ -43,8 +45,8 @@ public gh-stack operations, observed postconditions, refusals, partial effects, 
 The v0.1.0 help text for `sync`, `submit`, `link`, and `merge` describes candidate capabilities; its
 remote effects, rollback, atomicity, and failure boundaries are not yet ns guarantees.
 
-Lifecycle code uses only supported public gh-stack commands. It never reads or mutates
-`<git-common-dir>/gh-stack`; the existing inventory reader is a separately justified local inspection
+Lifecycle code uses only supported public gh-stack commands. It never reads or mutates private
+`gh-stack` state; the existing inventory reader is a separately justified current-worktree inspection
 feature and is not an authority for lifecycle mutation.
 
 ### Observed postconditions
@@ -141,9 +143,10 @@ user explicitly authorizes abort.
 - Node.js 24.12 or newer and ns;
 - a current working directory inside a Git repository.
 
-`ns gs list` does not require `gh`, GitHub authentication, or network access. It reads
-`<git-common-dir>/gh-stack` and local Git branch refs, so linked worktrees share one repository-level
-inventory.
+`ns gs list` does not require `gh`, GitHub authentication, or network access. It asks Git for
+`--git-path gh-stack`, reads exactly that invoking-worktree state file, and checks repository-shared
+local branch refs. Linked worktrees can therefore report missing or divergent provider inventories over
+the same refs; the command does not enumerate, merge, or fall back to peer worktree state.
 
 ### Install
 
@@ -164,10 +167,15 @@ ns gs list --format json
 ns gs list --json-schema
 ```
 
-`ns gs list` reports each recorded stack that still has at least one recorded stack branch present as a
-local Git branch. The base branch alone does not keep a stack in the inventory. A retained stack
-preserves all branches recorded by gh-stack, including branches that were deleted locally, because the
-recorded shape remains useful context.
+`ns gs list` reports each stack recorded by gh-stack in the invoking worktree that still has at least one
+recorded stack branch present as a local Git branch. The base branch alone does not keep a stack in the
+inventory. A retained stack preserves all branches recorded by gh-stack, including branches that were
+deleted locally, because the recorded shape remains useful context.
+
+Every successful result includes `providerWorktreeGitDir`, the canonical worktree Git directory derived
+from Git's absolute `--git-path gh-stack` result. Human output renders this provenance before the stacks,
+including for an empty inventory. It identifies the inspected provider view; it does not claim that this
+worktree owns every branch or that peer provider state agrees.
 
 The command does not contact GitHub to verify current PR state, and it does not deduplicate repeated
 stack numbers. A missing state file, an empty `stacks` array, or no recorded stack with a remaining local
@@ -184,4 +192,4 @@ then the compact stack summary ascending. Unknown additive gh-stack fields and u
 inventory with `gh-stack-state-unsupported`; the command never returns a partial inventory.
 
 This implemented command does not mutate Git, GitHub, or gh-stack state. Its recorded PR evidence is
-local-only and does not establish current GitHub state.
+current-worktree-local only and does not establish current GitHub state.

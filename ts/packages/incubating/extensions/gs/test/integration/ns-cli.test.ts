@@ -77,17 +77,20 @@ describe("ns gs list public route", () => {
 		const compact = runScenario(["gs", "list"], fixture);
 		expect(await compact.exit).toBe(0);
 		expect(compact.stdout.join("")).toBe(
-			"NUMBER  STACK         BASE\n8       bottom...top  main\n",
+			`Provider worktree: ${fixture.context.providerWorktreeGitDir}\n\nNUMBER  STACK         BASE\n8       bottom...top  main\n`,
 		);
 		const verbose = runScenario(["gs", "list", "-v"], fixture);
 		expect(await verbose.exit).toBe(0);
-		expect(verbose.stdout.join("")).toBe("8\n ├─ top\n ├─ bottom\n └─ main (base)\n");
+		expect(verbose.stdout.join("")).toBe(
+			`Provider worktree: ${fixture.context.providerWorktreeGitDir}\n\n8\n ├─ top\n ├─ bottom\n └─ main (base)\n`,
+		);
 		const json = runScenario(["gs", "list", "--format", "json"], fixture);
 		expect(await json.exit).toBe(0);
 		expect(JSON.parse(json.stdout.join(""))).toEqual({
 			status: "success",
 			exitCode: 0,
 			data: {
+				providerWorktreeGitDir: fixture.context.providerWorktreeGitDir,
 				stacks: [
 					{
 						number: 8,
@@ -125,7 +128,9 @@ describe("ns gs list public route", () => {
 		const empty = await createFixture({ withoutState: true });
 		const emptyRun = runScenario(["gs", "list", "--verbose"], empty);
 		expect(await emptyRun.exit).toBe(0);
-		expect(emptyRun.stdout.join("")).toBe("No local gh-stack stacks found.\n");
+		expect(emptyRun.stdout.join("")).toBe(
+			`Provider worktree: ${empty.context.providerWorktreeGitDir}\nNo current-worktree gh-stack stacks found.\n`,
+		);
 
 		const failure = await createFixture({ gitFailure: "not a repository" });
 		const failureRun = runScenario(["gs", "list", "--format", "json"], failure);
@@ -153,8 +158,8 @@ async function createFixture(
 	}
 	const cwd = await mkdtemp(join(tmpdir(), "gs-ns-scenario-"));
 	tempDirectories.push(cwd);
-	const commonDir = join(cwd, ".git-common");
-	await mkdir(commonDir);
+	const providerWorktreeGitDir = join(cwd, ".git-worktree");
+	await mkdir(providerWorktreeGitDir);
 	const state =
 		options.withoutState === true
 			? undefined
@@ -173,9 +178,14 @@ async function createFixture(
 							},
 						],
 					};
-	if (state !== undefined) await writeFile(join(commonDir, "gh-stack"), JSON.stringify(state));
+	if (state !== undefined) {
+		await writeFile(join(providerWorktreeGitDir, "gh-stack"), JSON.stringify(state));
+	}
 	await writeFile(join(cwd, "ns.toml"), `extensions = [${JSON.stringify(packageRoot)}]\n`);
-	return { cwd, context: new ScenarioContext(cwd, commonDir, options.gitFailure, options.restack) };
+	return {
+		cwd,
+		context: new ScenarioContext(cwd, providerWorktreeGitDir, options.gitFailure, options.restack),
+	};
 }
 
 function runScenario(args: readonly string[], fixture: Fixture) {
@@ -214,13 +224,13 @@ class ScenarioContext implements NsCliBaseContext {
 		},
 	};
 	promptCalls = 0;
-	private readonly commonDir: string;
+	readonly providerWorktreeGitDir: string;
 	private readonly gitFailure: string | undefined;
 	private readonly restack: boolean;
 
-	constructor(cwd: string, commonDir: string, gitFailure?: string, restack = false) {
+	constructor(cwd: string, providerWorktreeGitDir: string, gitFailure?: string, restack = false) {
 		this.cwd = cwd;
-		this.commonDir = commonDir;
+		this.providerWorktreeGitDir = providerWorktreeGitDir;
 		this.gitFailure = gitFailure;
 		this.restack = restack;
 		this.env = { HOME: cwd };
@@ -259,9 +269,9 @@ class ScenarioContext implements NsCliBaseContext {
 		if (command !== "git") {
 			return exited(99, "", `unexpected command: ${command} ${args.join(" ")}`);
 		}
-		if (args.join(" ") === "rev-parse --git-common-dir") {
+		if (args.join(" ") === "rev-parse --path-format=absolute --git-path gh-stack") {
 			if (this.gitFailure !== undefined) return exited(128, "", this.gitFailure);
-			return exited(0, `${this.commonDir}\n`, "");
+			return exited(0, `${join(this.providerWorktreeGitDir, "gh-stack")}\n`, "");
 		}
 		if (sameArgs(args, GIT_LOCAL_BRANCH_TIPS_FOR_EACH_REF_ARGS)) {
 			return exited(

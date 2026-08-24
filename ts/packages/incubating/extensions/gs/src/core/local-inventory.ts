@@ -15,8 +15,13 @@ export interface GsLocalStack {
 	readonly branches: readonly GsLocalBranch[];
 }
 
-export interface GsLocalInventory {
+export interface GsRecordedStacks {
 	readonly stacks: readonly GsLocalStack[];
+}
+
+export interface GsLocalInventory extends GsRecordedStacks {
+	/** Canonical Git directory for the provider state of the invoking worktree. */
+	readonly providerWorktreeGitDir: string;
 }
 
 export type GsLocalInventoryFailureCode =
@@ -44,6 +49,7 @@ export interface GsLocalInventoryGateway {
 
 export function copyGsLocalInventory(inventory: GsLocalInventory): GsLocalInventory {
 	return {
+		providerWorktreeGitDir: inventory.providerWorktreeGitDir,
 		stacks: inventory.stacks.map((stack) => ({
 			number: stack.number,
 			base: stack.base,
