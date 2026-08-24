@@ -72,9 +72,20 @@ npx skills add nseng-ai/ns --skill pr-make-accountable --full-depth
 
 ## Usage
 
-Point the skill at an existing PR (a number, a URL, or the current branch's PR)
-in a repo with an authenticated `gh` session. See [`SKILL.md`](SKILL.md) for
-the full procedure. The skill is standalone: it requires only `git` and `gh`.
+Run the skill from the checked-out branch of an existing PR in a repo with an
+authenticated `gh` session. The skill always targets that branch's PR.
+
+Text after the invocation seeds the interview; it does not select a PR. Use it
+to supply the rationale or other critical context up front:
+
+```text
+/pr-make-accountable This change is needed because the current fallback hides configuration errors from CLI users.
+```
+
+When that context answers why the change is needed, the agent treats it as the
+initial answer and proceeds to the next material question instead of asking you
+to repeat it. See [`SKILL.md`](SKILL.md) for the full procedure. The skill is
+standalone: it requires only `git` and `gh`.
 
 ## Example
 

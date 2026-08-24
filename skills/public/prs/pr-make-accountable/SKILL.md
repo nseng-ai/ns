@@ -48,11 +48,20 @@ cannot supply, requires the author to review the complete written body, and
 produces a co-authored body. Do not substitute a best-effort inventory from diff and commit headlines for
 that accountability process.
 
-## Boundaries
+## Invocation context and boundaries
 
-- Target one existing PR: an explicit number/URL or the current branch's PR. If
-  none exists, stop and ask the user to create or push one using the
-  repository's normal Git/PR workflow.
+- Target the checked-out branch's existing PR. If none exists, stop and ask the
+  user to create or push one using the repository's normal Git/PR workflow.
+- Treat all text after `/pr-make-accountable` as a free-form prompt that
+  supplies initial author context for the interview. It is not a PR selector or
+  structured command argument; the checked-out branch alone determines the PR.
+- Use the invocation context to seed the interview. When it explains why the
+  change is needed or what problem it solves, treat it as the author's initial
+  answer to the opening rationale question; do not ask the author to repeat it.
+  When it supplies other critical context, record that context and ask the
+  opening rationale question normally. In either case, test its claims against
+  the PR evidence and pursue material gaps or contradictions during the
+  interview.
 - Require Git and an authenticated `gh` session. Use `gh` for PR metadata and
   the body update. Use local `git` to inspect the diff and, when the author
   approves a change during the interview, to edit and validate the checked-out
@@ -70,8 +79,8 @@ that accountability process.
 
 Before questioning the author:
 
-1. Run:
-   `gh pr view <n> --json title,body,url,number,baseRefName,headRefName,headRefOid,additions,deletions,changedFiles,commits`.
+1. Resolve the checked-out branch's PR and run:
+   `gh pr view --json title,body,url,number,baseRefName,headRefName,headRefOid,additions,deletions,changedFiles,commits`.
 2. Confirm the checked-out branch equals `headRefName` and local `HEAD` equals
    `headRefOid`; fetch first if needed. On divergence, stop and ask the user to
    sync.
@@ -124,8 +133,11 @@ interaction, its directly observable changed result, and candidate evidence for
 at least one representative example.
 
 Present a condensed inventory summary: what the PR appears to do, where it
-lives, and notable decisions. Invite correction. Then ask: **“Why is this
-change needed? What problem does it solve?”**
+lives, and notable decisions. Incorporate relevant invocation context and
+invite correction. If that context already explains the rationale, acknowledge
+it as the author's initial answer and ask the next material follow-up instead
+of repeating the opening question. Otherwise ask: **“Why is this change needed?
+What problem does it solve?”**
 
 ## 2. Interview the author
 
