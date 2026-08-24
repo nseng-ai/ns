@@ -13,7 +13,9 @@ import {
 	registerBranchContextCommands,
 } from "./from-plan-commands.ts";
 import type { BranchContextExtensionOptions, ExtensionAPI } from "./host-types.ts";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { createBranchContextPiCommandApi } from "./pi-command-api.ts";
+import { createSessionPlanDiscoveryProcessGateway } from "./session-plan-discovery.ts";
 import { definePiSurfaceParity } from "@nseng-ai/pi-runtime/parity/extension";
 
 export const branchContextExtensionParity = definePiSurfaceParity([
@@ -72,7 +74,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		kind: "command",
 		surface: IMPL_SAVED_PLAN_COMMAND_NAME,
 		workflow:
-			"Launch a fresh current-branch implementation session from a session-selected, latest fallback, or explicit Saved Plan",
+			"Launch a fresh current-branch implementation session from an interactively confirmed session-discovered or explicit Saved Plan",
 		parity: "WAIVED",
 		fallback:
 			"Manually open /new on the current branch and paste/use the saved plan content, or pass an explicit saved plan path to the Pi command when available.",
@@ -80,7 +82,7 @@ export const branchContextExtensionParity = definePiSurfaceParity([
 		sourcePackage: "@nseng-ai/pi-ns-branch-context",
 		sourceModule: "branch-context-extension",
 		notes:
-			"Saved-plan selection has capability coverage, but the fresh Pi implementation-session launch is Pi-specific orchestration and does not attach Branch Context.",
+			"No-path selection uses bounded semantic session discovery with mandatory confirmation and no latest fallback; fresh Pi implementation-session launch remains Pi-specific orchestration and does not attach Branch Context. Explicit paths remain deterministic.",
 	},
 	{
 		kind: "command",
@@ -145,6 +147,15 @@ export default function registerBranchContextExtension(
 	options: BranchContextExtensionOptions = {},
 ): void {
 	const commandPi = createBranchContextPiCommandApi(pi);
+	const composedOptions: BranchContextExtensionOptions = {
+		...options,
+		sessionPlanDiscovery:
+			options.sessionPlanDiscovery ??
+			({
+				modelPolicy: createNodeProjectConfigGateway(),
+				process: createSessionPlanDiscoveryProcessGateway(commandPi),
+			} as const),
+	};
 	registerSavedPlanCommands(commandPi);
-	registerBranchContextCommands(commandPi, options);
+	registerBranchContextCommands(commandPi, composedOptions);
 }

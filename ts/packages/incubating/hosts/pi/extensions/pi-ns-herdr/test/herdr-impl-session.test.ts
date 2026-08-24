@@ -365,7 +365,7 @@ describe(COMMAND_NAME, () => {
 		const pi = new FakePi();
 		const result = await generateSessionImplementationPrompt(
 			createHerdrPiCommandApi(pi),
-			new FakeCommandContext(),
+			new FakeCommandContext({ sessionFile: null }),
 			"focus",
 		);
 

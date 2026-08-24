@@ -224,5 +224,5 @@ export interface ExtensionAPI {
 	appendEntry(customType: string, data?: unknown): void;
 	/** Register a TUI renderer for custom entries created with appendEntry. */
 	registerEntryRenderer(customType: string, renderer: EntryRenderer): void;
-	sendUserMessage(content: string): void;
+	sendUserMessage(content: string, options?: { deliverAs?: "steer" | "followUp" }): void;
 }

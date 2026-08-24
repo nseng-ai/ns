@@ -10,9 +10,17 @@ import type {
 	SessionReplacementOptions,
 	SessionReplacementResult,
 } from "@nseng-ai/pi-runtime/sessions/replacement";
-import type { resolveSelectedSavedPlanFile } from "@nseng-ai/plans/api";
+import type {
+	resolveExplicitSavedPlanFile,
+	resolveSelectedSavedPlanFile,
+} from "@nseng-ai/plans/api";
+import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import type { SessionPlanDiscoveryProcessGateway } from "./session-plan-discovery.ts";
 import type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
-import type { SendMessageOptions } from "@nseng-ai/pi-runtime/shared/message-delivery";
+import type {
+	SendMessageOptions,
+	SendUserMessageOptions,
+} from "@nseng-ai/pi-runtime/shared/message-delivery";
 
 export type { RawPiExecOptions, RawPiExecResult } from "@nseng-ai/pi-runtime/shared/command-exec";
 
@@ -56,6 +64,7 @@ export interface BranchContextOperations {
 	loadBranchContextPlan: typeof loadBranchContextPlan;
 	createBranchContextFromFile: typeof createBranchContextFromFile;
 	resolveSelectedSavedPlanFile: typeof resolveSelectedSavedPlanFile;
+	resolveExplicitSavedPlanFile: typeof resolveExplicitSavedPlanFile;
 }
 
 export interface BranchContextExtensionOptions {
@@ -65,6 +74,10 @@ export interface BranchContextExtensionOptions {
 	branchContextOperations?: BranchContextOperations;
 	shouldResolveTargetBranchInPreview?: boolean;
 	createBranchContextContext?: BranchContextContextFactory<[pi: ExtensionAPI, cwd: string]>;
+	sessionPlanDiscovery?: {
+		modelPolicy: ProjectConfigGateway;
+		process: SessionPlanDiscoveryProcessGateway;
+	};
 }
 
 export interface CommandContext {
@@ -75,6 +88,7 @@ export interface CommandContext {
 		notify(message: string, level?: NotifyLevel): void;
 		setStatus(key: string, value: string | undefined): void;
 		confirm?(title: string, message?: string): Promise<boolean>;
+		select?(title: string, items: string[]): Promise<string | undefined>;
 	};
 	waitForIdle(): Promise<void>;
 	newSession(options?: NewSessionOptions): Promise<NewSessionResult>;
@@ -93,5 +107,5 @@ export interface ExtensionAPI {
 	setActiveTools(names: string[]): void;
 	exec(command: string, args: string[], options?: RawPiExecOptions): Promise<RawPiExecResult>;
 	sendMessage?(message: CustomMessage, options?: SendMessageOptions): void;
-	sendUserMessage(content: string): void;
+	sendUserMessage(content: string, options?: SendUserMessageOptions): void;
 }

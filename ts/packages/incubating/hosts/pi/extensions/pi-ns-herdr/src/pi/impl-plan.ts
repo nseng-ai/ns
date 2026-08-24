@@ -3,6 +3,8 @@ import {
 	registerCommandWithImmediateAck,
 } from "@nseng-ai/pi-runtime/commands/ack";
 import type { SlotClient } from "@nseng-ai/slots/api";
+import { createNodeProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
+import { createSessionPlanDiscoveryProcessGateway } from "@nseng-ai/pi-ns-branch-context/session-plan-discovery";
 
 import {
 	HERDR_PLAN_TAB_IMPL_COMMAND_NAME,
@@ -65,7 +67,15 @@ function registerPlanImplCommand(
 				const notifyProgress = makeCommandProgressNotifier({ host: context.commands, ctx: pi });
 				await handleHerdrSlotImplPlan(createHerdrPiCommandContext(context, pi), {
 					rawArgs,
-					dependencies: options,
+					dependencies: {
+						...options,
+						sessionPlanDiscovery:
+							options.sessionPlanDiscovery ??
+							({
+								modelPolicy: createNodeProjectConfigGateway(),
+								process: createSessionPlanDiscoveryProcessGateway(context.commands),
+							} as const),
+					},
 					config,
 					notifyProgress,
 				});

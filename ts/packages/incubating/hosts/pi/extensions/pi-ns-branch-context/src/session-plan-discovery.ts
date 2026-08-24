@@ -106,6 +106,33 @@ export const sessionPlanDiscoverySchema = z.discriminatedUnion("type", [
 ]);
 export type SessionPlanDiscovery = z.infer<typeof sessionPlanDiscoverySchema>;
 
+const savedPlanSaveEnvelopeSchema = z.strictObject({
+	status: z.literal("ok"),
+	exitCode: z.literal(0),
+	data: z.strictObject({
+		format: z.literal("timestamped"),
+		slug: z.string(),
+		filePath: z.string().min(1),
+		fileName: z.string(),
+		fileStem: z.string(),
+		timestamp: z.string(),
+		timestampNumber: z.number().int(),
+		sequence: z.number().int().positive(),
+		repoRoot: z.string(),
+		repoKey: z.string(),
+		repoIdentitySource: z.enum(["origin-url", "repo-root"]),
+		sourceBranch: z.string(),
+		branchKey: z.string(),
+		directoryPath: z.string(),
+	}),
+});
+
+export function parseSavedPlanSaveEnvelopeFilePath(value: unknown): string {
+	const parsed = savedPlanSaveEnvelopeSchema.safeParse(value);
+	if (!parsed.success) throw new Error("enriched-plan returned an invalid save result envelope.");
+	return parsed.data.data.filePath;
+}
+
 /*
  * Refactor direction: replace the process machinery below with the shared
  * subagent child-session runtime once that runtime supports parent-session
@@ -373,6 +400,41 @@ export function parseSessionPlanDiscoveryOutput(stdout: string): DiscoverSession
 		remainder = remainder.slice(remainder.indexOf(nextObject) + nextObject.length);
 	}
 	return { ok: true, value: parsed.value };
+}
+
+export function formatSessionPlanCandidate(candidate: SessionPlanCandidate): string {
+	const lines = [
+		`Candidate: ${candidate.type}`,
+		`Basis: ${candidate.basis}`,
+		"Evidence:",
+		...candidate.evidence.map((excerpt) => `- ${excerpt}`),
+	];
+	if (candidate.type === "saved-plan-reference") lines.push(`Path: ${candidate.filePath}`);
+	if (candidate.type === "presented-plan") {
+		lines.push(`Suggested slug: ${candidate.suggestedSlug}`);
+		lines.push("Presented plan preview:", candidate.planMarkdown);
+	}
+	if (candidate.type === "plan-ready") {
+		lines.push(`Focus: ${candidate.focus}`);
+		if (candidate.missingElements.length > 0) {
+			lines.push("Missing elements:", ...candidate.missingElements.map((item) => `- ${item}`));
+		}
+	}
+	return lines.join("\n");
+}
+
+export function formatSessionPlanCandidateLabel(
+	candidate: SessionPlanCandidate,
+	index: number,
+): string {
+	return `${index + 1}. ${candidate.type}: ${candidate.basis}`;
+}
+
+export function formatSessionPlanDiscoveryTerminal(discovery: SessionPlanDiscovery): string {
+	if (discovery.type === "not-found") {
+		return `Session plan discovery found no actionable plan: ${discovery.reason}. Continue planning or run /ns:plan:save after the plan is ready.`;
+	}
+	return "Session plan candidate selection was cancelled; no latest-plan fallback was attempted.";
 }
 
 export function createSessionPlanDiscoveryProcessGateway(

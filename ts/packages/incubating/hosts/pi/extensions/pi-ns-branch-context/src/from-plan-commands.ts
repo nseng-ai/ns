@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
 	sendCommandProgressOrNotify,
@@ -45,8 +47,16 @@ import {
 import {
 	NoSavedPlanAvailableError,
 	type RepoIdentitySource,
+	type ResolvedExplicitSavedPlanFile,
 	type SelectedSavedPlanFile,
 } from "@nseng-ai/plans/api";
+import {
+	captureSessionPlanDiscoverySkill,
+	discoverSessionPlan,
+	parseSavedPlanSaveEnvelopeFilePath,
+	type SessionPlanCandidate,
+	type SessionPlanDiscovery,
+} from "./session-plan-discovery.ts";
 import {
 	formatErrorMessage,
 	optionalEntries,
@@ -75,14 +85,15 @@ const IMPL_BRANCH_CONTEXT_STATUS_KEY = IMPL_BRANCH_CONTEXT_COMMAND_NAME;
 const IMPL_SAVED_PLAN_STATUS_KEY = IMPL_SAVED_PLAN_COMMAND_NAME;
 const GRAPHITE_BRANCH_CREATION_HELP =
 	describeBranchContextGraphiteCreationSteps("<current-branch>");
+let sessionPlanDiscoveryPending = false;
 
 export const CREATE_BRANCH_CONTEXT_USAGE = `Usage: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} [options] [absolute-or-home-plan-file.md]
 
 Create a branch context from a saved plan. The branch slug is derived from the plan content by a tiny Pi model, default target branches auto-suffix on collisions, then the plan is attached to the branch in Branch Memory as <content-derived-slug>.md.
 
 Options:
-  --dry-run          Show the selected plan and target branch without mutating.
-  --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
+  --dry-run          Discover and preview without confirming or mutating.
+  --yes, -y          Allowed only with an explicit path; semantic discovery cannot be auto-approved.
   --graphite         Create with the branch-context Graphite method.
   --plain-git        Create with plain Git only; no Graphite tracking.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
@@ -90,7 +101,7 @@ Options:
 
 ${GRAPHITE_BRANCH_CREATION_HELP}
 
-With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
+With no file path, the command semantically discovers plan material in the persisted current session and requires interactive confirmation. It never falls back to the newest Saved Plan.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 The saved-plan filename is only a locator. If the model cannot derive and validate a content slug, the command fails without falling back to the filename.`;
 
@@ -99,8 +110,8 @@ export const GT_UPSTACK_IMPL_USAGE = `Usage: /${GT_UPSTACK_IMPL_COMMAND_NAME} [o
 Stack a branch context on the current branch with the branch-context Graphite method, attach the saved plan, check out that branch with exact git checkout <branch>, start a fresh Pi session, and run /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> for the attached plan in that new session.
 
 Options:
-  --dry-run          Show the selected plan and follow-up flow without mutating.
-  --yes, -y          Compatibility no-op; resolved branch contexts create without confirmation.
+  --dry-run          Discover and preview without confirming or mutating.
+  --yes, -y          Allowed only with an explicit path; semantic discovery cannot be auto-approved.
   --graphite         Default: create with the branch-context Graphite method.
   --plain-git        Escape hatch: create with plain Git only; no Graphite tracking, so the branch will not be part of a stack.
   --branch <name>    Use an explicit target branch name; explicit branches do not auto-suffix.
@@ -109,7 +120,7 @@ Options:
 ${GRAPHITE_BRANCH_CREATION_HELP}
 
 The current branch must be trunk or a Graphite-tracked branch; otherwise this command fails before creating a branch or attaching a plan.
-With no file path, the command prefers the most recent saved plan created in the current session, then falls back to the newest .md file in the current repo/source branch local plan store directory.
+With no file path, the command semantically discovers plan material in the persisted current session and requires interactive confirmation. It never falls back to the newest Saved Plan.
 An explicit file path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 
 This command intentionally models the manual flow: /${CREATE_BRANCH_CONTEXT_COMMAND_NAME} --graphite, git checkout <branch>, /new, then /${IMPL_BRANCH_CONTEXT_COMMAND_NAME} <attached-key> in the new Pi session.`;
@@ -119,10 +130,11 @@ export const IMPL_SAVED_PLAN_USAGE = `Usage: /${IMPL_SAVED_PLAN_COMMAND_NAME} [o
 Implement a selected Saved Plan in a fresh Pi session on the current branch. This command does not create or check out a branch, attach Branch Context, or write Branch Memory.
 
 Options:
-  --dry-run          Show the selected plan and launch flow without mutating or starting a session.
+  --dry-run          Discover and preview without confirming or mutating.
+  --yes, -y          Allowed only with an explicit path; semantic discovery cannot be auto-approved.
   --help, -h         Show this help.
 
-With no file path, the command prefers the most recent Saved Plan represented in the current session, then falls back to the newest .md Saved Plan in the current repo/source branch local plan store directory.
+With no file path, the command semantically discovers plan material in the persisted current session and requires interactive confirmation. It never falls back to the newest Saved Plan.
 An explicit file path selects that Saved Plan even when it is older. The path may be absolute or current-user home-relative with ~ or ~/; a leading @ is accepted and stripped, and the normalized result must be absolute with a .md filename.
 Branch creation flags such as --branch, --graphite, and --plain-git are intentionally unsupported.`;
 
@@ -138,6 +150,7 @@ export interface CreateBranchContextArgs {
 export interface ImplSavedPlanArgs {
 	help: boolean;
 	dryRun: boolean;
+	yes: boolean;
 	filePath?: string;
 }
 
@@ -336,7 +349,7 @@ export function parseCreateBranchContextArgs(rawArgs: string): CreateBranchConte
 }
 
 export function parseImplSavedPlanArgs(rawArgs: string): ImplSavedPlanArgs {
-	const parsed: ImplSavedPlanArgs = { help: false, dryRun: false };
+	const parsed: ImplSavedPlanArgs = { help: false, dryRun: false, yes: false };
 	const positional: string[] = [];
 
 	for (const token of tokenizeCommandArgs(rawArgs)) {
@@ -346,6 +359,10 @@ export function parseImplSavedPlanArgs(rawArgs: string): ImplSavedPlanArgs {
 		}
 		if (token === "--dry-run") {
 			parsed.dryRun = true;
+			continue;
+		}
+		if (token === "--yes" || token === "-y") {
+			parsed.yes = true;
 			continue;
 		}
 		if (token === "--branch" || token.startsWith("--branch=")) {
@@ -644,6 +661,16 @@ export async function handleImplSavedPlanCommand(
 		selected = await resolveSelectedSavedPlanFile(pi, args, ctx, options);
 	} catch (error) {
 		setRuntimeStatus(ctx, IMPL_SAVED_PLAN_STATUS_KEY, undefined);
+		if (error instanceof DiscoveryFlowStoppedError) {
+			presentBranchContextMessage(
+				pi,
+				ctx,
+				error.message,
+				{ status: "cancelled" },
+				error.message.startsWith("Dry run:") ? "info" : "warning",
+			);
+			return;
+		}
 		presentBranchContextFailure(pi, ctx, "Failed to resolve saved plan file.", error);
 		return;
 	}
@@ -823,6 +850,16 @@ async function runCreateBranchContextCommand(
 		selected = await resolveCreateBranchContextPlanFile(pi, args, ctx, previewOptions);
 	} catch (error) {
 		setRuntimeStatus(ctx, commandOptions.statusKey, undefined);
+		if (error instanceof DiscoveryFlowStoppedError) {
+			presentBranchContextMessage(
+				pi,
+				ctx,
+				error.message,
+				{ status: "cancelled" },
+				error.message.startsWith("Dry run:") ? "info" : "warning",
+			);
+			return;
+		}
 		if ((await commandOptions.handleSelectedPlanError?.(args, error)) === true) {
 			return;
 		}
@@ -1128,18 +1165,278 @@ function formatGtUpstackImplCancelledMessage(
 
 async function resolveSelectedSavedPlanFile(
 	pi: BranchContextPiCommandApi,
-	args: { filePath?: string },
+	args: { filePath?: string; dryRun?: boolean; yes?: boolean },
 	ctx: CommandContext,
 	options: BranchContextExtensionOptions,
 ): Promise<SelectedSavedPlanFile> {
 	const operations = resolveBranchContextOperations(options);
 	const planStoreRoot = resolvePlanStoreRootOption(options);
-	return operations.resolveSelectedSavedPlanFile(pi, {
-		cwd: ctx.cwd,
-		...optionalEntries({ planStoreRoot, explicitPath: args.filePath }),
-		sessionEntries: ctx.sessionManager?.getBranch?.() ?? [],
-		shouldFallbackToLatest: true,
-	});
+	if (args.filePath !== undefined) {
+		return operations.resolveSelectedSavedPlanFile(pi, {
+			cwd: ctx.cwd,
+			...optionalEntries({ planStoreRoot, explicitPath: args.filePath }),
+			shouldFallbackToLatest: false,
+		});
+	}
+	if (args.yes === true) {
+		throw new Error(
+			"--yes cannot approve semantic session-plan discovery. Omit --yes and confirm the discovered candidate interactively, or pass an explicit Saved Plan path.",
+		);
+	}
+	const discovered = await resolveDiscoveredSavedPlan(pi, ctx, options, args.dryRun === true);
+	if (discovered.type === "selected") return discovered.selected;
+	throw new DiscoveryFlowStoppedError(discovered.message);
+}
+
+type DiscoveredSavedPlanResult =
+	| { type: "selected"; selected: SelectedSavedPlanFile }
+	| { type: "stopped"; message: string };
+
+class DiscoveryFlowStoppedError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "DiscoveryFlowStoppedError";
+	}
+}
+
+async function resolveDiscoveredSavedPlan(
+	pi: BranchContextPiCommandApi,
+	ctx: CommandContext,
+	options: BranchContextExtensionOptions,
+	dryRun: boolean,
+): Promise<DiscoveredSavedPlanResult> {
+	if (sessionPlanDiscoveryPending) {
+		return { type: "stopped", message: "Session plan discovery is already pending." };
+	}
+	if (!dryRun && (!ctx.hasUI || ctx.ui.confirm === undefined)) {
+		return {
+			type: "stopped",
+			message:
+				"Session plan discovery requires Pi UI confirmation. Pass an explicit Saved Plan path in a UI-capable session.",
+		};
+	}
+	const persistedSessionPath = ctx.sessionManager?.getSessionFile?.();
+	if (persistedSessionPath === undefined) {
+		return {
+			type: "stopped",
+			message:
+				"The current Pi session is not persisted. Save or resume a persisted session, or pass an explicit Saved Plan path.",
+		};
+	}
+	const skill = captureSessionPlanDiscoverySkill(ctx);
+	if (!skill.ok) return { type: "stopped", message: skill.error.message };
+
+	sessionPlanDiscoveryPending = true;
+	try {
+		const repoRoot = await resolveDiscoveryRepoRoot(pi, ctx.cwd);
+		const discoveryContext = options.sessionPlanDiscovery;
+		if (discoveryContext === undefined) {
+			return {
+				type: "stopped",
+				message: "Session plan discovery is not configured for this Branch Context command.",
+			};
+		}
+		const result = await discoverSessionPlan(discoveryContext, {
+			repoRoot,
+			persistedSessionPath,
+			skill: skill.value,
+		});
+		if (!result.ok) {
+			return {
+				type: "stopped",
+				message: `Session plan discovery failed (${result.error.code}): ${result.error.message}`,
+			};
+		}
+		if (dryRun && result.value.type === "ambiguous") {
+			return {
+				type: "stopped",
+				message: [
+					`Dry run: session plan discovery is ambiguous: ${result.value.basis}`,
+					...result.value.candidates.map(formatDiscoveryCandidate),
+					"No selection or confirmation was requested and nothing was changed.",
+				].join("\n\n"),
+			};
+		}
+		const candidate = await chooseDiscoveryCandidate(ctx, result.value);
+		if (candidate === undefined) {
+			return { type: "stopped", message: formatDiscoveryTerminal(result.value) };
+		}
+		const preview = formatDiscoveryCandidate(candidate);
+		let validatedReference: ResolvedExplicitSavedPlanFile | undefined;
+		if (candidate.type === "saved-plan-reference") {
+			validatedReference = await validateDiscoveredSavedPlan(pi, ctx, options, candidate.filePath);
+		}
+		if (dryRun) {
+			return {
+				type: "stopped",
+				message: `Dry run: discovery completed without confirmation, saving, branch/session mutation, or prompt injection.\n\n${preview}\n\nConfirmation needed: yes`,
+			};
+		}
+		const confirmed = await ctx.ui.confirm?.("Use discovered session plan?", preview);
+		if (!confirmed) {
+			return {
+				type: "stopped",
+				message: "Session plan discovery was cancelled; no plan, branch, or session was changed.",
+			};
+		}
+		if (validatedReference !== undefined) {
+			return { type: "selected", selected: selectedFromResolvedPlan(validatedReference) };
+		}
+		return materializeDiscoveryCandidate(pi, ctx, options, candidate);
+	} finally {
+		sessionPlanDiscoveryPending = false;
+	}
+}
+
+async function resolveDiscoveryRepoRoot(
+	pi: BranchContextPiCommandApi,
+	cwd: string,
+): Promise<string> {
+	const result = await pi.exec("git", ["rev-parse", "--show-toplevel"], { cwd });
+	if (result.type !== "exited" || result.code !== 0 || result.stdout.trim() === "") {
+		throw new Error("Cannot discover a session plan outside a Git worktree.");
+	}
+	return result.stdout.trim();
+}
+
+async function chooseDiscoveryCandidate(
+	ctx: CommandContext,
+	discovery: SessionPlanDiscovery,
+): Promise<SessionPlanCandidate | undefined> {
+	if (discovery.type === "not-found") return undefined;
+	if (discovery.type !== "ambiguous") return discovery;
+	if (ctx.ui.select === undefined) {
+		throw new Error(
+			"Ambiguous session plan discovery requires Pi UI candidate selection; pass an explicit Saved Plan path.",
+		);
+	}
+	const labels = discovery.candidates.map(
+		(candidate, index) => `${index + 1}. ${candidate.type}: ${candidate.basis}`,
+	);
+	const selected = await ctx.ui.select?.(
+		`Select discovered plan candidate (up to 5): ${discovery.basis}`,
+		labels,
+	);
+	if (selected === undefined) return undefined;
+	const index = labels.indexOf(selected);
+	return index < 0 ? undefined : discovery.candidates[index];
+}
+
+function formatDiscoveryTerminal(discovery: SessionPlanDiscovery): string {
+	if (discovery.type === "not-found") {
+		return `Session plan discovery found no actionable plan: ${discovery.reason}. Pass an explicit Saved Plan path or continue planning.`;
+	}
+	return "Session plan candidate selection was cancelled; no latest-plan fallback was attempted.";
+}
+
+function formatDiscoveryCandidate(candidate: SessionPlanCandidate): string {
+	const lines = [
+		`Candidate: ${candidate.type}`,
+		`Basis: ${candidate.basis}`,
+		"Evidence:",
+		...candidate.evidence.map((excerpt) => `- ${excerpt}`),
+	];
+	if (candidate.type === "saved-plan-reference") lines.push(`Path: ${candidate.filePath}`);
+	if (candidate.type === "presented-plan") {
+		lines.push(`Suggested slug: ${candidate.suggestedSlug}`);
+		lines.push("Presented plan preview:", candidate.planMarkdown);
+	}
+	if (candidate.type === "plan-ready") {
+		lines.push(`Focus: ${candidate.focus}`);
+		if (candidate.missingElements.length > 0) {
+			lines.push("Missing elements:", ...candidate.missingElements.map((item) => `- ${item}`));
+		}
+	}
+	return lines.join("\n");
+}
+
+async function materializeDiscoveryCandidate(
+	pi: BranchContextPiCommandApi,
+	ctx: CommandContext,
+	options: BranchContextExtensionOptions,
+	candidate: SessionPlanCandidate,
+): Promise<DiscoveredSavedPlanResult> {
+	if (candidate.type === "plan-ready") {
+		if (pi.sendUserMessage === undefined) {
+			return {
+				type: "stopped",
+				message: "The host cannot inject the required /ns:plan:save follow-up message.",
+			};
+		}
+		pi.sendUserMessage(`/ns:plan:save\n\nFocus: ${candidate.focus}\nBasis: ${candidate.basis}`, {
+			deliverAs: "followUp",
+		});
+		return {
+			type: "stopped",
+			message:
+				"The session is plan-ready. Sent /ns:plan:save as an extension-origin follow-up; no plan or branch was mutated by discovery.",
+		};
+	}
+	if (candidate.type === "saved-plan-reference") {
+		const resolved = await validateDiscoveredSavedPlan(pi, ctx, options, candidate.filePath);
+		return { type: "selected", selected: selectedFromResolvedPlan(resolved) };
+	}
+	const filePath = await savePresentedPlan(
+		pi,
+		ctx.cwd,
+		candidate.suggestedSlug,
+		candidate.planMarkdown,
+	);
+	const resolved = await validateDiscoveredSavedPlan(pi, ctx, options, filePath);
+	return { type: "selected", selected: selectedFromResolvedPlan(resolved) };
+}
+
+async function validateDiscoveredSavedPlan(
+	pi: BranchContextPiCommandApi,
+	ctx: CommandContext,
+	options: BranchContextExtensionOptions,
+	filePath: string,
+): Promise<ResolvedExplicitSavedPlanFile> {
+	const resolution = await resolveBranchContextOperations(options).resolveExplicitSavedPlanFile(
+		pi,
+		{
+			cwd: ctx.cwd,
+			explicitPath: filePath,
+			...optionalEntry("planStoreRoot", resolvePlanStoreRootOption(options)),
+		},
+	);
+	if (resolution.type !== "resolved") {
+		throw new Error(`Discovered Saved Plan reference is not safe: ${resolution.message}`);
+	}
+	return resolution.plan;
+}
+
+function selectedFromResolvedPlan(plan: ResolvedExplicitSavedPlanFile): SelectedSavedPlanFile {
+	return {
+		type: "explicit",
+		filePath: plan.filePath,
+		fileName: plan.filePath.split("/").at(-1) ?? `${plan.slug}.md`,
+		savedPlanFileStem: plan.slug,
+	};
+}
+
+async function savePresentedPlan(
+	pi: BranchContextPiCommandApi,
+	cwd: string,
+	slug: string,
+	content: string,
+): Promise<string> {
+	const directory = await mkdtemp(join(tmpdir(), "ns-session-plan-"));
+	const contentFile = join(directory, "plan.md");
+	try {
+		await writeFile(contentFile, content, "utf8");
+		const result = await pi.exec(
+			"enriched-plan",
+			["exec", "save", "--slug", slug, "--content-file", contentFile, "--format", "json"],
+			{ cwd },
+		);
+		if (result.type !== "exited" || result.code !== 0) {
+			throw new Error(`Failed to save the presented plan: ${result.stderr.trim() || result.type}`);
+		}
+		return parseSavedPlanSaveEnvelopeFilePath(JSON.parse(result.stdout));
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
 }
 
 function selectedSavedPlanFileInfo(selected: SelectedSavedPlanFile): {
@@ -1258,7 +1555,7 @@ export function registerBranchContextCommands(
 		commandName: IMPL_SAVED_PLAN_COMMAND_NAME,
 		commandDefinition: {
 			description:
-				"Implement a session-selected, latest fallback, or explicit Saved Plan in a fresh current-branch Pi session without attaching Branch Context.",
+				"Implement an interactively confirmed session-discovered or explicit Saved Plan in a fresh current-branch Pi session without attaching Branch Context.",
 			handler: async (args, ctx) => handleImplSavedPlanCommand(pi, args, ctx, options),
 		},
 	});

@@ -96,7 +96,8 @@ export interface FakeCommandContextOptions {
 	shouldCancelSelect?: boolean;
 	shouldHaveEditor?: boolean;
 	branchEntries?: PiSessionEntry[];
-	sessionFile?: string;
+	sessionFile?: string | null;
+	skills?: SystemPromptOptions["skills"];
 }
 
 export const ROOT = mkdtempSync(join(tmpdir(), "herdr-model-root-"));
@@ -122,6 +123,7 @@ export class FakePi implements ExtensionAPI {
 	readonly tools = new Map<string, { name: string }>();
 	readonly execCalls: ExecCall[] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly sentUserMessageOptions: Array<Parameters<ExtensionAPI["sendUserMessage"]>[1]> = [];
 	readonly appendedEntries: Array<{ customType: string; data: unknown }> = [];
 	readonly entryRenderers = new Map<string, EntryRenderer>();
 	readonly setModels: ModelInfo[] = [];
@@ -269,8 +271,9 @@ export class FakePi implements ExtensionAPI {
 		return model.id !== "unavailable";
 	}
 
-	sendUserMessage(content: string): void {
+	sendUserMessage(content: string, options?: Parameters<ExtensionAPI["sendUserMessage"]>[1]): void {
 		this.sentUserMessages.push(content);
+		this.sentUserMessageOptions.push(options);
 	}
 
 	assertDone(): void {
@@ -307,6 +310,7 @@ export class FakeCommandContext implements CommandContext {
 	private readonly inputValues: Array<string | undefined>;
 	private readonly selectIndices: number[];
 	private readonly onWaitForIdle: (() => unknown) | undefined;
+	private readonly skills: SystemPromptOptions["skills"];
 
 	constructor(options: FakeCommandContextOptions = {}) {
 		this.cwd = options.cwd ?? ROOT;
@@ -316,12 +320,20 @@ export class FakeCommandContext implements CommandContext {
 		this.onWaitForIdle = options.onWaitForIdle;
 		this.selectIndices = [...(options.selectIndices ?? [0])];
 		this.shouldCancelSelect = options.shouldCancelSelect ?? false;
+		this.skills = options.skills ?? [
+			{
+				name: "session-plan-discovery",
+				filePath: "/skills/session-plan-discovery/SKILL.md",
+				baseDir: "/skills/session-plan-discovery",
+			},
+		];
 		this.modelRegistry = { find: () => undefined };
 		const branchEntries = options.branchEntries ?? [];
 		this.sessionManager = {
 			getBranch: () => branchEntries,
 			getEntries: () => branchEntries,
-			getSessionFile: () => options.sessionFile,
+			getSessionFile: () =>
+				options.sessionFile === null ? undefined : (options.sessionFile ?? "/sessions/test.jsonl"),
 			getSessionId: () => "test-session-id",
 		};
 		this.ui = {
@@ -369,7 +381,7 @@ export class FakeCommandContext implements CommandContext {
 	}
 
 	getSystemPromptOptions(): SystemPromptOptions {
-		return { skills: [] };
+		return this.skills === undefined ? {} : { skills: this.skills };
 	}
 
 	async waitForIdle(): Promise<void> {

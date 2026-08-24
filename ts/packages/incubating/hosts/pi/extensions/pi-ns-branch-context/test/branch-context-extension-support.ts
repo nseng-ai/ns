@@ -94,6 +94,9 @@ export class FakePi implements ExtensionAPI {
 	readonly defaultBranchAvailabilityProbeCalls: ExecCall[] = [];
 	readonly sentMessages: SentMessage[] = [];
 	readonly sentUserMessages: string[] = [];
+	readonly sentUserMessageOptions: Array<
+		Parameters<NonNullable<ExtensionAPI["sendUserMessage"]>>[1]
+	> = [];
 	private readonly script: ScriptedQueue<ScriptedExec>;
 	private readonly events: string[] | undefined;
 	// Mutated in place (never reassigned) so state is shared with the
@@ -167,9 +170,13 @@ export class FakePi implements ExtensionAPI {
 		this.sentMessages.push({ ...message, options });
 	}
 
-	sendUserMessage(content: string): void {
+	sendUserMessage(
+		content: string,
+		options?: Parameters<NonNullable<ExtensionAPI["sendUserMessage"]>>[1],
+	): void {
 		this.events?.push("send");
 		this.sentUserMessages.push(content);
+		this.sentUserMessageOptions.push(options);
 	}
 
 	assertDone(): void {
@@ -214,6 +221,9 @@ export interface BranchContextOperationFakes {
 	loadPlanCalls: Array<Parameters<BranchContextOperations["loadBranchContextPlan"]>>;
 	createBranchCalls: Array<Parameters<BranchContextOperations["createBranchContextFromFile"]>>;
 	selectPlanCalls: Array<Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>>;
+	resolveExplicitPlanCalls: Array<
+		Parameters<BranchContextOperations["resolveExplicitSavedPlanFile"]>
+	>;
 }
 
 export function createBranchContextOperationFakes(
@@ -226,10 +236,14 @@ export function createBranchContextOperationFakes(
 	const selectPlanCalls: Array<
 		Parameters<BranchContextOperations["resolveSelectedSavedPlanFile"]>
 	> = [];
+	const resolveExplicitPlanCalls: Array<
+		Parameters<BranchContextOperations["resolveExplicitSavedPlanFile"]>
+	> = [];
 	return {
 		loadPlanCalls,
 		createBranchCalls,
 		selectPlanCalls,
+		resolveExplicitPlanCalls,
 		operations: {
 			async loadBranchContextPlan(...args) {
 				loadPlanCalls.push(args);
@@ -254,6 +268,23 @@ export function createBranchContextOperationFakes(
 				return explicitSelectedPlanFile(
 					options.explicitPath ?? "/tmp/branch-scoped-plan-extension.md",
 				);
+			},
+			async resolveExplicitSavedPlanFile(...args) {
+				resolveExplicitPlanCalls.push(args);
+				if (overrides.resolveExplicitSavedPlanFile !== undefined) {
+					return overrides.resolveExplicitSavedPlanFile(...args);
+				}
+				const filePath = args[1].explicitPath;
+				return {
+					type: "resolved",
+					plan: {
+						...savedPlanEvidence({
+							slug: filePath.split("/").at(-1)?.replace(/\.md$/, "") ?? PLAN_SLUG,
+							filePath,
+						}),
+						content: DEFAULT_PLAN_CONTENT,
+					},
+				};
 			},
 		},
 	};
@@ -669,6 +700,8 @@ export function createContext(
 		hasUI?: boolean;
 		cwd?: string;
 		confirm?: (title: string, message?: string) => Promise<boolean>;
+		select?: (title: string, items: string[]) => Promise<string | undefined>;
+		skills?: Array<{ name: string; filePath: string; baseDir: string }>;
 		sessionEntries?: unknown[];
 		sessionFile?: string;
 		shouldCancelNewSession?: boolean;
@@ -714,10 +747,17 @@ export function createContext(
 			return options.confirm?.(title, message) ?? false;
 		};
 	}
+	if (options.select !== undefined) {
+		ui.select = async (title, items) => {
+			assertActiveSession();
+			events.push("select");
+			return options.select?.(title, items);
+		};
+	}
 
 	const ctx: CommandContext = {
 		cwd: options.cwd ?? ROOT,
-		getSystemPromptOptions: () => ({ skills: [] }),
+		getSystemPromptOptions: () => ({ skills: options.skills ?? [] }),
 		hasUI: options.hasUI ?? true,
 		ui,
 		async waitForIdle(): Promise<void> {

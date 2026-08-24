@@ -8,6 +8,10 @@
  *          Pi launch command building.
  * Herdr owns: workspace/tab creation, explicit pane targeting, process launch.
  */
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
+
 import {
 	buildHerdrCreateTabArgs,
 	buildHerdrCreateWorkspaceArgs,
@@ -32,7 +36,23 @@ import {
 	type BranchContextOutputDetails,
 	type ReadyPreparedPlanBranchContext,
 } from "@nseng-ai/branch-context/api";
-import { prepareLatestSessionSavedPlan, type ValidatedSessionSavedPlan } from "@nseng-ai/plans/api";
+import {
+	resolveExplicitSavedPlanFile,
+	resolvePlanStoreDirectory,
+	type ResolvedExplicitSavedPlanFile,
+	type ValidatedSessionSavedPlan,
+} from "@nseng-ai/plans/api";
+import {
+	captureSessionPlanDiscoverySkill,
+	discoverSessionPlan,
+	formatSessionPlanCandidate,
+	formatSessionPlanCandidateLabel,
+	formatSessionPlanDiscoveryTerminal,
+	parseSavedPlanSaveEnvelopeFilePath,
+	type SessionPlanCandidate,
+	type SessionPlanDiscovery,
+	type SessionPlanDiscoveryContext,
+} from "@nseng-ai/pi-ns-branch-context/session-plan-discovery";
 import { buildPiLaunchCommand, getPiLaunchOptions } from "@nseng-ai/extension-kit/pi-launch";
 import {
 	prepareLocalGraphiteTrunk,
@@ -66,6 +86,7 @@ export interface HerdrSlotImplPlanOptions {
 	planStoreRoot?: string;
 	createBranchContextContext?: BranchContextContextFactory<[pi: HerdrPiCommandApi, cwd: string]>;
 	slotClient?: SlotClient;
+	sessionPlanDiscovery?: SessionPlanDiscoveryContext;
 }
 
 interface CommandArgs {
@@ -86,6 +107,8 @@ export interface HandleHerdrSlotImplPlanOptions {
 	config: ImplPlanConfig;
 	notifyProgress: (message: string) => void;
 }
+
+let sessionPlanDiscoveryPending = false;
 
 export async function handleHerdrSlotImplPlan(
 	context: HerdrImplPlanContext,
@@ -117,7 +140,93 @@ export async function handleHerdrSlotImplPlan(
 
 	await ctx.waitForIdle();
 
+	if (sessionPlanDiscoveryPending) {
+		present(ctx, "Session plan discovery is already pending.", "error");
+		return;
+	}
+	if (!parsed.isDryRun && (!ctx.hasUI || ctx.ui.confirm === undefined)) {
+		present(
+			ctx,
+			"Session plan discovery requires Pi UI confirmation. Resume in a UI-capable persisted session.",
+			"error",
+		);
+		return;
+	}
+	const persistedSessionPath = ctx.sessionManager?.getSessionFile?.();
+	if (persistedSessionPath === undefined) {
+		present(
+			ctx,
+			"The current Pi session is not persisted. Save or resume a persisted session before implementing its plan.",
+			"error",
+		);
+		return;
+	}
+	const skill = captureSessionPlanDiscoverySkill(ctx);
+	if (!skill.ok) {
+		present(ctx, skill.error.message, "error");
+		return;
+	}
+	const discoveryContext = options.dependencies.sessionPlanDiscovery;
+	if (discoveryContext === undefined) {
+		present(ctx, "Session plan discovery is not configured for this Herdr command.", "error");
+		return;
+	}
+
+	sessionPlanDiscoveryPending = true;
 	try {
+		options.notifyProgress("Discovering the session plan…");
+		setStatus(ctx, config, "discovering session plan…");
+		const repoRoot = await resolveDiscoveryRepoRoot(pi, ctx.cwd);
+		const discovery = await discoverSessionPlan(discoveryContext, {
+			repoRoot,
+			persistedSessionPath,
+			skill: skill.value,
+		});
+		if (!discovery.ok) {
+			present(
+				ctx,
+				`Session plan discovery failed (${discovery.error.code}): ${discovery.error.message}`,
+				"error",
+			);
+			return;
+		}
+		const candidate = await chooseSessionPlanCandidate(ctx, discovery.value, parsed.isDryRun);
+		if (candidate === undefined) {
+			present(ctx, formatSessionPlanDiscoveryTerminal(discovery.value), "info");
+			return;
+		}
+		const candidatePreview = formatSessionPlanCandidate(candidate);
+		let validatedReference: ResolvedExplicitSavedPlanFile | undefined;
+		if (candidate.type === "saved-plan-reference") {
+			validatedReference = await validateDiscoveredSavedPlan(
+				pi,
+				ctx.cwd,
+				candidate.filePath,
+				options.dependencies,
+			);
+		}
+		if (parsed.isDryRun) {
+			present(
+				ctx,
+				`Dry run: discovery completed without confirmation, saving, branch, Slot, Herdr, or prompt mutation.\n\n${candidatePreview}\n\nConfirmation needed: yes`,
+				"info",
+			);
+			return;
+		}
+		const confirmed = await ctx.ui.confirm?.("Use discovered session plan?", candidatePreview);
+		if (confirmed !== true) {
+			present(ctx, "Session plan discovery was cancelled; nothing was changed.", "info");
+			return;
+		}
+		const selected = await materializeSessionPlanCandidate({
+			pi,
+			ctx,
+			candidate,
+			dependencies: options.dependencies,
+			validatedReference,
+		});
+		if (selected === undefined) return;
+
 		const selection = await resolveImplBranchBasis({
 			cwd: ctx.cwd,
 			git: context.git,
@@ -132,19 +241,7 @@ export async function handleHerdrSlotImplPlan(
 			return;
 		}
 
-		options.notifyProgress("Finding latest saved plan…");
-		setStatus(ctx, config, "finding latest saved plan…");
-		const selected = await prepareLatestSessionSavedPlan(pi, {
-			cwd: ctx.cwd,
-			entries: ctx.sessionManager?.getBranch?.() ?? [],
-			...optionalEntry("planStoreRoot", options.dependencies.planStoreRoot),
-		});
-		if (!selected.ok) {
-			present(ctx, selected.error, "error");
-			return;
-		}
-
-		const checkout = selected.directory;
+		const checkout = selected.checkout;
 		const selectedPlan = selected.plan;
 		const basis =
 			selection.basis === "trunk"
@@ -224,7 +321,156 @@ export async function handleHerdrSlotImplPlan(
 			"error",
 		);
 	} finally {
+		sessionPlanDiscoveryPending = false;
 		setStatus(ctx, config, undefined);
+	}
+}
+
+interface MaterializedSessionPlan {
+	checkout: Awaited<ReturnType<typeof resolvePlanStoreDirectory>>;
+	plan: ValidatedSessionSavedPlan;
+}
+
+async function resolveDiscoveryRepoRoot(pi: HerdrPiCommandApi, cwd: string): Promise<string> {
+	const result = await pi.exec("git", ["rev-parse", "--show-toplevel"], { cwd });
+	if (result.type !== "exited" || result.code !== 0 || result.stdout.trim() === "") {
+		throw new Error("Cannot discover a session plan outside a Git worktree.");
+	}
+	return result.stdout.trim();
+}
+
+async function chooseSessionPlanCandidate(
+	ctx: CommandContext,
+	discovery: SessionPlanDiscovery,
+	dryRun: boolean,
+): Promise<SessionPlanCandidate | undefined> {
+	if (discovery.type === "not-found") return undefined;
+	if (discovery.type !== "ambiguous") return discovery;
+	if (dryRun) {
+		present(
+			ctx,
+			[
+				`Dry run: session plan discovery is ambiguous: ${discovery.basis}`,
+				...discovery.candidates.map(formatSessionPlanCandidateLabel),
+				"No selection or confirmation was requested and nothing was changed.",
+			].join("\n"),
+			"info",
+		);
+		return undefined;
+	}
+	if (ctx.ui.select === undefined) {
+		throw new Error("Ambiguous session plan discovery requires Pi UI candidate selection.");
+	}
+	const labels = discovery.candidates.map(formatSessionPlanCandidateLabel);
+	const selected = await ctx.ui.select(
+		`Select discovered plan candidate (up to 5): ${discovery.basis}`,
+		labels,
+	);
+	if (selected === undefined) return undefined;
+	const index = labels.indexOf(selected);
+	return index < 0 ? undefined : discovery.candidates[index];
+}
+
+async function validateDiscoveredSavedPlan(
+	pi: HerdrPiCommandApi,
+	cwd: string,
+	filePath: string,
+	dependencies: HerdrSlotImplPlanOptions,
+): Promise<ResolvedExplicitSavedPlanFile> {
+	const resolution = await resolveExplicitSavedPlanFile(pi, {
+		cwd,
+		explicitPath: filePath,
+		...optionalEntry("planStoreRoot", dependencies.planStoreRoot),
+	});
+	if (resolution.type !== "resolved") {
+		throw new Error(`Discovered Saved Plan reference is not safe: ${resolution.message}`);
+	}
+	return resolution.plan;
+}
+
+async function materializeSessionPlanCandidate(options: {
+	pi: HerdrPiCommandApi;
+	ctx: CommandContext;
+	candidate: SessionPlanCandidate;
+	dependencies: HerdrSlotImplPlanOptions;
+	validatedReference: ResolvedExplicitSavedPlanFile | undefined;
+}): Promise<MaterializedSessionPlan | undefined> {
+	if (options.candidate.type === "plan-ready") {
+		options.pi.sendUserMessage(
+			`/ns:plan:save\n\nFocus: ${options.candidate.focus}\nBasis: ${options.candidate.basis}`,
+			{ deliverAs: "followUp" },
+		);
+		present(
+			options.ctx,
+			"The session is plan-ready. Sent /ns:plan:save as a follow-up; no branch, Slot, or Herdr destination was mutated.",
+			"info",
+		);
+		return undefined;
+	}
+	const resolved =
+		options.candidate.type === "saved-plan-reference"
+			? requireValidatedReference(options.validatedReference)
+			: await saveAndValidatePresentedPlan(
+					options.pi,
+					options.ctx.cwd,
+					options.candidate,
+					options.dependencies,
+				);
+
+	const checkout = await resolvePlanStoreDirectory(options.pi, {
+		cwd: options.ctx.cwd,
+		...optionalEntry("planStoreRoot", options.dependencies.planStoreRoot),
+	});
+	return {
+		checkout,
+		plan: {
+			directory: checkout,
+			slug: resolved.slug,
+			filePath: resolved.filePath,
+			fileName: basename(resolved.filePath),
+			modifiedTimeMs: 0,
+		},
+	};
+}
+
+function requireValidatedReference(
+	plan: ResolvedExplicitSavedPlanFile | undefined,
+): ResolvedExplicitSavedPlanFile {
+	if (plan === undefined) throw new Error("Saved Plan reference was not validated.");
+	return plan;
+}
+
+async function saveAndValidatePresentedPlan(
+	pi: HerdrPiCommandApi,
+	cwd: string,
+	candidate: Extract<SessionPlanCandidate, { type: "presented-plan" }>,
+	dependencies: HerdrSlotImplPlanOptions,
+): Promise<ResolvedExplicitSavedPlanFile> {
+	const directory = await mkdtemp(join(tmpdir(), "ns-herdr-session-plan-"));
+	const contentFile = join(directory, "plan.md");
+	try {
+		await writeFile(contentFile, candidate.planMarkdown, { encoding: "utf8", mode: 0o600 });
+		const result = await pi.exec(
+			"enriched-plan",
+			[
+				"exec",
+				"save",
+				"--slug",
+				candidate.suggestedSlug,
+				"--content-file",
+				contentFile,
+				"--format",
+				"json",
+			],
+			{ cwd },
+		);
+		if (result.type !== "exited" || result.code !== 0) {
+			throw new Error(`Failed to save the presented plan: ${result.stderr.trim() || result.type}`);
+		}
+		const filePath = parseSavedPlanSaveEnvelopeFilePath(JSON.parse(result.stdout));
+		return await validateDiscoveredSavedPlan(pi, cwd, filePath, dependencies);
+	} finally {
+		await rm(directory, { recursive: true, force: true });
 	}
 }
 
@@ -465,13 +711,13 @@ function formatHerdrImplPreview(options: {
 function formatUsage(config: ImplPlanConfig): string {
 	return `Usage: /${config.commandName} [--dry-run]
 
-Implement the latest saved plan in a new Herdr ${formatImplDestinationNoun(config.destination)} for implementation. Choose the current branch or local Graphite trunk contextually at invocation time.
+Discover and confirm the actionable plan in the persisted Pi session, then implement it in a new Herdr ${formatImplDestinationNoun(config.destination)}. Choose the current branch or local Graphite trunk contextually after plan confirmation.
 
 Options:
-  --dry-run    Show the selected plan and commands without mutating.
+  --dry-run    Discover and report candidates without confirmation, saving, or mutation.
   --help, -h   Show this help.
 
-Run /ns:plan:save first, then rerun /${config.commandName}.`;
+Discovery never falls back to the latest Saved Plan. If the session is only plan-ready, this command sends /ns:plan:save and stops.`;
 }
 
 type PresentLevel = Exclude<NotifyLevel, "success">;

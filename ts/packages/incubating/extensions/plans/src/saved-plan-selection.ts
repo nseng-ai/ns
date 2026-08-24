@@ -304,7 +304,9 @@ export async function resolveExplicitSavedPlanFile(
 		);
 	}
 
-	const slug = basename(filePath, ".md");
+	const fileName = basename(filePath);
+	const timestampedName = parseSavedPlanFileName(fileName);
+	const slug = timestampedName?.slug ?? basename(filePath, ".md");
 	const slugError = validatePlanSlug(slug);
 	if (slugError !== undefined) {
 		return unsafeExplicit(`Saved Plan has an invalid slug ${JSON.stringify(slug)}: ${slugError}`);

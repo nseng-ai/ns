@@ -16,6 +16,7 @@
 		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/herdr": "workspace:*",
 		"@nseng-ai/objectives": "workspace:*",
+		"@nseng-ai/pi-ns-branch-context": "workspace:*",
 		"@nseng-ai/pi-ns-handoffs": "workspace:*",
 		"@nseng-ai/pi-runtime": "workspace:*",
 		"@nseng-ai/plans": "workspace:*",

@@ -477,6 +477,9 @@ importers:
       '@nseng-ai/objectives':
         specifier: workspace:*
         version: link:../../../../extensions/objectives
+      '@nseng-ai/pi-ns-branch-context':
+        specifier: workspace:*
+        version: link:../pi-ns-branch-context
       '@nseng-ai/pi-ns-handoffs':
         specifier: workspace:*
         version: link:../pi-ns-handoffs

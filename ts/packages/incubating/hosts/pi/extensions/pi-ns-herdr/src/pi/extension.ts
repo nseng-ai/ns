@@ -160,8 +160,8 @@ function adaptHerdrExtensionApi(pi: ExtensionAPI | HandoffExtensionAPI): Extensi
 		async setModel(): Promise<boolean> {
 			return false;
 		},
-		sendUserMessage(content: string): void {
-			pi.sendUserMessage(content);
+		sendUserMessage(content, options): void {
+			pi.sendUserMessage(content, options);
 		},
 		appendEntry(customType, data): void {
 			pi.appendEntry(customType, data);
