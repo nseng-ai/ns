@@ -1,28 +1,15 @@
 import type { WorktreeConflict } from "./types.ts";
 
-export function isManagedSlotPath(path: string): boolean {
-	const normalized = path.replaceAll("\\", "/");
-	return /(?:^|\/)ns\/slots\/repos\/[^/]+\/worktrees\/slot-[^/]+(?:\/|$)/.test(normalized);
-}
-
-export function slotNameFromPath(path: string): string | undefined {
-	const normalized = path.replaceAll("\\", "/");
-	return normalized.match(/\/worktrees\/(slot-[^/]+)/)?.[1];
-}
-
-export function slotFreeArgs(
-	conflicts: readonly { readonly branch: string; readonly path: string }[],
-): string[] {
+export function slotFreeArgs(conflicts: readonly WorktreeConflict[]): string[] {
 	const args = ["free"];
 	const seenSlots = new Set<string>();
 	const seenBranches = new Set<string>();
 
 	for (const conflict of conflicts) {
-		const slotName = slotNameFromPath(conflict.path);
-		if (slotName) {
-			if (!seenSlots.has(slotName)) {
-				seenSlots.add(slotName);
-				args.push("--wt", slotName);
+		if (conflict.type === "managed-slot") {
+			if (!seenSlots.has(conflict.slotName)) {
+				seenSlots.add(conflict.slotName);
+				args.push("--wt", conflict.slotName);
 			}
 			continue;
 		}
@@ -48,9 +35,8 @@ export function formatManualWorktreeConflict(conflicts: readonly WorktreeConflic
 }
 
 export function formatSlotConflict(conflict: WorktreeConflict): string {
-	const slot = slotNameFromPath(conflict.path);
-	return slot
-		? `${slot} ${conflict.branch} ${conflict.path}`
+	return conflict.type === "managed-slot"
+		? `${conflict.slotName} ${conflict.branch} ${conflict.path}`
 		: `${conflict.branch} ${conflict.path}`;
 }
 

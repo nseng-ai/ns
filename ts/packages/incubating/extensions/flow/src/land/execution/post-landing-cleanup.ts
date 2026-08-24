@@ -1,5 +1,6 @@
 import { formatCommand } from "@nseng-ai/foundation/command";
 import { optionalEntry } from "@nseng-ai/foundation/primitives";
+import { parseManagedSlotWorktreeRoot } from "@nseng-ai/slots/api";
 
 import { postLandingCleanupCommands } from "../confirmation-commands.ts";
 import { landingExecutionFailure } from "../results.ts";
@@ -14,7 +15,6 @@ import {
 	type ManagedSlotWorktree,
 	type PostLandingSlotCleanupReport,
 } from "../types.ts";
-import { isManagedSlotPath, slotNameFromPath } from "../worktree-paths.ts";
 
 export interface PostLandingSlotCleanupPreview {
 	readonly branch: string;
@@ -65,11 +65,11 @@ export function postLandingCleanupSkipReport(
 	cleanup: PostLandingCleanupRequest,
 	shape: LandingShape,
 ): PostLandingSlotCleanupReport {
-	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
-	if (slotName === undefined) return { type: "not-applicable" };
+	const slotName = parseManagedSlotWorktreeRoot(shape.repoRoot);
+	if (!slotName.ok) return { type: "not-applicable" };
 	if (cleanup.mode === "dry-run") return { type: "dry-run" };
 	if (cleanup.policy === "preserve") {
-		return { type: "preserved", slotName, branch: shape.stack.actualCurrentBranch };
+		return { type: "preserved", slotName: slotName.value, branch: shape.stack.actualCurrentBranch };
 	}
 	return { type: "not-applicable" };
 }
@@ -164,8 +164,8 @@ function postLandingCleanupTarget(
 ): PostLandingSlotCleanupTarget | undefined {
 	if (cleanup.policy === "preserve" || cleanup.mode === "dry-run") return undefined;
 
-	const slotName = isManagedSlotPath(shape.repoRoot) ? slotNameFromPath(shape.repoRoot) : undefined;
-	if (slotName === undefined) return undefined;
+	const slotName = parseManagedSlotWorktreeRoot(shape.repoRoot);
+	if (!slotName.ok) return undefined;
 
 	const branch = shape.stack.actualCurrentBranch;
 	const localBranchDisposition = branch === shape.stack.trunk ? "keep-trunk" : "delete";
@@ -173,14 +173,14 @@ function postLandingCleanupTarget(
 		branch,
 		localBranchDisposition,
 		repoRoot: shape.repoRoot,
-		slotName,
+		slotName: slotName.value,
 		successMessage:
 			localBranchDisposition === "keep-trunk"
-				? `Post-landing cleanup complete: freed ${slotName}; local trunk branch ${branch} was kept.`
-				: `Post-landing cleanup complete: freed ${slotName} and deleted local branch ${branch}.`,
+				? `Post-landing cleanup complete: freed ${slotName.value}; local trunk branch ${branch} was kept.`
+				: `Post-landing cleanup complete: freed ${slotName.value} and deleted local branch ${branch}.`,
 		suggestedAction: `Run ${postLandingCleanupCommands({
 			branch,
-			slotName,
+			slotName: slotName.value,
 			localBranchDisposition,
 		}).join(", then ")} when safe.`,
 	};

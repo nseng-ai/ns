@@ -109,11 +109,20 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		expect(
 			await context.worktrees.freeSlots({
 				repoRoot: REPO_ROOT,
-				slots: [{ type: "managed-slot", branch: "feature/child", path: "/repo-slot" }],
+				slots: [
+					{
+						type: "managed-slot",
+						branch: "feature/child",
+						path: "/repo-slot",
+						slotName: "slot-02",
+					},
+				],
 			}),
 		).toEqual({
 			type: "success",
-			value: [{ type: "managed-slot", branch: "feature/child", path: "/repo-slot" }],
+			value: [
+				{ type: "managed-slot", branch: "feature/child", path: "/repo-slot", slotName: "slot-02" },
+			],
 		});
 
 		expect(git.resolveRepoRootCalls).toEqual([{ cwd: "/repo/subdir" }]);
@@ -139,7 +148,14 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		expect(worktrees.freeSlotsCalls).toEqual([
 			{
 				repoRoot: REPO_ROOT,
-				slots: [{ type: "managed-slot", branch: "feature/child", path: "/repo-slot" }],
+				slots: [
+					{
+						type: "managed-slot",
+						branch: "feature/child",
+						path: "/repo-slot",
+						slotName: "slot-02",
+					},
+				],
 			},
 		]);
 	});
@@ -558,7 +574,12 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		const localBranches: LocalBranchTip[] = [{ name: "feature/land-core", sha: FEATURE_SHA }];
 		const worktreeEntries: WorktreeEntry[] = [{ path: "/repo-slot", branch: "feature/land-core" }];
 		const slotsToFree: ManagedSlotWorktree[] = [
-			{ type: "managed-slot", branch: "feature/land-core", path: "/repo-slot" },
+			{
+				type: "managed-slot",
+				branch: "feature/land-core",
+				path: "/repo-slot",
+				slotName: "slot-02",
+			},
 		];
 		const stack = stackSnapshot({ landingBranches: ["feature/land-core"] });
 		const git = new InMemoryLandGitGateway({ localBranches });
@@ -591,7 +612,14 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		});
 		expect(freedSlots).toEqual({
 			type: "success",
-			value: [{ type: "managed-slot", branch: "feature/land-core", path: "/repo-slot" }],
+			value: [
+				{
+					type: "managed-slot",
+					branch: "feature/land-core",
+					path: "/repo-slot",
+					slotName: "slot-02",
+				},
+			],
 		});
 		expect(firstStackShape).toMatchObject({
 			type: "success",
@@ -612,6 +640,7 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 				type: "managed-slot",
 				branch: "feature/output-mutation",
 				path: "/output-mutation",
+				slotName: "slot-99",
 			});
 		}
 		if (firstStackShape.type === "success") {
@@ -629,7 +658,14 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 		});
 		expect(await worktrees.freeSlots({ repoRoot: REPO_ROOT, slots: slotsToFree })).toEqual({
 			type: "success",
-			value: [{ type: "managed-slot", branch: "feature/land-core", path: "/repo-slot" }],
+			value: [
+				{
+					type: "managed-slot",
+					branch: "feature/land-core",
+					path: "/repo-slot",
+					slotName: "slot-02",
+				},
+			],
 		});
 		expect(
 			await graphite.stackShape({
@@ -664,6 +700,7 @@ describe("@nseng-ai/flow land in-memory gateway fakes", () => {
 			type: "managed-slot" as const,
 			branch: "feature/land-core",
 			path: residualPath,
+			slotName: "slot-02",
 		};
 
 		await worktrees.freeSlots({ repoRoot: REPO_ROOT, slots: [slot] });

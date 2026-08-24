@@ -31,8 +31,8 @@ The canonical result shape describing where a branch was placed or already lives
 The `ns slot ...` command surface — the user- and agent-facing commands mounted as `ns slot ...`, including lifecycle commands, human output, machine-readable output, and command-only Graphite helpers — is an ordinary architectural layer, not a defined term.
 
 **Slot extension package API**:
-The curated `@nseng-ai/slots/api` surface for downstream in-process consumers that need Slot behavior without invoking the CLI or importing private modules.
-*Avoid*: command output parsing, `@nseng-ai/slots/src/...` import, package-root convenience import, `ctx`-passing API
+The curated `@nseng-ai/slots/api` surface for downstream in-process consumers that need Slot behavior without invoking the CLI or importing private modules. It owns separator-independent lexical recognition of exact managed worktree roots in the `slots/repos/<repo>/worktrees/slot-NN` layout, requires a canonical Slot name from `slot-01` through `slot-99`, and returns a typed domain failure for nested, malformed, or other paths.
+*Avoid*: command output parsing, `@nseng-ai/slots/src/...` import, package-root convenience import, consumer-owned managed-worktree path recognition, `ctx`-passing API
 
 **Checkout Side-Effect Policy**:
 The rule that **Slot extension package API** checkout side effects are explicit opt-ins, while safe in-process defaults do not copy to the clipboard or write parent-shell navigation directives.

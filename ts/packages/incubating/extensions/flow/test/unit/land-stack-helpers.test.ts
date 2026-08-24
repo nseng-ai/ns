@@ -47,7 +47,6 @@ import type {
 } from "../../src/land/stack/types.ts";
 import type { LandedPullRequest } from "../../src/land/types.ts";
 import { parseWorktreeList } from "../../src/land/stack/worktrees.ts";
-import { isManagedSlotPath, slotNameFromPath } from "../../src/land/worktree-paths.ts";
 import { TOPOLOGY_COMMAND, topologyArgs } from "./land-test-helpers.ts";
 import { fakeGitStateFs } from "./git-state-fs-support.ts";
 
@@ -521,20 +520,6 @@ describe("land-stack pure helpers", () => {
 		expect(operation).toBeUndefined();
 	});
 
-	test("detects managed slot paths and extracts slot names", () => {
-		const legacySlotPath = "/Users/me/.slots/repos/sdl-tools/worktrees/slot-04";
-		const xdgSlotPath = "/Users/me/.local/state/ns/slots/repos/sdl-tools/worktrees/slot-04";
-		const windowsXdgSlotPath =
-			"C:\\Users\\me\\AppData\\Local\\ns\\slots\\repos\\sdl-tools\\worktrees\\slot-04";
-		expect(isManagedSlotPath(legacySlotPath)).toBe(false);
-		expect(isManagedSlotPath(xdgSlotPath)).toBe(true);
-		expect(isManagedSlotPath(windowsXdgSlotPath)).toBe(true);
-		expect(slotNameFromPath(xdgSlotPath)).toBe("slot-04");
-		expect(isManagedSlotPath("/tmp/slots/repos/repo/worktrees/slot-04")).toBe(false);
-		expect(isManagedSlotPath("/tmp/sdl-tools/worktrees/slot-04")).toBe(false);
-		expect(slotNameFromPath("/tmp/sdl-tools/worktrees/slot-04")).toBe("slot-04");
-	});
-
 	test("formats command displays with shell quoting", () => {
 		expect(formatCommand("gt", ["delete", "feature/foo", "-f"])).toBe("gt delete feature/foo -f");
 		expect(formatCommand("gh", ["pr", "view", "branch name", "can't"])).toBe(
@@ -636,6 +621,7 @@ describe("land-stack pure helpers", () => {
 					branch: "feature-a",
 					path: "/Users/me/.local/state/ns/slots/repos/repo/worktrees/slot-01",
 					type: "managed-slot",
+					slotName: "slot-01",
 				},
 			],
 			descendantMaintenance: { type: "auto", branches: [DESCENDANT], targetBranches: [DESCENDANT] },
