@@ -302,6 +302,8 @@ Shipped CLI:
 
 ### `objective-create`
 
+The interview contract is operationally adapted from upstream `grilling` (`mattpocock/skills`, upstream path `skills/productivity/grilling/`); pin and melded-surfaces registry: `docs/agents/matt-pocock-skills.md`.
+
 Creates a new objective.
 
 Contract:
@@ -319,14 +321,10 @@ Contract:
 
 User interview:
 
-- Before writing, conduct a user interview inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md).
-- Interview the user relentlessly about every aspect until shared understanding is reached.
-- Walk down each branch of the design tree, resolving dependencies between decisions one-by-one.
-- Explore repository evidence for answerable questions before asking the user.
-- Ask one unresolved question at a time.
-- Include a recommended answer with each question.
-- After each question, ask whether to continue or stop and create the Objective with the context gathered so far.
-- Focus on scope, completion criteria, assumptions, risks, sequencing, closure evidence, and durable execution policy only when requested or surfaced as relevant.
+- Use the effective canonical `grilling` skill when available. It owns the design-tree interview, complete-frontier rounds, recommended answers, repository fact-finding, and shared-understanding gate; fall back to numbered prose rounds with the same properties when it is unavailable.
+- Apply that loop to Objective-specific decisions: title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, sequencing, closure evidence, and durable execution policy only when requested or surfaced as relevant.
+- Preserve progressive disclosure for Objective patterns. First ask only whether to create a standard Objective or choose a pattern; do not enumerate patterns in that round. Only if the user chooses a pattern, present the pattern list as a dependent decision in a later round.
+- Once the slug is confirmed, every question menu may include the exact final option `Stop and create Objective <slug>`; before confirmation, resolve the slug instead of offering that option.
 
 Shipped CLI:
 

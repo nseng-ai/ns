@@ -8,6 +8,8 @@ description: "Create a new Objective record under .ns/objectives/<slug>/. Use wh
 
 Create exactly one new Objective record under `.ns/objectives/<slug>/`. Use the `objective` umbrella skill first for shared vocabulary, selection rules, storage model, safety boundaries, and family policy.
 
+Lineage: the interview is an operational adaptation of upstream `grilling` (`mattpocock/skills`, upstream path `skills/productivity/grilling/`); pin and melded-surfaces registry: `docs/agents/matt-pocock-skills.md`.
+
 The Objective pattern set — wayfinding/ideation, steelthread, standing, umbrella, autoobjective, and readme-driven-development — lives in `references/<pattern>-create.md`; each reference owns that pattern's creation procedure on top of this skill's record mechanics. The pattern is chosen in the interview (see the Pattern beat below). When the user names a pattern upfront, read the matching reference immediately and skip the menu. Recognition prose and composition facts stay in the `objective` skill's patterns catalog (`references/objective-patterns.md`).
 
 ## Required shape
@@ -41,15 +43,14 @@ Record Frontmatter mechanics — the exact-two-keys rule, mirrored two-file edit
 
 ## Interview
 
-Interview the user relentlessly before writing (inspired by [Matt Pocock's `grill-me` skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-me/SKILL.md)) until shared understanding covers title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and a semantic initial roadmap — or the user chooses to stop questioning and write.
+Use the effective canonical `grilling` skill when it is available. It owns design-tree dependency mapping, complete-frontier rounds, numbered questions, affirmative recommendations, fact-finding, and the final shared-understanding gate. This skill supplies the Objective-specific frontier: title, thesis, scope, non-goals, completion criteria, assumptions, risks, open questions, and a semantic initial roadmap. If `grilling` is unavailable, preserve the same contract with numbered prose rounds. The user may choose to stop questioning and write once the slug is confirmed.
 
 - **Pattern.** Early — once the thesis and work shape are roughly understood but before deep branch-walking — progressively disclose Objective shapes. Skip these menus when the user already named a pattern or the shape is unambiguous.
-  1. First present only two choices: **Create a standard Objective** (recommended; continue without a named pattern) and **Select an Objective template or pattern**. Do not name, summarize, or enumerate patterns in this first menu.
-  2. Only when the user selects the second choice, present a second numbered menu containing the six patterns, each with a one-line recognition cue sourced from the patterns catalog entries (do not restate deep prose), plus a final choice to go back and create a standard Objective.
+  1. First ask only one shaping decision, with two choices: **Create a standard Objective** (recommended; continue without a named pattern) and **Select an Objective template or pattern**. Do not name, summarize, or enumerate patterns in this round.
+  2. The pattern list depends on that decision. Only after the user selects the second choice, ask it in a later round as a numbered menu containing the six patterns, each with a one-line recognition cue sourced from the patterns catalog entries (do not restate deep prose), plus a final choice to go back and create a standard Objective.
   3. Single-select the primary shaping; on pattern opt-in, read `references/<pattern>-create.md` before asking that pattern's questions. Ask layering/composition questions only when the catalog says the chosen pattern composes.
-- Walk each branch of the design tree, resolving dependencies between decisions one by one; focus on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or — only when the user explicitly requested execution behavior — execution policy.
-- Explore the codebase or existing docs instead of asking questions whose answers are discoverable locally.
-- Ask one unresolved question at a time, including your recommended answer so the user can confirm or correct it — framed so choosing it is an affirmative selection, never a "no" recommendation followed by "Do you agree?" — as a compact numbered menu with domain-specific labels — never an open-ended continuation prompt. Tell the user they can answer with a number or a custom correction.
+- Focus the Objective frontier on branch points that affect scope, completion criteria, assumptions, risks, sequencing, closure evidence, or — only when the user explicitly requested execution behavior — execution policy.
+- Present choices as compact numbered menus with domain-specific labels, not open-ended continuation prompts. Tell the user they can answer with a number or a custom correction.
 - Menu order: recommended path first, main alternative(s) next, and — only after the slug is explicitly confirmed — a final stop option reading exactly `Stop and create Objective <slug>`, confirmed slug verbatim. If the slug is unconfirmed, omit the stop option and resolve slug confirmation first.
 - Never write generic or invented durable content; keep interviewing until you don't have to.
 
