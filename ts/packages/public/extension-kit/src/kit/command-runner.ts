@@ -39,6 +39,7 @@ function convertExecOptions(options: ExecOptions | undefined): NsExecOptions | u
 	if (options === undefined) return undefined;
 	return {
 		...(options.timeout === undefined ? {} : { timeoutMs: options.timeout }),
+		...(options.env === undefined ? {} : { env: { ...options.env } }),
 		...(options.stdin === undefined ? {} : { stdin: options.stdin }),
 		...(options.onStdout === undefined ? {} : { onStdout: options.onStdout }),
 		...(options.onStderr === undefined ? {} : { onStderr: options.onStderr }),

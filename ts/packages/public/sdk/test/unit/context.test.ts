@@ -23,6 +23,32 @@ describe("real ns command context", () => {
 		expect(result).toMatchObject({ code: 0, stdout: "unset", stderr: "" });
 	});
 
+	test("overlays per-command environment without dropping the host execution environment", async () => {
+		const ctx = createRealNsCommandContext({
+			cwd: process.cwd(),
+			env: {},
+			execEnv: { PRESERVED: "host", OVERRIDDEN: "host" },
+			textGenerator: {
+				generateText: async () => ({ ok: false, error: "not used" }),
+			},
+		});
+
+		const result = await ctx.exec(
+			process.execPath,
+			[
+				"-e",
+				"process.stdout.write(JSON.stringify({preserved: process.env.PRESERVED, overridden: process.env.OVERRIDDEN, added: process.env.ADDED}))",
+			],
+			{ env: { OVERRIDDEN: "command", ADDED: "command" } },
+		);
+
+		expect(result).toMatchObject({
+			code: 0,
+			stdout: '{"preserved":"host","overridden":"command","added":"command"}',
+			stderr: "",
+		});
+	});
+
 	test("selects a numbered terminal option", async () => {
 		const stderr: string[] = [];
 		const select = createTerminalSelectPrompt({
