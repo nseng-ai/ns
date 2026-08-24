@@ -20,7 +20,7 @@ allowed-tools:
 
 # ns-flow-gs-autoslot
 
-Experimental dirty-work autoslot for the official `github/gh-stack` provider (`gs`). Invocation explicitly selects GS and authorizes the scoped local mutations below. This skill contains the complete autobranch procedure; do not invoke, delegate to, or assume execution of `/ns:flow:gs:autobranch`. Only after that procedure has verified provider state, created a durable checkpoint, and proved a clean worktree does it compose `ns slot checkout --current`. This workflow can create a branch and commit, change gh-stack metadata, and move the child into a managed Slot. It does **not** delegate to an `ns flow gs` CLI.
+Experimental dirty-work autoslot for the official `github/gh-stack` provider (`gs`). Native autobranch ownership now lives at `ns gs autobranch` and `/ns:gs:autobranch`; the former `/ns:flow:gs:autobranch` mutation surface is retired. This provisional autoslot skill still contains its complete embedded procedure because moving the child can strand invoking-worktree provider membership. Do not invoke native autobranch and then replay these mutation steps. Only after this procedure verifies provider state, creates a durable checkpoint, and proves a clean worktree does it compose `ns slot checkout --current`.
 
 ## Scope and hard boundaries
 
@@ -80,12 +80,7 @@ After **every** outcome, proactively give one terminal report with exactly these
 7. **Potential improvements:** concrete skill or future implementation improvements, including friction on success and Slot-composition evidence.
 8. **Lesson disposition:** `new-generalizable`, `already-covered`, or `environment-specific`, with one reason.
 
-Safety comes before lesson editing. After state is resolved and reported, turn a new evidence-backed general lesson into a compact normative change when repository mutation is authorized. Shared autobranch lessons must be synchronized in both canonical skills:
-
-- `skills/incubating/flow/ns-flow-gs-autobranch/SKILL.md`
-- `skills/incubating/flow/ns-flow-gs-autoslot/SKILL.md`
-
-Autoslot-only Slot lessons belong only here. Sharpen checks, failure classes, recovery guidance, version caveats, Slot composition, or promotion requirements; do not add incident chronology, raw logs, secrets, branch-specific names, or speculation. If the effective skill is external or editing is not authorized, report a ready-to-apply proposed change and its authoritative path or paths instead of editing silently.
+Safety comes before lesson editing. After state is resolved and reported, turn a new evidence-backed general lesson into a compact normative change when repository mutation is authorized. Shared autobranch lessons must remain aligned with the native contract in `skills/incubating/gs/ns-gs-autobranch/SKILL.md` and this provisional embedded procedure. Autoslot-only Slot lessons belong only here. Sharpen checks, failure classes, recovery guidance, version caveats, Slot composition, or promotion requirements; do not add incident chronology, raw logs, secrets, branch-specific names, or speculation. If the effective skill is external or editing is not authorized, report a ready-to-apply proposed change and its authoritative path or paths instead of editing silently.
 
 ## Known operational lessons
 
@@ -121,4 +116,4 @@ Autoslot-only Slot lessons belong only here. Sharpen checks, failure classes, re
 
 ## Prototype status and promotion
 
-This skill is a temporary imperative executable specification and evidence collector for provider-specific Flow TypeScript. Happy paths are insufficient. Promotion requires evidence across staged, unstaged, untracked, and mixed dirtiness for both paths; stable typed eligibility/refusal and absent-versus-ambiguous mutation outcomes; bounded recovery data; verified Slot success, refusal, failure, and ambiguous-output scenarios; fake-driven tests for every retained autobranch and Slot-composition lesson; CLI danger-tier and machine-result review; and migration of command ownership without duplicate surfaces. Future GS orchestration may compose proven Git/provider/Slot mechanisms but must not create a universal GT/GS transaction, add a GS CLI route prematurely, or change GT behavior. Retain a thin skill only for guidance that still adds value after deterministic mutation moves into Flow.
+This skill is a temporary imperative executable specification and evidence collector for unresolved Slot composition; native GS autobranch is already engineered outside Flow. Happy paths are insufficient. Promotion requires evidence across staged, unstaged, untracked, and mixed dirtiness for both paths; stable typed eligibility/refusal and absent-versus-ambiguous mutation outcomes; bounded recovery data; verified Slot success, refusal, failure, and ambiguous-output scenarios; fake-driven tests for every retained autobranch and Slot-composition lesson; CLI danger-tier and machine-result review; and migration of command ownership without duplicate surfaces. Future GS orchestration may compose proven Git/provider/Slot mechanisms but must not create a universal GT/GS transaction or change GT behavior. Retain a thin skill only for guidance that still adds value after deterministic Slot composition moves into GS.

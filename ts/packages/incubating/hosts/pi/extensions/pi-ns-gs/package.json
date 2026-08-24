@@ -11,6 +11,7 @@
 		"test": "cd ../../../../../.. && vitest run --config vitest.config.ts packages/incubating/hosts/pi/extensions/pi-ns-gs/test"
 	},
 	"dependencies": {
+		"@nseng-ai/foundation": "workspace:*",
 		"@nseng-ai/gs": "workspace:*",
 		"@nseng-ai/ns": "workspace:*",
 		"@nseng-ai/pi-runtime": "workspace:*",

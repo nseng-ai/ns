@@ -2,12 +2,8 @@
 
 Incubating Pi host adapter for [`@nseng-ai/gs`](../../../../extensions/gs/README.md).
 
-It directly discovers `/ns:gs:restack-resolve`, loads a fresh ns CLI module for every invocation,
-and delegates deterministic local mutation to `ns gs restack-resolve --format json --yes`. Completion
-returns without an LM turn. A trustworthy conflict stop invokes exactly the effective
-`ns-gs-restack-resolve` skill captured before mutation, with structured CLI evidence and the user's
-resolver context.
+It directly discovers `/ns:gs:restack-resolve` and `/ns:gs:autobranch`, loading a fresh ns CLI module for every invocation. Each router captures its exact effective skill before mutation and delegates deterministic work to the matching JSON CLI with `--yes`.
 
-The adapter fails closed for missing or ambiguous skills, malformed or mismatched envelopes, process
-failure, usage errors, refusals, and protocol failures. It never edits conflicts, loops, controls
-provider mechanics, manages Slots, aborts, integrates trunk, pushes, or mutates GitHub.
+Verified completion returns without an LM turn. Restack hands only a trustworthy conflict stop to `ns-gs-restack-resolve`. Autobranch reports ordinary refusal and hands only known-partial or ambiguous forward-recovery evidence to `ns-gs-autobranch`, preserving all non-option text as user context.
+
+The adapter fails closed for missing or ambiguous skills, malformed or mismatched envelopes, process failure, usage errors, and protocol failures. It never edits conflicts, replays autobranch effects, controls provider mechanics, manages Slots, rolls back, integrates trunk, pushes, or mutates GitHub.
