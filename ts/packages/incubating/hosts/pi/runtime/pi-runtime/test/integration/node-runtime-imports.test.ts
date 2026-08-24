@@ -13,6 +13,9 @@ const PI_HANDOFFS_PACKAGE_ROOT = fileURLToPath(
 const PI_FLOW_PACKAGE_ROOT = fileURLToPath(
 	new URL("../../../../extensions/pi-ns-flow/", import.meta.url),
 );
+const PI_GS_PACKAGE_ROOT = fileURLToPath(
+	new URL("../../../../extensions/pi-ns-gs/", import.meta.url),
+);
 const PI_BIN = fileURLToPath(new URL("../../node_modules/.bin/pi", import.meta.url));
 const SDK_PACKAGE_ROOT = fileURLToPath(
 	new URL("../../../../../../../public/sdk/", import.meta.url),
@@ -43,6 +46,8 @@ const PI_FLOW_EXPORT_IMPORTS = [
 	"@nseng-ai/pi-ns-flow/extension",
 	"@nseng-ai/pi-ns-flow/stack-squash",
 ] as const;
+
+const PI_GS_EXPORT_IMPORTS = ["@nseng-ai/pi-ns-gs", "@nseng-ai/pi-ns-gs/extension"] as const;
 
 const PI_RUNTIME_ADAPTER_EXPORT_IMPORTS = [
 	"@nseng-ai/pi-ns-branch-context",
@@ -101,11 +106,11 @@ describe("Node runtime import smoke", () => {
 		);
 	}, 30_000);
 
-	test("pi loads the directly discovered Flow lifecycle extension", () => {
+	test("pi loads the directly discovered Flow and GS extensions", () => {
 		const result = runPiExtensionLoad([]);
 		expectSuccessfulPiExtensionLoad(result, {
 			cwd: REPO_ROOT,
-			label: "directly discovered @nseng-ai/pi-ns-flow startup",
+			label: "directly discovered @nseng-ai/pi-ns-flow and @nseng-ai/pi-ns-gs startup",
 		});
 	}, 30_000);
 
@@ -159,6 +164,19 @@ describe("Node runtime import smoke", () => {
 			label: "Flow Pi adapter exports",
 		});
 		expect(result.stdout).toContain(`imported ${PI_FLOW_EXPORT_IMPORTS.length} package specifiers`);
+	});
+
+	test("GS Pi adapter exports import in a cold Node process", () => {
+		const result = runNodeEval({
+			cwd: PI_GS_PACKAGE_ROOT,
+			source: buildPackageImportScript(PI_GS_EXPORT_IMPORTS),
+		});
+
+		expectSuccessfulNodeRun(result, {
+			cwd: PI_GS_PACKAGE_ROOT,
+			label: "GS Pi adapter exports",
+		});
+		expect(result.stdout).toContain(`imported ${PI_GS_EXPORT_IMPORTS.length} package specifiers`);
 	});
 
 	test("Handoffs Pi adapter exports import in a cold Node process", () => {
