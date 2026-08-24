@@ -75,23 +75,36 @@ function answersFor(input: GrillDecisionRoundInput) {
 	}));
 }
 
+function requireQuestion(input: GrillDecisionRoundInput, index: number) {
+	const question = input.questions[index];
+	if (question === undefined) throw new Error(`Missing test question at index ${index}`);
+	return question;
+}
+
+function requireOption(input: GrillDecisionRoundInput, questionIndex: number, optionIndex: number) {
+	const option = requireQuestion(input, questionIndex).options[optionIndex];
+	if (option === undefined) throw new Error(`Missing test option at index ${optionIndex}`);
+	return option;
+}
+
 describe("atomic grill round validation", () => {
 	test("accepts stable IDs, 2–5 options, exact recommendation mappings, and oversized frontiers", () => {
 		expect(validateGrillRoundInput(decisionRound(9))).toMatchObject({ ok: true, oversized: true });
 		for (const count of [2, 3, 4, 5]) {
 			const input = decisionRound(1);
-			input.questions[0]!.options = Array.from({ length: count }, (_, index) => ({
+			const question = requireQuestion(input, 0);
+			question.options = Array.from({ length: count }, (_, index) => ({
 				value: `option-${index}`,
 				label: `Option ${index}`,
 			}));
-			input.questions[0]!.recommendedOptionValue = "option-0";
+			question.recommendedOptionValue = "option-0";
 			expect(validateGrillRoundInput(input).ok).toBe(true);
 		}
 	});
 
 	test.each([1, 6])("rejects %i options and the whole round atomically", (count) => {
 		const input = decisionRound();
-		input.questions[1]!.options = Array.from({ length: count }, (_, index) => ({
+		requireQuestion(input, 1).options = Array.from({ length: count }, (_, index) => ({
 			value: `option-${index}`,
 			label: `Option ${index}`,
 		}));
@@ -100,13 +113,13 @@ describe("atomic grill round validation", () => {
 
 	test("rejects duplicate question/option IDs, malformed payloads, and missing recommendation maps", () => {
 		const duplicateQuestions = decisionRound();
-		duplicateQuestions.questions[1]!.id = "q-1";
+		requireQuestion(duplicateQuestions, 1).id = "q-1";
 		expect(validateGrillRoundInput(duplicateQuestions)).toMatchObject({ ok: false });
 		const duplicateOptions = decisionRound();
-		duplicateOptions.questions[0]!.options[1]!.value = "recommended";
+		requireOption(duplicateOptions, 0, 1).value = "recommended";
 		expect(validateGrillRoundInput(duplicateOptions)).toMatchObject({ ok: false });
 		const missingMapping = decisionRound();
-		missingMapping.questions[0]!.recommendedOptionValue = "missing";
+		requireQuestion(missingMapping, 0).recommendedOptionValue = "missing";
 		expect(validateGrillRoundInput(missingMapping)).toMatchObject({ ok: false });
 		expect(validateGrillRoundInput({ mode: "decision-round", questions: "bad" })).toMatchObject({
 			ok: false,
@@ -158,8 +171,8 @@ describe("executeGrillAskRound", () => {
 			answeredDecisionCount: 1,
 		};
 		input.roundId = "round-2";
-		input.questions[0]!.id = "q-2";
-		input.questions[1]!.id = "q-3";
+		requireQuestion(input, 0).id = "q-2";
+		requireQuestion(input, 1).id = "q-3";
 		const result = await executeGrillAskRound(input, context([kickoff(), historyResult(prior)]), {
 			uiRunner: async () => ({ action: "submitted", answers: answersFor(input) }),
 		});

@@ -42,7 +42,8 @@ export function runGrillRoundInlineUiWithRuntime(
 ): Promise<GrillRoundUiOutcome | undefined> {
 	if (!ctx.hasUI || ctx.ui.custom === undefined) return Promise.resolve(undefined);
 	return ctx.ui.custom<GrillRoundUiOutcome>(
-		(tui, theme, _keybindings, done) => new GrillRoundInlineUi(input, runtime, tui, theme, done),
+		(tui, theme, _keybindings, done) =>
+			new GrillRoundInlineUi({ input, runtime, tui, theme, done }),
 	);
 }
 
@@ -63,6 +64,14 @@ export function grillRoundInlineRuntimeFromModule(value: unknown): GrillRoundInl
 	};
 }
 
+interface GrillRoundInlineUiOptions {
+	input: GrillRoundInput;
+	runtime: GrillRoundInlineRuntime;
+	tui: unknown;
+	theme: unknown;
+	done: (outcome: GrillRoundUiOutcome) => void;
+}
+
 class GrillRoundInlineUi implements GrillRoundCustomComponent {
 	private readonly input: GrillRoundInput;
 	private readonly runtime: GrillRoundInlineRuntime;
@@ -72,19 +81,13 @@ class GrillRoundInlineUi implements GrillRoundCustomComponent {
 	private readonly editor: EditorLike;
 	private focusedValue = false;
 
-	constructor(
-		input: GrillRoundInput,
-		runtime: GrillRoundInlineRuntime,
-		tui: unknown,
-		theme: unknown,
-		done: (outcome: GrillRoundUiOutcome) => void,
-	) {
-		this.input = input;
-		this.runtime = runtime;
-		this.tui = tui;
-		this.done = done;
-		this.controller = new GrillRoundController(input);
-		this.editor = new runtime.Editor(tui, theme);
+	constructor(options: GrillRoundInlineUiOptions) {
+		this.input = options.input;
+		this.runtime = options.runtime;
+		this.tui = options.tui;
+		this.done = options.done;
+		this.controller = new GrillRoundController(options.input);
+		this.editor = new options.runtime.Editor(options.tui, options.theme);
 		this.editor.onSubmit = (value) => {
 			if (this.controller.submitFreeform(value)) this.editor.setText("");
 			this.requestRender();
