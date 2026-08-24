@@ -19,6 +19,8 @@ The reproducible baseline and unresolved experiments are recorded in
 [`docs/research/gh-stack-v0.1.0-workflow-baseline.md`](../../../../../docs/research/gh-stack-v0.1.0-workflow-baseline.md).
 The linked-worktree inventory storage evidence is recorded in
 [the linked-worktree inventory research note](../../../../../.ns/objectives/gs-native-workflow-rebuild/research/gh-stack-v0.1.0-linked-worktree-inventory.md).
+The dirty-work initialization, extension, and recovery evidence is recorded in
+[the Objective autobranch research note](../../../../../.ns/objectives/gs-native-workflow-rebuild/research/gh-stack-v0.1.0-autobranch-contract.md).
 The architecture boundary is accepted in
 [ADR 0061](../../../../../docs/adr/0061-gs-native-lifecycle-ownership.md).
 
@@ -123,6 +125,47 @@ Neither the skill nor Pi adapter adds gh-stack mechanics or edits/loops on Pi's 
 explicitly excludes trunk integration, push or GitHub mutation, Slot release, and automatic abort.
 Reproducible observations and rejected alternatives are recorded in
 [`docs/research/gh-stack-v0.1.0-restack-resolve-contract.md`](../../../../../docs/research/gh-stack-v0.1.0-restack-resolve-contract.md).
+
+### Proposed command: autobranch
+
+> **Provisional.** `ns gs autobranch` is not available yet. This section describes its planned
+> behavior.
+
+Use `ns gs autobranch` when you have uncommitted work and want to continue on a new branch in your
+current gh-stack.
+
+The command supports two starting points:
+
+- the trunk branch; or
+- the top branch of the gh-stack in your current worktree.
+
+The command accepts staged, unstaged, untracked, and mixed changes. It creates a child branch,
+commits all pending work on that branch, and adds the branch to the current gh-stack.
+
+Run the command interactively to review and confirm the change:
+
+```console
+ns gs autobranch
+```
+
+Use `--slug` or `-s` to choose the branch name. For non-interactive use, pass `--yes` or `-y`.
+
+The command refuses to make changes when:
+
+- the worktree is clean;
+- Git is in the middle of another operation;
+- the branch name is invalid or already exists;
+- the current branch is not the trunk or the top of the current worktree's gh-stack; or
+- the installed `gh stack` version is not supported.
+
+Autobranch does not fetch, push, create a pull request, or move the branch into a Slot.
+
+If an operation stops after making some changes, the command preserves the branch and pending work.
+It reports what completed and gives you a recovery step. It does not delete work or roll back
+automatically.
+
+The detailed evidence and contract clauses are in
+[the Objective autobranch research note](../../../../../.ns/objectives/gs-native-workflow-rebuild/research/gh-stack-v0.1.0-autobranch-contract.md).
 
 ### Optional Slots composition
 
