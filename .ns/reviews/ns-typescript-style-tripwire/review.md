@@ -98,10 +98,12 @@ to each rule's exceptions.
    logic, skip the finding.
 7. **Zod schema declaration, loose-object, naming, and inference conventions.**
    Flag newly declared composite Zod schema graphs that construct eagerly
-   instead of wrapping the declaration in `z.lazy(() => ...)`. Flag separately
-   named and lazily wrapped small primitive schemas when the changed code could
-   inline them in their lazy parent and shows no meaningful independent reuse.
-   Flag `z.object({...}).passthrough()` and direct `.passthrough()` chains; use
+   instead of wrapping the declaration in `z.lazy(() => ...)`. Flag single-use
+   intermediate schema constants — a schema `const` assigned once and referenced
+   exactly once, solely to compose one larger schema — whether primitive or
+   composite, when the changed code could inline them at the point of use and
+   shows no meaningful independent reuse. Flag redundant per-fragment `z.lazy`
+   wrappers that inlining would collapse into a single outer `z.lazy`. Flag `z.object({...}).passthrough()` and direct `.passthrough()` chains; use
    `z.looseObject({...})` when unknown keys must be preserved. Flag Zod schema
    constants not named `<noun>Schema`, such as `const input = z.object({ ... })`
    or `const User = z.object({ ... })`. When the diff visibly declares a static
@@ -109,7 +111,10 @@ to each rule's exceptions.
    type and require `type Value = z.infer<typeof valueSchema>` against the lazy
    schema instead. Severity: `warning`. Do not flag a standalone primitive
    schema merely for being eager when its independent reuse or exported contract
-   gives the name real value. Do not flag names already ending in `Schema`, such
+   gives the name real value. Do not flag a named intermediate schema that is
+   exported, referenced more than once, recursive/self-referential,
+   independently tested, or whose name carries genuine documentation value that
+   a structural comment cannot. Do not flag names already ending in `Schema`, such
    as `inputSchema`, `userSchema`, or `readToolInputSchema`. Do not flag
    `z.object` merely because it is nested inside `z.lazy`; strict and stripping
    object schemas may still use `z.object`. Do not require a static type alias

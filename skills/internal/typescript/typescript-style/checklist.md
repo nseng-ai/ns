@@ -30,7 +30,9 @@ and conventions as the baseline; this checklist catches design drift.
 - [ ] No value is laundered through `as unknown as T` (`NS_TS_BAN_AS_UNKNOWN_AS`); any cast is narrow,
       justified, and boundary-local.
 - [ ] External/HTTP/model/tool boundaries parse input with composite schema graphs declared through
-      `z.lazy(() => ...)`; small primitive schemas are normally inlined inside those graphs;
+      `z.lazy(() => ...)`; single-use sub-schemas (primitive or composite) are inlined at their point
+      of use under a single outer `z.lazy` rather than named and separately lazy-wrapped, unless
+      exported, multi-use, recursive, independently tested, or documentation-bearing;
       unknown-key-preserving objects use `z.looseObject({...})`, not `.passthrough()`; and static types
       use `z.infer<typeof schema>` rather than hand-written mirror types.
 - [ ] Empty `interface X extends Y {}` aliases are written as `type X = Y` unless real members are added
