@@ -10,7 +10,7 @@ allowed-tools:
   - "Bash(git show-ref --verify --quiet*)"
   - "Bash(git check-ref-format --branch*)"
   - "Bash(git switch -c*)"
-  - "Bash(gh stack version)"
+  - "Bash(gh stack --version)"
   - "Bash(gh stack view --json)"
   - "Bash(gh stack add*)"
   - "Bash(gh stack init*)"
@@ -33,7 +33,7 @@ Never extract the latest commit, initialize an existing non-trunk branch, access
 
 ## Common preflight
 
-1. Run `gh stack version`; require the verified experimental baseline `0.1.0` and refuse version drift before any mutation.
+1. Run `gh stack --version`; require exit status zero and output that reports version `0.1.0`. Refuse before any mutation on command failure, a missing version, version drift, or help output.
 2. Run bounded probes and retain their exact facts:
    - `git symbolic-ref --quiet --short HEAD` for the attached current branch; refuse detached HEAD.
    - `git rev-parse --verify HEAD` for the source SHA.
@@ -92,6 +92,7 @@ Autoslot-only Slot lessons belong only here. Sharpen checks, failure classes, re
 ### Preflight
 
 - Cached trunk and child-ref absence are required facts; provider metadata never substitutes for explicit GS selection.
+- `gh stack --version` is the verified version probe; `gh stack version` is invalid in the verified 0.1.0 surface and may show help, which is never version evidence.
 - Slot composition does not relax autobranch eligibility. A clean invocation remains a refusal rather than becoming a latest-commit Slot move.
 
 ### Dirty-state transfer
