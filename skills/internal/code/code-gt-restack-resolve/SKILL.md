@@ -16,7 +16,7 @@ the loop, interpreting subagent reports, user-facing escalation, final
 validation, and gt-specific bail-outs. Each individual conflict stop is
 delegated to one fresh, same-worktree subagent that follows the engine skill,
 **`code-resolve-merge-conflicts`**
-(`skills/internal/code/code-resolve-merge-conflicts/SKILL.md`), with the **Engine parameters**
+(`skills/incubating/code/code-resolve-merge-conflicts/SKILL.md`), with the **Engine parameters**
 below. Do not restate or improvise per-file resolution policy here.
 
 It also defers to **`code-graphite`** for the `gt` mental model, stack navigation,
@@ -273,7 +273,7 @@ Orchestrator-decided facts:
 - Extra bail-out condition: any conflict in a branch outside RESTACK_SCOPE
 - Escalation channel: return-to-parent
 
-Follow skills/internal/code/code-resolve-merge-conflicts/SKILL.md as the conflict-resolution
+Follow skills/incubating/code/code-resolve-merge-conflicts/SKILL.md as the conflict-resolution
 engine with those driver parameters.
 
 TEMPORARY (TS toolchain rollout): if a conflict is purely a formatting-only
