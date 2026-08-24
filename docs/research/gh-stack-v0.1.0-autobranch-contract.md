@@ -75,6 +75,8 @@ gh stack view --json
 
 Repeat public `view --json` from an owner worktree and a linked worktree with missing invoking membership while comparing repository-shared `refs/heads/*` to reproduce AB-OBS-6. Inject nonzero provider exits and failed post-observation while preserving all observed refs and status to reproduce AB-FAIL-1/AB-FAIL-2.
 
+The repository fixture `ts/packages/incubating/extensions/gs/test/integration/autobranch-provider-smoke.test.ts` automates the AB-OBS-6 reproduction against a real gh-stack v0.1.0 installation. Focused gateway tests classify only v0.1.0's exact `✗ current branch "…" is not part of a stack` diagnostic as untracked (AB-OBS-8); malformed output and arbitrary command or protocol failures remain exit-2 inspection failures with bounded diagnostics.
+
 ## Contract consequence
 
 The proposed `ns gs autobranch` supports only dirty-trunk bootstrap and dirty invoking-worktree tracked-top extension, pinned to v0.1.0. It is a Tier-2 local mutation with TTY confirmation or `--yes`. It does not fetch, push, submit, mutate GitHub, manage Slots, import Flow, inspect provider-private state, or promise repository-wide provider authority.
