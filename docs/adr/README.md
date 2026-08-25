@@ -57,6 +57,7 @@ After this baseline, accepted ADRs are immutable time-in-place records. Do not r
 | 0059 | [Harness-Effective Required Skill Resolution](0059-harness-effective-required-skill-resolution.md)                                                   |
 | 0060 | [Safe Computed-Target Local Maintenance](0060-safe-computed-target-local-maintenance.md)                                                             |
 | 0061 | [GS-Native Lifecycle Ownership](0061-gs-native-lifecycle-ownership.md)                                                                               |
+| 0062 | [GS Minimum gh-stack Version](0062-gs-minimum-gh-stack-version.md)                                                                                   |
 
 ## Proposed
 

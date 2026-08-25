@@ -1,6 +1,6 @@
 import { z } from "@nseng-ai/sdk";
 
-export const GS_AUTOBRANCH_PROVIDER_VERSION = "0.1.0";
+export const GS_AUTOBRANCH_MINIMUM_GH_STACK_VERSION = "0.1.0";
 export const GS_AUTOBRANCH_EFFECTS_MAX_COUNT = 12;
 export const GS_AUTOBRANCH_DIAGNOSTIC_MAX_CHARS = 1_100;
 
@@ -14,7 +14,7 @@ export const gsAutobranchResultSchema = z.lazy(() =>
 		outcome: z.enum(["refused", "completed", "known-partial-failure", "ambiguous-failure"]),
 		path: z.enum(["trunk-bootstrap", "tracked-top-extension"]).nullable(),
 		observedVersion: z.string().nullable(),
-		providerWorktreeGitDir: z.string().nullable(),
+		worktreeGitDir: z.string().nullable(),
 		trunk: z.string().nullable(),
 		source: z.string().nullable(),
 		child: z.string().nullable(),
@@ -47,8 +47,8 @@ export const gsAutobranchResultSchema = z.lazy(() =>
 				"provide-slug",
 				"inspect-worktree",
 				"inspect-child",
-				"inspect-provider-worktree",
-				"install-supported-provider",
+				"inspect-stack-worktree",
+				"install-supported-gh-stack",
 			]),
 			instruction: z.string().max(400),
 		}),
@@ -59,7 +59,7 @@ export type GsAutobranchPath = NonNullable<GsAutobranchResult["path"]>;
 
 export interface GsAutobranchGitFacts {
 	readonly root: string;
-	readonly providerWorktreeGitDir: string;
+	readonly worktreeGitDir: string;
 	readonly branch: string | null;
 	readonly headSha: string | null;
 	readonly trunk: string | null;
@@ -89,7 +89,7 @@ export interface GsAutobranchGitGateway {
 	createAndSwitchChild(child: string): Promise<GsAutobranchGatewayResult<null>>;
 }
 
-export interface GsAutobranchProviderView {
+export interface GsAutobranchStackView {
 	readonly trunk: string;
 	readonly currentBranch: string;
 	readonly branches: readonly {
@@ -99,9 +99,9 @@ export interface GsAutobranchProviderView {
 	}[];
 }
 
-export interface GsAutobranchProviderGateway {
+export interface GsAutobranchStackGateway {
 	readVersion(): Promise<GsAutobranchGatewayResult<string>>;
-	view(): Promise<GsAutobranchGatewayResult<GsAutobranchProviderView>>;
+	view(): Promise<GsAutobranchGatewayResult<GsAutobranchStackView>>;
 	init(child: string): Promise<GsAutobranchGatewayResult<null>>;
 	add(child: string): Promise<GsAutobranchGatewayResult<null>>;
 }
@@ -128,7 +128,7 @@ export interface GsAutobranchPreparationGateway {
 
 export interface GsAutobranchContext {
 	readonly git: GsAutobranchGitGateway;
-	readonly provider: GsAutobranchProviderGateway;
+	readonly stack: GsAutobranchStackGateway;
 	readonly checkpoint: GsAutobranchCheckpointGateway;
 	readonly preparation: GsAutobranchPreparationGateway;
 }

@@ -3,7 +3,7 @@ import type { GsAutobranchResult } from "./autobranch-contract.ts";
 export function renderGsAutobranchHuman(data: GsAutobranchResult): string {
 	return [
 		`${data.outcome}: ${data.path ?? "unclassified"}`,
-		`Provider worktree: ${data.providerWorktreeGitDir ?? "unknown"}`,
+		`Worktree Git directory: ${data.worktreeGitDir ?? "unknown"}`,
 		`Source: ${data.source ?? "unknown"}@${data.sourceSha ?? "unknown"}`,
 		`Child: ${data.child ?? "unprepared"}@${data.childSha ?? "unknown"}`,
 		`Dirtiness: ${data.dirty.staged} staged, ${data.dirty.unstaged} unstaged, ${data.dirty.untracked} untracked`,

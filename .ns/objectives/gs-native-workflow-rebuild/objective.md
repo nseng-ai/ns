@@ -34,7 +34,7 @@ This Objective does not modify or retire Flow. Eventual Flow retirement motivate
 - Read, mutate, copy, merge, or reconstruct gh-stack's private local state for lifecycle operations; `ns gs list` remains a separately justified current-worktree inspection feature.
 - Promise general ownership transfer for unpublished or multi-layer stacks before a gh-stack-native adoption and source-retirement procedure is experimentally proven.
 - Treat an ns-owned lock as proof of repository-wide serialization of direct `gh stack` processes.
-- Support multiple pre-1.0 gh-stack versions before evidence justifies widening the pinned baseline.
+- Claim that version ordering proves behavioral compatibility; v0.1.0 remains the minimum tested baseline, and each workflow must keep its own guarded contract and observed postconditions.
 - Require Slots for the core GS workflow.
 - Make cold external-consumer repository qualification a closure gate for this Objective.
 
@@ -70,7 +70,7 @@ The skill should settle requirements for a reviewed Saved plan before implementa
 
 **Risks**
 
-- gh-stack is pre-1.0 and may change commands, JSON output, private behavior, or failure boundaries while implementation is in progress. The initial lifecycle baseline is pinned to exactly v0.1.0; evidence-gated widening mitigates but does not eliminate this risk.
+- gh-stack is pre-1.0 and may change commands, JSON output, private behavior, or failure boundaries while implementation is in progress. v0.1.0 is the minimum tested lifecycle baseline. Workflows that accept later stable releases still rely on guarded public contracts and observed postconditions rather than assuming compatibility from version ordering.
 - `gh stack sync` combines fetching, rebasing, pushing, and PR linking and is therefore rejected as the local restack-resolve primitive; whether it has acceptable semantics for later reconciliation remains unresolved.
 - Submit and land may expose gh-stack/GitHub inconsistencies or partial mutations that require a different workflow shape than Flow's.
 - Reusing Flow vocabulary or architecture by habit could produce a disguised Graphite adapter rather than a deep GS module.
