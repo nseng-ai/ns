@@ -1,4 +1,5 @@
 import { confirmInteractiveOrUsageError, type ClinkrInteraction } from "@nseng-ai/clinkr";
+import { optionalEntry } from "@nseng-ai/foundation/primitives";
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 
@@ -113,7 +114,7 @@ export async function runGsAutobranch(
 		}
 	}
 	const prepared = await context.preparation.prepare({
-		...(request.slug === undefined ? {} : { requestedSlug: request.slug }),
+		...optionalEntry("requestedSlug", request.slug),
 		facts: {
 			root: before.root,
 			branch: before.branch,
