@@ -49,7 +49,7 @@ const EXPECTED_SHORTCUTS: readonly ExpectedShortcut[] = [
 	},
 	{
 		command: "model:luna",
-		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna" },
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna-fast" },
 	},
 	{
 		command: "model:gpt-mini",

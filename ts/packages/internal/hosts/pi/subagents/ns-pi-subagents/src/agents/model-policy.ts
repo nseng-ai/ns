@@ -11,7 +11,7 @@ export const ANTHROPIC_PROVIDER_ID = "anthropic";
 export const CHEAP_MODEL_IDS = {
 	anthropic: "claude-haiku-4-5",
 	google: "gemini-3.5-flash",
-	openai: "gpt-5.6-luna",
+	openai: "gpt-5.6-luna-fast",
 } as const satisfies Record<ModelProviderFamily, string>;
 export const DEFAULT_CHEAP_MODEL_SELECTION: ModelSelection = {
 	provider: ANTHROPIC_PROVIDER_ID,
