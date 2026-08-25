@@ -10,6 +10,7 @@ export type HerdrGitGateway = Pick<
 	| "createBranchAtStartPoint"
 	| "currentBranch"
 	| "headCommit"
+	| "gitCommonDir"
 	| "optionalRepoRoot"
 	| "repoRoot"
 >;

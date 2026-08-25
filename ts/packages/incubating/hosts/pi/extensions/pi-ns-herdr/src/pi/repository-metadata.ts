@@ -1,6 +1,4 @@
-import { basename } from "node:path";
-
-import type { GitOptionalResult } from "@nseng-ai/foundation/git";
+import { repositoryNameFromGitCommonDir } from "@nseng-ai/extension-kit/worktree-description";
 import type {
 	HerdrMetadataReportResult,
 	HerdrMetadataToken,
@@ -15,20 +13,22 @@ const REPOSITORY_TOKEN_NAME = "repo";
 
 type RepositoryMetadataContext = {
 	readonly commands: Pick<HerdrPiContext["commands"], "on">;
-	readonly git: Pick<HerdrPiContext["git"], "optionalRepoRoot">;
+	readonly git: Pick<HerdrPiContext["git"], "gitCommonDir" | "optionalRepoRoot">;
 	readonly herdr: HerdrPiContext["herdr"];
 };
 
 type RepositoryTokenPatch = { readonly value: string | null };
+type RepositoryPatchResult =
+	| { type: "patch"; patch: RepositoryTokenPatch }
+	| { type: "failed"; message: string };
 type WorkspacePatchResult =
 	| { type: "patch"; patch: RepositoryTokenPatch }
 	| { type: "skip" }
 	| { type: "failed"; message: string };
 
-export function repositoryTokenPatch(repoRoot: string | null): RepositoryTokenPatch {
-	if (repoRoot === null) return { value: null };
-	const name = basename(repoRoot);
-	return name === "" || name === "." || name === ".." ? { value: null } : { value: name };
+export function repositoryTokenPatch(gitCommonDir: string | null): RepositoryTokenPatch {
+	if (gitCommonDir === null) return { value: null };
+	return { value: repositoryNameFromGitCommonDir(gitCommonDir) ?? null };
 }
 
 export function registerHerdrRepositoryMetadata(context: RepositoryMetadataContext): void {
@@ -52,12 +52,12 @@ async function reportRepositoryMetadata(
 	const caller = await context.herdr.resolveCallerPane();
 	if (caller.type === "failed") return;
 
-	const [paneRoot, workspaceCandidates] = await Promise.all([
-		context.git.optionalRepoRoot({ cwd }),
+	const [panePatch, workspaceCandidates] = await Promise.all([
+		resolveRepositoryPatch(context, cwd),
 		context.herdr.resolveWorkspaceIdentityCandidates(caller.workspaceId),
 	]);
 
-	await reportPaneRepository(context, caller.paneId, paneRoot, notify);
+	await reportPaneRepository(context, caller.paneId, panePatch, notify);
 	const workspacePatch = await resolveWorkspacePatch(context, workspaceCandidates);
 	if (workspacePatch.type === "failed") {
 		notify(workspacePatch.message);
@@ -90,17 +90,28 @@ async function reportRepositoryMetadata(
 async function reportPaneRepository(
 	context: RepositoryMetadataContext,
 	paneId: string,
-	root: GitOptionalResult<string>,
+	resolved: RepositoryPatchResult,
 	notify: (message: string) => void,
 ): Promise<void> {
-	if (root.type === "error") {
-		notify(`Could not resolve repository metadata for the Herdr pane: ${root.error.message}`);
+	if (resolved.type === "failed") {
+		notify(`Could not resolve repository metadata for the Herdr pane: ${resolved.message}`);
 		return;
 	}
-	const patch =
-		root.type === "found" ? repositoryTokenPatch(root.value) : repositoryTokenPatch(null);
-	const reported = await context.herdr.reportPaneToken(paneId, metadataToken(patch));
+	const reported = await context.herdr.reportPaneToken(paneId, metadataToken(resolved.patch));
 	notifyReportFailure(reported, "pane", notify);
+}
+
+async function resolveRepositoryPatch(
+	context: RepositoryMetadataContext,
+	cwd: string,
+): Promise<RepositoryPatchResult> {
+	const root = await context.git.optionalRepoRoot({ cwd });
+	if (root.type === "error") return { type: "failed", message: root.error.message };
+	if (root.type === "missing") return { type: "patch", patch: repositoryTokenPatch(null) };
+
+	const commonDir = await context.git.gitCommonDir({ cwd });
+	if (!commonDir.ok) return { type: "failed", message: commonDir.error.message };
+	return { type: "patch", patch: repositoryTokenPatch(commonDir.value) };
 }
 
 async function resolveWorkspacePatch(
@@ -114,18 +125,18 @@ async function resolveWorkspacePatch(
 			message: `Could not resolve Herdr workspace repository identity: ${resolved.message}`,
 		};
 	}
-	const roots = await Promise.all(
-		resolved.candidates.map((candidate) => context.git.optionalRepoRoot({ cwd: candidate.cwd })),
+	const resolvedPatches = await Promise.all(
+		resolved.candidates.map((candidate) => resolveRepositoryPatch(context, candidate.cwd)),
 	);
-	if (roots.some((root) => root.type === "error")) {
-		const failure = roots.find((root) => root.type === "error");
+	const failure = resolvedPatches.find((result) => result.type === "failed");
+	if (failure?.type === "failed") {
 		return {
 			type: "failed",
-			message: `Could not resolve Herdr workspace repository identity: ${failure?.type === "error" ? failure.error.message : "Git lookup failed."}`,
+			message: `Could not resolve Herdr workspace repository identity: ${failure.message}`,
 		};
 	}
-	const patches = roots.map((root) =>
-		root.type === "found" ? repositoryTokenPatch(root.value) : repositoryTokenPatch(null),
+	const patches = resolvedPatches.flatMap((result) =>
+		result.type === "patch" ? [result.patch] : [],
 	);
 	const first = patches[0];
 	if (first === undefined || patches.some((patch) => patch.value !== first.value)) {

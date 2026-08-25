@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import type { GitOptionalResult } from "@nseng-ai/foundation/git";
+import type { GitOptionalResult, GitResult } from "@nseng-ai/foundation/git";
 import type { SessionStartEventLike } from "@nseng-ai/extension-kit/pi-types";
 
 import {
@@ -18,14 +18,29 @@ import {
 class RepositoryGit {
 	readonly calls: string[] = [];
 	private readonly roots: Readonly<Record<string, GitOptionalResult<string>>>;
+	private readonly commonDirs: Readonly<Record<string, GitResult<string>>>;
 
-	constructor(roots: Readonly<Record<string, GitOptionalResult<string>>>) {
+	constructor(
+		roots: Readonly<Record<string, GitOptionalResult<string>>>,
+		commonDirs: Readonly<Record<string, GitResult<string>>>,
+	) {
 		this.roots = roots;
+		this.commonDirs = commonDirs;
 	}
 
 	async optionalRepoRoot(options: { cwd: string }): Promise<GitOptionalResult<string>> {
 		this.calls.push(options.cwd);
 		return this.roots[options.cwd] ?? { type: "missing" };
+	}
+
+	async gitCommonDir(options: { cwd: string }): Promise<GitResult<string>> {
+		this.calls.push(options.cwd);
+		return (
+			this.commonDirs[options.cwd] ?? {
+				ok: false,
+				error: { code: "git_common_dir_failed", message: "missing test common dir" },
+			}
+		);
 	}
 }
 
@@ -39,16 +54,25 @@ const STABLE_NS = {
 async function run(options: {
 	cwd?: string;
 	roots?: Readonly<Record<string, GitOptionalResult<string>>>;
+	commonDirs?: Readonly<Record<string, GitResult<string>>>;
 	herdr?: FakeHerdrGateway;
 	reason?: SessionStartEventLike["reason"];
 }) {
 	const commands = new FakePi();
-	const git = new RepositoryGit(
-		options.roots ?? {
+	const roots =
+		options.roots ??
+		({
 			"/work/ns/subdir": { type: "found", value: "/work/ns" },
 			"/work/ns": { type: "found", value: "/work/ns" },
-		},
-	);
+		} as const);
+	const commonDirs =
+		options.commonDirs ??
+		Object.fromEntries(
+			Object.entries(roots).flatMap(([cwd, root]) =>
+				root.type === "found" ? [[cwd, { ok: true as const, value: `${root.value}/.git` }]] : [],
+			),
+		);
+	const git = new RepositoryGit(roots, commonDirs);
 	const herdr =
 		options.herdr ?? new FakeHerdrGateway({ workspaceIdentityResults: [STABLE_NS, STABLE_NS] });
 	registerHerdrRepositoryMetadata({ commands, git, herdr });
@@ -59,12 +83,12 @@ async function run(options: {
 
 describe("repositoryTokenPatch", () => {
 	test.each([
-		["Slot repository root", "/state/slots/repos/clinkr", "clinkr"],
-		["ordinary root", "/work/clinkr", "clinkr"],
+		["linked-worktree common directory", "/work/ns/.git", "ns"],
+		["bare common directory", "/work/clinkr.git", "clinkr"],
 		["filesystem root", "/", null],
 		["outside Git", null, null],
-	])("derives %s", (_name, root, expected) => {
-		expect(repositoryTokenPatch(root)).toEqual({ value: expected });
+	])("derives %s", (_name, commonDir, expected) => {
+		expect(repositoryTokenPatch(commonDir)).toEqual({ value: expected });
 	});
 });
 
@@ -98,6 +122,25 @@ describe("session-start repository metadata", () => {
 			{ resourceId: "caller-workspace", token: CLEAR_REPO },
 		]);
 		expect(ctx.notifications).toEqual([]);
+	});
+
+	test("reports the repository rather than the linked-worktree directory", async () => {
+		const slotCwd = "/state/slots/repos/ns/worktrees/slot-12";
+		const herdr = new FakeHerdrGateway({
+			workspaceIdentityResults: [
+				{ type: "resolved", candidates: [{ paneId: "slot-pane", cwd: slotCwd }] },
+				{ type: "resolved", candidates: [{ paneId: "slot-pane", cwd: slotCwd }] },
+			],
+		});
+		const { herdr: result } = await run({
+			cwd: slotCwd,
+			herdr,
+			roots: { [slotCwd]: { type: "found", value: slotCwd } },
+			commonDirs: { [slotCwd]: { ok: true, value: "/code/ns/.git" } },
+		});
+
+		expect(result.paneMetadataCalls[0]?.token).toEqual(SET_NS);
+		expect(result.workspaceMetadataCalls[0]?.token).toEqual(SET_NS);
 	});
 
 	test("reports unanimous split-pane repository identity", async () => {

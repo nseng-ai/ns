@@ -65,7 +65,7 @@ The `/ns:herdr:space:objective-summary` workflow that resolves an Objective slug
 *Avoid*: sidebar workflow family, workspace metadata report, generic workspace summary
 
 **Repository metadata reporting**:
-The Herdr Consumer Gateway reports custom pane/workspace tokens through Herdr 0.8.0's CLI and resolves conservative workspace identity candidates from the first current tab. The Pi host reports Git-root basename as the `repo` token at every session start. Pane identity uses the exact caller; workspace identity is written only when every first-tab candidate produces the same set or clear patch and an immediate candidate re-read is unchanged. Space labels remain independent and unchanged.
+The Herdr Consumer Gateway reports custom pane/workspace tokens through Herdr 0.8.0's CLI and resolves conservative workspace identity candidates from the first current tab. The Pi host derives the `repo` token from the Git common directory at every session start, so linked worktrees report the repository name rather than the worktree directory name. Pane identity uses the exact caller; workspace identity is written only when every first-tab candidate produces the same set or clear patch and an immediate candidate re-read is unchanged. Space labels remain independent and unchanged.
 *Avoid*: repository identity in resource labels, caller-repository workspace overwrite, focus inference, pane-list position as root identity, Slot-path parsing
 
 **Contextual implementation branch basis**:
