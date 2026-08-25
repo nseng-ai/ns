@@ -276,7 +276,7 @@ describe("stack-view extension enrichment wiring", () => {
 		expect(host.sentMessages).toHaveLength(1); // the plain snapshot
 	});
 
-	test("degrades to a snapshot with a clear warning when the fast profile is missing", async () => {
+	test("uses the built-in fast profile when project config is missing", async () => {
 		const host = fakeHost();
 		const { factory, engines } = recordingEngineFactory();
 		const missingConfigGateway: ProjectConfigGateway = {
@@ -288,18 +288,10 @@ describe("stack-view extension enrichment wiring", () => {
 			engineFactory: factory,
 			loadStackView: okLoader(),
 		});
-		const ctx = interactiveCtx();
-		const notifications: Array<{ message: string; level: string | undefined }> = [];
-		ctx.ui.notify = (message, level) => notifications.push({ message, level });
 
-		await host.command().handler("", ctx);
+		await host.command().handler("", interactiveCtx());
 
-		expect(engines).toHaveLength(0);
-		expect(host.sentMessages).toHaveLength(1);
-		expect(notifications).toContainEqual({
-			message: expect.stringContaining("[models.profiles.fast]"),
-			level: "warning",
-		});
+		expect(engines).toHaveLength(1);
 	});
 });
 

@@ -38,7 +38,6 @@ export interface ResolvedModelOperation {
 	readonly operationId: ModelOperationId;
 	readonly profile: ModelProfileName;
 	readonly selection: ModelSelection;
-	readonly source: "project-profile" | "project-operation";
 }
 
 export type ModelPolicyErrorCode = "invalid-toml" | "invalid-model-policy" | "missing-profile";
@@ -107,15 +106,12 @@ export function resolveModelOperation(
 			`Model operation ${JSON.stringify(operationId)} references missing profile ${JSON.stringify(selectedProfile)}.`,
 		);
 	}
-	const source =
-		policy.operations[operationId] === undefined ? "project-profile" : "project-operation";
 	return {
 		ok: true,
 		value: {
 			operationId,
 			profile: selectedProfile,
 			selection,
-			source,
 		},
 	};
 }
@@ -128,7 +124,13 @@ function modelPolicyFromSettings(
 		  }
 		| undefined,
 ): ModelPolicyResult<ModelPolicy> {
-	const profiles: Record<string, ModelSelection> = {};
+	const profiles: Record<string, ModelSelection> = {
+		fast: {
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
+		},
+	};
 	for (const [name, profile] of Object.entries(settings?.profiles ?? {})) {
 		const parsed = parseModelRef(profile.model, profile.thinking);
 		if (parsed === undefined)
@@ -137,12 +139,6 @@ function modelPolicyFromSettings(
 				`Model profile ${JSON.stringify(name)} must be a qualified provider/model reference.`,
 			);
 		profiles[name] = parsed;
-	}
-	if (profiles.fast === undefined) {
-		return resultErrOf(
-			"missing-profile",
-			'Model profile "fast" is required in ns.toml at [models.profiles.fast].',
-		);
 	}
 	const operations = settings?.operations ?? {};
 	for (const [operationId, profile] of Object.entries(operations)) {

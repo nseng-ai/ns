@@ -62,7 +62,7 @@ thinking = "high"
 		});
 	});
 
-	test("returns explicit unavailability for invalid or missing policy", () => {
+	test("uses the built-in fast profile when project config is missing", () => {
 		const missing: ProjectConfigGateway = {
 			readTextFile: () => ({ type: "missing" }),
 			pathExists: () => ({ type: "missing" }),
@@ -74,8 +74,11 @@ thinking = "high"
 		});
 
 		expect(result).toMatchObject({
-			type: "unavailable",
-			message: expect.stringContaining("[models.profiles.fast]"),
+			type: "available",
+			gateway: {
+				segmentationModel: "openai-codex/gpt-5.6-luna",
+				episodeAnalysisModel: "openai-codex/gpt-5.6-luna",
+			},
 		});
 	});
 });

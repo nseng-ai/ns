@@ -8,10 +8,13 @@ import {
 } from "../../src/core/project-config.ts";
 
 describe("parseReviewsProjectConfigToml", () => {
-	test("requires the shared fast model profile", () => {
-		const error = expectError(parseReviewsProjectConfigToml(""));
-		expect(error.code).toBe("invalid-model-policy");
-		expect(error.message).toContain("[models.profiles.fast]");
+	test("supplies the shared built-in fast model profile", () => {
+		const config = expectOk(parseReviewsProjectConfigToml(""));
+		expect(config.modelPolicy.profiles.fast).toEqual({
+			provider: "openai-codex",
+			modelId: "gpt-5.6-luna",
+			thinking: "minimal",
+		});
 	});
 
 	test("parses Reviews diff and shared model profiles", () => {

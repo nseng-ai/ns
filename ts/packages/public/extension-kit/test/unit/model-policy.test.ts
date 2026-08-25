@@ -18,12 +18,31 @@ describe("model policy", () => {
 		expect(MODEL_OPERATION_IDS).not.toHaveProperty("flowPrDescription");
 	});
 
-	test("requires the fast profile with zero config", () => {
-		expect(parseModelPolicyToml("")).toMatchObject({
-			ok: false,
-			error: {
-				code: "missing-profile",
-				message: expect.stringContaining("[models.profiles.fast]"),
+	test("supplies the built-in fast profile with zero config", () => {
+		const policy = parseModelPolicyToml("");
+		expect(policy).toMatchObject({
+			ok: true,
+			value: {
+				profiles: {
+					fast: {
+						provider: "openai-codex",
+						modelId: "gpt-5.6-luna",
+						thinking: "minimal",
+					},
+				},
+			},
+		});
+		if (!policy.ok) return;
+		expect(resolveModelOperation(policy.value, MODEL_OPERATION_IDS.flowChanges)).toEqual({
+			ok: true,
+			value: {
+				operationId: MODEL_OPERATION_IDS.flowChanges,
+				profile: "fast",
+				selection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal",
+				},
 			},
 		});
 	});
@@ -65,7 +84,6 @@ thinking = "high"
 					operationId,
 					profile: "fast",
 					selection: { provider: "acme", modelId: "quick", thinking: "medium" },
-					source: "project-profile",
 				},
 			});
 		}
@@ -82,7 +100,6 @@ thinking = "high"
 				value: {
 					profile: "deep",
 					selection: { provider: "acme", modelId: "deep", thinking: "high" },
-					source: "project-operation",
 				},
 			});
 	});
@@ -144,16 +161,21 @@ thinking = "high"
 		});
 	});
 
-	test("returns a clear error when ns.toml is missing", () => {
+	test("loads the built-in fast profile when ns.toml is missing", () => {
 		const missing: ProjectConfigGateway = {
 			readTextFile: () => ({ type: "missing" }),
 			pathExists: () => ({ type: "missing" }),
 		};
 		expect(loadModelPolicy({ repoRoot: "/repo", gateway: missing })).toMatchObject({
-			ok: false,
-			error: {
-				code: "missing-profile",
-				message: expect.stringContaining("[models.profiles.fast]"),
+			ok: true,
+			value: {
+				profiles: {
+					fast: {
+						provider: "openai-codex",
+						modelId: "gpt-5.6-luna",
+						thinking: "minimal",
+					},
+				},
 			},
 		});
 	});
