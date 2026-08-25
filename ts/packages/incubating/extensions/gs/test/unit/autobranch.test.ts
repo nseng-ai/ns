@@ -5,14 +5,14 @@ import {
 	runGsAutobranch,
 	type GsAutobranchContext,
 	type GsAutobranchGitFacts,
-	type GsAutobranchProviderView,
+	type GsAutobranchStackView,
 } from "../../src/core/autobranch.ts";
 
 const dirty = { staged: 1, unstaged: 1, untracked: 1, total: 3 };
 function facts(overrides: Partial<GsAutobranchGitFacts> = {}): GsAutobranchGitFacts {
 	return {
 		root: "/repo",
-		providerWorktreeGitDir: "/repo/.git",
+		worktreeGitDir: "/repo/.git",
 		branch: "main",
 		headSha: "aaa",
 		trunk: "main",
@@ -27,19 +27,19 @@ function facts(overrides: Partial<GsAutobranchGitFacts> = {}): GsAutobranchGitFa
 	};
 }
 function view(
-	branches: GsAutobranchProviderView["branches"],
+	branches: GsAutobranchStackView["branches"],
 	currentBranch: string,
-): GsAutobranchProviderView {
+): GsAutobranchStackView {
 	return { trunk: "main", currentBranch, branches };
 }
 
 class Fixture {
 	state: GsAutobranchGitFacts;
-	providerView: GsAutobranchProviderView;
+	stackView: GsAutobranchStackView;
 	readonly effects: string[] = [];
 	readonly options: {
-		readonly providerMutationFails?: boolean;
-		readonly providerMutationApplies?: boolean;
+		readonly stackMutationFails?: boolean;
+		readonly stackMutationApplies?: boolean;
 		readonly viewFails?: boolean;
 		readonly viewFailureReason?: "untracked" | "command-failed";
 		readonly version?: string;
@@ -52,7 +52,7 @@ class Fixture {
 	private inspections = 0;
 	constructor(state = facts(), options: Fixture["options"] = {}) {
 		this.state = state;
-		this.providerView = view([], state.branch ?? "main");
+		this.stackView = view([], state.branch ?? "main");
 		this.options = options;
 	}
 	context(): GsAutobranchContext {
@@ -77,27 +77,27 @@ class Fixture {
 					return { ok: true, value: null };
 				},
 			},
-			provider: {
+			stack: {
 				readVersion: async () => ({ ok: true, value: this.options.version ?? "0.1.0" }),
 				view: async () =>
 					this.options.viewFails
 						? {
 								ok: false,
-								message: "provider view unavailable",
+								message: "gh-stack view unavailable",
 								reason: this.options.viewFailureReason ?? "untracked",
 							}
-						: { ok: true, value: this.providerView },
+						: { ok: true, value: this.stackView },
 				init: async (child) => {
 					this.effects.push(`init:${child}`);
-					if (this.options.providerMutationApplies !== false)
-						this.providerView = view([{ name: child, base: "main", isCurrent: true }], child);
-					return this.options.providerMutationFails
+					if (this.options.stackMutationApplies !== false)
+						this.stackView = view([{ name: child, base: "main", isCurrent: true }], child);
+					return this.options.stackMutationFails
 						? { ok: false, message: "init exited nonzero" }
 						: { ok: true, value: null };
 				},
 				add: async (child) => {
 					this.effects.push(`add:${child}`);
-					if (this.options.providerMutationApplies !== false) {
+					if (this.options.stackMutationApplies !== false) {
 						const source = this.state.branch!;
 						this.state = {
 							...this.state,
@@ -105,7 +105,7 @@ class Fixture {
 							childSha: this.state.headSha,
 							sourceRefSha: this.state.headSha,
 						};
-						this.providerView = view(
+						this.stackView = view(
 							[
 								{ name: source, base: "main", isCurrent: false },
 								{ name: child, base: source, isCurrent: true },
@@ -113,7 +113,7 @@ class Fixture {
 							child,
 						);
 					}
-					return this.options.providerMutationFails
+					return this.options.stackMutationFails
 						? { ok: false, message: "add exited nonzero" }
 						: { ok: true, value: null };
 				},
@@ -171,7 +171,7 @@ describe("GS autobranch core", () => {
 		["mixed", dirty],
 	] as const)("runs %s tracked-top add before checkpoint", async (_name, pending) => {
 		const fixture = new Fixture(facts({ branch: "feature", headSha: "aaa", dirty: pending }));
-		fixture.providerView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
+		fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
 		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 		expect(result.status).toBe("success");
 		expect(fixture.effects).toEqual(["add:add-child", "checkpoint"]);
@@ -189,6 +189,41 @@ describe("GS autobranch core", () => {
 		expect(fixture.effects).toEqual([]);
 	});
 
+	test("uses the stack contract machine values", async () => {
+		const completed = await runGsAutobranch(new Fixture().context(), interaction, { yes: true });
+		expect(completed).toMatchObject({
+			status: "success",
+			data: {
+				worktreeGitDir: "/repo/.git",
+				effects: [
+					"created-and-switched:add-child",
+					"checkpoint:bbb [cp] Test",
+					"gh-stack-init-attempted",
+				],
+			},
+		});
+
+		const unsupported = await runGsAutobranch(
+			new Fixture(facts(), { version: "0.0.9" }).context(),
+			interaction,
+			{ yes: true },
+		);
+		expect(unsupported).toMatchObject({
+			status: "negative",
+			data: { recovery: { action: "install-supported-gh-stack" } },
+		});
+
+		const untracked = await runGsAutobranch(
+			new Fixture(facts({ branch: "feature" }), { viewFails: true }).context(),
+			interaction,
+			{ yes: true },
+		);
+		expect(untracked).toMatchObject({
+			status: "negative",
+			data: { recovery: { action: "inspect-stack-worktree" } },
+		});
+	});
+
 	test("refuses missing invoking-worktree membership without scanning peers", async () => {
 		const fixture = new Fixture(facts({ branch: "feature" }), { viewFails: true });
 		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
@@ -197,23 +232,28 @@ describe("GS autobranch core", () => {
 	});
 
 	test.each(["trunk", "tracked-top"] as const)(
-		"trusts observed %s postconditions after provider nonzero exit",
+		"trusts observed %s postconditions after gh-stack nonzero exit",
 		async (path) => {
 			const state = path === "trunk" ? facts() : facts({ branch: "feature" });
-			const fixture = new Fixture(state, { providerMutationFails: true });
+			const fixture = new Fixture(state, { stackMutationFails: true });
 			if (path === "tracked-top") {
-				fixture.providerView = view(
-					[{ name: "feature", base: "main", isCurrent: true }],
-					"feature",
-				);
+				fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
 			}
 			const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 			expect(result.status).toBe("success");
 		},
 	);
 
+	test.each(["0.1.0", "0.1.1", "0.2.0", "1.0.0"])("accepts gh-stack %s", async (version) => {
+		const fixture = new Fixture(facts(), { version });
+		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
+		expect(result.status).toBe("success");
+	});
+
 	test.each([
-		["version mismatch", facts(), { version: "0.2.0" }],
+		["version below minimum", facts(), { version: "0.0.9" }],
+		["malformed version", facts(), { version: "next" }],
+		["prerelease version", facts(), { version: "0.2.0-beta.1" }],
 		["missing HEAD", facts({ headSha: null }), {}],
 		["invalid or existing child", facts(), { validation: false }],
 	] as const)("refuses %s before mutation", async (_name, state, options) => {
@@ -246,15 +286,15 @@ describe("GS autobranch core", () => {
 				"feature",
 			),
 		],
-	] as const)("refuses tracked source that is %s", async (_name, providerView) => {
+	] as const)("refuses tracked source that is %s", async (_name, stackView) => {
 		const fixture = new Fixture(facts({ branch: "feature" }));
-		fixture.providerView = providerView;
+		fixture.stackView = stackView;
 		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 		expect(result.status).toBe("negative");
 		expect(fixture.effects).toEqual([]);
 	});
 
-	test("reports arbitrary provider inspection failure as exit-2, not untracked", async () => {
+	test("reports arbitrary gh-stack inspection failure as exit-2, not untracked", async () => {
 		const fixture = new Fixture(facts({ branch: "feature" }), {
 			viewFails: true,
 			viewFailureReason: "command-failed",
@@ -307,10 +347,7 @@ describe("GS autobranch core", () => {
 				checkpointFails: true,
 			});
 			if (path === "tracked-top")
-				fixture.providerView = view(
-					[{ name: "feature", base: "main", isCurrent: true }],
-					"feature",
-				);
+				fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
 			const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 			expect(result).toMatchObject({
 				status: "negative",
@@ -320,17 +357,14 @@ describe("GS autobranch core", () => {
 	);
 
 	test.each(["trunk", "tracked-top"] as const)(
-		"classifies %s absent provider postconditions as known partial",
+		"classifies %s absent gh-stack postconditions as known partial",
 		async (path) => {
 			const fixture = new Fixture(path === "trunk" ? facts() : facts({ branch: "feature" }), {
-				providerMutationFails: true,
-				providerMutationApplies: false,
+				stackMutationFails: true,
+				stackMutationApplies: false,
 			});
 			if (path === "tracked-top")
-				fixture.providerView = view(
-					[{ name: "feature", base: "main", isCurrent: true }],
-					"feature",
-				);
+				fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
 			const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 			expect(result).toMatchObject({
 				status: "negative",
@@ -354,7 +388,7 @@ describe("GS autobranch core", () => {
 			viewFailureReason: "command-failed",
 		});
 		const context = fixture.context();
-		context.provider.view = async () => ({
+		context.stack.view = async () => ({
 			ok: false,
 			message: "x".repeat(2_000),
 			reason: "command-failed",

@@ -3,6 +3,11 @@
 Native ns workflows for
 [`github/gh-stack`](https://github.com/github/gh-stack).
 
+GS is the ns extension and product name for `github/gh-stack`. TypeScript symbols owned by this
+extension use the `Gs` prefix followed by the domain role, such as `GsAutobranchStackGateway`. They do
+not repeat `GhStack` or introduce a generic stack backend. Use `gh-stack` explicitly for the external
+tool's commands, versions, state files, and observed output.
+
 Today the package implements local inventory through `ns gs list` and one state-driven local mutation
 through `ns gs restack-resolve`. The lifecycle contract below governs later preparation, reconciliation,
 publication, inventory-generation, and landing commands. Unimplemented workflows are not available
@@ -10,10 +15,11 @@ commands or compatibility promises.
 
 ## Supported gh-stack baseline
 
-Lifecycle workflows initially support exactly `gh stack version 0.1.0`. Because gh-stack is pre-1.0,
-every lifecycle workflow must verify the installed version before mutation and refuse an unqualified
-version mismatch. A later version is not assumed compatible: widening support requires evidence for its
-public commands, output, mutation boundaries, and recovery behavior.
+GS uses `gh stack version 0.1.0` as its minimum tested lifecycle baseline. Each lifecycle workflow
+verifies the installed version before mutation and states its own accepted range. Version ordering does
+not prove behavioral compatibility: a workflow still relies on its guarded public-command contract,
+observed postconditions, and forward recovery. Autobranch accepts stable numeric versions greater than
+or equal to `0.1.0`; restack-resolve remains pinned to exactly `0.1.0`.
 
 The reproducible baseline and unresolved experiments are recorded in
 [`docs/research/gh-stack-v0.1.0-workflow-baseline.md`](../../../../../docs/research/gh-stack-v0.1.0-workflow-baseline.md).
@@ -22,7 +28,8 @@ The linked-worktree inventory storage evidence is recorded in
 The dirty-work initialization, extension, and recovery evidence is recorded in
 [the Objective autobranch research note](../../../../../.ns/objectives/gs-native-workflow-rebuild/research/gh-stack-v0.1.0-autobranch-contract.md).
 The architecture boundary is accepted in
-[ADR 0061](../../../../../docs/adr/0061-gs-native-lifecycle-ownership.md).
+[ADR 0061](../../../../../docs/adr/0061-gs-native-lifecycle-ownership.md), with its initial exact-version policy superseded by
+[ADR 0062](../../../../../docs/adr/0062-gs-minimum-gh-stack-version.md).
 
 ## Lifecycle contract
 
@@ -149,6 +156,9 @@ ns gs autobranch
 ```
 
 Use `--slug` or `-s` to choose the branch name. For non-interactive use, pass `--yes` or `-y`.
+
+Autobranch accepts stable numeric gh-stack versions greater than or equal to `0.1.0`. It refuses
+malformed versions, prerelease versions, and versions below that minimum.
 
 The command refuses to make changes when:
 

@@ -5,16 +5,16 @@ import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 import {
 	GS_AUTOBRANCH_DIAGNOSTIC_MAX_CHARS,
 	GS_AUTOBRANCH_EFFECTS_MAX_COUNT,
-	GS_AUTOBRANCH_PROVIDER_VERSION,
+	GS_AUTOBRANCH_MINIMUM_GH_STACK_VERSION,
 	type GsAutobranchContext,
 	type GsAutobranchGitFacts,
-	type GsAutobranchProviderView,
+	type GsAutobranchStackView,
 	type GsAutobranchRequest,
 	type GsAutobranchResult,
 } from "./autobranch-contract.ts";
 
 export {
-	GS_AUTOBRANCH_PROVIDER_VERSION,
+	GS_AUTOBRANCH_MINIMUM_GH_STACK_VERSION,
 	gsAutobranchRequestSchema,
 	gsAutobranchResultSchema,
 	type GsAutobranchCheckpointGateway,
@@ -24,8 +24,8 @@ export {
 	type GsAutobranchGitGateway,
 	type GsAutobranchPreparationFacts,
 	type GsAutobranchPreparationGateway,
-	type GsAutobranchProviderGateway,
-	type GsAutobranchProviderView,
+	type GsAutobranchStackGateway,
+	type GsAutobranchStackView,
 	type GsAutobranchRequest,
 	type GsAutobranchResult,
 } from "./autobranch-contract.ts";
@@ -43,19 +43,19 @@ export async function runGsAutobranch(
 	interaction: ClinkrInteraction,
 	request: GsAutobranchRequest,
 ) {
-	const version = await context.provider.readVersion();
+	const version = await context.stack.readVersion();
 	if (!version.ok) return failure("autobranch-inspection-failed", version.message, emptyResult());
 	const inspected = await context.git.inspect(null);
 	if (!inspected.ok)
 		return failure("autobranch-inspection-failed", inspected.message, emptyResult(version.value));
 	const before = inspected.value;
 	let data = resultFrom(before, version.value);
-	if (version.value !== GS_AUTOBRANCH_PROVIDER_VERSION) {
-		return negative(`gh-stack ${GS_AUTOBRANCH_PROVIDER_VERSION} is required.`, {
+	if (!isSupportedGhStackVersion(version.value)) {
+		return negative(`gh-stack ${GS_AUTOBRANCH_MINIMUM_GH_STACK_VERSION} or newer is required.`, {
 			data: recover(
 				data,
-				"install-supported-provider",
-				`Install gh-stack ${GS_AUTOBRANCH_PROVIDER_VERSION}.`,
+				"install-supported-gh-stack",
+				`Install gh-stack ${GS_AUTOBRANCH_MINIMUM_GH_STACK_VERSION} or newer.`,
 			),
 		});
 	}
@@ -82,15 +82,15 @@ export async function runGsAutobranch(
 	const path = before.branch === before.trunk ? "trunk-bootstrap" : "tracked-top-extension";
 	data = { ...data, path };
 	if (path === "tracked-top-extension") {
-		const view = await context.provider.view();
+		const view = await context.stack.view();
 		if (!view.ok) {
 			const observed = recover(
 				{ ...data, diagnostic: bound(view.message) },
-				"inspect-provider-worktree",
-				"Run from the provider worktree that tracks this branch.",
+				"inspect-stack-worktree",
+				"Run from the stack worktree that tracks this branch.",
 			);
 			return view.reason === "untracked"
-				? negative("The current branch is not tracked in the invoking provider worktree.", {
+				? negative("The current branch is not tracked in the invoking stack worktree.", {
 						data: observed,
 					})
 				: failure("autobranch-inspection-failed", view.message, observed);
@@ -103,16 +103,13 @@ export async function runGsAutobranch(
 				data.relationship.sourceTopmost
 			)
 		) {
-			return negative(
-				"The current branch must be the unique current top in this provider worktree.",
-				{
-					data: recover(
-						data,
-						"inspect-provider-worktree",
-						"Check out the invoking provider worktree's tracked top, then rerun.",
-					),
-				},
-			);
+			return negative("The current branch must be the unique current top in this stack worktree.", {
+				data: recover(
+					data,
+					"inspect-stack-worktree",
+					"Check out the invoking stack worktree's tracked top, then rerun.",
+				),
+			});
 		}
 	}
 	const prepared = await context.preparation.prepare({
@@ -163,11 +160,11 @@ async function runBootstrap(options: RunPathOptions) {
 	const checkpoint = proveCheckpoint(before, observed.value, child);
 	if (checkpoint.status === "unproven")
 		return partial(data, observed.value, effects, checkpoint.diagnostic);
-	const initialized = await context.provider.init(child);
-	effects = [...effects, "provider-init-attempted"];
+	const initialized = await context.stack.init(child);
+	effects = [...effects, "gh-stack-init-attempted"];
 	const [after, view] = await Promise.all([
 		context.git.inspect(child, before.branch!),
-		context.provider.view(),
+		context.stack.view(),
 	]);
 	if (!after.ok || !view.ok)
 		return ambiguous(data, effects, !after.ok ? after.message : view.ok ? "" : view.message);
@@ -179,13 +176,13 @@ async function runBootstrap(options: RunPathOptions) {
 			after.value.childSha !== before.headSha,
 			"No child checkpoint was observed after initialization.",
 		],
-		[view.value.trunk === before.trunk, "The provider trunk does not match the cached Git trunk."],
+		[view.value.trunk === before.trunk, "The gh-stack trunk does not match the cached Git trunk."],
 		[
 			view.value.currentBranch === child,
-			"The initialized child is not current in the provider view.",
+			"The initialized child is not current in the gh-stack view.",
 		],
-		[view.value.branches.length === 1, "The initialized provider stack is not one layer."],
-		[rel.childCurrentTopmost, "The initialized child is not the current provider top."],
+		[view.value.branches.length === 1, "The initialized stack is not one layer."],
+		[rel.childCurrentTopmost, "The initialized child is not the current stack top."],
 	]);
 	if (initialization.status === "unproven")
 		return partial(
@@ -207,11 +204,11 @@ async function runBootstrap(options: RunPathOptions) {
 
 async function runExtension(options: RunPathOptions) {
 	const { context, data, before, child, checkpointMessage } = options;
-	const added = await context.provider.add(child);
-	let effects = ["provider-add-attempted"];
+	const added = await context.stack.add(child);
+	let effects = ["gh-stack-add-attempted"];
 	let [observed, viewed] = await Promise.all([
 		context.git.inspect(child, before.branch!),
-		context.provider.view(),
+		context.stack.view(),
 	]);
 	if (!observed.ok || !viewed.ok)
 		return ambiguous(
@@ -232,7 +229,7 @@ async function runExtension(options: RunPathOptions) {
 	if (committed.ok) effects = [...effects, `checkpoint:${committed.value}`];
 	[observed, viewed] = await Promise.all([
 		context.git.inspect(child, before.branch!),
-		context.provider.view(),
+		context.stack.view(),
 	]);
 	if (!observed.ok || !viewed.ok)
 		return ambiguous(
@@ -247,7 +244,7 @@ async function runExtension(options: RunPathOptions) {
 			? checkpoint
 			: provePostconditions([
 					[rel.childDirectlyAboveSource, "The child is no longer directly above the source."],
-					[rel.childCurrentTopmost, "The child is no longer the current provider top."],
+					[rel.childCurrentTopmost, "The child is no longer the current stack top."],
 				]);
 	if (!committed.ok)
 		return partial({ ...data, relationship: rel }, observed.value, effects, committed.message);
@@ -265,7 +262,7 @@ async function runExtension(options: RunPathOptions) {
 }
 
 function relationship(
-	view: GsAutobranchProviderView,
+	view: GsAutobranchStackView,
 	source: string,
 	child: string | null,
 ): GsAutobranchResult["relationship"] {
@@ -332,12 +329,12 @@ function proveAttachment(
 	relationship: GsAutobranchResult["relationship"],
 ): PostconditionProof {
 	return provePostconditions([
-		[after.branch === child, "The provider did not switch to the child."],
+		[after.branch === child, "gh-stack did not switch to the child."],
 		[after.childSha === before.headSha, "The child does not point to the source HEAD."],
 		[after.sourceRefSha === before.headSha, "The source ref did not remain at the source HEAD."],
 		[after.dirty.total > 0, "Pending work did not transfer to the child."],
 		[relationship.childDirectlyAboveSource, "The child is not directly above the source."],
-		[relationship.childCurrentTopmost, "The child is not the current provider top."],
+		[relationship.childCurrentTopmost, "The child is not the current stack top."],
 	]);
 }
 
@@ -382,10 +379,20 @@ async function authorize(
 		data: recover(data, "authorize-mutation", "Rerun and authorize the prepared mutation."),
 	});
 }
+function isSupportedGhStackVersion(version: string): boolean {
+	const match = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.exec(version);
+	if (match === null) return false;
+	const major = Number(match[1]);
+	const minor = Number(match[2]);
+	const patch = Number(match[3]);
+	if (![major, minor, patch].every(Number.isSafeInteger)) return false;
+	return major > 0 || minor >= 1;
+}
+
 function resultFrom(facts: GsAutobranchGitFacts, version: string): GsAutobranchResult {
 	return {
 		...emptyResult(version),
-		providerWorktreeGitDir: facts.providerWorktreeGitDir,
+		worktreeGitDir: facts.worktreeGitDir,
 		trunk: facts.trunk,
 		source: facts.branch,
 		sourceSha: facts.headSha,
@@ -398,7 +405,7 @@ function emptyResult(version: string | null = null): GsAutobranchResult {
 		outcome: "refused",
 		path: null,
 		observedVersion: version,
-		providerWorktreeGitDir: null,
+		worktreeGitDir: null,
 		trunk: null,
 		source: null,
 		child: null,
@@ -461,7 +468,7 @@ function partial(
 			recovery: {
 				action: "inspect-child" as const,
 				instruction:
-					"Inspect the preserved child and provider view; do not replay or roll back automatically.",
+					"Inspect the preserved child and gh-stack view; do not replay or roll back automatically.",
 			},
 		},
 	});
@@ -475,7 +482,7 @@ function ambiguous(data: GsAutobranchResult, effects: readonly string[], diagnos
 			diagnostic: bound(diagnostic),
 			recovery: {
 				action: "inspect-child" as const,
-				instruction: "Inspect Git and the invoking provider worktree before any further mutation.",
+				instruction: "Inspect Git and the invoking stack worktree before any further mutation.",
 			},
 		},
 	});
