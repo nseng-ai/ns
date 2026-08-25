@@ -23,12 +23,12 @@ import { afterEach, describe, expect, test } from "vitest";
 const REPO_ROOT = mkdtempSync(join(tmpdir(), "tracked-branch-payload-root-"));
 writeFileSync(
 	join(REPO_ROOT, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 );
 
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
+	modelId: "gpt-5.6-luna-fast",
 	thinking: "minimal" as const,
 };
 

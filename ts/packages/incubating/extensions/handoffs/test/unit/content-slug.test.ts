@@ -1,6 +1,6 @@
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
+	modelId: "gpt-5.6-luna-fast",
 	thinking: "minimal" as const,
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
@@ -21,7 +21,7 @@ const CWD = "/repo";
 const projectConfig: ProjectConfigGateway = {
 	readTextFile: () => ({
 		type: "found",
-		text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		text: '[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 	}),
 	pathExists: () => ({ type: "missing" }),
 };

@@ -43,7 +43,7 @@ describe("resolveExplorerLaunchPlan", () => {
 		},
 		{
 			parentModelSelection: { provider: "openai", modelId: "gpt-5.6-sol", thinking: "minimal" },
-			expectedModelSelection: "openai/gpt-5.6-luna",
+			expectedModelSelection: "openai/gpt-5.6-luna-fast",
 		},
 		{
 			parentModelSelection: {
@@ -51,7 +51,7 @@ describe("resolveExplorerLaunchPlan", () => {
 				modelId: "gpt-5.6-sol",
 				thinking: "minimal",
 			},
-			expectedModelSelection: "openai-codex/gpt-5.6-luna",
+			expectedModelSelection: "openai-codex/gpt-5.6-luna-fast",
 		},
 		{
 			parentModelSelection: {
@@ -122,8 +122,8 @@ describe("resolveExplorerLaunchPlan", () => {
 describe("resolveSameProviderCheapModel", () => {
 	test.each([
 		["anthropic", "anthropic/claude-haiku-4-5"],
-		["openai", "openai/gpt-5.6-luna"],
-		["openai-codex", "openai-codex/gpt-5.6-luna"],
+		["openai", "openai/gpt-5.6-luna-fast"],
+		["openai-codex", "openai-codex/gpt-5.6-luna-fast"],
 		["google", "google/gemini-3.5-flash"],
 		["gemini", "gemini/gemini-3.5-flash"],
 	])("retains concrete provider %s", (provider, expected) => {

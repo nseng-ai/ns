@@ -144,7 +144,7 @@ available to the ns runtime. Model-backed commands use shared repository policy 
 
 ```toml
 [models.profiles.fast]
-model = "openai/gpt-5.6-luna"
+model = "openai/gpt-5.6-luna-fast"
 thinking = "minimal"
 
 [models.operations]

@@ -1,6 +1,6 @@
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
+	modelId: "gpt-5.6-luna-fast",
 	thinking: "minimal" as const,
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
@@ -52,7 +52,7 @@ export const ROOT = "/repo";
 const MODEL_ROOT = mkdtempSync(join(tmpdir(), "branch-context-root-"));
 writeFileSync(
 	join(MODEL_ROOT, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 );
 export const PLAN_SLUG = "branch-scoped-plan-extension";
 export const PLAN_KEY = buildBranchContextPlanKey(PLAN_SLUG);

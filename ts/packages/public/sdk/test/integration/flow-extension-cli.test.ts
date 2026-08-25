@@ -500,7 +500,7 @@ async function createFlowProject(): Promise<string> {
 	installCheckedInFlowExtension(directory);
 	await appendFile(
 		join(directory, "ns.toml"),
-		'\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+		'\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 	);
 	return directory;
 }

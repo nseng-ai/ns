@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
+	modelId: "gpt-5.6-luna-fast",
 	thinking: "minimal" as const,
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
@@ -19,7 +19,7 @@ import type { CommandExecApi, ExecOptions } from "@nseng-ai/foundation/exec";
 const CWD = mkdtempSync(join(tmpdir(), "saved-plan-slug-root-"));
 writeFileSync(
 	join(CWD, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 );
 const SAVED_PLAN_CONTENT =
 	"# Branch Scoped Plan Extension\n\nPersist saved plans from final content.\n";

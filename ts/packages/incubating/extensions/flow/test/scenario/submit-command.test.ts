@@ -185,7 +185,7 @@ async function createSubmitHooksRepo(preSubmit: readonly string[]): Promise<stri
 	});
 	await writeFile(
 		join(repoRoot, "ns.toml"),
-		`extensions = ["./extensions/flow"]\n\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
+		`extensions = ["./extensions/flow"]\n\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n\n[points]\n"flow.submit.pre" = ${JSON.stringify(preSubmit)}\n`,
 		"utf8",
 	);
 	return repoRoot;
@@ -608,7 +608,7 @@ describe("project-local submit extension", () => {
 		const repoRoot = await createSubmitHooksRepo(["just"]);
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 			"utf8",
 		);
 		const run = runWithFakes({
@@ -1417,7 +1417,7 @@ describe("project-local submit extension", () => {
 		expect(run.context.textGeneratorCalls).toHaveLength(1);
 		expect(run.context.textGeneratorCalls[0]?.modelSelection).toEqual({
 			provider: "openai-codex",
-			modelId: "gpt-5.6-luna",
+			modelId: "gpt-5.6-luna-fast",
 			thinking: "minimal",
 		});
 		expect(run.context.textGeneratorCalls[0]?.prompt).toContain(

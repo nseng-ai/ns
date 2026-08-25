@@ -8,11 +8,11 @@ exclude = [
 ]
 
 [models.profiles.ultrafast]
-model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+model = "vercel-ai-gateway/openai/gpt-5.6-luna-fast"
 thinking = "off"
 
 [models.profiles.fast]
-model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+model = "vercel-ai-gateway/openai/gpt-5.6-luna-fast"
 thinking = "medium"
 
 [models.profiles.standard]

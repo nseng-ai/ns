@@ -44,7 +44,7 @@ Reviews resolves `model_profile` and `--model-profile` directly as aliases in th
 
 ```toml
 [models.profiles.fast]
-model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+model = "vercel-ai-gateway/openai/gpt-5.6-luna-fast"
 thinking = "low"
 
 [models.profiles.deep]

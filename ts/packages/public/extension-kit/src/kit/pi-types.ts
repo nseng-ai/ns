@@ -12,7 +12,7 @@ export interface RawPiExecOptions {
 }
 
 export type NotifyLevel = "info" | "warning" | "error" | "success";
-export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 export interface ModelInfo {
 	provider: string;

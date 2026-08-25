@@ -626,7 +626,7 @@ function runFlowCommandWithFakes(fixture: FlowCommandFixture) {
 		mkdirSync(repoRoot, { recursive: true });
 		writeFileSync(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 		);
 	}
 	const homeDir = fixture.options.homeDir ?? join(stateRoot, "home");

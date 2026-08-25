@@ -6,7 +6,7 @@
  * the registered handler runs straight through after a no-op acknowledgement.
  */
 import type { Component, TUI } from "@earendil-works/pi-tui";
-import { AuthStorage, ModelRegistry, type Theme } from "@earendil-works/pi-coding-agent";
+import { ModelRegistry, ModelRuntime, type Theme } from "@earendil-works/pi-coding-agent";
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 import { describe, expect, test } from "vitest";
 
@@ -141,9 +141,9 @@ function okLoader(): () => Promise<LoadStackViewResult> {
 	return async () => ({ type: "ok", model: fakeModel() });
 }
 
-function testRegistry(): ModelRegistry {
-	return ModelRegistry.inMemory(AuthStorage.inMemory());
-}
+const TEST_MODEL_REGISTRY = new ModelRegistry(
+	await ModelRuntime.create({ modelsPath: null, refreshOnCreate: false }),
+);
 
 function fakeTui(): TUI {
 	const terminal = { rows: 30 } satisfies Partial<TUI["terminal"]>;
@@ -162,7 +162,7 @@ function scriptedCtx(scripts: string[][]): CommandContext {
 	return {
 		cwd: "/repo",
 		hasUI: true,
-		modelRegistry: testRegistry(),
+		modelRegistry: TEST_MODEL_REGISTRY,
 		waitForIdle: async () => {},
 		ui: {
 			notify() {},
@@ -210,7 +210,7 @@ function nonInteractiveCtx(): CommandContext {
 	return {
 		cwd: "/repo",
 		hasUI: false,
-		modelRegistry: testRegistry(),
+		modelRegistry: TEST_MODEL_REGISTRY,
 		waitForIdle: async () => {},
 		ui: {
 			notify() {},

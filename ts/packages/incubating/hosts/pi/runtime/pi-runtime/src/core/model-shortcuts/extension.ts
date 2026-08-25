@@ -32,8 +32,8 @@ export const MODEL_SHORTCUTS = [
 		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra" },
 	},
 	{
-		command: "model:luna",
-		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna" },
+		command: "model:luna-fast",
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-luna-fast" },
 	},
 	{
 		command: "model:gpt-mini",

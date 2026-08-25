@@ -29,7 +29,7 @@ export const ROOT = "/repo";
 const MODEL_ROOT = mkdtempSync(join(tmpdir(), "handoff-root-"));
 writeFileSync(
 	join(MODEL_ROOT, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 );
 export const BRANCH = "feature/handoff";
 

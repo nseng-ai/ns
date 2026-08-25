@@ -1,4 +1,9 @@
-import { cleanupSessionResources, type Api, type Model } from "@earendil-works/pi-ai";
+import {
+	cleanupSessionResources,
+	type Api,
+	type Model,
+	type ProviderHeaders,
+} from "@earendil-works/pi-ai";
 import { uuidv7 } from "@earendil-works/pi-agent-core";
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
 // Canonical migration plan (Phase 9): https://github.com/earendil-works/pi/blob/main/packages/agent/docs/models.md
@@ -19,7 +24,7 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 type CompleteSimpleFunction = typeof completeSimple;
 
 type ModelAuth =
-	| { ok: true; apiKey?: string; headers?: Record<string, string> }
+	| { ok: true; apiKey?: string; headers?: ProviderHeaders }
 	| { ok: false; error: string };
 
 interface PiModelRegistry {
@@ -148,6 +153,6 @@ async function loadCompleteSimple(): Promise<CompleteSimpleFunction> {
 }
 
 async function loadDefaultModelRegistry(): Promise<PiModelRegistry> {
-	const { AuthStorage, ModelRegistry } = await import("@earendil-works/pi-coding-agent");
-	return ModelRegistry.create(AuthStorage.create());
+	const { ModelRegistry, ModelRuntime } = await import("@earendil-works/pi-coding-agent");
+	return new ModelRegistry(await ModelRuntime.create());
 }

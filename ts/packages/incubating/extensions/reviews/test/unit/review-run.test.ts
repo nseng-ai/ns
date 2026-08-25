@@ -59,7 +59,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n',
+			'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n',
 		);
 		const localDiff = new FakeLocalDiffGateway({
 			defaultDiff: {
@@ -126,7 +126,7 @@ describe("runReview", () => {
 		const repoRoot = await tempRepoRoot();
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.architecture]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "xhigh"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n[models.profiles.architecture]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "xhigh"\n',
 		);
 		const reviewRunner = new FakeReviewRunnerGateway();
 		const ctx = createReviewsRuntime(

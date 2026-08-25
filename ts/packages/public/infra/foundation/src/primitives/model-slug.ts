@@ -1,6 +1,14 @@
 import { z } from "zod";
 
-export const MODEL_THINKING_VALUES = ["off", "minimal", "low", "medium", "high", "xhigh"] as const;
+export const MODEL_THINKING_VALUES = [
+	"off",
+	"minimal",
+	"low",
+	"medium",
+	"high",
+	"xhigh",
+	"max",
+] as const;
 export const modelThinkingSchema = z.enum(MODEL_THINKING_VALUES);
 export type ModelThinking = z.infer<typeof modelThinkingSchema>;
 

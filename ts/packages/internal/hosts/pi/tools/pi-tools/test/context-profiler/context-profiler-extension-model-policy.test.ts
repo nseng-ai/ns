@@ -23,7 +23,7 @@ describe("context profiler model-policy wiring", () => {
 			registry,
 			projectConfigGateway: projectConfig(`
 [models.profiles.fast]
-model = "vercel-ai-gateway/openai/gpt-5.6-luna"
+model = "vercel-ai-gateway/openai/gpt-5.6-luna-fast"
 thinking = "medium"
 `),
 		});
@@ -31,8 +31,8 @@ thinking = "medium"
 		expect(result).toMatchObject({
 			type: "available",
 			gateway: {
-				segmentationModel: "vercel-ai-gateway/openai/gpt-5.6-luna",
-				episodeAnalysisModel: "vercel-ai-gateway/openai/gpt-5.6-luna",
+				segmentationModel: "vercel-ai-gateway/openai/gpt-5.6-luna-fast",
+				episodeAnalysisModel: "vercel-ai-gateway/openai/gpt-5.6-luna-fast",
 			},
 		});
 	});
@@ -43,7 +43,7 @@ thinking = "medium"
 			registry,
 			projectConfigGateway: projectConfig(`
 [models.profiles.fast]
-model = "gateway/openai/gpt-5.6-luna"
+model = "gateway/openai/gpt-5.6-luna-fast"
 thinking = "medium"
 [models.profiles.standard]
 model = "gateway/openai/gpt-5.6-terra"
@@ -56,7 +56,7 @@ thinking = "high"
 		expect(result).toMatchObject({
 			type: "available",
 			gateway: {
-				segmentationModel: "gateway/openai/gpt-5.6-luna",
+				segmentationModel: "gateway/openai/gpt-5.6-luna-fast",
 				episodeAnalysisModel: "gateway/openai/gpt-5.6-terra",
 			},
 		});

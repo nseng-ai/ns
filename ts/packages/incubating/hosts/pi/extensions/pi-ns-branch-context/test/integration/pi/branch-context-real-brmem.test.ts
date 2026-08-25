@@ -36,7 +36,7 @@ describe("branch-context extension with real Branch Memory", () => {
 		try {
 			await writeFile(
 				join(repo.path, "ns.toml"),
-				'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+				'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 				"utf8",
 			);
 			const planFile = await createPlanFile();

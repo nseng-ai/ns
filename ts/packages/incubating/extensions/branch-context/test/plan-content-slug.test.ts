@@ -1,6 +1,6 @@
 const TEST_MODEL_SELECTION = {
 	provider: "openai-codex",
-	modelId: "gpt-5.6-luna",
+	modelId: "gpt-5.6-luna-fast",
 	thinking: "minimal" as const,
 };
 import { buildRawTextModelArgs } from "@nseng-ai/extension-kit/model-slug";
@@ -23,7 +23,7 @@ type ExecResultFixture = Partial<Omit<ExitedResult, "type">> | Exclude<ExecResul
 const CWD = mkdtempSync(join(tmpdir(), "plan-content-slug-root-"));
 writeFileSync(
 	join(CWD, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 );
 const PLAN_CONTENT = "# Add Docs Portal Site\n\nBuild and publish the docs portal.\n";
 

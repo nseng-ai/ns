@@ -47,7 +47,7 @@ describe("flow autobranch command outcomes", () => {
 			operation: "checkpoint-message",
 			modelSelection: {
 				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
+				modelId: "gpt-5.6-luna-fast",
 				thinking: "minimal" as const,
 			},
 		});

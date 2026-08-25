@@ -73,7 +73,6 @@ function createProductionGateway(): PiAgentSessionGateway {
 				sessionManager: SessionManager.create(input.cwd),
 				settingsManager,
 				...optionalEntry("model", input.model),
-				...optionalEntry("modelRegistry", input.modelRegistry),
 			});
 			return session;
 		},

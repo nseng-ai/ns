@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 
 import { InterrogationController } from "../../src/context-profiler/interrogation-controller.ts";
 import {
@@ -20,9 +20,9 @@ import {
 
 const TEST_MODEL_SELECTION = { provider: "p", modelId: "m", thinking: "minimal" as const };
 
-function createTestModelRegistry(): ModelRegistry {
-	return ModelRegistry.inMemory(AuthStorage.inMemory());
-}
+const TEST_MODEL_REGISTRY = new ModelRegistry(
+	await ModelRuntime.create({ modelsPath: null, refreshOnCreate: false }),
+);
 
 const REGION: LiveRegion = {
 	id: "ep-1",
@@ -54,7 +54,7 @@ function createController(session: FakeInterrogationSession): InterrogationContr
 			},
 		},
 		modelSelection: TEST_MODEL_SELECTION,
-		modelRegistry: createTestModelRegistry(),
+		modelRegistry: TEST_MODEL_REGISTRY,
 		factory: new FakeInterrogationSessionFactory({ result: { ok: true, value: session } }),
 		onTranscriptChange: () => {},
 	});
@@ -142,7 +142,7 @@ describe("interrogation core", () => {
 				},
 			},
 			modelSelection: TEST_MODEL_SELECTION,
-			modelRegistry: createTestModelRegistry(),
+			modelRegistry: TEST_MODEL_REGISTRY,
 			factory,
 			onTranscriptChange: () => {},
 		});
@@ -223,7 +223,7 @@ describe("interrogation core", () => {
 				},
 			},
 			modelSelection: TEST_MODEL_SELECTION,
-			modelRegistry: createTestModelRegistry(),
+			modelRegistry: TEST_MODEL_REGISTRY,
 			factory,
 			onTranscriptChange: () => {},
 		});

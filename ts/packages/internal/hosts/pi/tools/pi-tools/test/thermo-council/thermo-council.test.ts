@@ -65,7 +65,7 @@ type SessionShutdownHandler = ExtensionHandler<SessionShutdownEvent>;
 const DEFAULT_REPO_ROOT = mkdtempSync(join(tmpdir(), "thermo-council-"));
 writeFileSync(
 	join(DEFAULT_REPO_ROOT, "ns.toml"),
-	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n',
+	'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n',
 );
 
 class FakePi implements ThermoCouncilExtensionAPI {
@@ -548,12 +548,12 @@ describe("thermo council extension", () => {
 		await pi.commands.get(THERMO_COUNCIL_COMMAND_NAME)?.handler("origin/master", fakeContext());
 		expect(pi.runnerCalls[3]?.args).toContain("--model");
 		expect(pi.runnerCalls[3]?.args).toContain("openai-codex");
-		expect(pi.runnerCalls[3]?.args).toContain("gpt-5.6-luna");
+		expect(pi.runnerCalls[3]?.args).toContain("gpt-5.6-luna-fast");
 
 		const repoRoot = await mkdtemp(join(tmpdir(), "thermo-policy-"));
 		await writeFile(
 			join(repoRoot, "ns.toml"),
-			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.slow]\nmodel = "acme/synthesis"\nthinking = "minimal"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
+			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna-fast"\nthinking = "minimal"\n[models.profiles.slow]\nmodel = "acme/synthesis"\nthinking = "minimal"\n[models.operations]\n"thermo-council.synthesis" = "slow"\n',
 		);
 		const configuredExecResults = successfulScopeExecResults();
 		configuredExecResults.set("git rev-parse --show-toplevel", { stdout: `${repoRoot}\n` });
@@ -564,7 +564,7 @@ describe("thermo council extension", () => {
 			?.handler("origin/master", fakeContext(repoRoot));
 		expect(configured.runnerCalls[3]?.args).toContain("acme");
 		expect(configured.runnerCalls[3]?.args).toContain("synthesis");
-		expect(configured.runnerCalls[3]?.args).not.toContain("gpt-5.6-luna");
+		expect(configured.runnerCalls[3]?.args).not.toContain("gpt-5.6-luna-fast");
 	});
 
 	test("launches three read-only terminal-capture reviewer seats and renders a report", async () => {

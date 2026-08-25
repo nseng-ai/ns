@@ -79,6 +79,8 @@ function testFgColors(): Record<ThemeColor, string | number> {
 		thinkingMedium: "#ffffff",
 		thinkingHigh: "#ffffff",
 		thinkingXhigh: "#ffffff",
+		thinkingMax: "#ffffff",
+		searchMatchText: "#ffffff",
 		bashMode: "#ffffff",
 	};
 }
@@ -93,5 +95,7 @@ function testBgColors(): Record<TestThemeBg, string | number> {
 		toolPendingBg: "#000000",
 		toolSuccessBg: "#000000",
 		toolErrorBg: "#000000",
+		scrollbarThumb: "#000000",
+		searchMatchBg: "#000000",
 	};
 }
