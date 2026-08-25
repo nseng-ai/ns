@@ -14,6 +14,10 @@ import type {
 	HerdrCreateWorkspaceOptions,
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
+	HerdrMetadataGateway,
+	HerdrMetadataReportResult,
+	HerdrMetadataTarget,
+	HerdrMetadataToken,
 	HerdrPaneRunResult,
 	HerdrTabRenameResult,
 	HerdrWorkspaceRenameResult,
@@ -52,11 +56,54 @@ export function buildHerdrPaneRunArgs(paneId: string, command: string): string[]
 	return ["pane", "run", paneId, command];
 }
 
+export function buildHerdrReportTokenArgs(
+	target: HerdrMetadataTarget,
+	token: HerdrMetadataToken,
+): string[] {
+	const tokenArgs =
+		token.value === null
+			? ["--clear-token", token.name]
+			: ["--token", `${token.name}=${token.value}`];
+	return [target.type, "report-metadata", target.id, "--source", token.source, ...tokenArgs];
+}
+
 /**
  * CLI-backed HerdrGateway adapter. All operations call the installed `herdr`
  * binary; no raw socket integration is included. The CLI is Herdr's recommended
  * automation interface for ordinary scripting.
  */
+export function createCliHerdrMetadataGateway(exec: CommandExecApi): HerdrMetadataGateway {
+	return {
+		async reportToken(target, token): Promise<HerdrMetadataReportResult> {
+			const command = "herdr";
+			const args = buildHerdrReportTokenArgs(target, token);
+			const commandDisplay = formatCommand(command, args);
+			try {
+				const result = await exec.exec(command, args, { timeout: HERDR_CLI_TIMEOUT_MS });
+				if (!commandSucceeded(result)) {
+					return {
+						type: "failed",
+						message: formatCommandFailure(
+							`Could not report Herdr ${target.type} metadata.`,
+							commandDisplay,
+							result,
+						),
+					};
+				}
+				return { type: "reported" };
+			} catch (error) {
+				return {
+					type: "failed",
+					message: tailText(
+						`Could not report Herdr ${target.type} metadata.\nCommand: ${commandDisplay}\nError: ${formatErrorMessage(error)}`,
+						{ maxChars: MAX_ERROR_CHARS, maxLines: MAX_ERROR_LINES },
+					),
+				};
+			}
+		},
+	};
+}
+
 export function createCliHerdrGateway(exec: CommandExecApi): HerdrGateway {
 	return {
 		async renameWorkspace(workspaceId, label): Promise<HerdrWorkspaceRenameResult> {

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import type { ExtensionAPI } from "@nseng-ai/extension-kit/pi-types";
+import type {
+	ExtensionAPI,
+	SessionStartContext,
+	SessionStartEventLike,
+} from "@nseng-ai/extension-kit/pi-types";
 import type { HandoffExtensionAPI, ToolDefinition } from "@nseng-ai/pi-ns-handoffs/handoff-launch";
 import { HERDR_BASE_COMMAND_NAMES, HERDR_COMMAND_NAMES } from "@nseng-ai/herdr/api";
 
@@ -35,11 +39,19 @@ function makeFakeExtensionApi(commands: Map<string, unknown>): ExtensionAPI {
 function makeToolExtensionApi(
 	commands: Map<string, unknown>,
 	tools: Map<string, ToolDefinition>,
-): HandoffExtensionAPI & { runSessionStart(): void } {
-	const sessionStartHandlers: Array<() => void> = [];
+): HandoffExtensionAPI & { runSessionStart(): Promise<void> } {
+	const sessionStartHandlers: Array<() => Promise<void> | void> = [];
 	return {
 		on(event, handler) {
-			if (event === "session_start") sessionStartHandlers.push(() => handler());
+			if (event === "session_start") {
+				const sessionStartHandler = handler as (
+					event: SessionStartEventLike,
+					ctx: SessionStartContext,
+				) => Promise<void> | void;
+				sessionStartHandlers.push(() =>
+					sessionStartHandler({ reason: "startup" }, new FakeCommandContext({ cwd: "/repo" })),
+				);
+			}
 		},
 		registerCommand(name, definition) {
 			commands.set(name, definition);
@@ -62,8 +74,8 @@ function makeToolExtensionApi(
 		appendEntry() {},
 		registerEntryRenderer() {},
 		sendUserMessage() {},
-		runSessionStart() {
-			for (const handler of sessionStartHandlers) handler();
+		async runSessionStart() {
+			for (const handler of sessionStartHandlers) await handler();
 		},
 	};
 }
@@ -151,7 +163,7 @@ describe("herdr Pi extension", () => {
 		const pi = makeToolExtensionApi(commands, tools);
 
 		await registerHerdrPiExtension(pi);
-		pi.runSessionStart();
+		await pi.runSessionStart();
 
 		expect([...commands.keys()].sort()).toEqual(
 			[...HERDR_BASE_COMMAND_NAMES, "ns:herdr:tab:handoff"].sort(),

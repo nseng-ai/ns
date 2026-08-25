@@ -19,7 +19,9 @@ export {
 	buildHerdrCreateTabArgs,
 	buildHerdrCreateWorkspaceArgs,
 	buildHerdrPaneRunArgs,
+	buildHerdrReportTokenArgs,
 	createCliHerdrGateway,
+	createCliHerdrMetadataGateway,
 } from "../core/cli-gateway.ts";
 export type {
 	HerdrCallerPaneResult,
@@ -28,6 +30,10 @@ export type {
 	HerdrCreateWorkspaceOptions,
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
+	HerdrMetadataGateway,
+	HerdrMetadataReportResult,
+	HerdrMetadataTarget,
+	HerdrMetadataToken,
 	HerdrPaneRunResult,
 	HerdrTabRenameResult,
 	HerdrWorkspaceRenameResult,

@@ -7,7 +7,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { CommandExecApi, ExecOptions, ExecResult } from "@nseng-ai/foundation/command";
-import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
+import { createCliHerdrGateway, createCliHerdrMetadataGateway } from "@nseng-ai/herdr/api";
 
 interface ScriptedExec {
 	readonly command: string;
@@ -75,6 +75,42 @@ const TAB_CREATE_RESPONSE = JSON.stringify({
 		tab: { tab_id: "t-tab456", workspace_id: "ws-abc123" },
 		root_pane: { pane_id: "p-tab456" },
 	},
+});
+
+// ---------------------------------------------------------------------------
+// metadata reporting — exact argv
+// ---------------------------------------------------------------------------
+
+describe("createCliHerdrMetadataGateway", () => {
+	test.each([
+		[
+			"sets a pane token",
+			{ type: "pane" as const, id: "pane-1" },
+			{ source: "ns:pi-repo", name: "repo", value: "ns" },
+			["pane", "report-metadata", "pane-1", "--source", "ns:pi-repo", "--token", "repo=ns"],
+		],
+		[
+			"clears a workspace token",
+			{ type: "workspace" as const, id: "workspace-1" },
+			{ source: "ns:pi-repo", name: "repo", value: null },
+			[
+				"workspace",
+				"report-metadata",
+				"workspace-1",
+				"--source",
+				"ns:pi-repo",
+				"--clear-token",
+				"repo",
+			],
+		],
+	] as const)("%s", async (_name, target, token, args) => {
+		const commands = new ScriptedCommandExec({ script: [step("herdr", [...args])] });
+
+		expect(await createCliHerdrMetadataGateway(commands).reportToken(target, token)).toEqual({
+			type: "reported",
+		});
+		commands.assertDone();
+	});
 });
 
 // ---------------------------------------------------------------------------

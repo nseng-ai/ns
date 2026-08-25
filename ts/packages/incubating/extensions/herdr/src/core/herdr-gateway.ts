@@ -2,10 +2,7 @@
  * Herdr Consumer Gateway — narrow domain-shaped interface for the subset of
  * Herdr workspace operations that the herdr capability currently needs.
  *
- * Only operations with demonstrated CLI backing are included. The installed
- * Herdr CLI lacks `workspace report-metadata`, so metadata reporting is
- * intentionally absent; it remains parked until the installed binary supports
- * it (see herdr-capability-parity objective, roadmap "Parked" section).
+ * Only operations with demonstrated CLI backing are included.
  */
 export interface HerdrGateway {
 	/**
@@ -76,6 +73,23 @@ export interface HerdrGateway {
 export type HerdrCallerPaneResult =
 	| { type: "resolved"; workspaceId: string; tabId: string; paneId: string }
 	| { type: "failed"; message: string };
+
+export interface HerdrMetadataGateway {
+	reportToken(
+		target: HerdrMetadataTarget,
+		token: HerdrMetadataToken,
+	): Promise<HerdrMetadataReportResult>;
+}
+
+export type HerdrMetadataTarget = { type: "pane"; id: string } | { type: "workspace"; id: string };
+
+export interface HerdrMetadataToken {
+	readonly source: string;
+	readonly name: string;
+	readonly value: string | null;
+}
+
+export type HerdrMetadataReportResult = { type: "reported" } | { type: "failed"; message: string };
 
 export type HerdrWorkspaceRenameResult = { type: "applied" } | { type: "failed"; message: string };
 export type HerdrTabRenameResult = { type: "applied" } | { type: "failed"; message: string };

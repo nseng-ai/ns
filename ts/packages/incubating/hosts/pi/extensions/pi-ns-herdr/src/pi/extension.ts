@@ -5,7 +5,7 @@ import type {
 	SessionStartContext,
 	SessionStartEventLike,
 } from "@nseng-ai/extension-kit/pi-types";
-import { createCliHerdrGateway } from "@nseng-ai/herdr/api";
+import { createCliHerdrGateway, createCliHerdrMetadataGateway } from "@nseng-ai/herdr/api";
 import { RealGitGateway } from "@nseng-ai/foundation/git";
 import { optionalEntries } from "@nseng-ai/foundation/primitives";
 import { HERDR_COMMAND_NAMES } from "@nseng-ai/herdr/api";
@@ -21,6 +21,7 @@ import {
 	registerHerdrSidebarCommands,
 } from "./sidebar.ts";
 import { registerHerdrImplPromptBootstrap } from "./impl-prompt-bootstrap.ts";
+import { registerHerdrRepositoryMetadata } from "./repository-metadata.ts";
 import {
 	registerHerdrPromptSpaceImplCommand,
 	registerHerdrPromptTabImplCommand,
@@ -72,6 +73,12 @@ export async function registerHerdrPiExtension(
 	// local-trunk basis is selected (see core/trunk-branch.ts).
 	const herdr = createCliHerdrGateway(commands);
 	const context: HerdrPiContext = { commands, git, herdr };
+	registerHerdrRepositoryMetadata({
+		commands,
+		git,
+		herdr,
+		metadata: createCliHerdrMetadataGateway(commands),
+	});
 	const sidebarController = createHerdrSidebarControllerWithPiWiring(herdrPi);
 	registerHerdrSidebarCommands(herdrPi, sidebarController);
 	registerHerdrSpaceGoalCommand(herdrPi);
