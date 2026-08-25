@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
-	AuthStorage,
 	ModelRegistry,
+	ModelRuntime,
 	type AgentSessionEvent,
 } from "@earendil-works/pi-coding-agent";
 
@@ -36,7 +36,9 @@ describe("Pi side-session factory", () => {
 			cwd: "/tmp",
 			systemPrompt: "system",
 			modelSelection: { provider: "missing-provider", modelId: "missing-model", thinking: "high" },
-			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+			modelRegistry: new ModelRegistry(
+				await ModelRuntime.create({ modelsPath: null, refreshOnCreate: false }),
+			),
 			tools: [],
 		});
 

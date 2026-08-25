@@ -80,7 +80,6 @@ export function createPiSideSessionFactory(): SideSessionFactory {
 				const { session } = await createAgentSession({
 					cwd: options.cwd,
 					model,
-					modelRegistry: options.modelRegistry,
 					tools: [...options.tools],
 					resourceLoader,
 					sessionManager: SessionManager.inMemory(options.cwd),

@@ -1,5 +1,5 @@
 import type { Api, Model, ModelThinkingLevel } from "@earendil-works/pi-ai";
-import { resolveCliModel, type ModelRegistry } from "@earendil-works/pi-coding-agent";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import type { Clock } from "@nseng-ai/foundation/clock";
 import { formatErrorMessage, optionalEntry } from "@nseng-ai/foundation/primitives";
 import { systemClock } from "@nseng-ai/foundation/time";
@@ -298,23 +298,15 @@ function resolveConcreteModel(
 	if (launch === undefined) return { ok: true };
 	if (launch.requestedModelSelection !== undefined) {
 		const requested = launch.requestedModelSelection;
-		const resolved = resolveCliModel({
-			cliModel: requested.modelId,
-			cliProvider: requested.provider,
-			modelRegistry,
-		});
-		if (resolved.model === undefined) {
+		const modelId = requested.modelId.split(":", 1)[0] ?? requested.modelId;
+		const model = modelRegistry.find(requested.provider, modelId);
+		if (model === undefined) {
 			return {
 				ok: false,
-				diagnostic:
-					resolved.error ??
-					`Model ${requested.provider}/${requested.modelId} is not registered for in-process execution.`,
+				diagnostic: `Model ${requested.provider}/${requested.modelId} is not registered for in-process execution.`,
 			};
 		}
-		return {
-			ok: true,
-			model: resolved.model,
-		};
+		return { ok: true, model };
 	}
 	const provider = launch.modelSelection?.provider;
 	const id = launch.modelSelection?.modelId;

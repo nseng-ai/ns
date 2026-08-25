@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { AuthStorage, ModelRegistry } from "@earendil-works/pi-coding-agent";
+import { ModelRegistry, ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { createManualClock } from "@nseng-ai/foundation/time/testing";
 import { READ_ONLY_SUBAGENT_TOOLS } from "@internal/ns-pi-subagents/runner-subagents";
 import {
@@ -10,6 +10,10 @@ import {
 	type InProcessSubagentSessionEvent,
 	type InProcessSubagentSessionFactory,
 } from "../../src/runtime/in-process.ts";
+
+const TEST_MODEL_REGISTRY = new ModelRegistry(
+	await ModelRuntime.create({ modelsPath: null, refreshOnCreate: false }),
+);
 
 class FakeInProcessSession implements InProcessSubagentSession {
 	readonly sessionFile = "/tmp/in-process.jsonl";
@@ -81,7 +85,7 @@ class FakeInProcessFactory implements InProcessSubagentSessionFactory {
 describe("in-process subagent runtime", () => {
 	test("dispatches through explicit session factory and preserves read-only tools", async () => {
 		const factory = new FakeInProcessFactory();
-		const modelRegistry = ModelRegistry.inMemory(AuthStorage.inMemory());
+		const modelRegistry = TEST_MODEL_REGISTRY;
 		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory, modelRegistry });
 		const updates: string[] = [];
 
@@ -123,7 +127,7 @@ describe("in-process subagent runtime", () => {
 
 	test("resolves inherited launch metadata once per dispatch", async () => {
 		const factory = new FakeInProcessFactory();
-		const modelRegistry = ModelRegistry.inMemory(AuthStorage.inMemory());
+		const modelRegistry = TEST_MODEL_REGISTRY;
 		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory, modelRegistry });
 		let thinkingLevelReads = 0;
 
@@ -155,7 +159,7 @@ describe("in-process subagent runtime", () => {
 		const elapsedUpdates: number[] = [];
 		const runtime = createInProcessSubagentRuntime({
 			sessionFactory: factory,
-			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+			modelRegistry: TEST_MODEL_REGISTRY,
 			clock: manualClock.clock,
 		});
 
@@ -181,7 +185,7 @@ describe("in-process subagent runtime", () => {
 		const factory = new FakeInProcessFactory();
 		const runtime = createInProcessSubagentRuntime({
 			sessionFactory: factory,
-			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+			modelRegistry: TEST_MODEL_REGISTRY,
 		});
 
 		const result = await runtime.dispatch({
@@ -204,7 +208,7 @@ describe("in-process subagent runtime", () => {
 		const factory = new FakeInProcessFactory({ shouldWaitForAbort: true });
 		const runtime = createInProcessSubagentRuntime({
 			sessionFactory: factory,
-			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+			modelRegistry: TEST_MODEL_REGISTRY,
 		});
 
 		const dispatch = runtime.dispatch({
@@ -233,7 +237,7 @@ describe("in-process subagent runtime", () => {
 		const factory = new FakeInProcessFactory({ shouldWaitForAbort: true });
 		const runtime = createInProcessSubagentRuntime({
 			sessionFactory: factory,
-			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+			modelRegistry: TEST_MODEL_REGISTRY,
 		});
 
 		const dispatch = runtime.dispatch({
@@ -261,7 +265,7 @@ describe("in-process subagent runtime", () => {
 		const factory = new FakeInProcessFactory();
 		const runtime = createInProcessSubagentRuntime({
 			sessionFactory: factory,
-			modelRegistry: ModelRegistry.inMemory(AuthStorage.inMemory()),
+			modelRegistry: TEST_MODEL_REGISTRY,
 		});
 
 		const result = await runtime.dispatch({
@@ -280,7 +284,7 @@ describe("in-process subagent runtime", () => {
 
 	test("uses selection-owned thinking for an explicit CLI model pattern", async () => {
 		const factory = new FakeInProcessFactory();
-		const modelRegistry = ModelRegistry.inMemory(AuthStorage.inMemory());
+		const modelRegistry = TEST_MODEL_REGISTRY;
 		const runtime = createInProcessSubagentRuntime({ sessionFactory: factory, modelRegistry });
 
 		await runtime.dispatch({
