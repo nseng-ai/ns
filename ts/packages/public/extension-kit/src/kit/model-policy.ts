@@ -127,7 +127,7 @@ function modelPolicyFromSettings(
 	const profiles: Record<string, ModelSelection> = {
 		fast: {
 			provider: "vercel-ai-gateway",
-			modelId: "openai/gpt-5.6-luna",
+			modelId: "openai/gpt-5.6-luna-fast",
 			thinking: "minimal",
 		},
 	};

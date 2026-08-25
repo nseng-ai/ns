@@ -26,7 +26,7 @@ describe("model policy", () => {
 				profiles: {
 					fast: {
 						provider: "vercel-ai-gateway",
-						modelId: "openai/gpt-5.6-luna",
+						modelId: "openai/gpt-5.6-luna-fast",
 						thinking: "minimal",
 					},
 				},
@@ -40,7 +40,7 @@ describe("model policy", () => {
 				profile: "fast",
 				selection: {
 					provider: "vercel-ai-gateway",
-					modelId: "openai/gpt-5.6-luna",
+					modelId: "openai/gpt-5.6-luna-fast",
 					thinking: "minimal",
 				},
 			},
@@ -172,7 +172,7 @@ thinking = "high"
 				profiles: {
 					fast: {
 						provider: "vercel-ai-gateway",
-						modelId: "openai/gpt-5.6-luna",
+						modelId: "openai/gpt-5.6-luna-fast",
 						thinking: "minimal",
 					},
 				},

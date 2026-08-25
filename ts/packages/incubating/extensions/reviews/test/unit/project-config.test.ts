@@ -12,7 +12,7 @@ describe("parseReviewsProjectConfigToml", () => {
 		const config = expectOk(parseReviewsProjectConfigToml(""));
 		expect(config.modelPolicy.profiles.fast).toEqual({
 			provider: "vercel-ai-gateway",
-			modelId: "openai/gpt-5.6-luna",
+			modelId: "openai/gpt-5.6-luna-fast",
 			thinking: "minimal",
 		});
 	});
@@ -20,7 +20,7 @@ describe("parseReviewsProjectConfigToml", () => {
 	test("parses Reviews diff and shared model profiles", () => {
 		const config = expectOk(
 			parseReviewsProjectConfigToml(
-				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.fast]\nmodel = "openai/gpt-5.6-luna"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n[models.profiles.architecture]\nmodel = "openai/gpt-5.6-terra"\nthinking = "xhigh"\n',
+				'[reviews.diff]\nexclude = ["generated/**"]\n[models.profiles.fast]\nmodel = "openai/gpt-5.6-luna-fast"\nthinking = "minimal"\n[models.profiles.deep]\nmodel = "anthropic/claude-opus-4-6"\nthinking = "high"\n[models.profiles.architecture]\nmodel = "openai/gpt-5.6-terra"\nthinking = "xhigh"\n',
 			),
 		);
 		expect(config.diff.exclude).toEqual(["generated/**"]);
@@ -35,7 +35,7 @@ describe("parseReviewsProjectConfigToml", () => {
 	});
 
 	const fastProfile =
-		'[models.profiles.fast]\nmodel = "openai/gpt-5.6-luna"\nthinking = "minimal"\n';
+		'[models.profiles.fast]\nmodel = "openai/gpt-5.6-luna-fast"\nthinking = "minimal"\n';
 	test.each([
 		[`${fastProfile}[reviews.diff]\nexclude = "*.py"\n`, "array", "invalid-exclude"],
 		[

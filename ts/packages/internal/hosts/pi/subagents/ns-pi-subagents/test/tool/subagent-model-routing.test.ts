@@ -127,7 +127,7 @@ describe("subagent model routing", () => {
 
 			expect(dispatched[0]?.options.modelSelection).toEqual({
 				provider: "openai-codex",
-				modelId: "gpt-5.6-luna",
+				modelId: "gpt-5.6-luna-fast",
 				thinking: "high",
 			});
 		},

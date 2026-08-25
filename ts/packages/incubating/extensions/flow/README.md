@@ -144,7 +144,7 @@ available to the ns runtime. Model-backed commands use shared repository policy 
 
 ```toml
 [models.profiles.fast]
-model = "openai/gpt-5.6-luna"
+model = "openai/gpt-5.6-luna-fast"
 thinking = "minimal"
 
 [models.operations]
@@ -153,7 +153,7 @@ thinking = "minimal"
 
 `models.profiles` maps profile names to qualified provider/model references and required
 thinking policies. If `[models.profiles.fast]` is absent, Flow uses the built-in
-`vercel-ai-gateway/openai/gpt-5.6-luna` profile with minimal thinking. A configured `fast` profile replaces it.
+`vercel-ai-gateway/openai/gpt-5.6-luna-fast` profile with minimal thinking. A configured `fast` profile replaces it.
 `models.operations` maps operation IDs to profiles. Omitted operations resolve to the effective
 `fast` profile. Flow uses `slug` for generated branch names, `flow.checkpoint` for checkpoint
 messages, and `flow.pr-inventory` for an Assembled PR inventory. There is no environment override
