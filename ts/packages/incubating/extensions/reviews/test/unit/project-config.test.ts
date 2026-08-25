@@ -11,8 +11,8 @@ describe("parseReviewsProjectConfigToml", () => {
 	test("supplies the shared built-in fast model profile", () => {
 		const config = expectOk(parseReviewsProjectConfigToml(""));
 		expect(config.modelPolicy.profiles.fast).toEqual({
-			provider: "openai-codex",
-			modelId: "gpt-5.6-luna",
+			provider: "vercel-ai-gateway",
+			modelId: "openai/gpt-5.6-luna",
 			thinking: "minimal",
 		});
 	});

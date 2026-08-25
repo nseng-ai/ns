@@ -76,8 +76,8 @@ thinking = "high"
 		expect(result).toMatchObject({
 			type: "available",
 			gateway: {
-				segmentationModel: "openai-codex/gpt-5.6-luna",
-				episodeAnalysisModel: "openai-codex/gpt-5.6-luna",
+				segmentationModel: "vercel-ai-gateway/openai/gpt-5.6-luna",
+				episodeAnalysisModel: "vercel-ai-gateway/openai/gpt-5.6-luna",
 			},
 		});
 	});
