@@ -1,5 +1,5 @@
 import type { ClinkrGroupDefinition } from "@nseng-ai/clinkr/app";
 
 export function group(): ClinkrGroupDefinition {
-	return { description: "Inspect local-only gh-stack state." };
+	return { description: "Inspect and maintain local gh-stack state." };
 }

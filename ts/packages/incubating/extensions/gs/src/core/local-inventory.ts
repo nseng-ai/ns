@@ -11,7 +11,7 @@ export interface GsLocalBranch {
 export interface GsLocalStack {
 	readonly number: number | null;
 	readonly base: string;
-	/** Branches in provider-recorded bottom-to-top order. */
+	/** Branches in restack-recorded bottom-to-top order. */
 	readonly branches: readonly GsLocalBranch[];
 }
 
