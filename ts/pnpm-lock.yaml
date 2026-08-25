@@ -128,6 +128,9 @@ importers:
       '@nseng-ai/pi-ns-flow':
         specifier: workspace:*
         version: link:packages/incubating/hosts/pi/extensions/pi-ns-flow
+      '@nseng-ai/pi-ns-gs':
+        specifier: workspace:*
+        version: link:packages/incubating/hosts/pi/extensions/pi-ns-gs
       '@nseng-ai/pi-ns-herdr':
         specifier: workspace:*
         version: link:packages/incubating/hosts/pi/extensions/pi-ns-herdr
@@ -435,6 +438,28 @@ importers:
       '@nseng-ai/sdk':
         specifier: workspace:*
         version: link:../../../../../public/sdk
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/incubating/hosts/pi/extensions/pi-ns-gs:
+    dependencies:
+      '@nseng-ai/foundation':
+        specifier: workspace:*
+        version: link:../../../../../public/infra/foundation
+      '@nseng-ai/gs':
+        specifier: workspace:*
+        version: link:../../../../extensions/gs
+      '@nseng-ai/ns':
+        specifier: workspace:*
+        version: link:../../../../../public/ns
+      '@nseng-ai/pi-runtime':
+        specifier: workspace:*
+        version: link:../../runtime/pi-runtime
+      jiti:
+        specifier: 'catalog:'
+        version: 2.7.0
+    devDependencies:
       vitest:
         specifier: 'catalog:'
         version: 4.1.9(@opentelemetry/api@1.9.0)(@types/node@25.9.3)(@vitest/coverage-v8@4.1.9)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
