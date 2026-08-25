@@ -55,7 +55,6 @@ export const gsAutobranchResultSchema = z.lazy(() =>
 	}),
 );
 export type GsAutobranchResult = z.infer<typeof gsAutobranchResultSchema>;
-export type GsAutobranchPath = NonNullable<GsAutobranchResult["path"]>;
 
 export interface GsAutobranchGitFacts {
 	readonly root: string;

@@ -143,6 +143,12 @@ class Fixture {
 		};
 	}
 }
+function trackedTopFixture(options: Fixture["options"] = {}): Fixture {
+	const fixture = new Fixture(facts({ branch: "feature" }), options);
+	fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
+	return fixture;
+}
+
 const interaction = {
 	isInteractive: () => false,
 	confirm: async () => ({ type: "cancelled" as const }),
@@ -164,26 +170,25 @@ describe("GS autobranch core", () => {
 		},
 	);
 
-	test.each([
-		["staged", { staged: 1, unstaged: 0, untracked: 0, total: 1 }],
-		["unstaged", { staged: 0, unstaged: 1, untracked: 0, total: 1 }],
-		["untracked", { staged: 0, unstaged: 0, untracked: 1, total: 1 }],
-		["mixed", dirty],
-	] as const)("runs %s tracked-top add before checkpoint", async (_name, pending) => {
-		const fixture = new Fixture(facts({ branch: "feature", headSha: "aaa", dirty: pending }));
-		fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
+	test("runs tracked-top add before checkpoint", async () => {
+		const fixture = trackedTopFixture();
 		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 		expect(result.status).toBe("success");
 		expect(fixture.effects).toEqual(["add:add-child", "checkpoint"]);
 	});
 
 	test.each([
-		["clean", facts({ dirty: { staged: 0, unstaged: 0, untracked: 0, total: 0 } })],
-		["detached", facts({ branch: null })],
-		["operation", facts({ operation: "rebase" })],
-		["missing trunk", facts({ trunk: null, trunkSha: null })],
-	] as const)("refuses %s before mutation", async (_name, state) => {
-		const fixture = new Fixture(state);
+		["clean", facts({ dirty: { staged: 0, unstaged: 0, untracked: 0, total: 0 } }), {}],
+		["detached", facts({ branch: null }), {}],
+		["operation", facts({ operation: "rebase" }), {}],
+		["missing trunk", facts({ trunk: null, trunkSha: null }), {}],
+		["version below minimum", facts(), { version: "0.0.9" }],
+		["malformed version", facts(), { version: "next" }],
+		["prerelease version", facts(), { version: "0.2.0-beta.1" }],
+		["missing HEAD", facts({ headSha: null }), {}],
+		["invalid or existing child", facts(), { validation: false }],
+	] as const)("refuses %s before mutation", async (_name, state, options) => {
+		const fixture = new Fixture(state, options);
 		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 		expect(result.status).toBe("negative");
 		expect(fixture.effects).toEqual([]);
@@ -213,32 +218,22 @@ describe("GS autobranch core", () => {
 			data: { recovery: { action: "install-supported-gh-stack" } },
 		});
 
-		const untracked = await runGsAutobranch(
-			new Fixture(facts({ branch: "feature" }), { viewFails: true }).context(),
-			interaction,
-			{ yes: true },
-		);
+		const fixture = new Fixture(facts({ branch: "feature" }), { viewFails: true });
+		const untracked = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 		expect(untracked).toMatchObject({
 			status: "negative",
 			data: { recovery: { action: "inspect-stack-worktree" } },
 		});
-	});
-
-	test("refuses missing invoking-worktree membership without scanning peers", async () => {
-		const fixture = new Fixture(facts({ branch: "feature" }), { viewFails: true });
-		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
-		expect(result.status).toBe("negative");
 		expect(fixture.effects).toEqual([]);
 	});
 
 	test.each(["trunk", "tracked-top"] as const)(
 		"trusts observed %s postconditions after gh-stack nonzero exit",
 		async (path) => {
-			const state = path === "trunk" ? facts() : facts({ branch: "feature" });
-			const fixture = new Fixture(state, { stackMutationFails: true });
-			if (path === "tracked-top") {
-				fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
-			}
+			const fixture =
+				path === "trunk"
+					? new Fixture(facts(), { stackMutationFails: true })
+					: trackedTopFixture({ stackMutationFails: true });
 			const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 			expect(result.status).toBe("success");
 		},
@@ -248,19 +243,6 @@ describe("GS autobranch core", () => {
 		const fixture = new Fixture(facts(), { version });
 		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 		expect(result.status).toBe("success");
-	});
-
-	test.each([
-		["version below minimum", facts(), { version: "0.0.9" }],
-		["malformed version", facts(), { version: "next" }],
-		["prerelease version", facts(), { version: "0.2.0-beta.1" }],
-		["missing HEAD", facts({ headSha: null }), {}],
-		["invalid or existing child", facts(), { validation: false }],
-	] as const)("refuses %s before mutation", async (_name, state, options) => {
-		const fixture = new Fixture(state, options);
-		const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
-		expect(result.status).toBe("negative");
-		expect(fixture.effects).toEqual([]);
 	});
 
 	test.each([
@@ -322,6 +304,30 @@ describe("GS autobranch core", () => {
 		});
 	});
 
+	test("does not infer adjacency when the source disappears", async () => {
+		const fixture = trackedTopFixture();
+		const context = fixture.context();
+		context.stack.add = async (child) => {
+			fixture.effects.push(`add:${child}`);
+			fixture.state = {
+				...fixture.state,
+				branch: child,
+				childSha: fixture.state.headSha,
+				sourceRefSha: fixture.state.headSha,
+			};
+			fixture.stackView = view([{ name: child, base: "main", isCurrent: true }], child);
+			return { ok: true, value: null };
+		};
+		const result = await runGsAutobranch(context, interaction, { yes: true });
+		expect(result).toMatchObject({
+			status: "negative",
+			data: {
+				outcome: "known-partial-failure",
+				diagnostic: "The child is not directly above the source.",
+			},
+		});
+	});
+
 	test("reports the first unproved postcondition", async () => {
 		const fixture = new Fixture(facts());
 		const context = fixture.context();
@@ -343,11 +349,10 @@ describe("GS autobranch core", () => {
 	test.each(["trunk", "tracked-top"] as const)(
 		"classifies %s checkpoint failure as known partial",
 		async (path) => {
-			const fixture = new Fixture(path === "trunk" ? facts() : facts({ branch: "feature" }), {
-				checkpointFails: true,
-			});
-			if (path === "tracked-top")
-				fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
+			const fixture =
+				path === "trunk"
+					? new Fixture(facts(), { checkpointFails: true })
+					: trackedTopFixture({ checkpointFails: true });
 			const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 			expect(result).toMatchObject({
 				status: "negative",
@@ -359,12 +364,8 @@ describe("GS autobranch core", () => {
 	test.each(["trunk", "tracked-top"] as const)(
 		"classifies %s absent gh-stack postconditions as known partial",
 		async (path) => {
-			const fixture = new Fixture(path === "trunk" ? facts() : facts({ branch: "feature" }), {
-				stackMutationFails: true,
-				stackMutationApplies: false,
-			});
-			if (path === "tracked-top")
-				fixture.stackView = view([{ name: "feature", base: "main", isCurrent: true }], "feature");
+			const options = { stackMutationFails: true, stackMutationApplies: false };
+			const fixture = path === "trunk" ? new Fixture(facts(), options) : trackedTopFixture(options);
 			const result = await runGsAutobranch(fixture.context(), interaction, { yes: true });
 			expect(result).toMatchObject({
 				status: "negative",

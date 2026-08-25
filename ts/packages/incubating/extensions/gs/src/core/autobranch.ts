@@ -4,7 +4,6 @@ import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 
 import {
 	GS_AUTOBRANCH_DIAGNOSTIC_MAX_CHARS,
-	GS_AUTOBRANCH_EFFECTS_MAX_COUNT,
 	GS_AUTOBRANCH_MINIMUM_GH_STACK_VERSION,
 	type GsAutobranchContext,
 	type GsAutobranchGitFacts,
@@ -34,6 +33,7 @@ interface RunPathOptions {
 	readonly context: GsAutobranchContext;
 	readonly data: GsAutobranchResult;
 	readonly before: GsAutobranchGitFacts;
+	readonly source: string;
 	readonly child: string;
 	readonly checkpointMessage: string;
 }
@@ -63,6 +63,7 @@ export async function runGsAutobranch(
 		return negative("A named branch with a readable HEAD is required.", {
 			data: recover(data, "inspect-worktree", "Check out a named branch, then rerun."),
 		});
+	const source = before.branch;
 	if (before.trunk === null || before.trunkSha === null)
 		return negative("Cached origin HEAD is required; this command does not fetch.", {
 			data: recover(data, "inspect-worktree", "Configure refs/remotes/origin/HEAD, then rerun."),
@@ -79,7 +80,7 @@ export async function runGsAutobranch(
 		return negative("Pending work is required.", {
 			data: recover(data, "inspect-worktree", "Make the intended changes, then rerun."),
 		});
-	const path = before.branch === before.trunk ? "trunk-bootstrap" : "tracked-top-extension";
+	const path = source === before.trunk ? "trunk-bootstrap" : "tracked-top-extension";
 	data = { ...data, path };
 	if (path === "tracked-top-extension") {
 		const view = await context.stack.view();
@@ -95,7 +96,7 @@ export async function runGsAutobranch(
 					})
 				: failure("autobranch-inspection-failed", view.message, observed);
 		}
-		data = { ...data, relationship: relationship(view.value, before.branch, null) };
+		data = { ...data, relationship: relationship(view.value, source, null) };
 		if (
 			!(
 				data.relationship.sourceTrackedOnce &&
@@ -116,7 +117,7 @@ export async function runGsAutobranch(
 		...(request.slug === undefined ? {} : { requestedSlug: request.slug }),
 		facts: {
 			root: before.root,
-			branch: before.branch,
+			branch: source,
 			status: before.status,
 			diff: before.diff,
 		},
@@ -137,15 +138,15 @@ export async function runGsAutobranch(
 		});
 	const authorized = await authorize(interaction, request, data, checkpointMessage);
 	if (authorized !== true) return authorized;
-	const options: RunPathOptions = { context, data, before, child, checkpointMessage };
+	const options: RunPathOptions = { context, data, before, source, child, checkpointMessage };
 	return path === "trunk-bootstrap" ? await runBootstrap(options) : await runExtension(options);
 }
 
 async function runBootstrap(options: RunPathOptions) {
-	const { context, data, before, child, checkpointMessage } = options;
+	const { context, data, before, source, child, checkpointMessage } = options;
 	const created = await context.git.createAndSwitchChild(child);
 	let effects = created.ok ? [`created-and-switched:${child}`] : [];
-	let observed = await context.git.inspect(child, before.branch!);
+	let observed = await context.git.inspect(child, source);
 	if (!observed.ok)
 		return ambiguous(data, effects, created.ok ? observed.message : created.message);
 	if (!created.ok) return partial(data, observed.value, effects, created.message);
@@ -154,7 +155,7 @@ async function runBootstrap(options: RunPathOptions) {
 		return partial(data, observed.value, effects, transfer.diagnostic);
 	const committed = await context.checkpoint.commit(checkpointMessage);
 	if (committed.ok) effects = [...effects, `checkpoint:${committed.value}`];
-	observed = await context.git.inspect(child, before.branch!);
+	observed = await context.git.inspect(child, source);
 	if (!observed.ok) return ambiguous(data, effects, observed.message);
 	if (!committed.ok) return partial(data, observed.value, effects, committed.message);
 	const checkpoint = proveCheckpoint(before, observed.value, child);
@@ -163,12 +164,12 @@ async function runBootstrap(options: RunPathOptions) {
 	const initialized = await context.stack.init(child);
 	effects = [...effects, "gh-stack-init-attempted"];
 	const [after, view] = await Promise.all([
-		context.git.inspect(child, before.branch!),
+		context.git.inspect(child, source),
 		context.stack.view(),
 	]);
-	if (!after.ok || !view.ok)
-		return ambiguous(data, effects, !after.ok ? after.message : view.ok ? "" : view.message);
-	const rel = relationship(view.value, before.branch!, child);
+	if (!after.ok) return ambiguous(data, effects, after.message);
+	if (!view.ok) return ambiguous(data, effects, view.message);
+	const rel = relationship(view.value, source, child);
 	const initialization = provePostconditions([
 		[after.value.branch === child, "The initialized child is not the current branch."],
 		[isClean(after.value), "The initialized child worktree is not clean."],
@@ -203,20 +204,16 @@ async function runBootstrap(options: RunPathOptions) {
 }
 
 async function runExtension(options: RunPathOptions) {
-	const { context, data, before, child, checkpointMessage } = options;
+	const { context, data, before, source, child, checkpointMessage } = options;
 	const added = await context.stack.add(child);
 	let effects = ["gh-stack-add-attempted"];
 	let [observed, viewed] = await Promise.all([
-		context.git.inspect(child, before.branch!),
+		context.git.inspect(child, source),
 		context.stack.view(),
 	]);
-	if (!observed.ok || !viewed.ok)
-		return ambiguous(
-			data,
-			effects,
-			!observed.ok ? observed.message : viewed.ok ? "" : viewed.message,
-		);
-	let rel = relationship(viewed.value, before.branch!, child);
+	if (!observed.ok) return ambiguous(data, effects, observed.message);
+	if (!viewed.ok) return ambiguous(data, effects, viewed.message);
+	let rel = relationship(viewed.value, source, child);
 	const attachment = proveAttachment(before, observed.value, child, rel);
 	if (attachment.status === "unproven")
 		return partial(
@@ -228,16 +225,12 @@ async function runExtension(options: RunPathOptions) {
 	const committed = await context.checkpoint.commit(checkpointMessage);
 	if (committed.ok) effects = [...effects, `checkpoint:${committed.value}`];
 	[observed, viewed] = await Promise.all([
-		context.git.inspect(child, before.branch!),
+		context.git.inspect(child, source),
 		context.stack.view(),
 	]);
-	if (!observed.ok || !viewed.ok)
-		return ambiguous(
-			data,
-			effects,
-			!observed.ok ? observed.message : viewed.ok ? "" : viewed.message,
-		);
-	rel = relationship(viewed.value, before.branch!, child);
+	if (!observed.ok) return ambiguous(data, effects, observed.message);
+	if (!viewed.ok) return ambiguous(data, effects, viewed.message);
+	rel = relationship(viewed.value, source, child);
 	const checkpoint = proveCheckpoint(before, observed.value, child);
 	const completion =
 		checkpoint.status === "unproven"
@@ -276,9 +269,10 @@ function relationship(
 		sourceTrackedOnce: sourceRows.length === 1,
 		sourceCurrent:
 			sourceRows.length === 1 && sourceRows[0]?.isCurrent === true && view.currentBranch === source,
-		sourceTopmost: sourceIndex === view.branches.length - 1,
-		childDirectlyAboveSource: childIndex === sourceIndex + 1,
+		sourceTopmost: sourceRows.length === 1 && sourceIndex === view.branches.length - 1,
+		childDirectlyAboveSource: sourceRows.length === 1 && childIndex === sourceIndex + 1,
 		childCurrentTopmost:
+			child !== null &&
 			childIndex === view.branches.length - 1 &&
 			view.branches[childIndex]?.isCurrent === true &&
 			view.currentBranch === child,
@@ -433,7 +427,7 @@ interface CompletedOptions {
 	readonly data: GsAutobranchResult;
 	readonly facts: GsAutobranchGitFacts;
 	readonly relationship: GsAutobranchResult["relationship"];
-	readonly effects: readonly string[];
+	readonly effects: string[];
 	readonly checkpointSummary: string | null;
 }
 function completed(options: CompletedOptions): GsAutobranchResult {
@@ -446,14 +440,14 @@ function completed(options: CompletedOptions): GsAutobranchResult {
 		clean: isClean(facts),
 		checkpointSummary,
 		relationship,
-		effects: [...effects].slice(0, GS_AUTOBRANCH_EFFECTS_MAX_COUNT),
+		effects,
 		recovery: { action: "none", instruction: "Continue work on the verified GS child." },
 	};
 }
 function partial(
 	data: GsAutobranchResult,
 	facts: GsAutobranchGitFacts,
-	effects: readonly string[],
+	effects: string[],
 	diagnostic: string,
 ) {
 	return negative("Autobranch preserved a known partial result.", {
@@ -463,7 +457,7 @@ function partial(
 			childSha: facts.childSha,
 			dirty: facts.dirty,
 			clean: isClean(facts),
-			effects: [...effects].slice(0, GS_AUTOBRANCH_EFFECTS_MAX_COUNT),
+			effects,
 			diagnostic: bound(diagnostic),
 			recovery: {
 				action: "inspect-child" as const,
@@ -473,12 +467,12 @@ function partial(
 		},
 	});
 }
-function ambiguous(data: GsAutobranchResult, effects: readonly string[], diagnostic: string) {
+function ambiguous(data: GsAutobranchResult, effects: string[], diagnostic: string) {
 	return negative("Autobranch effects could not be classified.", {
 		data: {
 			...data,
 			outcome: "ambiguous-failure" as const,
-			effects: [...effects].slice(0, GS_AUTOBRANCH_EFFECTS_MAX_COUNT),
+			effects,
 			diagnostic: bound(diagnostic),
 			recovery: {
 				action: "inspect-child" as const,
