@@ -34,6 +34,7 @@ const THINKING_LEVELS = [
 	"medium",
 	"high",
 	"xhigh",
+	"max",
 ] as const satisfies readonly ThinkingLevel[];
 const THINKING_LEVEL_SET: ReadonlySet<unknown> = new Set(THINKING_LEVELS);
 

@@ -18,10 +18,10 @@ allowBuilds:
   protobufjs: true
 
 catalog:
-  '@earendil-works/pi-agent-core': 0.80.5
-  '@earendil-works/pi-ai': 0.80.5
-  '@earendil-works/pi-coding-agent': 0.80.5
-  '@earendil-works/pi-tui': 0.80.5
+  '@earendil-works/pi-agent-core': 0.84.3
+  '@earendil-works/pi-ai': 0.84.3
+  '@earendil-works/pi-coding-agent': 0.84.3
+  '@earendil-works/pi-tui': 0.84.3
   '@pierre/diffs': ^1.2.10
   '@types/node': ^24.0.0
   '@typescript/native': npm:typescript@^7.0.2
@@ -44,7 +44,7 @@ catalog:
   zod: ^4.4.3
 
 minimumReleaseAgeExclude:
-  - '@earendil-works/pi-agent-core@0.80.5'
-  - '@earendil-works/pi-ai@0.80.5'
-  - '@earendil-works/pi-coding-agent@0.80.5'
-  - '@earendil-works/pi-tui@0.80.5'
+  - '@earendil-works/pi-agent-core@0.84.3'
+  - '@earendil-works/pi-ai@0.84.3'
+  - '@earendil-works/pi-coding-agent@0.84.3'
+  - '@earendil-works/pi-tui@0.84.3'

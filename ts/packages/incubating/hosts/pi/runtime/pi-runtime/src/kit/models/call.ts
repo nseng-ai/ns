@@ -1,4 +1,9 @@
-import { cleanupSessionResources, type Api, type Model } from "@earendil-works/pi-ai";
+import {
+	cleanupSessionResources,
+	type Api,
+	type Model,
+	type ProviderHeaders,
+} from "@earendil-works/pi-ai";
 import { uuidv7 } from "@earendil-works/pi-agent-core";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 // Temporary while Pi Coding Agent's ModelRegistry uses global dispatch.
@@ -6,7 +11,7 @@ import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import type { completeSimple } from "@earendil-works/pi-ai/compat";
 
 export type PiModelAuth =
-	| { ok: true; apiKey?: string; headers?: Record<string, string> }
+	| { ok: true; apiKey?: string; headers?: ProviderHeaders }
 	| { ok: false; error: string };
 
 export interface PiModelRegistryLike {
