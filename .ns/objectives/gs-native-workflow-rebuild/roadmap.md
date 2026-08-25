@@ -2,7 +2,7 @@
 
 ## Work
 
-- [x] Initial single-worktree architecture and contract baseline — revalidated gh-stack v0.1.0, accepted ADR 0061's GS-native ownership boundary, and reshaped the GS README around the everyday loop, exact version policy, observed postconditions, outcome classes, forward recovery, and Flow independence.
+- [x] Initial single-worktree architecture and contract baseline — revalidated gh-stack v0.1.0, accepted ADR 0061's GS-native ownership boundary, and reshaped the GS README around the everyday loop, initial exact version policy, observed postconditions, outcome classes, forward recovery, and Flow independence. ADR 0062 later retained v0.1.0 as the minimum tested baseline while allowing each guarded workflow to state a wider accepted range.
   - Evidence: `docs/research/gh-stack-v0.1.0-workflow-baseline.md` captures reproducible help and disposable-repository observations. Later source and incident evidence establishes that this baseline did not characterize linked-worktree metadata or lock scope, so the completed historical work is now qualified rather than treated as the full lifecycle baseline.
 - [~] Stack-worktree architecture correction — experimentally characterize v0.1.0 across linked worktrees; define stable stack-worktree ownership, shared-ref versus private-state authority, cross-worktree concurrency and recovery policy, and safe Slot composition. `ns gs list` now reads the invoking worktree's Git-resolved gh-stack state with explicit provenance; add a superseding ADR only if the remaining experiments materially change accepted architecture.
   - Evidence: `research/gh-stack-v0.1.0-linked-worktree-inventory.md` and real-adapter tests prove distinct private Git directories over one common Git directory, divergent or missing current-worktree metadata over shared refs, Git-resolved state location, and explicit inventory provenance without private-state lifecycle mutation. Independent gh-stack locks, mutating public behavior from owning and peer worktrees, stable ownership lifetime, recovery policy, and safe Slot composition remain open.
@@ -30,7 +30,7 @@
 - Flow deprecation, archival, deletion, package removal, command removal, or Pi-surface retirement.
 - Exact replacements for Graphite-shaped latest-commit extraction and stack squash without a demonstrated GS-native need.
 - A universal stack-tool abstraction or command-parity layer spanning Graphite and gh-stack.
-- Support for additional gh-stack versions without a separate evidence-backed widening decision.
+- Claims that later gh-stack versions are behaviorally compatible solely because their version is greater than the v0.1.0 minimum tested baseline.
 - Cold external-consumer installation and packaging qualification beyond repository-local validation.
 - gh-stack-private state mutation, copying, merging, or lifecycle behavior based on direct reads of any worktree's private `gh-stack` file.
 - General complete-stack ownership transfer until public gh-stack adoption, source disposition, PR-association preservation, and shared-ref safety are experimentally proven.

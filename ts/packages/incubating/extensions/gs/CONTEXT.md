@@ -5,8 +5,12 @@ This context names the gh-stack workflows, current-worktree inventory, and stack
 ## Language
 
 **GS**:
-The ns extension for the [`github/gh-stack`](https://github.com/github/gh-stack) tool. In this context, GS means gh-stack and does not name a generic stack-tool abstraction.
-*Avoid*: generic stack backend
+The ns extension and product name for the [`github/gh-stack`](https://github.com/github/gh-stack) tool. In this context, GS is gh-stack-specific and does not name an interchangeable stack-tool abstraction. Use explicit `gh-stack` language for the external tool, its commands, version, state file, and observed output.
+*Avoid*: provider, stack provider, generic stack backend, universal stack-tool abstraction
+
+**Gs identifier prefix**:
+The TypeScript ownership prefix for symbols defined by GS. Name the domain role after `Gs`, such as `GsAutobranchStackGateway` or `GsAutobranchStackView`; the prefix already establishes gh-stack ownership.
+*Avoid*: `GsGhStack*`, `GsProvider*`, repeated gh-stack identity
 
 **Current-worktree gh-stack inventory**:
 The collection of Recorded stacks read from the invoking worktree's gh-stack state that have at least one recorded stack branch present as a repository-shared local Git branch. It is one stack-worktree view, not a repository aggregate or evidence of current GitHub state.
