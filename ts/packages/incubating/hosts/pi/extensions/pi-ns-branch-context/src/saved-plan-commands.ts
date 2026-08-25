@@ -249,15 +249,16 @@ export function buildWriteSavedPlanFileTool(
 					slugEvidence = await deriveSavedPlanContentSlug(pi, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
-						...(ctx.model === undefined
-							? {}
-							: {
-									fallbackModelSelection: {
+						...optionalEntry(
+							"fallbackModelSelection",
+							ctx.model === undefined
+								? undefined
+								: {
 										provider: ctx.model.provider,
 										modelId: ctx.model.id,
 										thinking: pi.getThinkingLevel(),
 									},
-								}),
+						),
 						...optionalEntry("signal", signal),
 					});
 				} finally {
