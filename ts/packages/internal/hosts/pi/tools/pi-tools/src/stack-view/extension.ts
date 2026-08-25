@@ -223,7 +223,6 @@ async function handleStackViewCommand(
 	const enrichmentModel = resolveModelOperation(
 		policy.value,
 		MODEL_OPERATION_IDS.stackViewEnrichment,
-		{ presentWarning: (message) => ctx.ui.notify(message, "warning") },
 	);
 	if (!enrichmentModel.ok) {
 		ctx.ui.notify(
@@ -233,6 +232,7 @@ async function handleStackViewCommand(
 		sendSnapshotMessage(session, model);
 		return;
 	}
+
 	// One engine per invocation, reused across refreshes: its store-memoized keys
 	// make reuse cheap, and the model is passed per `ensureRow` call. Abort in the
 	// finally so in-flight background work is cancelled once the loop exits.

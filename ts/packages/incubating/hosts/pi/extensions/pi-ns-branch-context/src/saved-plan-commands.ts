@@ -244,8 +244,6 @@ export function buildWriteSavedPlanFileTool(
 					slugEvidence = await deriveSavedPlanContentSlug(pi, {
 						content: toolParams.content,
 						cwd: ctx.cwd,
-						presentModelWarning: (message) =>
-							emitWriteSavedPlanProgress(onUpdate, ctx, message, { phase: "deriving-slug" }),
 						...optionalEntry("signal", signal),
 					});
 				} finally {

@@ -21,7 +21,6 @@ describe("context profiler model-policy wiring", () => {
 		const result = resolveContextProfilerAnalysisStartup({
 			repoRoot: "/repo",
 			registry,
-			presentWarning: () => undefined,
 			projectConfigGateway: projectConfig(`
 [models.profiles.fast]
 model = "vercel-ai-gateway/openai/gpt-5.6-luna"
@@ -42,7 +41,6 @@ thinking = "medium"
 		const result = resolveContextProfilerAnalysisStartup({
 			repoRoot: "/repo",
 			registry,
-			presentWarning: () => undefined,
 			projectConfigGateway: projectConfig(`
 [models.profiles.fast]
 model = "gateway/openai/gpt-5.6-luna"
@@ -64,16 +62,14 @@ thinking = "high"
 		});
 	});
 
-	test("uses the built-in fast profile and presents warnings through the shared resolver", () => {
+	test("uses the built-in fast profile when project config is missing", () => {
 		const missing: ProjectConfigGateway = {
 			readTextFile: () => ({ type: "missing" }),
 			pathExists: () => ({ type: "missing" }),
 		};
-		const warnings: string[] = [];
 		const result = resolveContextProfilerAnalysisStartup({
 			repoRoot: "/repo",
 			registry,
-			presentWarning: (message) => warnings.push(message),
 			projectConfigGateway: missing,
 		});
 
@@ -84,9 +80,5 @@ thinking = "high"
 				episodeAnalysisModel: "openai-codex/gpt-5.6-luna",
 			},
 		});
-		expect(warnings).toEqual([
-			"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.",
-			"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.",
-		]);
 	});
 });

@@ -124,7 +124,6 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context({ git, brmem, graphite }),
-			presentModelWarning: () => undefined,
 			creation: { type: "graphite-current-parent-current-head" },
 			shouldBuildPreview: true,
 		});
@@ -150,7 +149,6 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: context(),
-			presentModelWarning: () => undefined,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -172,7 +170,6 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
-			presentModelWarning: () => undefined,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 
@@ -216,7 +213,6 @@ describe("plan branch-context preparation public API", () => {
 			plan,
 			checkout: checkoutEvidence,
 			context: ownerContext,
-			presentModelWarning: () => undefined,
 			creation: { type: "graphite-current-parent-current-head" },
 		});
 

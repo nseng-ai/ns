@@ -79,12 +79,7 @@ class FakeSlugPi implements CommandExecApi {
 }
 
 function slugContext(commands: CommandExecApi) {
-	return {
-		commands,
-		git: new InMemoryGitGateway({ repoRoot: CWD }),
-		projectConfig,
-		presentModelWarning: () => undefined,
-	};
+	return { commands, git: new InMemoryGitGateway({ repoRoot: CWD }), projectConfig };
 }
 
 function expectNoFallback(error: unknown): void {

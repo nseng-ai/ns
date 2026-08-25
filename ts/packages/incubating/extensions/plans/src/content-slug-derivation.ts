@@ -29,7 +29,6 @@ export interface PlanContentSlugVariantSeed {
 export interface DeriveContentSlugInput {
 	content: string;
 	cwd: string;
-	presentModelWarning: (message: string) => void;
 	signal?: AbortSignal;
 }
 
@@ -48,9 +47,7 @@ export async function deriveContentSlug(
 		gateway: createNodeProjectConfigGateway(),
 	});
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug, {
-		presentWarning: input.presentModelWarning,
-	});
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
 		{ exec: (command, args, options) => pi.exec(command, args, options) },

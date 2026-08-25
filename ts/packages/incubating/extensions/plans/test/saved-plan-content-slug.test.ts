@@ -75,7 +75,6 @@ describe("deriveSavedPlanContentSlug", () => {
 		const evidence = await deriveSavedPlanContentSlug(pi, {
 			content: SAVED_PLAN_CONTENT,
 			cwd: CWD,
-			presentModelWarning: () => undefined,
 		});
 
 		expect(evidence).toEqual({
@@ -101,11 +100,7 @@ describe("deriveSavedPlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
 
 		try {
-			await deriveSavedPlanContentSlug(pi, {
-				content: SAVED_PLAN_CONTENT,
-				cwd: CWD,
-				presentModelWarning: () => undefined,
-			});
+			await deriveSavedPlanContentSlug(pi, { content: SAVED_PLAN_CONTENT, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectSavedPlanNoFallback(error);

@@ -13,7 +13,6 @@ export type PlanContentSlugEvidence = ContentSlugEvidence;
 export interface DerivePlanContentSlugInput {
 	filePath: string;
 	cwd: string;
-	presentModelWarning: (message: string) => void;
 	signal?: AbortSignal;
 	readTextFile?: (path: string) => Promise<string>;
 }
@@ -37,12 +36,7 @@ export async function derivePlanContentSlug(
 	const content = await readTextFile(input.filePath);
 	return deriveContentSlug(
 		pi,
-		{
-			content,
-			cwd: input.cwd,
-			presentModelWarning: input.presentModelWarning,
-			...(input.signal === undefined ? {} : { signal: input.signal }),
-		},
+		{ content, cwd: input.cwd, ...(input.signal === undefined ? {} : { signal: input.signal }) },
 		PLAN_CONTENT_SLUG_VARIANT,
 	);
 }

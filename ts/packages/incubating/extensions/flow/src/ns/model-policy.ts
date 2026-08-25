@@ -9,19 +9,9 @@ import type { GitGateway } from "@nseng-ai/foundation/git";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 import { createNsGitGateway } from "@nseng-ai/extension-kit";
 
-export function createFlowModelWarningPresenter(ctx: NsExtensionApi): (message: string) => void {
-	const presented = new Set<string>();
-	return (message) => {
-		if (presented.has(message)) return;
-		presented.add(message);
-		ctx.commandIo.notify(message, "warning");
-	};
-}
-
 export async function resolveFlowModelSelection(
 	ctx: NsExtensionApi,
 	operationId: ModelOperationId,
-	presentWarning: (message: string) => void,
 	git: Pick<GitGateway, "optionalRepoRoot"> = createNsGitGateway(ctx),
 ): Promise<{ ok: true; modelSelection: ModelSelection } | { ok: false; error: string }> {
 	const repository = await git.optionalRepoRoot({ cwd: ctx.cwd });
@@ -34,7 +24,8 @@ export async function resolveFlowModelSelection(
 	});
 	if (!policy.ok)
 		return { ok: false, error: `Invalid model policy in ns.toml: ${policy.error.message}` };
-	const resolved = resolveModelOperation(policy.value, operationId, { presentWarning });
-	if (!resolved.ok) return { ok: false, error: resolved.error.message };
-	return { ok: true, modelSelection: resolved.value.selection };
+	const resolved = resolveModelOperation(policy.value, operationId);
+	return resolved.ok
+		? { ok: true, modelSelection: resolved.value.selection }
+		: { ok: false, error: resolved.error.message };
 }

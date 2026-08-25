@@ -20,7 +20,7 @@ import {
 } from "../../checkpoint/checkpoint.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { createFlowModelWarningPresenter, resolveFlowModelSelection } from "../model-policy.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 import type { ModelSelection } from "@nseng-ai/foundation/model-slug";
 
 const cpResultSchema = z.discriminatedUnion("type", [
@@ -51,14 +51,9 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 			: `${result.summary}\n${result.message}`,
 	handler: async (ctx, request: CpRequest) => {
 		const runtime = createNsCheckpointRuntime(ctx);
-		const presentModelWarning = createFlowModelWarningPresenter(ctx);
 		// A dry run just previews the model-authored message; skip the live region (no commit phase runs).
 		if (request.dryRun) {
-			const model = await resolveFlowModelSelection(
-				ctx,
-				MODEL_OPERATION_IDS.flowCheckpoint,
-				presentModelWarning,
-			);
+			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			const result = await runCpCore({
 				cwd: ctx.cwd,
@@ -73,11 +68,7 @@ export const flowCpCommand: NsCommand<typeof cpRequestSchema> = defineCommand({
 			return toCommandResult(result);
 		}
 
-		const model = await resolveFlowModelSelection(
-			ctx,
-			MODEL_OPERATION_IDS.flowCheckpoint,
-			presentModelWarning,
-		);
+		const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 		if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 		const caps = resolveFlowStreamCaps(ctx);
 		return await runSettledPhaseStream({

@@ -56,9 +56,7 @@ export function createHerdrResourceLabelDeriver(
 				gateway: createNodeProjectConfigGateway(),
 			});
 			if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-			const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug, {
-				presentWarning: input.presentModelWarning,
-			});
+			const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 			if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 			const evidence = await deriveKitContentSlug(
 				context.commands,

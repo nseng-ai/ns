@@ -21,12 +21,7 @@ const SAVED_PLAN_CONTENT_SLUG_VARIANT: PlanContentSlugVariantSeed = {
 
 export async function deriveSavedPlanContentSlug(
 	pi: CommandExecApi,
-	input: {
-		content: string;
-		cwd: string;
-		presentModelWarning: (message: string) => void;
-		signal?: AbortSignal;
-	},
+	input: { content: string; cwd: string; signal?: AbortSignal },
 ): Promise<SavedPlanContentSlugEvidence> {
 	return deriveContentSlug(pi, input, SAVED_PLAN_CONTENT_SLUG_VARIANT);
 }

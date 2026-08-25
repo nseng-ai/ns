@@ -12,7 +12,7 @@ import {
 import { resolveFlowStreamCaps } from "../../phase-stream/phase-stream.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
 import { resolveThemeCaps } from "@nseng-ai/foundation/cli-theme";
-import { createFlowModelWarningPresenter, resolveFlowModelSelection } from "../model-policy.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 
 const autoslotSchema = z.object({
@@ -55,11 +55,7 @@ export function createFlowAutoslotCommand(
 		renderHuman: (result, caps) => renderAutoslotResult(resolveThemeCaps(caps), result),
 		handler: async (ctx, request) => {
 			const caps = resolveFlowStreamCaps(ctx);
-			const model = await resolveFlowModelSelection(
-				ctx,
-				MODEL_OPERATION_IDS.flowCheckpoint,
-				createFlowModelWarningPresenter(ctx),
-			);
+			const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowCheckpoint);
 			if (!model.ok) return failure(FLOW_COMMAND_FAILED, model.error);
 			const io = commandIoFromNsExtensionApi(ctx);
 			return await runWithNsCommandIo(io, async (io) => {

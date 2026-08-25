@@ -15,7 +15,6 @@ describe("parseReviewsProjectConfigToml", () => {
 			modelId: "gpt-5.6-luna",
 			thinking: "minimal",
 		});
-		expect(config.modelPolicy.profileSources.fast).toBe("built-in-profile");
 	});
 
 	test("parses Reviews diff and shared model profiles", () => {

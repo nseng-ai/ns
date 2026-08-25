@@ -36,7 +36,6 @@ export interface HandoffContentSlugContext {
 	commands: CommandExecApi;
 	git: Pick<GitGateway, "optionalRepoRoot">;
 	projectConfig: ProjectConfigGateway;
-	presentModelWarning: (message: string) => void;
 }
 
 const HANDOFF_CONTENT_SLUG_VARIANT: ContentSlugDerivationVariant = {
@@ -76,9 +75,7 @@ export async function deriveHandoffContentSlug(
 		throw new Error("Could not determine the repository root for ns.toml.");
 	const policy = loadModelPolicy({ repoRoot: repository.value, gateway: context.projectConfig });
 	if (!policy.ok) throw new Error(`Invalid model policy in ns.toml: ${policy.error.message}`);
-	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug, {
-		presentWarning: context.presentModelWarning,
-	});
+	const model = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.slug);
 	if (!model.ok) throw new Error(`Invalid model policy in ns.toml: ${model.error.message}`);
 	return deriveKitContentSlug(
 		context.commands,

@@ -26,7 +26,7 @@ import {
 	type PrMetadataReplacementResult,
 } from "../../submit/index.ts";
 import { flowExtensionDescriptorSource } from "../extension.ts";
-import { createFlowModelWarningPresenter, resolveFlowModelSelection } from "../model-policy.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 
 const generatePrInventorySchema = z.object({
 	yes: z
@@ -100,11 +100,7 @@ export const flowGeneratePrInventoryCommand: NsCommand<typeof generatePrInventor
 				}
 
 				const runtime = createNsPrInventoryRuntime(ctx);
-				const model = await resolveFlowModelSelection(
-					ctx,
-					MODEL_OPERATION_IDS.flowPrInventory,
-					createFlowModelWarningPresenter(ctx),
-				);
+				const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowPrInventory);
 				if (!model.ok) {
 					return negative(
 						renderResultBlockFromMessage(caps, {

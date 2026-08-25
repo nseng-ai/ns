@@ -1,7 +1,3 @@
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
 import { describe, expect, test } from "vitest";
 import { stripAnsi } from "@nseng-ai/clinkr/testing";
 
@@ -55,17 +51,6 @@ describe("flow autobranch command outcomes", () => {
 				thinking: "minimal" as const,
 			},
 		});
-	});
-
-	test("deduplicates the built-in profile warning across model operations", async () => {
-		const run = runFlowAutobranchCommandWithFakes({
-			cwd: mkdtempSync(join(tmpdir(), "flow-built-in-model-")),
-		});
-
-		expect(await run.exit).toBe(0);
-		expect(run.stderr).toEqual([
-			"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.\n",
-		]);
 	});
 
 	test("clean worktree refuses with a warn block on stderr and does not run the flow", async () => {

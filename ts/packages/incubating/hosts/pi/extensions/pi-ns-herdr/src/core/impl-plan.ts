@@ -175,7 +175,6 @@ export async function handleHerdrSlotImplPlan(
 			plan: selectedPlan,
 			checkout,
 			context: implBranchContextContext(pi, checkout.repoRoot, options.dependencies),
-			presentModelWarning: (message) => ctx.ui.notify(message, "warning"),
 			shouldBuildPreview: parsed.isDryRun,
 			creation:
 				basis.type === "current-head"

@@ -123,7 +123,6 @@ describe("derivePlanContentSlug", () => {
 		const evidence: PlanContentSlugEvidence = await derivePlanContentSlug(pi, {
 			filePath,
 			cwd: CWD,
-			presentModelWarning: () => undefined,
 		});
 
 		expect(evidence).toEqual({
@@ -148,7 +147,6 @@ describe("derivePlanContentSlug", () => {
 		const evidence = await derivePlanContentSlug(pi, {
 			filePath,
 			cwd: CWD,
-			presentModelWarning: () => undefined,
 			async readTextFile(path) {
 				readPaths.push(path);
 				return PLAN_CONTENT;
@@ -169,11 +167,7 @@ describe("derivePlanContentSlug", () => {
 			result: { stdout: "```markdown\nAdd Docs Portal Site!!!\n```\n" },
 		});
 
-		const evidence = await derivePlanContentSlug(pi, {
-			filePath,
-			cwd: CWD,
-			presentModelWarning: () => undefined,
-		});
+		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 
 		expect(evidence.slug).toBe("add-docs-portal-site");
 	});
@@ -183,11 +177,7 @@ describe("derivePlanContentSlug", () => {
 		const rawOutput = "sdl portal pages slot page conventions skeleton theme foundation\n";
 		const pi = new FakeSlugPi({ result: { stdout: rawOutput } });
 
-		const evidence = await derivePlanContentSlug(pi, {
-			filePath,
-			cwd: CWD,
-			presentModelWarning: () => undefined,
-		});
+		const evidence = await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 
 		expect(evidence.slug).toBe("sdl-portal-pages-slot-page-conventions-skeleton");
 		expect(evidence.rawOutput).toBe(rawOutput);
@@ -198,7 +188,7 @@ describe("derivePlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { code: 1, stderr: "model unavailable" } });
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD, presentModelWarning: () => undefined });
+			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -211,7 +201,7 @@ describe("derivePlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "  \n" } });
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD, presentModelWarning: () => undefined });
+			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -229,7 +219,7 @@ describe("derivePlanContentSlug", () => {
 		});
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD, presentModelWarning: () => undefined });
+			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -245,7 +235,7 @@ describe("derivePlanContentSlug", () => {
 		const pi = new FakeSlugPi({ result: { stdout: "work plan task\n" } });
 
 		try {
-			await derivePlanContentSlug(pi, { filePath, cwd: CWD, presentModelWarning: () => undefined });
+			await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 			throw new Error("expected slug derivation to fail");
 		} catch (error) {
 			expectNoFallback(error);
@@ -257,7 +247,7 @@ describe("derivePlanContentSlug", () => {
 		const filePath = await makePlanFile("where-would-we-host-mossy-lampson.md", PLAN_CONTENT);
 		const pi = new FakeSlugPi({ result: { stdout: "add-docs-portal-site\n" } });
 
-		await derivePlanContentSlug(pi, { filePath, cwd: CWD, presentModelWarning: () => undefined });
+		await derivePlanContentSlug(pi, { filePath, cwd: CWD });
 
 		const prompt = pi.calls[0]?.args.at(-1) ?? "";
 		expect(prompt).toBe(buildPlanContentSlugPrompt(PLAN_CONTENT));

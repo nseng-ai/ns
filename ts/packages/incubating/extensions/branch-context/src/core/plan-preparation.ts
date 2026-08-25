@@ -44,7 +44,6 @@ export async function preparePlanBranchContext(
 		plan: ValidatedSessionSavedPlan;
 		checkout: PlanStoreDirectoryEvidence;
 		context: BranchContextContext;
-		presentModelWarning: (message: string) => void;
 		shouldBuildPreview?: boolean;
 		creation: BranchContextCreationPolicy;
 	},
@@ -52,7 +51,6 @@ export async function preparePlanBranchContext(
 	const slugEvidence = await derivePlanContentSlug(pi, {
 		filePath: options.plan.filePath,
 		cwd: options.checkout.repoRoot,
-		presentModelWarning: options.presentModelWarning,
 	});
 	const initialOperation = buildBranchContextCreateOperation({
 		slug: slugEvidence.slug,

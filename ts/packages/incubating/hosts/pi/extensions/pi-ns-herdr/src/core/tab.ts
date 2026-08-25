@@ -37,7 +37,6 @@ export async function handleHerdrNewTab(options: HandleHerdrNewTabOptions): Prom
 			label = await options.labelDeriver.deriveLabel({
 				description,
 				cwd: options.ctx.cwd,
-				presentModelWarning: (message) => options.ctx.ui.notify(message, "warning"),
 			});
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error);
@@ -106,9 +105,7 @@ export async function handleHerdrTabGoal(options: HandleHerdrTabGoalOptions): Pr
 	}
 
 	options.notifyProgress("Interpreting goal…");
-	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal, (message) =>
-		options.ctx.ui.notify(message, "warning"),
-	);
+	const slug = await generateWorkspaceGoalSlug(options.pi, options.ctx.cwd, goal);
 	if (!slug.ok) {
 		if (options.ctx.hasUI !== false) options.ctx.ui.notify(slug.message, "error");
 		return;

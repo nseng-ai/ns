@@ -218,11 +218,6 @@ function openProfiler(options: OpenProfilerOptions): void {
 		ctx.ui.setStatus(STATUS_KEY, bundleStatusBarText(persistence));
 	};
 	const warnedPolicyErrors = new Set<string>();
-	const presentModelWarning = (message: string): void => {
-		if (warnedPolicyErrors.has(message)) return;
-		warnedPolicyErrors.add(message);
-		ctx.ui.notify(message, "warning");
-	};
 	const startWork = (
 		workState: ProfilerState,
 		workProfile: ProfileSnapshot,
@@ -233,7 +228,6 @@ function openProfiler(options: OpenProfilerOptions): void {
 			repoRoot: ctx.cwd,
 			registry: ctx.modelRegistry,
 			projectConfigGateway,
-			presentWarning: presentModelWarning,
 		});
 		if (analysis.type === "unavailable" && !warnedPolicyErrors.has(analysis.message)) {
 			warnedPolicyErrors.add(analysis.message);
@@ -327,7 +321,6 @@ export function resolveContextProfilerAnalysisStartup(options: {
 	repoRoot: string;
 	registry: AnalysisModelRegistry;
 	projectConfigGateway: ProjectConfigGateway;
-	presentWarning: (message: string) => void;
 }): AnalysisStartup {
 	const policy = loadModelPolicy({
 		repoRoot: options.repoRoot,
@@ -337,13 +330,11 @@ export function resolveContextProfilerAnalysisStartup(options: {
 	const segmentation = resolveModelOperation(
 		policy.value,
 		MODEL_OPERATION_IDS.contextProfilerSegmentation,
-		{ presentWarning: options.presentWarning },
 	);
 	if (!segmentation.ok) return { type: "unavailable", message: segmentation.error.message };
 	const episodeAnalysis = resolveModelOperation(
 		policy.value,
 		MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
-		{ presentWarning: options.presentWarning },
 	);
 	if (!episodeAnalysis.ok) return { type: "unavailable", message: episodeAnalysis.error.message };
 	return {

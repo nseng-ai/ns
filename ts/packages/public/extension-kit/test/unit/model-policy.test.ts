@@ -8,9 +8,6 @@ import {
 } from "@nseng-ai/extension-kit/model-policy";
 import type { ProjectConfigGateway } from "@nseng-ai/sdk/project-config/points";
 
-const EXPECTED_BUILT_IN_WARNING =
-	"No configured fast model profile was found; using built-in openai-codex/gpt-5.6-luna with minimal thinking.";
-
 describe("model policy", () => {
 	test("publishes stable operation identifiers", () => {
 		expect(MODEL_OPERATION_IDS.flowPrInventory).toBe("flow.pr-inventory");
@@ -33,16 +30,21 @@ describe("model policy", () => {
 						thinking: "minimal",
 					},
 				},
-				profileSources: { fast: "built-in-profile" },
 			},
 		});
 		if (!policy.ok) return;
-		const warnings: string[] = [];
-		const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.flowChanges, {
-			presentWarning: (message) => warnings.push(message),
+		expect(resolveModelOperation(policy.value, MODEL_OPERATION_IDS.flowChanges)).toEqual({
+			ok: true,
+			value: {
+				operationId: MODEL_OPERATION_IDS.flowChanges,
+				profile: "fast",
+				selection: {
+					provider: "openai-codex",
+					modelId: "gpt-5.6-luna",
+					thinking: "minimal",
+				},
+			},
 		});
-		expect(resolved).toMatchObject({ ok: true, value: { source: "built-in-profile" } });
-		expect(warnings).toEqual([EXPECTED_BUILT_IN_WARNING]);
 	});
 
 	test("allows redefining fast and named profiles", () => {
@@ -61,41 +63,8 @@ thinking = "high"
 					fast: { provider: "acme", thinking: "minimal" as const },
 					deep: { modelId: "deep", thinking: "high" },
 				},
-				profileSources: {
-					fast: "project-profile",
-					deep: "project-profile",
-				},
 			},
 		});
-	});
-
-	test("warns when a project operation explicitly selects the built-in profile", () => {
-		const policy = parseModelPolicyToml('[models.operations]\n"flow.changes" = "fast"');
-		expect(policy.ok).toBe(true);
-		if (!policy.ok) return;
-		const warnings: string[] = [];
-		const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.flowChanges, {
-			presentWarning: (message) => warnings.push(message),
-		});
-		expect(resolved).toMatchObject({
-			ok: true,
-			value: { source: "built-in-profile" },
-		});
-		expect(warnings).toEqual([EXPECTED_BUILT_IN_WARNING]);
-	});
-
-	test("does not warn when the project configures the built-in model tuple", () => {
-		const policy = parseModelPolicyToml(
-			'[models.profiles.fast]\nmodel = "openai-codex/gpt-5.6-luna"\nthinking = "minimal"',
-		);
-		expect(policy.ok).toBe(true);
-		if (!policy.ok) return;
-		const warnings: string[] = [];
-		const resolved = resolveModelOperation(policy.value, MODEL_OPERATION_IDS.flowChanges, {
-			presentWarning: (message) => warnings.push(message),
-		});
-		expect(resolved).toMatchObject({ ok: true, value: { source: "project-profile" } });
-		expect(warnings).toEqual([]);
 	});
 
 	test("defaults independent operations to fast", () => {
@@ -109,15 +78,12 @@ thinking = "high"
 			MODEL_OPERATION_IDS.contextProfilerSegmentation,
 			MODEL_OPERATION_IDS.contextProfilerEpisodeAnalysis,
 		]) {
-			expect(
-				resolveModelOperation(policy.value, operationId, { presentWarning: () => undefined }),
-			).toEqual({
+			expect(resolveModelOperation(policy.value, operationId)).toEqual({
 				ok: true,
 				value: {
 					operationId,
 					profile: "fast",
 					selection: { provider: "acme", modelId: "quick", thinking: "medium" },
-					source: "project-profile",
 				},
 			});
 		}
@@ -129,14 +95,11 @@ thinking = "high"
 		);
 		expect(policy.ok).toBe(true);
 		if (policy.ok)
-			expect(
-				resolveModelOperation(policy.value, "custom", { presentWarning: () => undefined }),
-			).toMatchObject({
+			expect(resolveModelOperation(policy.value, "custom")).toMatchObject({
 				ok: true,
 				value: {
 					profile: "deep",
 					selection: { provider: "acme", modelId: "deep", thinking: "high" },
-					source: "project-operation",
 				},
 			});
 	});
@@ -207,9 +170,12 @@ thinking = "high"
 			ok: true,
 			value: {
 				profiles: {
-					fast: { provider: "openai-codex", modelId: "gpt-5.6-luna", thinking: "minimal" },
+					fast: {
+						provider: "openai-codex",
+						modelId: "gpt-5.6-luna",
+						thinking: "minimal",
+					},
 				},
-				profileSources: { fast: "built-in-profile" },
 			},
 		});
 	});

@@ -33,12 +33,7 @@ export async function runDeriveSlug(ctx: HandoffCliContext, request: DeriveSlugR
 
 	try {
 		const evidence = await deriveHandoffContentSlug(
-			{
-				commands: ctx.commands,
-				git: ctx.git,
-				projectConfig: ctx.projectConfig,
-				presentModelWarning: (message) => ctx.stderr(`${message}\n`),
-			},
+			{ commands: ctx.commands, git: ctx.git, projectConfig: ctx.projectConfig },
 			{ content: prepared.value.content, cwd: ctx.cwd },
 		);
 		return ok({

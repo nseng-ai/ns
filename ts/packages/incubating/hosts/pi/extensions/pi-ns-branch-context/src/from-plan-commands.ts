@@ -413,7 +413,6 @@ export async function deriveCreateBranchContextPreview(
 	const slugEvidence = await derivePlanContentSlug(pi, {
 		filePath: selectedFile.filePath,
 		cwd: ctx.cwd,
-		presentModelWarning: (message) => ctx.ui.notify(message, "warning"),
 	});
 	const branchCreation = args.branchCreation ?? resolveBranchContextDefaultCreation(options);
 	const target = deriveBranchContextTargetBranch(args, slugEvidence.slug, options);

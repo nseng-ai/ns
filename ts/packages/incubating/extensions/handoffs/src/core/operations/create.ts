@@ -94,12 +94,7 @@ export async function runCreate(ctx: HandoffCliContext, request: CreateRequest) 
 	} else {
 		try {
 			const derived = await deriveHandoffContentSlug(
-				{
-					commands: ctx.commands,
-					git: ctx.git,
-					projectConfig: ctx.projectConfig,
-					presentModelWarning: (message) => ctx.stderr(`${message}\n`),
-				},
+				{ commands: ctx.commands, git: ctx.git, projectConfig: ctx.projectConfig },
 				{ content: prepared.value.content, cwd: ctx.cwd },
 			);
 			slugEvidence = {

@@ -45,7 +45,7 @@ import { confirmInteractiveOrUsageError } from "@nseng-ai/clinkr";
 import { flowExtensionDescriptorSource } from "../extension.ts";
 import { FLOW_COMMAND_FAILED } from "../flow-cli-runner.ts";
 import { MODEL_OPERATION_IDS } from "@nseng-ai/extension-kit/model-policy";
-import { createFlowModelWarningPresenter, resolveFlowModelSelection } from "../model-policy.ts";
+import { resolveFlowModelSelection } from "../model-policy.ts";
 import {
 	validatePrTitlePrefix,
 	type NormalizedPrTitlePrefix,
@@ -183,20 +183,17 @@ export function createFlowSubmitCommand(
 				if (confirmation !== undefined) return confirmation;
 			}
 			const runtime = dependencies.createRuntime(ctx);
-			const presentModelWarning = createFlowModelWarningPresenter(ctx);
 			const repoRoot = request.checks
 				? await resolveFlowSubmitGitRepoRoot(runtime.git, ctx.cwd)
 				: undefined;
 			const checkpointModel = await resolveFlowModelSelection(
 				ctx,
 				MODEL_OPERATION_IDS.flowCheckpoint,
-				presentModelWarning,
 			);
 			if (!checkpointModel.ok) return failure(FLOW_COMMAND_FAILED, checkpointModel.error);
 			const prInventoryModel = await resolveFlowModelSelection(
 				ctx,
 				MODEL_OPERATION_IDS.flowPrInventory,
-				presentModelWarning,
 			);
 			if (!prInventoryModel.ok) return failure(FLOW_COMMAND_FAILED, prInventoryModel.error);
 			const checkpointContext: SubmitCheckpointContext = {
@@ -226,7 +223,6 @@ export function createFlowSubmitCommand(
 				checksLoad,
 				checkpointContext,
 				prInventoryModelSelection: prInventoryModel.modelSelection,
-				presentModelWarning,
 				...structuredProgress,
 			});
 		},
@@ -307,7 +303,6 @@ async function runSubmitWithProgress(input: {
 	checksLoad: Awaited<ReturnType<typeof loadFlowSubmitHooks>>;
 	checkpointContext: SubmitCheckpointContext;
 	prInventoryModelSelection: ModelSelection;
-	presentModelWarning: (message: string) => void;
 	matrix: SubmitMatrixProgressController;
 	onOutput?: FlowLiveOutput;
 }) {
@@ -318,7 +313,6 @@ async function runSubmitWithProgress(input: {
 		checksLoad,
 		checkpointContext,
 		prInventoryModelSelection,
-		presentModelWarning,
 		matrix,
 		onOutput,
 	} = input;
@@ -343,7 +337,7 @@ async function runSubmitWithProgress(input: {
 				}),
 			);
 			if (checksOutcome.kind === "failed") {
-				return await matrixPhaseFailureResult(ctx, matrix, presentModelWarning, {
+				return await matrixPhaseFailureResult(ctx, matrix, {
 					key: "checks",
 					failedText: "checks failed",
 					message: formatFlowSubmitHookFailure(checksOutcome),
@@ -371,7 +365,7 @@ async function runSubmitWithProgress(input: {
 			});
 		}
 		if (checkpoint.kind === "failed") {
-			return await matrixPhaseFailureResult(ctx, matrix, presentModelWarning, {
+			return await matrixPhaseFailureResult(ctx, matrix, {
 				key: "checkpoint",
 				failedText: "checkpoint failed",
 				message: formatCheckpointBeforeSubmitFailure(checkpoint.message),
@@ -395,11 +389,7 @@ async function runSubmitWithProgress(input: {
 			...(onOutput === undefined ? {} : { onOutput }),
 		});
 		if (result.type === "refused" || result.type === "failed") {
-			const interpretedResult = await maybeFormatSubmitFailureWithModel(
-				result,
-				ctx,
-				presentModelWarning,
-			);
+			const interpretedResult = await maybeFormatSubmitFailureWithModel(result, ctx);
 			await matrix.finish({ isFailed: true });
 			return submitFailureExit(interpretedResult);
 		}
@@ -421,7 +411,6 @@ async function runSubmitWithProgress(input: {
 async function matrixPhaseFailureResult(
 	ctx: NsExtensionApi,
 	matrix: SubmitMatrixProgressController,
-	presentModelWarning: (message: string) => void,
 	failureValue: {
 		key: "checks" | "checkpoint";
 		failedText: string;
@@ -444,7 +433,6 @@ async function matrixPhaseFailureResult(
 			metadataApplied: [],
 		},
 		ctx,
-		presentModelWarning,
 	);
 	await matrix.finish({ isFailed: true });
 	return submitFailureExit(interpreted);
@@ -495,7 +483,6 @@ function formatCheckpointBeforeSubmitFailure(stderr: string): string {
 async function maybeFormatSubmitFailureWithModel(
 	result: Extract<SubmitResult, { type: "refused" | "failed" }>,
 	ctx: NsExtensionApi,
-	presentModelWarning: (message: string) => void,
 ): Promise<Extract<SubmitResult, { type: "refused" | "failed" }>> {
 	if (result.message.trim() === "") return result;
 	const rawTranscript = renderRawFailureTranscript(result);
@@ -503,11 +490,7 @@ async function maybeFormatSubmitFailureWithModel(
 	if (result.failurePresentation === "deterministic") {
 		return { ...result, message: formatFailureWithRawLog({ stderr: result.message, rawLog }) };
 	}
-	const model = await resolveFlowModelSelection(
-		ctx,
-		MODEL_OPERATION_IDS.flowSubmitFailure,
-		presentModelWarning,
-	);
+	const model = await resolveFlowModelSelection(ctx, MODEL_OPERATION_IDS.flowSubmitFailure);
 	if (!model.ok)
 		return { ...result, message: formatFailureWithRawLog({ stderr: model.error, rawLog }) };
 	const interpretation = await generateSubmitFailureInterpretation({
