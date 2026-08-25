@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+	gsAutobranchResultSchema,
 	runGsAutobranch,
 	type GsAutobranchContext,
 	type GsAutobranchGitFacts,
@@ -326,6 +327,23 @@ describe("GS autobranch core", () => {
 			status: "negative",
 			data: { outcome: "ambiguous-failure" },
 		});
+	});
+
+	test("bounds oversized diagnostics with the shared marker", async () => {
+		const fixture = new Fixture(facts({ branch: "feature" }), {
+			viewFails: true,
+			viewFailureReason: "command-failed",
+		});
+		const context = fixture.context();
+		context.provider.view = async () => ({
+			ok: false,
+			message: "x".repeat(2_000),
+			reason: "command-failed",
+		});
+		const result = await runGsAutobranch(context, interaction, { yes: true });
+		const data = gsAutobranchResultSchema.parse(result.data);
+		expect(data.diagnostic).toHaveLength(1_100);
+		expect(data.diagnostic).toMatch(/… \[diagnostic bound\]$/);
 	});
 
 	test("requires --yes for non-interactive mutation", async () => {
