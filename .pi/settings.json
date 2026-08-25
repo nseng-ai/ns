@@ -8,6 +8,5 @@
 		"../ts/packages/incubating/hosts/pi/extensions/pi-ns-gs"
 	],
 	"extensions": [],
-	"skills": [],
-	"quietStartup": true
+	"skills": []
 }
