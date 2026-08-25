@@ -1,3 +1,4 @@
+import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 import { failure, negative, ok, usageError, z } from "@nseng-ai/sdk";
 
 export const GS_AUTOBRANCH_PROVIDER_VERSION = "0.1.0";
@@ -548,9 +549,12 @@ function recover(
 	return { ...data, recovery: { action, instruction } };
 }
 function bound(value: string): string {
-	return value.length <= DIAGNOSTIC_MAX_CHARS
-		? value
-		: `${value.slice(0, DIAGNOSTIC_MAX_CHARS - 20)}… [diagnostic bound]`;
+	return truncateTextHead({
+		value,
+		maxChars: DIAGNOSTIC_MAX_CHARS,
+		buildMarker: () => "… [diagnostic bound]",
+		shouldTrimHead: false,
+	});
 }
 
 export function renderGsAutobranchHuman(data: GsAutobranchResult): string {
