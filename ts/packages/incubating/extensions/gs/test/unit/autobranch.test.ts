@@ -143,7 +143,10 @@ class Fixture {
 		};
 	}
 }
-const interaction = { isInteractive: () => false, confirm: async () => false };
+const interaction = {
+	isInteractive: () => false,
+	confirm: async () => ({ type: "cancelled" as const }),
+};
 
 describe("GS autobranch core", () => {
 	test.each([
@@ -365,7 +368,45 @@ describe("GS autobranch core", () => {
 	test("requires --yes for non-interactive mutation", async () => {
 		const fixture = new Fixture();
 		const result = await runGsAutobranch(fixture.context(), interaction, { yes: false });
-		expect(result.status).toBe("usage-error");
+		expect(result).toMatchObject({
+			status: "usage-error",
+			data: {
+				recovery: { action: "authorize-mutation", instruction: "Rerun with --yes." },
+			},
+		});
 		expect(fixture.effects).toEqual([]);
 	});
+
+	test("continues after interactive confirmation", async () => {
+		const fixture = new Fixture();
+		let prompt = "";
+		const result = await runGsAutobranch(
+			fixture.context(),
+			{
+				isInteractive: () => true,
+				confirm: async (request) => {
+					prompt = request.message;
+					return { type: "confirmed" };
+				},
+			},
+			{ yes: false },
+		);
+		expect(result.status).toBe("success");
+		expect(prompt).toContain("Child: add-child");
+		expect(fixture.effects).toEqual(["switch:add-child", "checkpoint", "init:add-child"]);
+	});
+
+	test.each(["declined", "cancelled"] as const)(
+		"does not mutate after interactive confirmation is %s",
+		async (type) => {
+			const fixture = new Fixture();
+			const result = await runGsAutobranch(
+				fixture.context(),
+				{ isInteractive: () => true, confirm: async () => ({ type }) },
+				{ yes: false },
+			);
+			expect(result).toMatchObject({ status: "negative" });
+			expect(fixture.effects).toEqual([]);
+		},
+	);
 });

@@ -1,3 +1,4 @@
+import { confirmInteractiveOrUsageError, type ClinkrInteraction } from "@nseng-ai/clinkr";
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
 import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 
@@ -7,7 +8,6 @@ import {
 	GS_AUTOBRANCH_PROVIDER_VERSION,
 	type GsAutobranchContext,
 	type GsAutobranchGitFacts,
-	type GsAutobranchInteraction,
 	type GsAutobranchProviderView,
 	type GsAutobranchRequest,
 	type GsAutobranchResult,
@@ -22,7 +22,6 @@ export {
 	type GsAutobranchGatewayResult,
 	type GsAutobranchGitFacts,
 	type GsAutobranchGitGateway,
-	type GsAutobranchInteraction,
 	type GsAutobranchPreparationFacts,
 	type GsAutobranchPreparationGateway,
 	type GsAutobranchProviderGateway,
@@ -41,7 +40,7 @@ interface RunPathOptions {
 
 export async function runGsAutobranch(
 	context: GsAutobranchContext,
-	interaction: GsAutobranchInteraction,
+	interaction: ClinkrInteraction,
 	request: GsAutobranchRequest,
 ) {
 	const version = await context.provider.readVersion();
@@ -352,17 +351,12 @@ function provePostconditions(
 }
 
 async function authorize(
-	interaction: GsAutobranchInteraction,
+	interaction: ClinkrInteraction,
 	request: GsAutobranchRequest,
 	data: GsAutobranchResult,
 	checkpoint: string,
 ) {
 	if (request.yes) return true;
-	if (!interaction.isInteractive())
-		return usageError(
-			"This local mutation requires --yes.",
-			recover(data, "authorize-mutation", "Rerun with --yes."),
-		);
 	const preview = [
 		`Path: ${data.path}`,
 		`Source: ${data.source}@${data.sourceSha}`,
@@ -370,7 +364,20 @@ async function authorize(
 		`Checkpoint: ${checkpoint.split("\n")[0] ?? checkpoint}`,
 		"Mutations are forward-only; failures preserve observed state.",
 	].join("\n");
-	if (await interaction.confirm(preview)) return true;
+	const confirmation = await confirmInteractiveOrUsageError(interaction, {
+		nonInteractive: {
+			message: "This local mutation requires --yes.",
+			missingFlag: "--yes",
+			howToSupply: "Rerun with --yes.",
+		},
+		confirmation: { message: preview, defaultAnswer: "no" },
+	});
+	if ("errorType" in confirmation)
+		return usageError(
+			confirmation.message,
+			recover(data, "authorize-mutation", "Rerun with --yes."),
+		);
+	if (confirmation.type === "confirmed") return true;
 	return negative("Autobranch was not authorized.", {
 		data: recover(data, "authorize-mutation", "Rerun and authorize the prepared mutation."),
 	});

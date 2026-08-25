@@ -132,8 +132,3 @@ export interface GsAutobranchContext {
 	readonly checkpoint: GsAutobranchCheckpointGateway;
 	readonly preparation: GsAutobranchPreparationGateway;
 }
-
-export interface GsAutobranchInteraction {
-	isInteractive(): boolean;
-	confirm(message: string): Promise<boolean>;
-}
