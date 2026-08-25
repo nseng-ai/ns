@@ -11,13 +11,15 @@ import type { HerdrPiContext } from "./context.ts";
 const REPOSITORY_TOKEN_SOURCE = "ns:pi-repo";
 const REPOSITORY_TOKEN_NAME = "repo";
 
-type RepositoryMetadataContext = {
+interface RepositoryMetadataContext {
 	readonly commands: Pick<HerdrPiContext["commands"], "on">;
 	readonly git: Pick<HerdrPiContext["git"], "gitCommonDir" | "optionalRepoRoot">;
 	readonly herdr: HerdrPiContext["herdr"];
-};
+}
 
-type RepositoryTokenPatch = { readonly value: string | null };
+interface RepositoryTokenPatch {
+	readonly value: string | null;
+}
 type RepositoryPatchResult =
 	| { type: "patch"; patch: RepositoryTokenPatch }
 	| { type: "failed"; message: string };
