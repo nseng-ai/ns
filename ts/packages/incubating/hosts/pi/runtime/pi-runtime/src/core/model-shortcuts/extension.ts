@@ -29,7 +29,7 @@ export const MODEL_SHORTCUTS = [
 	},
 	{
 		command: "model:terra",
-		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra" },
+		selection: { provider: "vercel-ai-gateway", modelId: "openai/gpt-5.6-terra-fast" },
 	},
 	{
 		command: "model:luna",
