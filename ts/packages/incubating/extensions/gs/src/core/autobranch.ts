@@ -1,128 +1,35 @@
 import { truncateTextHead } from "@nseng-ai/foundation/text-truncation";
-import { failure, negative, ok, usageError, z } from "@nseng-ai/sdk";
+import { failure, negative, ok, usageError } from "@nseng-ai/sdk";
 
-export const GS_AUTOBRANCH_PROVIDER_VERSION = "0.1.0";
-const EFFECTS_MAX_COUNT = 12;
-const DIAGNOSTIC_MAX_CHARS = 1_100;
+import {
+	GS_AUTOBRANCH_DIAGNOSTIC_MAX_CHARS,
+	GS_AUTOBRANCH_EFFECTS_MAX_COUNT,
+	GS_AUTOBRANCH_PROVIDER_VERSION,
+	type GsAutobranchContext,
+	type GsAutobranchGitFacts,
+	type GsAutobranchInteraction,
+	type GsAutobranchProviderView,
+	type GsAutobranchRequest,
+	type GsAutobranchResult,
+} from "./autobranch-contract.ts";
 
-export const gsAutobranchRequestSchema = z.lazy(() =>
-	z.strictObject({ slug: z.string().trim().min(1).optional(), yes: z.boolean().default(false) }),
-);
-export type GsAutobranchRequest = z.infer<typeof gsAutobranchRequestSchema>;
-
-export const gsAutobranchResultSchema = z.lazy(() =>
-	z.strictObject({
-		outcome: z.enum(["refused", "completed", "known-partial-failure", "ambiguous-failure"]),
-		path: z.enum(["trunk-bootstrap", "tracked-top-extension"]).nullable(),
-		observedVersion: z.string().nullable(),
-		providerWorktreeGitDir: z.string().nullable(),
-		trunk: z.string().nullable(),
-		source: z.string().nullable(),
-		child: z.string().nullable(),
-		sourceSha: z.string().nullable(),
-		childSha: z.string().nullable(),
-		dirty: z.strictObject({
-			staged: z.number().int().nonnegative(),
-			unstaged: z.number().int().nonnegative(),
-			untracked: z.number().int().nonnegative(),
-			total: z.number().int().nonnegative(),
-		}),
-		clean: z.boolean().nullable(),
-		checkpointSummary: z.string().max(300).nullable(),
-		relationship: z.strictObject({
-			trunk: z.string().nullable(),
-			currentBranch: z.string().nullable(),
-			top: z.string().nullable(),
-			sourceTrackedOnce: z.boolean(),
-			sourceCurrent: z.boolean(),
-			sourceTopmost: z.boolean(),
-			childDirectlyAboveSource: z.boolean(),
-			childCurrentTopmost: z.boolean(),
-		}),
-		effects: z.array(z.string().max(200)).max(EFFECTS_MAX_COUNT),
-		diagnostic: z.string().max(DIAGNOSTIC_MAX_CHARS).nullable(),
-		recovery: z.strictObject({
-			action: z.enum([
-				"none",
-				"authorize-mutation",
-				"provide-slug",
-				"inspect-worktree",
-				"inspect-child",
-				"inspect-provider-worktree",
-				"install-supported-provider",
-			]),
-			instruction: z.string().max(400),
-		}),
-	}),
-);
-export type GsAutobranchResult = z.infer<typeof gsAutobranchResultSchema>;
-
-export interface GsAutobranchGitFacts {
-	readonly root: string;
-	readonly providerWorktreeGitDir: string;
-	readonly branch: string | null;
-	readonly headSha: string | null;
-	readonly trunk: string | null;
-	readonly trunkSha: string | null;
-	readonly operation: "none" | "rebase" | "merge" | "cherry-pick" | "revert" | "bisect";
-	readonly status: string;
-	readonly diff: string;
-	readonly dirty: GsAutobranchResult["dirty"];
-	readonly clean: boolean;
-	readonly childSha: string | null;
-	readonly sourceRefSha: string | null;
-}
-export type GsAutobranchGatewayResult<T> =
-	| { readonly ok: true; readonly value: T }
-	| {
-			readonly ok: false;
-			readonly message: string;
-			readonly reason?: "untracked" | "command-failed" | "unsupported-output";
-	  };
-export interface GsAutobranchGitGateway {
-	inspect(
-		child: string | null,
-		source?: string,
-	): Promise<GsAutobranchGatewayResult<GsAutobranchGitFacts>>;
-	validateChild(child: string): Promise<GsAutobranchGatewayResult<boolean>>;
-	createAndSwitchChild(child: string): Promise<GsAutobranchGatewayResult<null>>;
-}
-export interface GsAutobranchProviderView {
-	readonly trunk: string;
-	readonly currentBranch: string;
-	readonly branches: readonly {
-		readonly name: string;
-		readonly base: string;
-		readonly isCurrent: boolean;
-	}[];
-}
-export interface GsAutobranchProviderGateway {
-	readVersion(): Promise<GsAutobranchGatewayResult<string>>;
-	view(): Promise<GsAutobranchGatewayResult<GsAutobranchProviderView>>;
-	init(child: string): Promise<GsAutobranchGatewayResult<null>>;
-	add(child: string): Promise<GsAutobranchGatewayResult<null>>;
-}
-export interface GsAutobranchCheckpointGateway {
-	commit(message: string): Promise<GsAutobranchGatewayResult<string>>;
-}
-export interface GsAutobranchPreparationGateway {
-	prepare(input: {
-		readonly requestedSlug?: string;
-		readonly facts: GsAutobranchGitFacts;
-	}): Promise<
-		GsAutobranchGatewayResult<{ readonly child: string; readonly checkpointMessage: string }>
-	>;
-}
-export interface GsAutobranchContext {
-	readonly git: GsAutobranchGitGateway;
-	readonly provider: GsAutobranchProviderGateway;
-	readonly checkpoint: GsAutobranchCheckpointGateway;
-	readonly preparation: GsAutobranchPreparationGateway;
-}
-export interface GsAutobranchInteraction {
-	isInteractive(): boolean;
-	confirm(message: string): Promise<boolean>;
-}
+export {
+	GS_AUTOBRANCH_PROVIDER_VERSION,
+	gsAutobranchRequestSchema,
+	gsAutobranchResultSchema,
+	type GsAutobranchCheckpointGateway,
+	type GsAutobranchContext,
+	type GsAutobranchGatewayResult,
+	type GsAutobranchGitFacts,
+	type GsAutobranchGitGateway,
+	type GsAutobranchInteraction,
+	type GsAutobranchPreparationFacts,
+	type GsAutobranchPreparationGateway,
+	type GsAutobranchProviderGateway,
+	type GsAutobranchProviderView,
+	type GsAutobranchRequest,
+	type GsAutobranchResult,
+} from "./autobranch-contract.ts";
 
 interface RunPathOptions {
 	readonly context: GsAutobranchContext;
@@ -211,7 +118,12 @@ export async function runGsAutobranch(
 	}
 	const prepared = await context.preparation.prepare({
 		...(request.slug === undefined ? {} : { requestedSlug: request.slug }),
-		facts: before,
+		facts: {
+			root: before.root,
+			branch: before.branch,
+			status: before.status,
+			diff: before.diff,
+		},
 	});
 	if (!prepared.ok)
 		return failure(
@@ -240,24 +152,18 @@ async function runBootstrap(options: RunPathOptions) {
 	let observed = await context.git.inspect(child, before.branch!);
 	if (!observed.ok)
 		return ambiguous(data, effects, created.ok ? observed.message : created.message);
-	if (!created.ok || !branchTransferProven(before, observed.value, child))
-		return partial(
-			data,
-			observed.value,
-			effects,
-			created.ok ? "Child transfer postconditions were not proven." : created.message,
-		);
+	if (!created.ok) return partial(data, observed.value, effects, created.message);
+	const transfer = proveBranchTransfer(before, observed.value, child);
+	if (transfer.status === "unproven")
+		return partial(data, observed.value, effects, transfer.diagnostic);
 	const committed = await context.checkpoint.commit(checkpointMessage);
 	if (committed.ok) effects = [...effects, `checkpoint:${committed.value}`];
 	observed = await context.git.inspect(child, before.branch!);
 	if (!observed.ok) return ambiguous(data, effects, observed.message);
-	if (!committed.ok || !checkpointProven(before, observed.value, child))
-		return partial(
-			data,
-			observed.value,
-			effects,
-			committed.ok ? "Checkpoint postconditions were not proven." : committed.message,
-		);
+	if (!committed.ok) return partial(data, observed.value, effects, committed.message);
+	const checkpoint = proveCheckpoint(before, observed.value, child);
+	if (checkpoint.status === "unproven")
+		return partial(data, observed.value, effects, checkpoint.diagnostic);
 	const initialized = await context.provider.init(child);
 	effects = [...effects, "provider-init-attempted"];
 	const [after, view] = await Promise.all([
@@ -267,22 +173,27 @@ async function runBootstrap(options: RunPathOptions) {
 	if (!after.ok || !view.ok)
 		return ambiguous(data, effects, !after.ok ? after.message : view.ok ? "" : view.message);
 	const rel = relationship(view.value, before.branch!, child);
-	const complete =
-		after.value.branch === child &&
-		after.value.clean &&
-		after.value.childSha !== before.headSha &&
-		view.value.trunk === before.trunk &&
-		view.value.currentBranch === child &&
-		view.value.branches.length === 1 &&
-		rel.childCurrentTopmost;
-	if (!complete)
+	const initialization = provePostconditions([
+		[after.value.branch === child, "The initialized child is not the current branch."],
+		[isClean(after.value), "The initialized child worktree is not clean."],
+		[
+			after.value.childSha !== before.headSha,
+			"No child checkpoint was observed after initialization.",
+		],
+		[view.value.trunk === before.trunk, "The provider trunk does not match the cached Git trunk."],
+		[
+			view.value.currentBranch === child,
+			"The initialized child is not current in the provider view.",
+		],
+		[view.value.branches.length === 1, "The initialized provider stack is not one layer."],
+		[rel.childCurrentTopmost, "The initialized child is not the current provider top."],
+	]);
+	if (initialization.status === "unproven")
 		return partial(
 			{ ...data, relationship: rel },
 			after.value,
 			effects,
-			initialized.ok
-				? "Provider initialization postconditions were not proven."
-				: initialized.message,
+			initialized.ok ? initialization.diagnostic : initialized.message,
 		);
 	return ok(
 		completed({
@@ -310,12 +221,13 @@ async function runExtension(options: RunPathOptions) {
 			!observed.ok ? observed.message : viewed.ok ? "" : viewed.message,
 		);
 	let rel = relationship(viewed.value, before.branch!, child);
-	if (!attachmentProven(before, observed.value, child, rel))
+	const attachment = proveAttachment(before, observed.value, child, rel);
+	if (attachment.status === "unproven")
 		return partial(
 			{ ...data, relationship: rel },
 			observed.value,
 			effects,
-			added.ok ? "Provider attachment postconditions were not proven." : added.message,
+			added.ok ? attachment.diagnostic : added.message,
 		);
 	const committed = await context.checkpoint.commit(checkpointMessage);
 	if (committed.ok) effects = [...effects, `checkpoint:${committed.value}`];
@@ -330,18 +242,18 @@ async function runExtension(options: RunPathOptions) {
 			!observed.ok ? observed.message : viewed.ok ? "" : viewed.message,
 		);
 	rel = relationship(viewed.value, before.branch!, child);
-	if (
-		!committed.ok ||
-		!checkpointProven(before, observed.value, child) ||
-		!rel.childDirectlyAboveSource ||
-		!rel.childCurrentTopmost
-	)
-		return partial(
-			{ ...data, relationship: rel },
-			observed.value,
-			effects,
-			committed.ok ? "Final postconditions were not proven." : committed.message,
-		);
+	const checkpoint = proveCheckpoint(before, observed.value, child);
+	const completion =
+		checkpoint.status === "unproven"
+			? checkpoint
+			: provePostconditions([
+					[rel.childDirectlyAboveSource, "The child is no longer directly above the source."],
+					[rel.childCurrentTopmost, "The child is no longer the current provider top."],
+				]);
+	if (!committed.ok)
+		return partial({ ...data, relationship: rel }, observed.value, effects, committed.message);
+	if (completion.status === "unproven")
+		return partial({ ...data, relationship: rel }, observed.value, effects, completion.diagnostic);
 	return ok(
 		completed({
 			data,
@@ -376,47 +288,67 @@ function relationship(
 			view.currentBranch === child,
 	};
 }
-function branchTransferProven(
+type PostconditionProof =
+	| { readonly status: "proven" }
+	| { readonly status: "unproven"; readonly diagnostic: string };
+
+function proveBranchTransfer(
 	before: GsAutobranchGitFacts,
 	after: GsAutobranchGitFacts,
 	child: string,
-): boolean {
-	return (
-		after.branch === child &&
-		after.childSha === before.headSha &&
-		after.sourceRefSha === before.headSha &&
-		after.trunkSha === before.trunkSha &&
-		after.dirty.total > 0
-	);
+): PostconditionProof {
+	return provePostconditions([
+		[after.branch === child, "The child is not the current branch."],
+		[after.childSha === before.headSha, "The child does not point to the source HEAD."],
+		[after.sourceRefSha === before.headSha, "The source ref did not remain at the source HEAD."],
+		[after.trunkSha === before.trunkSha, "The trunk ref moved during child creation."],
+		[after.dirty.total > 0, "Pending work did not transfer to the child."],
+	]);
 }
-function checkpointProven(
+
+function proveCheckpoint(
 	before: GsAutobranchGitFacts,
 	after: GsAutobranchGitFacts,
 	child: string,
-): boolean {
-	return (
-		after.branch === child &&
-		after.childSha !== null &&
-		after.childSha !== before.headSha &&
-		after.sourceRefSha === (before.branch === before.trunk ? before.trunkSha : before.headSha) &&
-		after.trunkSha === before.trunkSha &&
-		after.clean
-	);
+): PostconditionProof {
+	return provePostconditions([
+		[after.branch === child, "The child is not the current branch."],
+		[
+			after.childSha !== null && after.childSha !== before.headSha,
+			"No child checkpoint was observed.",
+		],
+		[
+			after.sourceRefSha === (before.branch === before.trunk ? before.trunkSha : before.headSha),
+			"The source ref moved during checkpointing.",
+		],
+		[after.trunkSha === before.trunkSha, "The trunk ref moved during checkpointing."],
+		[isClean(after), "The child worktree is not clean after checkpointing."],
+	]);
 }
-function attachmentProven(
+
+function proveAttachment(
 	before: GsAutobranchGitFacts,
 	after: GsAutobranchGitFacts,
 	child: string,
-	rel: GsAutobranchResult["relationship"],
-): boolean {
-	return (
-		after.branch === child &&
-		after.childSha === before.headSha &&
-		after.sourceRefSha === before.headSha &&
-		after.dirty.total > 0 &&
-		rel.childDirectlyAboveSource &&
-		rel.childCurrentTopmost
-	);
+	relationship: GsAutobranchResult["relationship"],
+): PostconditionProof {
+	return provePostconditions([
+		[after.branch === child, "The provider did not switch to the child."],
+		[after.childSha === before.headSha, "The child does not point to the source HEAD."],
+		[after.sourceRefSha === before.headSha, "The source ref did not remain at the source HEAD."],
+		[after.dirty.total > 0, "Pending work did not transfer to the child."],
+		[relationship.childDirectlyAboveSource, "The child is not directly above the source."],
+		[relationship.childCurrentTopmost, "The child is not the current provider top."],
+	]);
+}
+
+function provePostconditions(
+	checks: ReadonlyArray<readonly [satisfied: boolean, diagnostic: string]>,
+): PostconditionProof {
+	const failed = checks.find(([satisfied]) => !satisfied);
+	return failed === undefined
+		? { status: "proven" }
+		: { status: "unproven", diagnostic: failed[1] };
 }
 
 async function authorize(
@@ -451,7 +383,7 @@ function resultFrom(facts: GsAutobranchGitFacts, version: string): GsAutobranchR
 		source: facts.branch,
 		sourceSha: facts.headSha,
 		dirty: facts.dirty,
-		clean: facts.dirty.total === 0,
+		clean: isClean(facts),
 	};
 }
 function emptyResult(version: string | null = null): GsAutobranchResult {
@@ -497,10 +429,10 @@ function completed(options: CompletedOptions): GsAutobranchResult {
 		outcome: "completed",
 		childSha: facts.childSha,
 		dirty: facts.dirty,
-		clean: facts.dirty.total === 0,
+		clean: isClean(facts),
 		checkpointSummary,
 		relationship,
-		effects: [...effects].slice(0, EFFECTS_MAX_COUNT),
+		effects: [...effects].slice(0, GS_AUTOBRANCH_EFFECTS_MAX_COUNT),
 		recovery: { action: "none", instruction: "Continue work on the verified GS child." },
 	};
 }
@@ -516,8 +448,8 @@ function partial(
 			outcome: "known-partial-failure" as const,
 			childSha: facts.childSha,
 			dirty: facts.dirty,
-			clean: facts.dirty.total === 0,
-			effects: [...effects].slice(0, EFFECTS_MAX_COUNT),
+			clean: isClean(facts),
+			effects: [...effects].slice(0, GS_AUTOBRANCH_EFFECTS_MAX_COUNT),
 			diagnostic: bound(diagnostic),
 			recovery: {
 				action: "inspect-child" as const,
@@ -532,7 +464,7 @@ function ambiguous(data: GsAutobranchResult, effects: readonly string[], diagnos
 		data: {
 			...data,
 			outcome: "ambiguous-failure" as const,
-			effects: [...effects].slice(0, EFFECTS_MAX_COUNT),
+			effects: [...effects].slice(0, GS_AUTOBRANCH_EFFECTS_MAX_COUNT),
 			diagnostic: bound(diagnostic),
 			recovery: {
 				action: "inspect-child" as const,
@@ -551,21 +483,14 @@ function recover(
 function bound(value: string): string {
 	return truncateTextHead({
 		value,
-		maxChars: DIAGNOSTIC_MAX_CHARS,
+		maxChars: GS_AUTOBRANCH_DIAGNOSTIC_MAX_CHARS,
 		buildMarker: () => "… [diagnostic bound]",
 		shouldTrimHead: false,
 	});
 }
 
-export function renderGsAutobranchHuman(data: GsAutobranchResult): string {
-	return [
-		`${data.outcome}: ${data.path ?? "unclassified"}`,
-		`Provider worktree: ${data.providerWorktreeGitDir ?? "unknown"}`,
-		`Source: ${data.source ?? "unknown"}@${data.sourceSha ?? "unknown"}`,
-		`Child: ${data.child ?? "unprepared"}@${data.childSha ?? "unknown"}`,
-		`Dirtiness: ${data.dirty.staged} staged, ${data.dirty.unstaged} unstaged, ${data.dirty.untracked} untracked`,
-		`Effects: ${data.effects.length === 0 ? "none" : data.effects.join(", ")}`,
-		...(data.diagnostic === null ? [] : [`Observation: ${data.diagnostic}`]),
-		`Recovery: ${data.recovery.instruction}`,
-	].join("\n");
+function isClean(facts: GsAutobranchGitFacts): boolean {
+	return facts.dirty.total === 0;
 }
+
+export { renderGsAutobranchHuman } from "./autobranch-render.ts";

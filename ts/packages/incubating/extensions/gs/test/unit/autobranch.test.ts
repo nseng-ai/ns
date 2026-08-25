@@ -21,7 +21,6 @@ function facts(overrides: Partial<GsAutobranchGitFacts> = {}): GsAutobranchGitFa
 		status: "M  a\0 M b\0?? c\0",
 		diff: "diff",
 		dirty,
-		clean: false,
 		childSha: null,
 		sourceRefSha: null,
 		...overrides,
@@ -128,7 +127,6 @@ class Fixture {
 						childSha: "bbb",
 						headSha: "bbb",
 						dirty: { staged: 0, unstaged: 0, untracked: 0, total: 0 },
-						clean: true,
 					};
 					return { ok: true, value: "bbb [cp] Test" };
 				},
@@ -177,7 +175,7 @@ describe("GS autobranch core", () => {
 	});
 
 	test.each([
-		["clean", facts({ dirty: { staged: 0, unstaged: 0, untracked: 0, total: 0 }, clean: true })],
+		["clean", facts({ dirty: { staged: 0, unstaged: 0, untracked: 0, total: 0 } })],
 		["detached", facts({ branch: null })],
 		["operation", facts({ operation: "rebase" })],
 		["missing trunk", facts({ trunk: null, trunkSha: null })],
@@ -278,6 +276,24 @@ describe("GS autobranch core", () => {
 		expect(result).toMatchObject({
 			status: "negative",
 			data: { outcome: "known-partial-failure", childSha: null },
+		});
+	});
+
+	test("reports the first unproved postcondition", async () => {
+		const fixture = new Fixture(facts());
+		const context = fixture.context();
+		context.git.createAndSwitchChild = async (child) => {
+			fixture.effects.push(`switch:${child}`);
+			fixture.state = { ...fixture.state, branch: child, childSha: fixture.state.headSha };
+			return { ok: true, value: null };
+		};
+		const result = await runGsAutobranch(context, interaction, { yes: true });
+		expect(result).toMatchObject({
+			status: "negative",
+			data: {
+				outcome: "known-partial-failure",
+				diagnostic: "The source ref did not remain at the source HEAD.",
+			},
 		});
 	});
 
