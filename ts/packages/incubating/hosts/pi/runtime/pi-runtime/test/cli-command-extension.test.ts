@@ -271,6 +271,7 @@ function registerFakeCli(
 	pi: FakePi,
 	options: {
 		runCli?: (args: readonly string[], deps: CliCommandRunDeps) => Promise<number> | number;
+		prepareCommand?: Parameters<typeof registerCliCommandExtension>[1]["prepareCommand"];
 		afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
 		env?: Record<string, string | undefined>;
 		commands?: CliCommandInfo[];
@@ -284,6 +285,7 @@ function registerFakeCli(
 			{ name: "preview-status", description: "Print a preview status." },
 		],
 		runCli: options.runCli ?? (() => 0),
+		...(options.prepareCommand === undefined ? {} : { prepareCommand: options.prepareCommand }),
 		...(options.afterCommandComplete === undefined
 			? {}
 			: { afterCommandComplete: options.afterCommandComplete }),
@@ -569,6 +571,86 @@ describe("cli command extension helper", () => {
 				exitCode: 0,
 			},
 		]);
+	});
+
+	test("prepares invocation state before waiting and completes it after output emission", async () => {
+		const pi = new FakePi();
+		const order: string[] = [];
+		registerFakeCli(pi, {
+			prepareCommand: (invocation, ctx) => {
+				order.push("prepare");
+				expect(invocation).toEqual({
+					cliName: "fake-cli",
+					commandName: "preview-status",
+					piCommandName: "dev:preview-status",
+					rawArgs: "--json",
+					args: ["--json"],
+					argv: ["preview-status", "--json"],
+					cwd: "/repo",
+				});
+				expect(ctx.cwd).toBe("/repo");
+				const captured = invocation.rawArgs;
+				return (details) => {
+					order.push(`complete:${captured}:${details.exitCode}`);
+					expect(pi.sentMessages).toHaveLength(1);
+				};
+			},
+			runCli: () => {
+				order.push("run");
+				return 0;
+			},
+		});
+		const { ctx } = createContext(order);
+
+		await commandFor(pi, "dev:preview-status").handler("--json", ctx);
+
+		expect(order).toEqual(["prepare", "wait", "run", "complete:--json:0"]);
+	});
+
+	test("keeps prepared completion state isolated across concurrent invocations", async () => {
+		const pi = new FakePi();
+		const completions: string[] = [];
+		registerFakeCli(pi, {
+			prepareCommand: (invocation) => {
+				const captured = invocation.rawArgs;
+				return () => {
+					completions.push(captured);
+				};
+			},
+		});
+		const first = createContext().ctx;
+		const second = createContext().ctx;
+
+		await Promise.all([
+			commandFor(pi, "dev:preview-status").handler("--first", first),
+			commandFor(pi, "dev:preview-status").handler("--second", second),
+		]);
+
+		expect(completions).toEqual(["--first", "--second"]);
+	});
+
+	test("does not run the CLI when invocation preparation fails", async () => {
+		const pi = new FakePi();
+		let runCount = 0;
+		registerFakeCli(pi, {
+			prepareCommand: () => {
+				throw new Error("required state unavailable");
+			},
+			runCli: () => {
+				runCount += 1;
+				return 0;
+			},
+		});
+		const { ctx } = createContext();
+
+		await commandFor(pi, "dev:preview-status").handler("", ctx);
+
+		expect(runCount).toBe(0);
+		expectSingleCliOutputMessage(
+			pi,
+			"fake-cli preview-status exited with code 1.\n\nstderr:\nCould not prepare /dev:preview-status: required state unavailable\n",
+			"error",
+		);
 	});
 
 	test("invokes command completion hook with output details after output emission", async () => {

@@ -53,7 +53,10 @@ export interface CliCommandCompletionItem {
 	label?: string;
 }
 
-export type CliCommandArgumentMapper = (args: readonly string[]) => ParsedCliCommandArgs;
+export type CliCommandArgumentMapper = (
+	args: readonly string[],
+	rawArgs: string,
+) => ParsedCliCommandArgs;
 
 export interface CliCommandInfo {
 	name: string;
@@ -94,11 +97,37 @@ export interface CliCommandRunDeps {
 	select: CliCommandSelectPrompt;
 }
 
-export interface CliCommandExtensionSpec {
+export type CliCommandInvocationCompletion = (
+	details: CliCommandOutputDetails,
+) => Promise<void> | void;
+
+export interface CliCommandInvocationDetails {
+	cliName: string;
+	commandName: string;
+	piCommandName: string;
+	rawArgs: string;
+	args: string[];
+	argv: string[];
+	cwd: string;
+}
+
+export interface CliCommandExtensionSpec<TContext extends CommandContext = CommandContext> {
 	cliName: string;
 	piNamespace: string;
 	commands: readonly CliCommandInfo[];
 	runCli(args: readonly string[], deps: CliCommandRunDeps): Promise<number> | number;
+	/**
+	 * Captures invocation-local state after argument validation and before the CLI runs.
+	 * Return a completion callback when the captured state must drive an awaited follow-up.
+	 * Preparation failures prevent CLI execution.
+	 */
+	prepareCommand?: (
+		details: CliCommandInvocationDetails,
+		ctx: TContext,
+	) =>
+		| Promise<CliCommandInvocationCompletion | undefined>
+		| CliCommandInvocationCompletion
+		| undefined;
 	/**
 	 * Narrow CLI-adapter completion hook for awaited, adapter-local side effects
 	 * such as refreshing Pi worktree status after slash-command execution.
@@ -107,7 +136,7 @@ export interface CliCommandExtensionSpec {
 	 * best-effort activity/observability; consumers that need ordered completion
 	 * should use this hook instead of transient inter-extension pub/sub.
 	 */
-	afterCommandComplete?: (details: CliCommandOutputDetails) => Promise<void> | void;
+	afterCommandComplete?: CliCommandInvocationCompletion;
 	env?: Record<string, string | undefined>;
 	timers?: TimerScheduler;
 	piCommandAliases?: Readonly<Record<string, string>>;
@@ -131,7 +160,7 @@ export interface CommandContext {
 	waitForIdle(): Promise<void>;
 }
 
-export interface CliCommandExtensionAPI {
+export interface CliCommandExtensionAPI<TContext extends CommandContext = CommandContext> {
 	readonly events?: PiExtensionCommandEventEmitter;
 	registerCommand(
 		name: string,
@@ -141,7 +170,7 @@ export interface CliCommandExtensionAPI {
 			getArgumentCompletions?: (
 				prefix: string,
 			) => Promise<CliCommandCompletionItem[] | null> | CliCommandCompletionItem[] | null;
-			handler(args: string, ctx: CommandContext): Promise<void> | void;
+			handler(args: string, ctx: TContext): Promise<void> | void;
 		},
 	): void;
 	registerMessageRenderer?(customType: string, renderer: MessageRenderer): void;
@@ -190,9 +219,9 @@ export function selectCliCommands<TCommand extends CliCommandInfo>(options: {
 	});
 }
 
-export function registerCliCommandExtension(
-	pi: CliCommandExtensionAPI,
-	spec: CliCommandExtensionSpec,
+export function registerCliCommandExtension<TContext extends CommandContext>(
+	pi: CliCommandExtensionAPI<TContext>,
+	spec: CliCommandExtensionSpec<TContext>,
 ): void {
 	assertValidCommandSpec(spec);
 	pi.registerMessageRenderer?.(CLI_COMMAND_OUTPUT_MESSAGE_TYPE, renderCliCommandOutputMessage);
@@ -318,16 +347,18 @@ function createPiCliCommandInteraction(
 	};
 }
 
-interface RunRegisteredCliCommandOptions {
-	pi: CliCommandExtensionAPI;
-	spec: CliCommandExtensionSpec;
+interface RunRegisteredCliCommandOptions<TContext extends CommandContext> {
+	pi: CliCommandExtensionAPI<TContext>;
+	spec: CliCommandExtensionSpec<TContext>;
 	command: CliCommandInfo;
 	piCommandName: string;
 	rawArgs: string;
-	ctx: CommandContext;
+	ctx: TContext;
 }
 
-async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions): Promise<void> {
+async function runRegisteredCliCommand<TContext extends CommandContext>(
+	options: RunRegisteredCliCommandOptions<TContext>,
+): Promise<void> {
 	const { pi, spec, command, piCommandName, rawArgs, ctx } = options;
 	const commandStartedAt = Date.now();
 	traceCliCommand("command_start", {
@@ -374,7 +405,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		return;
 	}
 
-	const mapped = command.mapParsedArgs?.(parsed.args) ?? parsed;
+	const mapped = command.mapParsedArgs?.(parsed.args, rawArgs) ?? parsed;
 	if (!mapped.ok) {
 		const restored = restoreCommandInvocationToEditor({
 			ctx,
@@ -450,6 +481,48 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 	let exitCode = 1;
 	const argv = [...commandArgvPrefix(command), ...commandArgs];
 	emitCliCommandStart(ctx, command.startMessage);
+	let completeInvocation: CliCommandInvocationCompletion | undefined;
+	try {
+		if (spec.prepareCommand !== undefined) {
+			completeInvocation = await spec.prepareCommand(
+				{
+					cliName: spec.cliName,
+					commandName: commandDisplayName(command),
+					piCommandName,
+					rawArgs,
+					args: [...commandArgs],
+					argv: [...argv],
+					cwd: ctx.cwd,
+				},
+				ctx,
+			);
+		}
+	} catch (error) {
+		const message = formatErrorMessage(error);
+		traceCliCommand("command_preparation_failure", {
+			commandName: command.name,
+			error: message,
+			piCommandName,
+		});
+		emitCliCommandOutput(
+			pi,
+			ctx,
+			buildOutputDetails({
+				spec,
+				command,
+				piCommandName,
+				rawArgs,
+				args: commandArgs,
+				cwd: ctx.cwd,
+				result: {
+					exitCode: 1,
+					stdout: "",
+					stderr: `Could not prepare /${piCommandName}: ${message}\n`,
+				},
+			}),
+		);
+		return;
+	}
 	const activity = new CliCommandStatusActivity(ctx, {
 		cliName: spec.cliName,
 		commandName: commandDisplayName(command),
@@ -457,6 +530,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		...(spec.timers === undefined ? {} : { timers: spec.timers }),
 	});
 	let details: CliCommandOutputDetails | undefined;
+	let runnerStatus: "returned" | "threw" = "returned";
 	try {
 		activity.setPhase("waiting for Pi");
 		const waitStartedAt = Date.now();
@@ -493,6 +567,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		try {
 			exitCode = await spec.runCli(argv, runDeps);
 		} catch (error) {
+			runnerStatus = "threw";
 			const message = formatErrorMessage(error);
 			const exceptionOutput = `Unhandled ${spec.cliName} command error: ${message}\n`;
 			traceCliCommand("runner_exception", {
@@ -551,6 +626,7 @@ async function runRegisteredCliCommand(options: RunRegisteredCliCommandOptions):
 		traceCliCommand("usageError_restored", { commandName: command.name, piCommandName, restored });
 	}
 	try {
+		if (runnerStatus === "returned") await completeInvocation?.(details);
 		await spec.afterCommandComplete?.(details);
 	} catch (error) {
 		const message = formatErrorMessage(error);
@@ -628,7 +704,10 @@ function formatPiCommandInvocation(piCommandName: string, rawArgs: string): stri
 	return rawArgs === "" ? `/${piCommandName}` : `/${piCommandName} ${rawArgs}`;
 }
 
-function resolvePiCommandName(spec: CliCommandExtensionSpec, command: CliCommandInfo): string {
+function resolvePiCommandName(
+	spec: Pick<CliCommandExtensionSpec, "piCommandAliases" | "piNamespace">,
+	command: CliCommandInfo,
+): string {
 	return (
 		command.piSurface ??
 		spec.piCommandAliases?.[command.name] ??
@@ -782,7 +861,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-function assertValidCommandSpec(spec: CliCommandExtensionSpec): void {
+function assertValidCommandSpec(
+	spec: Pick<CliCommandExtensionSpec, "cliName" | "commands" | "piCommandAliases" | "piNamespace">,
+): void {
 	if (spec.cliName.trim() === "") {
 		throw new Error("CLI command extension requires a non-empty cliName.");
 	}
