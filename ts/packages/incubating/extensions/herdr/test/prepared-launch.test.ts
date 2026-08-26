@@ -8,8 +8,11 @@ import {
 	type HerdrCreateWorkspaceOptions,
 	type HerdrCreateWorkspaceResult,
 	type HerdrGateway,
+	type HerdrMetadataReportResult,
+	type HerdrMetadataToken,
 	type HerdrPaneRunResult,
 	type HerdrTabRenameResult,
+	type HerdrWorkspaceIdentityCandidatesResult,
 	type HerdrWorkspaceRenameResult,
 } from "@nseng-ai/herdr/api";
 
@@ -73,6 +76,24 @@ class FakeHerdrGateway implements HerdrGateway {
 			tabId: "fake-ws-1:t1",
 			paneId: "fake-ws-1:p1",
 		};
+	}
+
+	async reportPaneToken(
+		_paneId: string,
+		_token: HerdrMetadataToken,
+	): Promise<HerdrMetadataReportResult> {
+		return { type: "reported" };
+	}
+
+	async reportWorkspaceToken(
+		_workspaceId: string,
+		_token: HerdrMetadataToken,
+	): Promise<HerdrMetadataReportResult> {
+		return { type: "reported" };
+	}
+
+	async resolveWorkspaceIdentityCandidates(): Promise<HerdrWorkspaceIdentityCandidatesResult> {
+		return { type: "ambiguous" };
 	}
 }
 

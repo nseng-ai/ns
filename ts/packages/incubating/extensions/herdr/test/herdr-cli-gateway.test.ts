@@ -569,6 +569,189 @@ describe("createCliHerdrGateway.resolveCallerPane", () => {
 });
 
 // ---------------------------------------------------------------------------
+// custom metadata and conservative workspace identity
+// ---------------------------------------------------------------------------
+
+describe("createCliHerdrGateway metadata", () => {
+	test.each([
+		[
+			"pane set",
+			"pane-1",
+			{ source: "ns:pi-repo", name: "repo", value: "clinkr" },
+			["pane", "report-metadata", "pane-1", "--source", "ns:pi-repo", "--token", "repo=clinkr"],
+			"pane" as const,
+		],
+		[
+			"pane clear",
+			"pane-1",
+			{ source: "ns:pi-repo", name: "repo", value: null },
+			["pane", "report-metadata", "pane-1", "--source", "ns:pi-repo", "--clear-token", "repo"],
+			"pane" as const,
+		],
+		[
+			"workspace set",
+			"workspace-1",
+			{ source: "ns:pi-repo", name: "repo", value: "ns" },
+			[
+				"workspace",
+				"report-metadata",
+				"workspace-1",
+				"--source",
+				"ns:pi-repo",
+				"--token",
+				"repo=ns",
+			],
+			"workspace" as const,
+		],
+		[
+			"workspace clear",
+			"workspace-1",
+			{ source: "ns:pi-repo", name: "repo", value: null },
+			[
+				"workspace",
+				"report-metadata",
+				"workspace-1",
+				"--source",
+				"ns:pi-repo",
+				"--clear-token",
+				"repo",
+			],
+			"workspace" as const,
+		],
+	])("%s emits exact argv", async (_name, id, token, args, resource) => {
+		const commands = new ScriptedCommandExec({ script: [step("herdr", args)] });
+		const herdr = createCliHerdrGateway(commands);
+
+		const result =
+			resource === "pane"
+				? await herdr.reportPaneToken(id, token)
+				: await herdr.reportWorkspaceToken(id, token);
+
+		expect(result).toEqual({ type: "reported" });
+		commands.assertDone();
+	});
+
+	test("report failures are bounded", async () => {
+		const args = [
+			"pane",
+			"report-metadata",
+			"pane-1",
+			"--source",
+			"ns:pi-repo",
+			"--token",
+			"repo=ns",
+		];
+		const commands = new ScriptedCommandExec({
+			script: [step("herdr", args, { code: 2, stderr: "failed\n".repeat(10_000) })],
+		});
+
+		const result = await createCliHerdrGateway(commands).reportPaneToken("pane-1", {
+			source: "ns:pi-repo",
+			name: "repo",
+			value: "ns",
+		});
+
+		expect(result.type).toBe("failed");
+		if (result.type === "failed") expect(result.message.length).toBeLessThanOrEqual(4_000);
+	});
+});
+
+function tabListResponse(tabs: unknown[]): string {
+	return JSON.stringify({ result: { tabs, type: "tab_list" } });
+}
+
+function paneListResponse(panes: unknown[]): string {
+	return JSON.stringify({ result: { panes, type: "pane_list" } });
+}
+
+describe("createCliHerdrGateway.resolveWorkspaceIdentityCandidates", () => {
+	test("selects the first response tab and returns all of its pane candidates", async () => {
+		const commands = new ScriptedCommandExec({
+			script: [
+				step("herdr", ["tab", "list", "--workspace", "w1"], {
+					stdout: tabListResponse([
+						{ tab_id: "t9", workspace_id: "w1", number: 9 },
+						{ tab_id: "t1", workspace_id: "w1", number: 1 },
+					]),
+				}),
+				step("herdr", ["pane", "list", "--workspace", "w1"], {
+					stdout: paneListResponse([
+						{ pane_id: "p2", tab_id: "t9", workspace_id: "w1", cwd: "/repo/sub" },
+						{ pane_id: "later", tab_id: "t1", workspace_id: "w1", cwd: "/other" },
+						{ pane_id: "p1", tab_id: "t9", workspace_id: "w1", cwd: "/repo" },
+					]),
+				}),
+			],
+		});
+
+		expect(await createCliHerdrGateway(commands).resolveWorkspaceIdentityCandidates("w1")).toEqual({
+			type: "resolved",
+			candidates: [
+				{ paneId: "p2", cwd: "/repo/sub" },
+				{ paneId: "p1", cwd: "/repo" },
+			],
+		});
+		commands.assertDone();
+	});
+
+	test.each([
+		["empty tabs", tabListResponse([]), undefined],
+		[
+			"mismatched first-tab workspace",
+			tabListResponse([{ tab_id: "t1", workspace_id: "w2" }]),
+			undefined,
+		],
+		[
+			"missing candidate cwd",
+			tabListResponse([{ tab_id: "t1", workspace_id: "w1" }]),
+			paneListResponse([{ pane_id: "p1", tab_id: "t1", workspace_id: "w1" }]),
+		],
+	])("%s is ambiguous", async (_name, tabs, panes) => {
+		const script = [
+			step("herdr", ["tab", "list", "--workspace", "w1"], { stdout: tabs }),
+			...(panes === undefined
+				? []
+				: [step("herdr", ["pane", "list", "--workspace", "w1"], { stdout: panes })]),
+		];
+		const commands = new ScriptedCommandExec({ script });
+		expect(await createCliHerdrGateway(commands).resolveWorkspaceIdentityCandidates("w1")).toEqual({
+			type: "ambiguous",
+		});
+		commands.assertDone();
+	});
+
+	test.each([
+		["malformed envelope", { stdout: "not json" }],
+		["nonzero command", { code: 2, stderr: "offline" }],
+	])("%s fails with bounded diagnostics", async (_name, result) => {
+		const commands = new ScriptedCommandExec({
+			script: [step("herdr", ["tab", "list", "--workspace", "w1"], result)],
+		});
+		const resolved = await createCliHerdrGateway(commands).resolveWorkspaceIdentityCandidates("w1");
+		expect(resolved.type).toBe("failed");
+		if (resolved.type === "failed") expect(resolved.message.length).toBeLessThanOrEqual(4_000);
+	});
+
+	test("thrown pane-list commands fail with bounded diagnostics", async () => {
+		const commands = new ScriptedCommandExec({
+			script: [
+				step("herdr", ["tab", "list", "--workspace", "w1"], {
+					stdout: tabListResponse([{ tab_id: "t1", workspace_id: "w1" }]),
+				}),
+				{
+					command: "herdr",
+					args: ["pane", "list", "--workspace", "w1"],
+					error: new Error("failed\n".repeat(10_000)),
+				},
+			],
+		});
+		const resolved = await createCliHerdrGateway(commands).resolveWorkspaceIdentityCandidates("w1");
+		expect(resolved.type).toBe("failed");
+		if (resolved.type === "failed") expect(resolved.message.length).toBeLessThanOrEqual(4_000);
+	});
+});
+
+// ---------------------------------------------------------------------------
 // runInPane — exact argv
 // ---------------------------------------------------------------------------
 

@@ -18,7 +18,11 @@ export {
 export {
 	buildHerdrCreateTabArgs,
 	buildHerdrCreateWorkspaceArgs,
+	buildHerdrPaneListArgs,
+	buildHerdrPaneReportTokenArgs,
 	buildHerdrPaneRunArgs,
+	buildHerdrTabListArgs,
+	buildHerdrWorkspaceReportTokenArgs,
 	createCliHerdrGateway,
 } from "../core/cli-gateway.ts";
 export type {
@@ -28,8 +32,12 @@ export type {
 	HerdrCreateWorkspaceOptions,
 	HerdrCreateWorkspaceResult,
 	HerdrGateway,
+	HerdrMetadataReportResult,
+	HerdrMetadataToken,
 	HerdrPaneRunResult,
 	HerdrTabRenameResult,
+	HerdrWorkspaceIdentityCandidate,
+	HerdrWorkspaceIdentityCandidatesResult,
 	HerdrWorkspaceRenameResult,
 } from "../core/herdr-gateway.ts";
 export {

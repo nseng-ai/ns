@@ -2,10 +2,9 @@
  * Herdr Consumer Gateway — narrow domain-shaped interface for the subset of
  * Herdr workspace operations that the herdr capability currently needs.
  *
- * Only operations with demonstrated CLI backing are included. The installed
- * Herdr CLI lacks `workspace report-metadata`, so metadata reporting is
- * intentionally absent; it remains parked until the installed binary supports
- * it (see herdr-capability-parity objective, roadmap "Parked" section).
+ * Only operations with demonstrated Herdr 0.8.0 CLI backing are included.
+ * Metadata operations expose custom token reporting and conservative workspace
+ * identity evidence without leaking raw CLI response shapes.
  */
 export interface HerdrGateway {
 	/**
@@ -71,10 +70,47 @@ export interface HerdrGateway {
 	 * failure, or a response missing any required ID.
 	 */
 	resolveCallerPane(): Promise<HerdrCallerPaneResult>;
+
+	/** Set or clear one custom display token on an exact pane. */
+	reportPaneToken(paneId: string, token: HerdrMetadataToken): Promise<HerdrMetadataReportResult>;
+
+	/** Set or clear one custom display token on an exact workspace. */
+	reportWorkspaceToken(
+		workspaceId: string,
+		token: HerdrMetadataToken,
+	): Promise<HerdrMetadataReportResult>;
+
+	/**
+	 * Resolve every possible workspace identity pane from the first current tab.
+	 * Callers may mutate workspace metadata only when policy over this complete
+	 * candidate set is independent of which pane is the tab's root pane.
+	 */
+	resolveWorkspaceIdentityCandidates(
+		workspaceId: string,
+	): Promise<HerdrWorkspaceIdentityCandidatesResult>;
 }
 
 export type HerdrCallerPaneResult =
 	| { type: "resolved"; workspaceId: string; tabId: string; paneId: string }
+	| { type: "failed"; message: string };
+
+export interface HerdrMetadataToken {
+	readonly source: string;
+	readonly name: string;
+	/** A null value deliberately clears the token. */
+	readonly value: string | null;
+}
+
+export type HerdrMetadataReportResult = { type: "reported" } | { type: "failed"; message: string };
+
+export interface HerdrWorkspaceIdentityCandidate {
+	readonly paneId: string;
+	readonly cwd: string;
+}
+
+export type HerdrWorkspaceIdentityCandidatesResult =
+	| { type: "resolved"; candidates: readonly HerdrWorkspaceIdentityCandidate[] }
+	| { type: "ambiguous" }
 	| { type: "failed"; message: string };
 
 export type HerdrWorkspaceRenameResult = { type: "applied" } | { type: "failed"; message: string };
